@@ -72,39 +72,52 @@ async function calculate() {
 }
 
 function initMap() {
-    const mbAttr = 'Map data &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors, ' +
-        '<a href="https://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, ' +
-        'Imagery © <a href="https://www.mapbox.com/">Mapbox</a>',
-        mbUrl = 'https://api.tiles.mapbox.com/v4/{id}/{z}/{x}/{y}.png?access_token=MAPBOX_TOKEN_HERE';
+    const osmLayer = L.tileLayer.provider('OpenStreetMap.Mapnik');
 
-    const satelliteLayer = L.tileLayer(mbUrl, {
-        id: 'mapbox.satellite',
-        attribution: mbAttr
+    // Camada em relevo para apoiar análise de deslizamentos.
+    const terrainReliefLayer = L.tileLayer.provider('Esri.WorldShadedRelief', {
+        maxZoom: 13
+    });
+
+    const topographicLayer = L.tileLayer.provider('OpenTopoMap', {
+        maxZoom: 17
     });
 
     const map = L.map('map', {
-        layers: [satelliteLayer]
+        layers: [terrainReliefLayer],
+        zoomControl: true
     });
+
+    const baseLayers = {
+        'Relevo sombreado (deslizamentos)': terrainReliefLayer,
+        'Topográfico': topographicLayer,
+        'Ruas (OSM)': osmLayer
+    };
+
+    L.control.layers(baseLayers, null, {
+        collapsed: false,
+        position: 'topright'
+    }).addTo(map);
 
     var marker = null;
 
-    map.on("click", function(e){
-        if(marker != null) marker.remove();
+    map.on('click', function(e) {
+        if (marker != null) marker.remove();
         app.lat = e.latlng.lat;
         app.lng = e.latlng.lng;
         var point = new L.LatLng(e.latlng.lat, e.latlng.lng);
         marker = createMarker('Localização selecionada', point);
     });
 
-    fetch('/static/geodata/hot_area.json').then(function (response) {
+    fetch('/static/geodata/hot_area.json').then(function(response) {
         return response.json();
-    }).then(function (data) {
+    }).then(function(data) {
         const areaQuenteLayer = L.geoJSON(data);
         map.fitBounds(areaQuenteLayer.getBounds());
         areaQuenteLayer.addTo(map);
     });
 
-    return map
+    return map;
 }
 
 
