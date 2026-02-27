@@ -75,7 +75,7 @@ function initMap() {
     const mbAttr = 'Map data &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors, ' +
         '<a href="https://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, ' +
         'Imagery © <a href="https://www.mapbox.com/">Mapbox</a>',
-        mbUrl = 'https://api.tiles.mapbox.com/v4/{id}/{z}/{x}/{y}.png?access_token=pk.eyJ1IjoiY2F1ZXRoZW5vcmlvIiwiYSI6ImNqcmZlOTVzbDI4MXU0NHA4Y3NnM3Q2dTkifQ.dB1mAnvB0oqVvb-k_ZNbcQ';
+        mbUrl = 'https://api.tiles.mapbox.com/v4/{id}/{z}/{x}/{y}.png?access_token=MAPBOX_TOKEN_HERE';
 
     const satelliteLayer = L.tileLayer(mbUrl, {
         id: 'mapbox.satellite',

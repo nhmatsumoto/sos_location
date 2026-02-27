@@ -1,6 +1,6 @@
 var mapData;
 
-mapboxgl.accessToken = 'pk.eyJ1Ijoiam9zZWJlemVycmEiLCJhIjoiY2pyazVtdDA5MDE5czQ0cmdsNnFjZjVsdiJ9.g3x0Z17jXKFjfYEc2ivxsg';
+mapboxgl.accessToken = 'MAPBOX_TOKEN_HERE';
 
 var request = new XMLHttpRequest();
 
