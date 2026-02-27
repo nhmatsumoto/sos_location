@@ -23,66 +23,11 @@ app.UseCors();
 
 var hotspots = new List<Hotspot>
 {
-    new Hotspot(
-        Id: "HS-001",
-        Lat: -21.1215,
-        Lng: -42.9427,
-        Score: 98.5,
-        Confidence: 0.95,
-        Type: "Landslide",
-        RiskFactors: ["Alta declividade (35°)", "Solo encharcado (>200mm/72h)", "Histórico de deslizamento"],
-        HumanExposure: "Alta",
-        EstimatedAffected: 45,
-        Urgency: "Imediata (Tier 1)"
-    ),
-    new Hotspot(
-        Id: "HS-002",
-        Lat: -21.1198,
-        Lng: -42.9372,
-        Score: 92.1,
-        Confidence: 0.88,
-        Type: "Flood",
-        RiskFactors: ["Rio transbordou (+2.5m)", "Área de planície", "Corte de energia relatado"],
-        HumanExposure: "Extrema",
-        EstimatedAffected: 120,
-        Urgency: "Imediata (Tier 1)"
-    ),
-    new Hotspot(
-        Id: "HS-003",
-        Lat: -21.1350,
-        Lng: -42.9510,
-        Score: 85.3,
-        Confidence: 0.75,
-        Type: "Landslide",
-        RiskFactors: ["Cicatriz antiga detectada via SAR", "Chuva moderada continuada"],
-        HumanExposure: "Média",
-        EstimatedAffected: 15,
-        Urgency: "Alta (Tier 2)"
-    ),
-    new Hotspot(
-        Id: "HS-004",
-        Lat: -21.1120,
-        Lng: -42.9450,
-        Score: 95.0,
-        Confidence: 0.90,
-        Type: "Flood",
-        RiskFactors: ["Rede de drenagem saturada", "Colapso estrutural reportado (Áudio NLP)"],
-        HumanExposure: "Alta",
-        EstimatedAffected: 60,
-        Urgency: "Imediata (Tier 1)"
-    ),
-    new Hotspot(
-        Id: "HS-005",
-        Lat: -21.1250,
-        Lng: -42.9400,
-        Score: 78.0,
-        Confidence: 0.80,
-        Type: "Flood",
-        RiskFactors: ["Acessibilidade bloqueada", "Ponte submersa"],
-        HumanExposure: "Baixa",
-        EstimatedAffected: 5,
-        Urgency: "Moderada (Tier 3)"
-    )
+    new Hotspot("HS-001", -21.1215, -42.9427, 98.5, 0.95, "Landslide", ["Alta declividade (35°)", "Solo encharcado (>200mm/72h)", "Histórico de deslizamento"], "Alta", 45, "Imediata (Tier 1)"),
+    new Hotspot("HS-002", -21.1198, -42.9372, 92.1, 0.88, "Flood", ["Rio transbordou (+2.5m)", "Área de planície", "Corte de energia relatado"], "Extrema", 120, "Imediata (Tier 1)"),
+    new Hotspot("HS-003", -21.1350, -42.9510, 85.3, 0.75, "Landslide", ["Cicatriz antiga detectada via SAR", "Chuva moderada continuada"], "Média", 15, "Alta (Tier 2)"),
+    new Hotspot("HS-004", -21.1120, -42.9450, 95.0, 0.90, "Flood", ["Rede de drenagem saturada", "Colapso estrutural reportado (Áudio NLP)"], "Alta", 60, "Imediata (Tier 1)"),
+    new Hotspot("HS-005", -21.1250, -42.9400, 78.0, 0.80, "Flood", ["Acessibilidade bloqueada", "Ponte submersa"], "Baixa", 5, "Moderada (Tier 3)")
 };
 
 var uploadsDirectory = Path.Combine(app.Environment.ContentRootPath, "uploads");
