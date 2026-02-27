@@ -78,6 +78,17 @@ HOTSPOTS = [
 
 COLLAPSE_REPORTS = []
 SEARCHED_AREAS = []
+
+INITIAL_UBA_COLLAPSE_SEED = {
+    "locationName": "Bairro Aeroporto (ponto inicial)",
+    "latitude": -21.1149,
+    "longitude": -42.9342,
+    "description": "Seed inicial em ponto aleatório de Ubá para iniciar fluxo de ingestão.",
+    "reporterName": "Seed Automático",
+    "reporterPhone": "",
+    "videoFileName": "Teste.mp4",
+    "processingStatus": "Published",
+}
 MISSING_REPORTS = []
 MISSING_PEOPLE = [
     {"name": "Maria Silva", "age": 34, "category": "person", "lastSeen": "Córrego do Feijão", "status": "missing"},
@@ -121,6 +132,36 @@ def _uploads_directory():
     if not os.path.exists(uploads):
         os.makedirs(uploads)
     return uploads
+
+
+def _seed_initial_collapse_report():
+    safe_name = "seed-initial-{}".format(INITIAL_UBA_COLLAPSE_SEED["videoFileName"])
+    file_path = os.path.join(_uploads_directory(), safe_name)
+
+    if not os.path.exists(file_path):
+        with open(file_path, 'wb+') as seed_file:
+            seed_file.write(b"SEED_VIDEO_PLACEHOLDER_TESTE_MP4")
+
+    report = {
+        "id": "RP-SEED-UBA-001",
+        "locationName": INITIAL_UBA_COLLAPSE_SEED["locationName"],
+        "latitude": INITIAL_UBA_COLLAPSE_SEED["latitude"],
+        "longitude": INITIAL_UBA_COLLAPSE_SEED["longitude"],
+        "description": INITIAL_UBA_COLLAPSE_SEED["description"],
+        "reporterName": INITIAL_UBA_COLLAPSE_SEED["reporterName"],
+        "reporterPhone": INITIAL_UBA_COLLAPSE_SEED["reporterPhone"],
+        "videoFileName": INITIAL_UBA_COLLAPSE_SEED["videoFileName"],
+        "storedVideoPath": file_path,
+        "videoSizeBytes": os.path.getsize(file_path),
+        "uploadedAtUtc": datetime.now(timezone.utc).isoformat(),
+        "processingStatus": INITIAL_UBA_COLLAPSE_SEED["processingStatus"],
+        "splatPipelineHint": 'Fluxo seed concluído: convert.py -> train.py -> publish.py',
+    }
+
+    COLLAPSE_REPORTS.append(report)
+
+
+_seed_initial_collapse_report()
 
 
 def _build_rescue_support(area_m2):

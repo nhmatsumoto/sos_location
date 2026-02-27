@@ -34,6 +34,7 @@ var uploadsDirectory = Path.Combine(app.Environment.ContentRootPath, "uploads");
 Directory.CreateDirectory(uploadsDirectory);
 
 var collapseReports = new List<CollapseReport>();
+SeedInitialCollapseReport(collapseReports, uploadsDirectory);
 
 app.MapGet("/api/hotspots", () => Results.Ok(hotspots.OrderByDescending(h => h.Score)));
 
@@ -175,6 +176,34 @@ static RescueSupportSnapshot BuildRescueSupport(double analysisAreaM2, IReadOnly
         Agents: specialistAgents,
         ProbableLocations: probableLocations.OrderBy(p => p.Priority).ToArray()
     );
+}
+
+static void SeedInitialCollapseReport(List<CollapseReport> collapseReports, string uploadsDirectory)
+{
+    const string seedVideoFileName = "Teste.mp4";
+    const string seedStoredName = "RP-SEED-UBA-001-Teste.mp4";
+    var seedPath = Path.Combine(uploadsDirectory, seedStoredName);
+
+    if (!File.Exists(seedPath))
+    {
+        File.WriteAllBytes(seedPath, "SEED_VIDEO_PLACEHOLDER_TESTE_MP4"u8.ToArray());
+    }
+
+    collapseReports.Add(new CollapseReport(
+        Id: "RP-SEED-UBA-001",
+        LocationName: "Bairro Aeroporto (ponto inicial)",
+        Latitude: -21.1149,
+        Longitude: -42.9342,
+        Description: "Seed inicial em ponto aleatório de Ubá para iniciar fluxo de ingestão.",
+        ReporterName: "Seed Automático",
+        ReporterPhone: string.Empty,
+        VideoFileName: seedVideoFileName,
+        StoredVideoPath: seedPath,
+        VideoSizeBytes: new FileInfo(seedPath).Length,
+        UploadedAtUtc: DateTimeOffset.UtcNow,
+        ProcessingStatus: SplattingProcessingStatus.Published,
+        SplatPipelineHint: "Fluxo seed concluído: convert.py -> train.py -> publish.py"
+    ));
 }
 
 static double? ParseDouble(string raw)
