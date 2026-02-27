@@ -275,7 +275,6 @@ export default function App() {
                     <p className="text-slate-400">Dispersão por m²</p>
                     <p className="font-semibold text-cyan-400">{rescueSupport.peopleDispersionPerSquareMeter.toFixed(4)}</p>
                   </div>
-                </div>
 
                 <ul className="space-y-2 max-h-28 overflow-y-auto pr-1">
                   {rescueSupport.agents.map((agent) => (
