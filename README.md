@@ -50,6 +50,16 @@ We ask that those contributing to the project submit their Pull Requests as soon
 * Grid Fluid Sim 3D Exemples
   https://github.com/rlguy/GridFluidSim3D/tree/master/src/examples/python
 
+### API MVP implemented (rescue suite)
+* `GET /api/hotspots` - ranking de áreas críticas.
+* `GET,POST /api/collapse-reports` - upload de vídeos e fila de ingestão.
+* `GET /api/rescue-support` - snapshot tático com agentes especialistas e locais prováveis.
+* `POST /api/location/flow-simulation` - simulação simplificada de fluxo de rejeitos (base CFD).
+* `GET,POST /api/searched-areas` - registro de áreas já buscadas por equipes.
+* `GET,POST /api/report-info` - relatos de pessoas e animais desaparecidos.
+* `GET /api/missing-people.csv` - exportação CSV de desaparecidos.
+* `POST /api/identify-victim` - matching inicial de identificação (triagem).
+* `GET /api/cfd/ideas` - referências e materiais técnicos de fluidodinâmica.
 
 
 ### - Where we had searched

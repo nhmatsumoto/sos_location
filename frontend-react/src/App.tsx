@@ -19,7 +19,7 @@ import {
 import LandslideSimulation from './LandslideSimulation';
 import PostDisasterSplat from './PostDisasterSplat';
 
-const API_BASE_URL = 'http://localhost:5031';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '';
 
 const iconLandslide = new L.Icon({
   iconUrl: 'https://cdn.jsdelivr.net/gh/pointhi/leaflet-color-markers@master/img/marker-icon-orange.png',
