@@ -1,0 +1,23 @@
+# Etapa 1: Build da aplicação React/Vite localmente no container Node
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+COPY package.json package-lock.json* ./
+RUN npm install
+
+COPY . .
+RUN npm run build
+
+# Etapa 2: Servir os arquivos minificados usando Python
+FROM python:3.11-slim
+
+WORKDIR /app/dist
+
+# Copia os arquivos compilados da etapa anterior
+COPY --from=builder /app/dist .
+
+# Expõe a porta 8000 para acesso
+EXPOSE 8000
+
+# Usa o servidor HTTP nativo do Python para servir a pasta (equivalente a Nginx para sites estáticos simples)
+CMD ["python", "-m", "http.server", "8000", "--bind", "0.0.0.0"]

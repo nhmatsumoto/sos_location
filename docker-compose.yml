@@ -1,0 +1,17 @@
+name: brumadinho-simulation
+
+services:
+  frontend:
+    build:
+      context: ./frontend-react
+      dockerfile: Dockerfile
+    container_name: simulador-brumadinho
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    networks:
+      - brumadinho-network
+
+networks:
+  brumadinho-network:
+    driver: bridge
