@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, CircleMarker } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, CircleMarker, LayersControl } from 'react-leaflet';
 import L from 'leaflet';
 import {
   AlertTriangle,
@@ -15,6 +15,8 @@ import {
   Upload,
   Smartphone,
   Film,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 import LandslideSimulation from './LandslideSimulation';
 import PostDisasterSplat from './PostDisasterSplat';
@@ -86,6 +88,7 @@ export default function App() {
   const [uploadSuccess, setUploadSuccess] = useState('');
   const [formState, setFormState] = useState(initialFormState);
   const [selectedPanel, setSelectedPanel] = useState<{ hotspot?: Hotspot; report?: CollapseReport; mode: 'sim' | 'splat' } | null>(null);
+  const [isPanelFullscreen, setIsPanelFullscreen] = useState(true);
 
   const loadReports = () => {
     setLoadingReports(true);
@@ -156,6 +159,11 @@ export default function App() {
     } finally {
       setUploading(false);
     }
+  };
+
+  const openPanel = (panel: { hotspot?: Hotspot; report?: CollapseReport; mode: 'sim' | 'splat' }) => {
+    setSelectedPanel(panel);
+    setIsPanelFullscreen(true);
   };
 
   return (
@@ -261,10 +269,20 @@ export default function App() {
 
         <div className="w-2/3 h-full relative z-10">
           <MapContainer center={[-21.1215, -42.9427]} zoom={14} className="h-full w-full" zoomControl={false}>
-            <TileLayer
-              attribution='&copy; <a href="https://carto.com/">CartoDB</a>'
-              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-            />
+            <LayersControl position="topright">
+              <LayersControl.BaseLayer checked name="Mapa em relevo">
+                <TileLayer
+                  attribution='Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="https://viewfinderpanoramas.org">SRTM</a> | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a>'
+                  url="https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png"
+                />
+              </LayersControl.BaseLayer>
+              <LayersControl.BaseLayer name="Mapa escuro tático">
+                <TileLayer
+                  attribution='&copy; <a href="https://carto.com/">CartoDB</a>'
+                  url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                />
+              </LayersControl.BaseLayer>
+            </LayersControl>
             {hotspots.map((hs, i) => (
               <Marker key={hs.id} position={[hs.lat, hs.lng]} icon={hs.score > 90 ? iconCritical : hs.type === 'Flood' ? iconFlood : iconLandslide}>
                 <Popup className="custom-popup">
@@ -282,13 +300,13 @@ export default function App() {
                     {hs.type === 'Landslide' && (
                       <div className="flex flex-col gap-1 mt-1">
                         <button
-                          onClick={() => setSelectedPanel({ hotspot: hs, mode: 'sim' })}
+                          onClick={() => openPanel({ hotspot: hs, mode: 'sim' })}
                           className="w-full flex justify-center items-center gap-1 bg-orange-600 hover:bg-orange-700 text-white py-1.5 px-2 rounded text-xs font-bold transition-colors"
                         >
                           <ExternalLink className="w-3 h-3" /> Ver Simulação 3D
                         </button>
                         <button
-                          onClick={() => setSelectedPanel({ hotspot: hs, mode: 'splat' })}
+                          onClick={() => openPanel({ hotspot: hs, mode: 'splat' })}
                           className="w-full flex justify-center items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white py-1.5 px-2 rounded text-xs font-bold transition-colors"
                         >
                           <Camera className="w-3 h-3" /> Ver Drone Splatting
@@ -321,7 +339,7 @@ export default function App() {
                     <p className="text-xs mb-2 text-slate-700">Arquivo: {report.videoFileName}</p>
                     <p className="text-xs mb-2 text-slate-700">Status: {report.processingStatus}</p>
                     <button
-                      onClick={() => setSelectedPanel({ report, mode: 'splat' })}
+                      onClick={() => openPanel({ report, mode: 'splat' })}
                       className="w-full flex justify-center items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white py-1.5 px-2 rounded text-xs font-bold transition-colors"
                     >
                       <Camera className="w-3 h-3" /> Abrir Splatting deste vídeo
@@ -359,15 +377,28 @@ export default function App() {
           </div>
 
           {selectedPanel && (
-            <div className="absolute bottom-4 left-4 w-96 h-80 z-50 bg-slate-900 rounded-xl shadow-2xl border border-slate-600 flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-4">
+            <div
+              className={`absolute z-50 bg-slate-900 shadow-2xl border border-slate-600 flex flex-col overflow-hidden animate-in fade-in ${
+                isPanelFullscreen ? 'inset-0 rounded-none' : 'bottom-4 left-4 w-96 h-80 rounded-xl slide-in-from-bottom-4'
+              }`}
+            >
               <div className="flex justify-between items-center p-2 border-b border-slate-700 bg-slate-800">
                 <span className="text-xs font-bold text-slate-200 flex items-center gap-1">
                   {selectedPanel.mode === 'sim' ? <MapPin className="w-3 h-3 text-orange-500" /> : <Camera className="w-3 h-3 text-blue-500" />}
                   {selectedPanel.mode === 'sim' ? 'Simulação' : 'Drone (Splat)'}: {selectedPanel.hotspot?.id ?? selectedPanel.report?.id}
                 </span>
-                <button onClick={() => setSelectedPanel(null)} className="text-slate-400 hover:text-white bg-slate-700 hover:bg-slate-600 rounded p-0.5 transition-colors">
-                  <X className="w-4 h-4" />
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setIsPanelFullscreen((prev) => !prev)}
+                    className="text-slate-400 hover:text-white bg-slate-700 hover:bg-slate-600 rounded p-0.5 transition-colors"
+                    title={isPanelFullscreen ? 'Sair de tela cheia' : 'Tela cheia'}
+                  >
+                    {isPanelFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                  </button>
+                  <button onClick={() => setSelectedPanel(null)} className="text-slate-400 hover:text-white bg-slate-700 hover:bg-slate-600 rounded p-0.5 transition-colors">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
               <div className="flex-1 w-full h-full relative">{selectedPanel.mode === 'sim' ? <LandslideSimulation /> : <PostDisasterSplat splatUrl={selectedPanel.report?.splatUrl} sourceVideoUrl={selectedPanel.report?.sourceVideoUrl ? `${API_BASE_URL}${selectedPanel.report.sourceVideoUrl}` : undefined} />}</div>
             </div>
