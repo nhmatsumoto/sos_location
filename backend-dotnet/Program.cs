@@ -34,11 +34,16 @@ var uploadsDirectory = Path.Combine(app.Environment.ContentRootPath, "uploads");
 Directory.CreateDirectory(uploadsDirectory);
 
 var collapseReports = new List<CollapseReport>();
-SeedInitialCollapseReport(collapseReports, uploadsDirectory);
 
-app.MapGet("/api/hotspots", () => Results.Ok(hotspots.OrderByDescending(h => h.Score)));
+app.MapGet("/api/hotspots", () =>
+{
+    return Results.Ok(hotspots.OrderByDescending(h => h.Score));
+});
 
-app.MapGet("/api/collapse-reports", () => Results.Ok(collapseReports.OrderByDescending(report => report.UploadedAtUtc)));
+app.MapGet("/api/collapse-reports", () =>
+{
+    return Results.Ok(collapseReports.OrderByDescending(report => report.UploadedAtUtc));
+});
 
 app.MapPost("/api/collapse-reports", async (HttpRequest request) =>
 {
@@ -93,118 +98,7 @@ app.MapPost("/api/collapse-reports", async (HttpRequest request) =>
     return Results.Created($"/api/collapse-reports/{report.Id}", report);
 });
 
-app.MapGet("/api/rescue-support", (double? areaM2) =>
-{
-    var analysisAreaM2 = areaM2.GetValueOrDefault(15000);
-    var support = BuildRescueSupport(analysisAreaM2, hotspots, collapseReports);
-    return Results.Ok(support);
-});
-
 app.Run("http://localhost:5031");
-
-static RescueSupportSnapshot BuildRescueSupport(double analysisAreaM2, IReadOnlyCollection<Hotspot> hotspots, IReadOnlyCollection<CollapseReport> reports)
-{
-    var boundedArea = Math.Max(analysisAreaM2, 3000d);
-    var totalPeopleAtRisk = hotspots.Sum(h => h.EstimatedAffected);
-    var severityFactor = hotspots.Count == 0 ? 0 : hotspots.Average(h => h.Score / 100d);
-    var reportsBonus = Math.Max(0.15, reports.Count * 0.05);
-    var estimatedTrapped = (int)Math.Round(totalPeopleAtRisk * (0.38 + severityFactor * 0.22 + reportsBonus));
-    var density = Math.Round(estimatedTrapped / boundedArea, 4);
-
-    var topHotspots = hotspots.OrderByDescending(h => h.Score).Take(3).ToList();
-    var probableLocations = new List<ProbableLocation>();
-
-    foreach (var (hotspot, index) in topHotspots.Select((value, idx) => (value, idx)))
-    {
-        var probability = Math.Clamp(0.9 - (index * 0.12) + (hotspot.Confidence * 0.08), 0.35, 0.97);
-        probableLocations.Add(new ProbableLocation(
-            Label: $"Cluster {index + 1} - {hotspot.Id}",
-            Latitude: hotspot.Lat + (index * 0.0007),
-            Longitude: hotspot.Lng - (index * 0.0006),
-            Priority: index + 1,
-            Probability: Math.Round(probability, 2),
-            EstimatedPeople: Math.Max(3, (int)Math.Round(hotspot.EstimatedAffected * probability * 0.45)),
-            Reasoning: $"Combinação de score {hotspot.Score:0.0}, confiança {hotspot.Confidence:P0} e gatilhos: {string.Join(", ", hotspot.RiskFactors.Take(2))}."
-        ));
-    }
-
-    if (reports.Count > 0)
-    {
-        var latestReport = reports.OrderByDescending(r => r.UploadedAtUtc).First();
-        probableLocations.Add(new ProbableLocation(
-            Label: $"Upload cidadão - {latestReport.LocationName}",
-            Latitude: latestReport.Latitude,
-            Longitude: latestReport.Longitude,
-            Priority: probableLocations.Count + 1,
-            Probability: 0.64,
-            EstimatedPeople: 4,
-            Reasoning: "Coordenadas vieram de vídeo enviado por usuário; usar drone térmico e busca com cães no entorno de 120m."
-        ));
-    }
-
-    var specialistAgents = new List<SpecialistAgent>
-    {
-        new SpecialistAgent(
-            Name: "GeoSlope-Physics",
-            Specialty: "Física geotécnica de deslizamentos",
-            Mission: "Calcular velocidade de corrida do deslizamento, profundidade de deposição e zonas de soterramento.",
-            Recommendation: "Priorizar talvegues e cotas baixas a jusante dos hotspots críticos para varredura de vítimas.",
-            Confidence: Math.Round(0.78 + severityFactor * 0.15, 2)
-        ),
-        new SpecialistAgent(
-            Name: "RescueDensity-AI",
-            Specialty: "Dispersão populacional por metro quadrado",
-            Mission: "Estimar densidade de pessoas por m² em área de impacto com base em população exposta e uploads.",
-            Recommendation: $"Densidade estimada atual: {density:0.0000} pessoas/m² em {boundedArea:0} m². Ajustar grid de busca para células de 20x20m.",
-            Confidence: Math.Round(0.72 + reports.Count * 0.03, 2)
-        ),
-        new SpecialistAgent(
-            Name: "SurvivorLocator",
-            Specialty: "Localização provável de sobreviventes em escombros",
-            Mission: "Cruzar hotspots com relatos dos vídeos para sugerir bolsões de sobrevivência e rotas de acesso.",
-            Recommendation: "Executar varredura acústica + câmera térmica primeiro nos clusters de prioridade 1 e 2.",
-            Confidence: 0.74
-        )
-    };
-
-    return new RescueSupportSnapshot(
-        GeneratedAtUtc: DateTimeOffset.UtcNow,
-        AreaAnalyzedM2: Math.Round(boundedArea, 0),
-        EstimatedTrappedPeople: estimatedTrapped,
-        PeopleDispersionPerSquareMeter: density,
-        PotentialSurvivorClusters: probableLocations.Count,
-        Agents: specialistAgents,
-        ProbableLocations: probableLocations.OrderBy(p => p.Priority).ToArray()
-    );
-}
-
-static void SeedInitialCollapseReport(List<CollapseReport> collapseReports, string uploadsDirectory)
-{
-    const string seedVideoFileName = "Teste.mp4";
-    const string seedStoredName = "RP-SEED-UBA-001-Teste.mp4";
-    var seedPath = Path.Combine(uploadsDirectory, seedStoredName);
-
-    if (!File.Exists(seedPath))
-    {
-        File.WriteAllBytes(seedPath, "SEED_VIDEO_PLACEHOLDER_TESTE_MP4"u8.ToArray());
-    }
-
-    collapseReports.Add(new CollapseReport(
-        Id: "RP-SEED-UBA-001",
-        LocationName: "Bairro Aeroporto (ponto inicial)",
-        Latitude: -21.1149,
-        Longitude: -42.9342,
-        Description: "Seed inicial em ponto aleatório de Ubá para iniciar fluxo de ingestão.",
-        ReporterName: "Seed Automático",
-        ReporterPhone: string.Empty,
-        VideoFileName: seedVideoFileName,
-        StoredVideoPath: seedPath,
-        VideoSizeBytes: new FileInfo(seedPath).Length,
-        UploadedAtUtc: DateTimeOffset.UtcNow,
-        ProcessingStatus: SplattingProcessingStatus.Published,
-        SplatPipelineHint: "Fluxo seed concluído: convert.py -> train.py -> publish.py"
-    ));
-}
 
 static double? ParseDouble(string raw)
 {
@@ -213,7 +107,18 @@ static double? ParseDouble(string raw)
         : null;
 }
 
-record Hotspot(string Id, double Lat, double Lng, double Score, double Confidence, string Type, string[] RiskFactors, string HumanExposure, int EstimatedAffected, string Urgency);
+record Hotspot(
+    string Id,
+    double Lat,
+    double Lng,
+    double Score,
+    double Confidence,
+    string Type,
+    string[] RiskFactors,
+    string HumanExposure,
+    int EstimatedAffected,
+    string Urgency
+);
 
 record CollapseReport(
     string Id,
@@ -229,34 +134,6 @@ record CollapseReport(
     DateTimeOffset UploadedAtUtc,
     SplattingProcessingStatus ProcessingStatus,
     string SplatPipelineHint
-);
-
-record RescueSupportSnapshot(
-    DateTimeOffset GeneratedAtUtc,
-    double AreaAnalyzedM2,
-    int EstimatedTrappedPeople,
-    double PeopleDispersionPerSquareMeter,
-    int PotentialSurvivorClusters,
-    SpecialistAgent[] Agents,
-    ProbableLocation[] ProbableLocations
-);
-
-record SpecialistAgent(
-    string Name,
-    string Specialty,
-    string Mission,
-    string Recommendation,
-    double Confidence
-);
-
-record ProbableLocation(
-    string Label,
-    double Latitude,
-    double Longitude,
-    int Priority,
-    double Probability,
-    int EstimatedPeople,
-    string Reasoning
 );
 
 enum SplattingProcessingStatus

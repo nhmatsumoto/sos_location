@@ -19,7 +19,7 @@ import {
 import LandslideSimulation from './LandslideSimulation';
 import PostDisasterSplat from './PostDisasterSplat';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '';
+const API_BASE_URL = 'http://localhost:5031';
 
 const iconLandslide = new L.Icon({
   iconUrl: 'https://cdn.jsdelivr.net/gh/pointhi/leaflet-color-markers@master/img/marker-icon-orange.png',
@@ -63,50 +63,6 @@ interface CollapseReport {
   processingStatus: 'Pending' | 'Ingested' | 'Trained' | 'Published';
 }
 
-interface SpecialistAgent {
-  name: string;
-  specialty: string;
-  mission: string;
-  recommendation: string;
-  confidence: number;
-}
-
-interface ProbableLocation {
-  label: string;
-  latitude: number;
-  longitude: number;
-  priority: number;
-  probability: number;
-  estimatedPeople: number;
-  reasoning: string;
-}
-
-interface RescueSupportSnapshot {
-  generatedAtUtc: string;
-  areaAnalyzedM2: number;
-  estimatedTrappedPeople: number;
-  peopleDispersionPerSquareMeter: number;
-  potentialSurvivorClusters: number;
-  agents: SpecialistAgent[];
-  probableLocations: ProbableLocation[];
-}
-
-
-const readErrorMessage = async (response: Response) => {
-  const raw = await response.text();
-
-  if (!raw) {
-    return `Falha no upload (HTTP ${response.status}).`;
-  }
-
-  try {
-    const parsed = JSON.parse(raw) as { error?: string; message?: string };
-    return parsed.error ?? parsed.message ?? `Falha no upload (HTTP ${response.status}).`;
-  } catch {
-    return raw;
-  }
-};
-
 const initialFormState = {
   locationName: '',
   latitude: '',
@@ -120,30 +76,14 @@ const initialFormState = {
 export default function App() {
   const [hotspots, setHotspots] = useState<Hotspot[]>([]);
   const [reports, setReports] = useState<CollapseReport[]>([]);
-  const [rescueSupport, setRescueSupport] = useState<RescueSupportSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadingReports, setLoadingReports] = useState(true);
-  const [loadingRescueSupport, setLoadingRescueSupport] = useState(true);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const [uploadSuccess, setUploadSuccess] = useState('');
   const [formState, setFormState] = useState(initialFormState);
   const [selectedPanel, setSelectedPanel] = useState<{ hotspot: Hotspot; mode: 'sim' | 'splat' } | null>(null);
-
-  const loadRescueSupport = () => {
-    setLoadingRescueSupport(true);
-    fetch(`${API_BASE_URL}/api/rescue-support?areaM2=15000`)
-      .then((res) => res.json())
-      .then((data: RescueSupportSnapshot) => {
-        setRescueSupport(data);
-        setLoadingRescueSupport(false);
-      })
-      .catch((err) => {
-        console.error(err);
-        setLoadingRescueSupport(false);
-      });
-  };
 
   const loadReports = () => {
     setLoadingReports(true);
@@ -172,7 +112,6 @@ export default function App() {
       });
 
     loadReports();
-    loadRescueSupport();
   }, []);
 
   const handleUpload = async (event: FormEvent<HTMLFormElement>) => {
@@ -203,14 +142,13 @@ export default function App() {
       });
 
       if (!response.ok) {
-        const errorMessage = await readErrorMessage(response);
-        throw new Error(errorMessage);
+        const errorPayload = await response.json();
+        throw new Error(errorPayload.error ?? 'Falha ao fazer upload do vídeo.');
       }
 
       setUploadSuccess('Upload recebido! O vídeo entrou na fila para gaussian-splatting.');
       setFormState(initialFormState);
       loadReports();
-      loadRescueSupport();
     } catch (error) {
       setUploadError(error instanceof Error ? error.message : 'Erro inesperado no envio.');
     } finally {
@@ -248,8 +186,8 @@ export default function App() {
             ) : reports.length === 0 ? (
               <p className="text-xs text-slate-500">Nenhum vídeo enviado até agora.</p>
             ) : (
-              <ul className="space-y-2 max-h-28 overflow-y-auto pr-1">
-                {reports.slice(0, 3).map((report) => (
+              <ul className="space-y-2 max-h-32 overflow-y-auto pr-1">
+                {reports.slice(0, 4).map((report) => (
                   <li key={report.id} className="text-xs bg-slate-900/60 border border-slate-700 rounded-md p-2">
                     <p className="font-semibold text-white truncate">{report.locationName}</p>
                     <p className="text-slate-400 truncate">{report.videoFileName}</p>
@@ -257,36 +195,6 @@ export default function App() {
                   </li>
                 ))}
               </ul>
-            )}
-          </div>
-
-          <div className="px-4 py-3 border-b border-slate-700 bg-slate-800/40">
-            <h2 className="text-xs uppercase tracking-wider text-slate-400 mb-2">Agentes especialistas (física + resgate)</h2>
-            {loadingRescueSupport || !rescueSupport ? (
-              <p className="text-xs text-slate-500">Calculando suporte tático...</p>
-            ) : (
-              <>
-                <div className="grid grid-cols-2 gap-2 mb-2 text-xs">
-                  <div className="bg-slate-900/60 border border-slate-700 rounded p-2">
-                    <p className="text-slate-400">Possíveis soterrados</p>
-                    <p className="font-semibold text-yellow-400">{rescueSupport.estimatedTrappedPeople}</p>
-                  </div>
-                  <div className="bg-slate-900/60 border border-slate-700 rounded p-2">
-                    <p className="text-slate-400">Dispersão por m²</p>
-                    <p className="font-semibold text-cyan-400">{rescueSupport.peopleDispersionPerSquareMeter.toFixed(4)}</p>
-                  </div>
-                </div>
-
-                <ul className="space-y-2 max-h-28 overflow-y-auto pr-1">
-                  {rescueSupport.agents.map((agent) => (
-                    <li key={agent.name} className="bg-slate-900/60 border border-slate-700 rounded-md p-2">
-                      <p className="text-xs font-semibold text-white">{agent.name}</p>
-                      <p className="text-[11px] text-slate-300">{agent.specialty}</p>
-                      <p className="text-[11px] text-emerald-400">Confiança: {(agent.confidence * 100).toFixed(0)}%</p>
-                    </li>
-                  ))}
-                </ul>
-              </>
             )}
           </div>
 
@@ -403,33 +311,9 @@ export default function App() {
                 }}
               />
             ))}
-
-            {rescueSupport?.probableLocations.map((location) => (
-              <CircleMarker
-                key={location.label}
-                center={[location.latitude, location.longitude]}
-                radius={Math.max(8, location.estimatedPeople)}
-                pathOptions={{
-                  color: '#22c55e',
-                  fillColor: '#22c55e',
-                  fillOpacity: 0.18,
-                  weight: 2,
-                }}
-              >
-                <Popup>
-                  <div className="text-slate-900 text-xs">
-                    <p className="font-bold">{location.label}</p>
-                    <p>Prioridade: {location.priority}</p>
-                    <p>Probabilidade: {(location.probability * 100).toFixed(0)}%</p>
-                    <p>Pessoas estimadas: {location.estimatedPeople}</p>
-                    <p>{location.reasoning}</p>
-                  </div>
-                </Popup>
-              </CircleMarker>
-            ))}
           </MapContainer>
 
-          <div className="absolute top-4 right-4 bg-slate-800/80 backdrop-blur-md border border-slate-700 shadow-xl rounded-xl p-4 w-72 z-[400] text-sm">
+          <div className="absolute top-4 right-4 bg-slate-800/80 backdrop-blur-md border border-slate-700 shadow-xl rounded-xl p-4 w-64 z-[400] text-sm">
             <h4 className="font-bold text-white mb-2 uppercase tracking-wide text-xs">Status Global Ubá</h4>
             <div className="flex justify-between items-center mb-1">
               <span className="text-slate-400">Total Hotspots:</span>
@@ -439,30 +323,14 @@ export default function App() {
               <span className="text-slate-400">Pop. em Perigo:</span>
               <span className="font-semibold text-yellow-500">{hotspots.reduce((a, b) => a + b.estimatedAffected, 0)}</span>
             </div>
-            {rescueSupport && (
-              <>
-                <div className="flex justify-between items-center mb-1">
-                  <span className="text-slate-400">Clusters prováveis:</span>
-                  <span className="font-semibold text-emerald-400">{rescueSupport.potentialSurvivorClusters}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-400">Área analisada:</span>
-                  <span className="font-semibold">{rescueSupport.areaAnalyzedM2.toFixed(0)} m²</span>
-                </div>
-              </>
-            )}
           </div>
 
           {selectedPanel && (
-            <div
-              className={`absolute z-50 bg-slate-900 shadow-2xl border border-slate-600 flex flex-col overflow-hidden animate-in fade-in ${
-                selectedPanel.mode === 'splat' ? 'inset-0 rounded-none' : 'bottom-4 left-4 w-96 h-80 rounded-xl slide-in-from-bottom-4'
-              }`}
-            >
+            <div className="absolute bottom-4 left-4 w-96 h-80 z-50 bg-slate-900 rounded-xl shadow-2xl border border-slate-600 flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-4">
               <div className="flex justify-between items-center p-2 border-b border-slate-700 bg-slate-800">
                 <span className="text-xs font-bold text-slate-200 flex items-center gap-1">
                   {selectedPanel.mode === 'sim' ? <MapPin className="w-3 h-3 text-orange-500" /> : <Camera className="w-3 h-3 text-blue-500" />}
-                  {selectedPanel.mode === 'sim' ? 'Simulação' : 'Drone (Splat) - Tela cheia'}: {selectedPanel.hotspot.id}
+                  {selectedPanel.mode === 'sim' ? 'Simulação' : 'Drone (Splat)'}: {selectedPanel.hotspot.id}
                 </span>
                 <button onClick={() => setSelectedPanel(null)} className="text-slate-400 hover:text-white bg-slate-700 hover:bg-slate-600 rounded p-0.5 transition-colors">
                   <X className="w-4 h-4" />
