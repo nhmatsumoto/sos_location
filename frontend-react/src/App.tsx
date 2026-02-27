@@ -59,8 +59,10 @@ interface CollapseReport {
   reporterName: string;
   reporterPhone: string;
   videoFileName: string;
+  sourceVideoUrl: string;
   uploadedAtUtc: string;
   processingStatus: 'Pending' | 'Ingested' | 'Trained' | 'Published';
+  splatUrl?: string | null;
 }
 
 const initialFormState = {
@@ -83,7 +85,7 @@ export default function App() {
   const [uploadError, setUploadError] = useState('');
   const [uploadSuccess, setUploadSuccess] = useState('');
   const [formState, setFormState] = useState(initialFormState);
-  const [selectedPanel, setSelectedPanel] = useState<{ hotspot: Hotspot; mode: 'sim' | 'splat' } | null>(null);
+  const [selectedPanel, setSelectedPanel] = useState<{ hotspot?: Hotspot; report?: CollapseReport; mode: 'sim' | 'splat' } | null>(null);
 
   const loadReports = () => {
     setLoadingReports(true);
@@ -298,6 +300,37 @@ export default function App() {
               </Marker>
             ))}
 
+
+            {reports.map((report) => (
+              <CircleMarker
+                key={`report-${report.id}`}
+                center={[report.latitude, report.longitude]}
+                radius={8}
+                pathOptions={{
+                  color: '#3b82f6',
+                  fillColor: '#3b82f6',
+                  fillOpacity: 0.35,
+                  weight: 2,
+                }}
+              >
+                <Popup className="custom-popup">
+                  <div className="text-slate-900 font-sans">
+                    <h3 className="font-bold text-base mb-1 flex items-center gap-2">
+                      <Film className="w-4 h-4 text-blue-600" /> Upload: {report.locationName}
+                    </h3>
+                    <p className="text-xs mb-2 text-slate-700">Arquivo: {report.videoFileName}</p>
+                    <p className="text-xs mb-2 text-slate-700">Status: {report.processingStatus}</p>
+                    <button
+                      onClick={() => setSelectedPanel({ report, mode: 'splat' })}
+                      className="w-full flex justify-center items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white py-1.5 px-2 rounded text-xs font-bold transition-colors"
+                    >
+                      <Camera className="w-3 h-3" /> Abrir Splatting deste vídeo
+                    </button>
+                  </div>
+                </Popup>
+              </CircleMarker>
+            ))}
+
             {hotspots.map((hs) => (
               <CircleMarker
                 key={`circle-${hs.id}`}
@@ -330,13 +363,13 @@ export default function App() {
               <div className="flex justify-between items-center p-2 border-b border-slate-700 bg-slate-800">
                 <span className="text-xs font-bold text-slate-200 flex items-center gap-1">
                   {selectedPanel.mode === 'sim' ? <MapPin className="w-3 h-3 text-orange-500" /> : <Camera className="w-3 h-3 text-blue-500" />}
-                  {selectedPanel.mode === 'sim' ? 'Simulação' : 'Drone (Splat)'}: {selectedPanel.hotspot.id}
+                  {selectedPanel.mode === 'sim' ? 'Simulação' : 'Drone (Splat)'}: {selectedPanel.hotspot?.id ?? selectedPanel.report?.id}
                 </span>
                 <button onClick={() => setSelectedPanel(null)} className="text-slate-400 hover:text-white bg-slate-700 hover:bg-slate-600 rounded p-0.5 transition-colors">
                   <X className="w-4 h-4" />
                 </button>
               </div>
-              <div className="flex-1 w-full h-full relative">{selectedPanel.mode === 'sim' ? <LandslideSimulation /> : <PostDisasterSplat />}</div>
+              <div className="flex-1 w-full h-full relative">{selectedPanel.mode === 'sim' ? <LandslideSimulation /> : <PostDisasterSplat splatUrl={selectedPanel.report?.splatUrl} sourceVideoUrl={selectedPanel.report?.sourceVideoUrl ? `${API_BASE_URL}${selectedPanel.report.sourceVideoUrl}` : undefined} />}</div>
             </div>
           )}
         </div>
