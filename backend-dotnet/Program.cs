@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using Microsoft.Extensions.FileProviders;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -33,7 +34,14 @@ var hotspots = new List<Hotspot>
 var uploadsDirectory = Path.Combine(app.Environment.ContentRootPath, "uploads");
 Directory.CreateDirectory(uploadsDirectory);
 
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(uploadsDirectory),
+    RequestPath = "/uploads"
+});
+
 var collapseReports = new List<CollapseReport>();
+SeedTesteVideoReport(collapseReports, uploadsDirectory);
 
 app.MapGet("/api/hotspots", () =>
 {
@@ -87,10 +95,12 @@ app.MapPost("/api/collapse-reports", async (HttpRequest request) =>
         ReporterPhone: form["reporterPhone"].ToString(),
         VideoFileName: video.FileName,
         StoredVideoPath: filePath,
+        SourceVideoUrl: $"/uploads/{safeFileName}",
         VideoSizeBytes: video.Length,
         UploadedAtUtc: DateTimeOffset.UtcNow,
         ProcessingStatus: SplattingProcessingStatus.Pending,
-        SplatPipelineHint: "Pronto para ingestão em gaussian-splatting/convert.py e train.py"
+        SplatPipelineHint: "Pronto para ingestão em gaussian-splatting/convert.py e train.py",
+        SplatUrl: null
     );
 
     collapseReports.Add(report);
@@ -130,10 +140,12 @@ record CollapseReport(
     string ReporterPhone,
     string VideoFileName,
     string StoredVideoPath,
+    string SourceVideoUrl,
     long VideoSizeBytes,
     DateTimeOffset UploadedAtUtc,
     SplattingProcessingStatus ProcessingStatus,
-    string SplatPipelineHint
+    string SplatPipelineHint,
+    string? SplatUrl
 );
 
 enum SplattingProcessingStatus
@@ -142,4 +154,43 @@ enum SplattingProcessingStatus
     Ingested,
     Trained,
     Published
+}
+
+static void SeedTesteVideoReport(List<CollapseReport> collapseReports, string uploadsDirectory)
+{
+    var repoRootPath = Path.GetFullPath(Path.Combine(uploadsDirectory, "..", ".."));
+    var testeVideoPath = Path.Combine(repoRootPath, "Teste.mp4");
+
+    if (!File.Exists(testeVideoPath))
+    {
+        return;
+    }
+
+    var seededFileName = "seed-Teste.mp4";
+    var seededFilePath = Path.Combine(uploadsDirectory, seededFileName);
+
+    if (!File.Exists(seededFilePath))
+    {
+        File.Copy(testeVideoPath, seededFilePath, overwrite: true);
+    }
+
+    var seededInfo = new FileInfo(seededFilePath);
+
+    collapseReports.Add(new CollapseReport(
+        Id: "RP-SEED-TESTE",
+        LocationName: "Teste.mp4 - Centro de Ubá",
+        Latitude: -21.1215,
+        Longitude: -42.9427,
+        Description: "Vídeo base (Teste.mp4) disponível para rodar pipeline gaussian-splatting.",
+        ReporterName: "Seed do sistema",
+        ReporterPhone: "",
+        VideoFileName: "Teste.mp4",
+        StoredVideoPath: seededFilePath,
+        SourceVideoUrl: $"/uploads/{seededFileName}",
+        VideoSizeBytes: seededInfo.Length,
+        UploadedAtUtc: DateTimeOffset.UtcNow,
+        ProcessingStatus: SplattingProcessingStatus.Ingested,
+        SplatPipelineHint: "Execute convert.py e train.py no Teste.mp4 para publicar o .splat final.",
+        SplatUrl: "https://huggingface.co/datasets/dylanebert/3dgs/resolve/main/bonsai/bonsai-7k.splat"
+    ));
 }
