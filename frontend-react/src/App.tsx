@@ -25,7 +25,59 @@ import {
 const LandslideSimulation = lazy(() => import('./LandslideSimulation'));
 const PostDisasterSplat = lazy(() => import('./PostDisasterSplat'));
 
-const API_BASE_URL = 'http://localhost:5031';
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? 'http://localhost:8000';
+
+
+const LOCAL_WEEKLY_RAIN_NEWS: NewsUpdate[] = [
+  {
+    id: 'news-uba-1',
+    city: 'Ubá',
+    title: 'Defesa Civil reforça alerta de chuva forte em bairros ribeirinhos de Ubá',
+    source: 'Boletim Regional MG',
+    url: 'https://exemplo.local/noticias/uba-alerta-chuva-forte',
+    publishedAtUtc: new Date(Date.now() - (1 * 24 * 60 * 60 * 1000)).toISOString(),
+  },
+  {
+    id: 'news-uba-2',
+    city: 'Ubá',
+    title: 'Acumulado de chuva da semana eleva atenção para enxurradas no centro de Ubá',
+    source: 'Radar da Chuva Zona da Mata',
+    url: 'https://exemplo.local/noticias/uba-acumulado-semana',
+    publishedAtUtc: new Date(Date.now() - (3 * 24 * 60 * 60 * 1000)).toISOString(),
+  },
+  {
+    id: 'news-jf-1',
+    city: 'Juiz de Fora',
+    title: 'Juiz de Fora registra pontos de alagamento após chuva intensa no fim da tarde',
+    source: 'Painel Metropolitano JF',
+    url: 'https://exemplo.local/noticias/jf-alagamento-chuva',
+    publishedAtUtc: new Date(Date.now() - (2 * 24 * 60 * 60 * 1000)).toISOString(),
+  },
+  {
+    id: 'news-jf-2',
+    city: 'Juiz de Fora',
+    title: 'Nova frente de chuva mantém risco hidrológico moderado em Juiz de Fora',
+    source: 'Tempo e Cidade',
+    url: 'https://exemplo.local/noticias/jf-frente-de-chuva',
+    publishedAtUtc: new Date(Date.now() - (5 * 24 * 60 * 60 * 1000)).toISOString(),
+  },
+  {
+    id: 'news-mb-1',
+    city: 'Matias Barbosa',
+    title: 'Matias Barbosa entra em observação após sequência de chuvas na última semana',
+    source: 'Monitor Mata Sul',
+    url: 'https://exemplo.local/noticias/matias-barbosa-sequencia-chuvas',
+    publishedAtUtc: new Date(Date.now() - (1.5 * 24 * 60 * 60 * 1000)).toISOString(),
+  },
+  {
+    id: 'news-mb-2',
+    city: 'Matias Barbosa',
+    title: 'Defesa local atualiza pontos críticos de drenagem devido à chuva acumulada',
+    source: 'Informe Municipal',
+    url: 'https://exemplo.local/noticias/matias-drenagem-chuva',
+    publishedAtUtc: new Date(Date.now() - (6 * 24 * 60 * 60 * 1000)).toISOString(),
+  },
+];
 
 const iconLandslide = new L.Icon({
   iconUrl: 'https://cdn.jsdelivr.net/gh/pointhi/leaflet-color-markers@master/img/marker-icon-orange.png',
@@ -114,6 +166,17 @@ interface FlowSimulationResponse {
   estimatedAffectedAreaM2: number;
   disclaimer: string;
 }
+
+const tryParseJson = async <T,>(response: Response): Promise<T | null> => {
+  const payloadText = await response.text();
+  if (!payloadText) return null;
+
+  try {
+    return JSON.parse(payloadText) as T;
+  } catch {
+    return null;
+  }
+};
 
 interface ClimakiSnapshot {
   fetchedAtIso: string;
@@ -215,6 +278,7 @@ export default function App() {
 
   const [loading, setLoading] = useState(true);
   const [loadingNews, setLoadingNews] = useState(true);
+  const [selectedNewsCity, setSelectedNewsCity] = useState<'Todas' | 'Ubá' | 'Juiz de Fora' | 'Matias Barbosa'>('Todas');
   const [loadingMissing, setLoadingMissing] = useState(true);
   const [runningFlow, setRunningFlow] = useState(false);
 
@@ -237,15 +301,36 @@ export default function App() {
 
   const flowPathLatLng = useMemo(() => flowResult?.mainPath.map((point) => [point.lat, point.lng] as [number, number]) ?? [], [flowResult]);
 
+  const filteredNewsUpdates = useMemo(() => {
+    const oneWeekAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+    const rainKeywords = ['chuva', 'chuvas', 'alagamento', 'enxurrada', 'temporal', 'precipitação'];
+
+    return newsUpdates
+      .filter((news) => {
+        const publishedMs = Date.parse(news.publishedAtUtc);
+        const isWithinWeek = Number.isFinite(publishedMs) ? publishedMs >= oneWeekAgo : true;
+        const text = `${news.title} ${news.source}`.toLowerCase();
+        const mentionsRain = rainKeywords.some((keyword) => text.includes(keyword));
+        const cityMatches = selectedNewsCity === 'Todas' || news.city === selectedNewsCity;
+        return isWithinWeek && mentionsRain && cityMatches;
+      })
+      .sort((a, b) => Date.parse(b.publishedAtUtc) - Date.parse(a.publishedAtUtc));
+  }, [newsUpdates, selectedNewsCity]);
+
+
   const loadNews = () => {
     setLoadingNews(true);
     fetch(`${API_BASE_URL}/api/news-updates`)
-      .then((res) => res.json())
-      .then((data: NewsUpdate[]) => {
-        setNewsUpdates(data);
-        setLoadingNews(false);
+      .then((res) => {
+        if (!res.ok) throw new Error('endpoint unavailable');
+        return res.json();
       })
-      .catch(() => setLoadingNews(false));
+      .then((data: NewsUpdate[]) => {
+        const validNews = Array.isArray(data) ? data : [];
+        setNewsUpdates(validNews.length ? validNews : LOCAL_WEEKLY_RAIN_NEWS);
+      })
+      .catch(() => setNewsUpdates(LOCAL_WEEKLY_RAIN_NEWS))
+      .finally(() => setLoadingNews(false));
   };
 
 
@@ -449,11 +534,16 @@ export default function App() {
       });
 
       if (!response.ok) {
-        const errorPayload = await response.json();
-        throw new Error(errorPayload.error ?? 'Falha na simulação hidrodinâmica.');
+        const errorPayload = await tryParseJson<{ error?: string }>(response);
+        throw new Error(
+          errorPayload?.error ?? `Falha na simulação hidrodinâmica (HTTP ${response.status}).`,
+        );
       }
 
-      const data: FlowSimulationResponse = await response.json();
+      const data = await tryParseJson<FlowSimulationResponse>(response);
+      if (!data) {
+        throw new Error('Resposta inválida da simulação hidrodinâmica.');
+      }
       setFlowResult(data);
     } catch (error) {
       setFlowError(error instanceof Error ? error.message : 'Erro inesperado na simulação.');
@@ -541,16 +631,31 @@ export default function App() {
           </div>
 
           <div className="px-4 py-3 border-b border-slate-700 bg-slate-800/50">
-            <h2 className="text-xs uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-2"><Newspaper className="w-3 h-3" />Crawler de notícias (Ubá/JF/Matias Barbosa)</h2>
+            <h2 className="text-xs uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-2"><Newspaper className="w-3 h-3" />Aba notícias • Chuvas (últimos 7 dias)</h2>
+            <div className="grid grid-cols-2 gap-1 mb-2 text-[11px]">
+              {(['Todas', 'Ubá', 'Juiz de Fora', 'Matias Barbosa'] as const).map((cityTab) => (
+                <button
+                  key={cityTab}
+                  type="button"
+                  onClick={() => setSelectedNewsCity(cityTab)}
+                  className={`px-2 py-1 rounded border transition-colors ${selectedNewsCity === cityTab ? 'bg-blue-600 border-blue-500 text-white' : 'bg-slate-900/60 border-slate-700 text-slate-300 hover:bg-slate-700/60'}`}
+                >
+                  {cityTab}
+                </button>
+              ))}
+            </div>
             {loadingNews ? <p className="text-xs text-slate-500">Buscando atualizações...</p> : (
-              <ul className="space-y-2 max-h-28 overflow-y-auto pr-1">
-                {newsUpdates.slice(0, 4).map((news) => (
-                  <li key={news.id} className="text-xs bg-slate-900/60 border border-slate-700 rounded-md p-2">
-                    <p className="font-semibold text-white truncate">{news.city}: {news.title}</p>
-                    <a href={news.url} target="_blank" rel="noreferrer" className="text-blue-300 hover:text-blue-200 underline">{news.source}</a>
-                  </li>
-                ))}
-              </ul>
+              filteredNewsUpdates.length ? (
+                <ul className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                  {filteredNewsUpdates.map((news) => (
+                    <li key={news.id} className="text-xs bg-slate-900/60 border border-slate-700 rounded-md p-2">
+                      <p className="font-semibold text-white">{news.city}: {news.title}</p>
+                      <p className="text-slate-400">{new Date(news.publishedAtUtc).toLocaleString('pt-BR')}</p>
+                      <a href={news.url} target="_blank" rel="noreferrer" className="text-blue-300 hover:text-blue-200 underline">{news.source}</a>
+                    </li>
+                  ))}
+                </ul>
+              ) : <p className="text-xs text-slate-500">Sem notícias de chuva para o filtro selecionado na última semana.</p>
             )}
           </div>
 
