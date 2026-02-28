@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 from django.test import TestCase
 from django.urls import reverse
 from rest_framework import status
@@ -34,3 +36,31 @@ class ApiViewTestCase(TestCase):
         """Test the api can return expected json data."""
 
         self.assertEquals(self.response.data, self.expected_result)
+
+
+class NewsUpdatesApiTestCase(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+
+    @patch('apps.api.views.urlopen')
+    def test_news_updates_returns_public_items(self, mock_urlopen):
+        class MockResponse:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                return False
+
+            def read(self):
+                return b"<html><head><title>Defesa Civil Alerta</title></head><body>alerta de chuva forte para a regiao sudeste nas proximas horas.</body></html>"
+
+        mock_urlopen.return_value = MockResponse()
+
+        response = self.client.get(reverse('api:news_updates'))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        payload = response.json()
+        self.assertTrue(isinstance(payload, list))
+        self.assertTrue(len(payload) >= 1)
+        self.assertIn('title', payload[0])
+        self.assertIn('url', payload[0])

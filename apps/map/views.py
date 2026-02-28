@@ -1,8 +1,11 @@
-from django.views.generic import TemplateView
+from django.views.generic.base import RedirectView
 
 
-class ViewMap(TemplateView):
-    template_name = 'index.html'
+class ViewMap(RedirectView):
+    permanent = False
+    query_string = True
+    pattern_name = None
+    url = 'http://localhost:8080/'
 
 
 viewmap = ViewMap.as_view()
