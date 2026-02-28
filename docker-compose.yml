@@ -38,13 +38,14 @@ services:
       DB_PASSWORD: mg_location_password
       DB_HOST: postgres
       DB_PORT: "5432"
+      FRONTEND_URL: http://localhost:${FRONTEND_PORT:-8088}/
     depends_on:
       postgres:
         condition: service_healthy
     volumes:
       - ./:/app
     ports:
-      - "8001:8000"
+      - "${BACKEND_PORT:-8001}:8000"
     networks:
       - mg-location-network
 
@@ -53,12 +54,12 @@ services:
       context: ./frontend-react
       dockerfile: Dockerfile
       args:
-        VITE_API_BASE_URL: http://localhost:8001
+        VITE_API_BASE_URL: http://localhost:${BACKEND_PORT:-8001}
     container_name: simulador-mg-location
     environment:
-      VITE_API_BASE_URL: http://backend:8000
+      VITE_API_BASE_URL: http://localhost:${BACKEND_PORT:-8001}
     ports:
-      - "8080:8000"
+      - "${FRONTEND_PORT:-8088}:8000"
     restart: unless-stopped
     depends_on:
       - backend

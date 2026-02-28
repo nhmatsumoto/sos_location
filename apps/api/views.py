@@ -306,6 +306,8 @@ def _missing_person_to_dict(person):
         'age': person.age,
         'city': person.city,
         'lastSeenLocation': person.last_seen_location,
+        'lat': person.lat,
+        'lng': person.lng,
         'physicalDescription': person.physical_description,
         'additionalInfo': person.additional_info,
         'contactName': person.contact_name,
@@ -890,7 +892,7 @@ def missing_people_csv(request):
 
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(['personName', 'age', 'city', 'lastSeenLocation', 'contactName', 'reportedAtUtc'])
+    writer.writerow(['personName', 'age', 'city', 'lastSeenLocation', 'lat', 'lng', 'contactName', 'reportedAtUtc'])
     queryset = MissingPerson.objects.order_by('-created_at')[:5000]
     for person in queryset:
       writer.writerow([
@@ -898,6 +900,8 @@ def missing_people_csv(request):
           person.age if person.age is not None else '',
           person.city,
           person.last_seen_location,
+          person.lat if person.lat is not None else '',
+          person.lng if person.lng is not None else '',
           person.contact_name,
           person.created_at.isoformat(),
       ])
@@ -1103,14 +1107,16 @@ def missing_persons(request):
         return HttpResponse(status=405)
 
     payload = _request_payload(request)
-    person_name = payload.get('personName')
-    city = payload.get('city')
-    last_seen = payload.get('lastSeenLocation')
-    contact_name = payload.get('contactName')
-    contact_phone = payload.get('contactPhone')
+    person_name = (payload.get('personName') or payload.get('name') or '').strip()
+    city = (payload.get('city') or 'Não informado').strip()
+    last_seen = (payload.get('lastSeenLocation') or payload.get('lastSeen') or '').strip()
+    contact_name = (payload.get('contactName') or 'Central MG Location').strip()
+    contact_phone = (payload.get('contactPhone') or 'Não informado').strip()
+    lat = _parse_float(payload.get('lat'))
+    lng = _parse_float(payload.get('lng'))
 
-    if not person_name or not city or not last_seen or not contact_name or not contact_phone:
-        return _json_error('personName, city, lastSeenLocation, contactName e contactPhone são obrigatórios.')
+    if not person_name or not last_seen:
+        return _json_error('personName (ou name) e lastSeenLocation (ou lastSeen) são obrigatórios.')
 
     age_raw = payload.get('age')
     age = None
@@ -1126,11 +1132,13 @@ def missing_persons(request):
         age=age,
         city=city,
         last_seen_location=last_seen,
+        lat=lat,
+        lng=lng,
         physical_description=payload.get('physicalDescription') or '',
         additional_info=payload.get('additionalInfo') or '',
         contact_name=contact_name,
         contact_phone=contact_phone,
-        source=payload.get('source') or 'manual',
+        source=payload.get('source') or 'manual-platform',
     )
 
     return JsonResponse(_missing_person_to_dict(person), status=201)
