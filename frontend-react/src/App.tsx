@@ -25,7 +25,59 @@ import {
 const LandslideSimulation = lazy(() => import('./LandslideSimulation'));
 const PostDisasterSplat = lazy(() => import('./PostDisasterSplat'));
 
-const API_BASE_URL = 'http://localhost:5031';
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? 'http://localhost:8000';
+
+
+const LOCAL_WEEKLY_RAIN_NEWS: NewsUpdate[] = [
+  {
+    id: 'news-uba-1',
+    city: 'Ubá',
+    title: 'Defesa Civil reforça alerta de chuva forte em bairros ribeirinhos de Ubá',
+    source: 'Boletim Regional MG',
+    url: 'https://exemplo.local/noticias/uba-alerta-chuva-forte',
+    publishedAtUtc: new Date(Date.now() - (1 * 24 * 60 * 60 * 1000)).toISOString(),
+  },
+  {
+    id: 'news-uba-2',
+    city: 'Ubá',
+    title: 'Acumulado de chuva da semana eleva atenção para enxurradas no centro de Ubá',
+    source: 'Radar da Chuva Zona da Mata',
+    url: 'https://exemplo.local/noticias/uba-acumulado-semana',
+    publishedAtUtc: new Date(Date.now() - (3 * 24 * 60 * 60 * 1000)).toISOString(),
+  },
+  {
+    id: 'news-jf-1',
+    city: 'Juiz de Fora',
+    title: 'Juiz de Fora registra pontos de alagamento após chuva intensa no fim da tarde',
+    source: 'Painel Metropolitano JF',
+    url: 'https://exemplo.local/noticias/jf-alagamento-chuva',
+    publishedAtUtc: new Date(Date.now() - (2 * 24 * 60 * 60 * 1000)).toISOString(),
+  },
+  {
+    id: 'news-jf-2',
+    city: 'Juiz de Fora',
+    title: 'Nova frente de chuva mantém risco hidrológico moderado em Juiz de Fora',
+    source: 'Tempo e Cidade',
+    url: 'https://exemplo.local/noticias/jf-frente-de-chuva',
+    publishedAtUtc: new Date(Date.now() - (5 * 24 * 60 * 60 * 1000)).toISOString(),
+  },
+  {
+    id: 'news-mb-1',
+    city: 'Matias Barbosa',
+    title: 'Matias Barbosa entra em observação após sequência de chuvas na última semana',
+    source: 'Monitor Mata Sul',
+    url: 'https://exemplo.local/noticias/matias-barbosa-sequencia-chuvas',
+    publishedAtUtc: new Date(Date.now() - (1.5 * 24 * 60 * 60 * 1000)).toISOString(),
+  },
+  {
+    id: 'news-mb-2',
+    city: 'Matias Barbosa',
+    title: 'Defesa local atualiza pontos críticos de drenagem devido à chuva acumulada',
+    source: 'Informe Municipal',
+    url: 'https://exemplo.local/noticias/matias-drenagem-chuva',
+    publishedAtUtc: new Date(Date.now() - (6 * 24 * 60 * 60 * 1000)).toISOString(),
+  },
+];
 
 
 const LOCAL_WEEKLY_RAIN_NEWS: NewsUpdate[] = [
