@@ -318,8 +318,6 @@ export default function App() {
   const [missingForm, setMissingForm] = useState(initialMissingForm);
   const [selectedPanel, setSelectedPanel] = useState<SelectedPanel | null>(null);
   const [isPanelFullscreen, setIsPanelFullscreen] = useState(true);
-  const [isSelectingIncidentPoint, setIsSelectingIncidentPoint] = useState(false);
-  const [isSelectingRiskArea, setIsSelectingRiskArea] = useState(false);
   const [selectedIncidentPoint, setSelectedIncidentPoint] = useState<{ lat: number; lng: number } | null>(null);
   const [riskDraftPoint, setRiskDraftPoint] = useState<{ lat: number; lng: number } | null>(null);
   const [showRiskModal, setShowRiskModal] = useState(false);
@@ -328,6 +326,9 @@ export default function App() {
   const [riskSuccess, setRiskSuccess] = useState('');
   const [riskForm, setRiskForm] = useState(initialRiskForm);
   const [sidebarTab, setSidebarTab] = useState<'flood' | 'news' | 'missing' | 'hotspots'>('flood');
+  const [mapActionMode, setMapActionMode] = useState<'none' | 'incident' | 'risk'>('none');
+  const [actionMenuOpen, setActionMenuOpen] = useState(false);
+  const [lastMapClick, setLastMapClick] = useState<{ lat: number; lng: number } | null>(null);
   const mapOverlayRef = useRef<HTMLDivElement | null>(null);
   const [floatingPanelPositions, setFloatingPanelPositions] = useState<Record<FloatingPanelId, FloatingPanelPosition>>({
     global: { top: 16, left: 16 },
@@ -423,6 +424,18 @@ export default function App() {
     }));
   };
 
+
+  const tacticalMapEnabled = sidebarTab === 'hotspots';
+
+  const displayedHotspots = useMemo(() => {
+    if (!tacticalMapEnabled) return hotspots;
+
+    return hotspots.filter((hotspot) => {
+      const riskText = `${hotspot.type} ${hotspot.riskFactors.join(' ')}`.toLowerCase();
+      const disasterKeywords = ['flood', 'enchente', 'alag', 'corrente', 'desliz', 'desmoron', 'desab'];
+      return hotspot.score >= 90 || disasterKeywords.some((keyword) => riskText.includes(keyword));
+    });
+  }, [hotspots, tacticalMapEnabled]);
 
   const filteredNewsUpdates = useMemo(() => {
     const oneWeekAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
@@ -777,7 +790,6 @@ export default function App() {
       setShowRiskModal(false);
       setRiskForm(initialRiskForm);
       setRiskDraftPoint(null);
-      setIsSelectingRiskArea(false);
     } catch (error) {
       setRiskError(error instanceof Error ? error.message : 'Erro ao registrar área de risco.');
     } finally {
@@ -800,46 +812,28 @@ export default function App() {
               <h1 className="text-2xl font-bold tracking-tight text-white">Centro de Comando</h1>
             </div>
             <p className="text-sm text-slate-400">Triagem tática: onde agir primeiro para maximizar vidas salvas.</p>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
-              <button
-                onClick={() => {
-                  setShowUploadModal(true);
-                  setUploadError('');
-                  setUploadSuccess('');
-                }}
-                className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-3 py-2 rounded-md text-sm font-semibold transition-colors"
-              >
-                <Upload className="w-4 h-4" /> Enviar vídeo
-              </button>
-              <button
-                onClick={() => {
-                  setShowMissingModal(true);
-                  setMissingError('');
-                  setMissingSuccess('');
-                }}
-                className="flex items-center justify-center gap-2 bg-amber-600 hover:bg-amber-500 text-white px-3 py-2 rounded-md text-sm font-semibold transition-colors"
-              >
-                <Users className="w-4 h-4" /> Cadastrar desaparecido
-              </button>
-              <button
-                onClick={() => {
-                  setIsSelectingIncidentPoint((prev) => !prev);
-                }}
-                className={`flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-semibold transition-colors ${isSelectingIncidentPoint ? 'bg-emerald-600 hover:bg-emerald-500 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-100'}`}
-              >
-                <MapPin className="w-4 h-4" /> {isSelectingIncidentPoint ? 'Clique no mapa...' : 'Marcar ponto (1 clique)'}
-              </button>
-
-              <button
-                onClick={() => {
-                  setIsSelectingRiskArea((prev) => !prev);
-                  setRiskError('');
-                  setRiskSuccess('');
-                }}
-                className={`flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-semibold transition-colors ${isSelectingRiskArea ? 'bg-rose-600 hover:bg-rose-500 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-100'}`}
-              >
-                <Siren className="w-4 h-4" /> {isSelectingRiskArea ? 'Clique no risco...' : 'Marcar área de risco'}
-              </button>
+            <div className="space-y-2">
+              <div className="relative">
+                <button
+                  onClick={() => setActionMenuOpen((prev) => !prev)}
+                  className="w-full flex items-center justify-between gap-2 bg-slate-700 hover:bg-slate-600 text-white px-3 py-2 rounded-md text-sm font-semibold transition-colors"
+                >
+                  <span className="flex items-center gap-2"><Activity className="w-4 h-4" /> Ações rápidas</span>
+                  <span className="text-xs text-slate-300">menu</span>
+                </button>
+                {actionMenuOpen && (
+                  <div className="absolute left-0 right-0 mt-2 z-40 rounded-md border border-slate-600 bg-slate-900 shadow-xl p-2 space-y-1">
+                    <button onClick={() => { setShowUploadModal(true); setUploadError(''); setUploadSuccess(''); setActionMenuOpen(false); }} className="w-full text-left flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-slate-800"><Upload className="w-4 h-4 text-blue-400" /> Enviar vídeo</button>
+                    <button onClick={() => { setShowMissingModal(true); setMissingError(''); setMissingSuccess(''); setActionMenuOpen(false); }} className="w-full text-left flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-slate-800"><Users className="w-4 h-4 text-amber-400" /> Cadastrar desaparecido</button>
+                    <button onClick={() => { setMapActionMode('incident'); setActionMenuOpen(false); }} className="w-full text-left flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-slate-800"><MapPin className="w-4 h-4 text-emerald-400" /> Marcar ponto de incidente</button>
+                    <button onClick={() => { setMapActionMode('risk'); setRiskError(''); setRiskSuccess(''); setActionMenuOpen(false); }} className="w-full text-left flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-slate-800"><Siren className="w-4 h-4 text-rose-400" /> Marcar área de risco</button>
+                  </div>
+                )}
+              </div>
+              <p className="text-[11px] text-slate-400">
+                Clique no mapa para capturar coordenadas {lastMapClick ? `(${lastMapClick.lat.toFixed(5)}, ${lastMapClick.lng.toFixed(5)})` : ''}.
+                {mapActionMode !== 'none' ? ` Modo ativo: ${mapActionMode === 'incident' ? 'incidente' : 'risco'}.` : ''}
+              </p>
             </div>
           </div>
 
@@ -960,7 +954,7 @@ export default function App() {
           </div>
 
           <div className={`flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar transition-all duration-300 ${sidebarTab === 'hotspots' ? 'opacity-100 translate-y-0' : 'hidden opacity-0 -translate-y-1'}`}>
-            {loading ? <div className="flex items-center justify-center h-full"><Activity className="w-8 h-8 text-blue-500 animate-spin" /></div> : hotspots.map((hs, i) => (
+            {loading ? <div className="flex items-center justify-center h-full"><Activity className="w-8 h-8 text-blue-500 animate-spin" /></div> : displayedHotspots.map((hs, i) => (
               <div key={hs.id} className={`rounded-xl p-4 border transition-all ${hs.score > 90 ? 'bg-red-950/40 border-red-500/50 hover:bg-red-900/40' : 'bg-slate-700/50 border-orange-500/30 hover:bg-slate-700'}`}>
                 <div className="flex justify-between items-start mb-3">
                   <div className="flex items-center gap-2">
@@ -980,40 +974,44 @@ export default function App() {
         </div>
 
         <div ref={mapOverlayRef} className="w-2/3 h-full relative z-10">
-          <MapContainer center={[-21.1215, -42.9427]} zoom={14} className="h-full w-full" zoomControl={false}>
+          <MapContainer key={`map-${tacticalMapEnabled ? 'tactical' : 'default'}`} center={[-21.1215, -42.9427]} zoom={14} className="h-full w-full" zoomControl={false}>
             <LayersControl position="topright">
-              <LayersControl.BaseLayer checked name="Mapa em relevo">
+              <LayersControl.BaseLayer checked={!tacticalMapEnabled} name="Mapa em relevo">
                 <TileLayer attribution='Map data: &copy; OpenStreetMap contributors | Style: OpenTopoMap' url="https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png" />
               </LayersControl.BaseLayer>
-              <LayersControl.BaseLayer name="Mapa escuro tático">
+              <LayersControl.BaseLayer checked={tacticalMapEnabled} name="Mapa escuro tático">
                 <TileLayer attribution='&copy; <a href="https://carto.com/">CartoDB</a>' url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
               </LayersControl.BaseLayer>
             </LayersControl>
 
             <MapClickSelector
-              enabled={isSelectingIncidentPoint}
+              enabled
               onSelect={(lat, lng) => {
-                setSelectedIncidentPoint({ lat, lng });
-                setIsSelectingIncidentPoint(false);
-                openPanel({ mode: 'sim', sourceLat: lat, sourceLng: lng, label: 'Ponto manual' });
+                setLastMapClick({ lat, lng });
+
+                if (mapActionMode === 'incident') {
+                  setSelectedIncidentPoint({ lat, lng });
+                  setFlowForm((prev) => ({ ...prev, sourceLat: lat.toFixed(5), sourceLng: lng.toFixed(5) }));
+                  setMapActionMode('none');
+                  openPanel({ mode: 'sim', sourceLat: lat, sourceLng: lng, label: 'Ponto manual' });
+                  return;
+                }
+
+                if (mapActionMode === 'risk') {
+                  setRiskDraftPoint({ lat, lng });
+                  setShowRiskModal(true);
+                  setRiskError('');
+                  setRiskSuccess('');
+                  setMapActionMode('none');
+                  setRiskForm((prev) => ({
+                    ...prev,
+                    message: `Risco reportado próximo a ${lat.toFixed(5)}, ${lng.toFixed(5)}.`,
+                  }));
+                }
               }}
             />
 
-            <MapClickSelector
-              enabled={isSelectingRiskArea}
-              onSelect={(lat, lng) => {
-                setRiskDraftPoint({ lat, lng });
-                setShowRiskModal(true);
-                setRiskError('');
-                setRiskSuccess('');
-                setRiskForm((prev) => ({
-                  ...prev,
-                  message: `Risco reportado próximo a ${lat.toFixed(5)}, ${lng.toFixed(5)}.`,
-                }));
-              }}
-            />
-
-            {hotspots.map((hs, i) => (
+            {displayedHotspots.map((hs, i) => (
               <Marker key={hs.id} position={[hs.lat, hs.lng]} icon={hs.score > 90 ? iconCritical : hs.type === 'Flood' ? iconFlood : iconLandslide}>
                 <Popup className="custom-popup">
                   <div className="text-slate-900 font-sans">
