@@ -11,4 +11,4 @@ class TestFrontEnd(TestCase):
         self.assertEqual(self.response.status_code, 302)
 
     def test_redirect_target(self):
-        self.assertEqual(self.response['Location'], 'http://localhost:8080/')
+        self.assertEqual(self.response['Location'], 'http://localhost:8000/')

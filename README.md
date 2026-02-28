@@ -1,100 +1,39 @@
-# MG Location — Centro de Comando para Resgate e Voluntariado (MG)
+# MG Location
 
-Plataforma open-source para apoiar operações de resposta a desastres (enchentes, deslizamentos, rompimentos e eventos correlatos), conectando **coordenação tática**, **coleta de relatos em campo** e **visualização geoespacial** para acelerar decisões de busca, salvamento e prevenção.
+Plataforma open-source para apoio operacional em desastres (enchentes, deslizamentos e eventos correlatos), com foco em coordenação, geolocalização e integração de dados públicos.
 
 **Produção:** https://mg-location.osei.ong.br
 
----
+## Novidades recentes
 
-## Estado do Projeto
+- ✅ **Data Hub de integrações públicas** para clima, alertas oficiais, transparência e satélite.
+- ✅ **Cache + resiliência HTTP** (retry/backoff/circuit breaker) para chamadas externas.
+- ✅ **Cadastro simplificado de desaparecidos no mapa** com persistência no banco.
+- ✅ **Persistência de coordenadas (`lat`,`lng`)** em `MissingPerson`.
+- ✅ **Layout operacional atualizado** com:
+  - caixa de notificações,
+  - caixa de ferramentas,
+  - caixa de informações relevantes do local.
 
-O repositório está organizado em três frentes principais:
+## Estrutura de documentação
 
-## Cobertura atual da interface (voluntários e busca/resgate)
+Toda a documentação do projeto foi centralizada em `docs/`:
 
-A interface web principal agora cobre, de forma operacional, os fluxos essenciais descritos neste README:
+- [docs/README.md](./docs/README.md)
+- [Visão geral e objetivo](./docs/VISION_AND_GOALS.md)
+- [Regras de domínio](./docs/DOMAIN_RULES.md)
+- [Funcionalidades](./docs/FEATURES.md)
+- [Implementações](./docs/IMPLEMENTATIONS.md)
+- [Ideias/Roadmap](./docs/IDEAS.md)
+- [Política de uso](./docs/USAGE_POLICY.md)
+- [Checklist de implementações](./docs/IMPLEMENTATION_CHECKLIST.md)
+- [Checklist de testes de segurança](./docs/SECURITY_TEST_CHECKLIST.md)
+- [Integrações externas](./docs/INTEGRATIONS.md)
+- [Diagramas](./docs/diagrams/ARCHITECTURE.md)
 
-- cálculo de deslocamento estimado por coordenadas e interação direta no mapa;
-- bloco explicativo da **Simulação de Enchente (CFD simplificado)** com endpoint oficial `POST /api/location/flow-simulation`;
-- atalhos para módulos já implementados no MVP (`/api/hotspots`, `/api/rescue-support`, `/api/missing-people.csv`, `/api/cfd/ideas`);
-- resumo dos módulos operacionais do MVP (hotspots, rescue-support, searched-areas, report-info e identify-victim) no próprio painel.
-
-> Observação: os endpoints `POST` e `GET,POST` continuam disponíveis para integração por apps cliente e operação assistida via API.
-
-## Cobertura atual da interface (voluntários e busca/resgate)
-
-A interface web principal agora cobre, de forma operacional, os fluxos essenciais descritos neste README:
-
-- cálculo de deslocamento estimado por coordenadas e interação direta no mapa;
-- bloco explicativo da **Simulação de Enchente (CFD simplificado)** com endpoint oficial `POST /api/location/flow-simulation`;
-- contexto de terreno com cruzamento de variáveis de vegetação, tipo/densidade do solo e saturação por chuva via `GET /api/terrain/context`;
-- atalhos para módulos já implementados no MVP (`/api/hotspots`, `/api/rescue-support`, `/api/missing-people.csv`, `/api/cfd/ideas`);
-- resumo dos módulos operacionais do MVP (hotspots, rescue-support, searched-areas, report-info e identify-victim) no próprio painel.
-
-> Observação: os endpoints `POST` e `GET,POST` continuam disponíveis para integração por apps cliente e operação assistida via API.
-
-## Cobertura atual da interface (voluntários e busca/resgate)
-
-A interface web principal agora cobre, de forma operacional, os fluxos essenciais descritos neste README:
-
-- cálculo de deslocamento estimado por coordenadas e interação direta no mapa;
-- bloco explicativo da **Simulação de Enchente (CFD simplificado)** com endpoint oficial `POST /api/location/flow-simulation`;
-- contexto de terreno com cruzamento de variáveis de vegetação, tipo/densidade do solo e saturação por chuva via `GET /api/terrain/context`;
-- atalhos para módulos já implementados no MVP (`/api/hotspots`, `/api/rescue-support`, `/api/missing-people.csv`, `/api/cfd/ideas`);
-- resumo dos módulos operacionais do MVP (hotspots, rescue-support, searched-areas, report-info e identify-victim) no próprio painel.
-- cadastro de desaparecidos diretamente no mapa: clique nas coordenadas e adicione a pessoa via integração com `POST /api/report-info` (com lat/lng).
-
-> Observação: os endpoints `POST` e `GET,POST` continuam disponíveis para integração por apps cliente e operação assistida via API.
-
-## Important
-
-> Status atual: o `docker-compose` do repositório está focado no frontend web e é prioridade evoluir para stack completa (frontend + backend + persistência + serviços auxiliares).
-
----
-
-## Como Você Pode Ajudar
-
-### Para devs
-
-- Corrigir e simplificar setup de desenvolvimento local.
-- Evoluir o `docker-compose` para ambiente completo de ponta a ponta.
-- Melhorar APIs (validação, paginação, autenticação, contratos e documentação).
-- Evoluir UX do mapa (camadas, filtros, desempenho e acessibilidade).
-- Melhorar ingestão de mídia e pipeline de processamento (`/api/splat/convert`).
-- Adicionar observabilidade (logs estruturados, métricas, traces, health checks).
-- Criar testes automatizados (backend e frontend) e fixtures de dados de exemplo.
-
-### Para voluntários não devs
-
-- Coletar relatos de campo (localização, contexto e evidências).
-- Validar qualidade de dados (duplicidade, inconsistências e atualização de status).
-- Ajudar no mapeamento de áreas já vistoriadas e áreas de risco.
-- Apoiar revisão textual e comunicação para públicos locais.
-
----
-
-## 5 minutos para rodar (Docker Compose)
-
-> O `docker-compose.yml` atual sobe o frontend em container na porta `8080`.
-
-```bash
-git clone https://github.com/<seu-user>/mg_location.git
-cd mg_location
-docker compose up --build
-```
-
-Acesse: **http://localhost:8080**
-
----
-
-## Desenvolvimento Local
+## Rodando localmente
 
 ### Backend (Django)
-
-Pré-requisitos sugeridos:
-
-- Python 3.10+
-- `pip`
 
 ```bash
 python -m venv .venv
@@ -104,186 +43,53 @@ python manage.py migrate
 python manage.py runserver 0.0.0.0:8000
 ```
 
-API local: `http://localhost:8000/api/...`
+### Frontend (assets servidos pelo Django)
 
-### Frontend (React + Vite)
+Acesse: `http://localhost:8000`
 
-Pré-requisitos sugeridos:
+## Endpoints principais
 
-- Node.js 20+
-- npm
+### Operacionais
+- `POST /api/calculate`
+- `GET,POST /api/missing-persons`
+- `GET /api/missing-people.csv`
+- `GET /api/hotspots`
+- `GET /api/rescue-support`
+- `GET /api/terrain/context`
 
-```bash
-cd frontend-react
-npm install
-npm run dev
-```
+### Data Hub
+- `GET /api/weather/forecast`
+- `GET /api/weather/archive`
+- `GET /api/alerts`
+- `GET /api/transparency/transfers`
+- `GET /api/transparency/search`
+- `GET /api/satellite/layers`
+- `GET /api/satellite/stac/search`
+- `GET /api/satellite/goes/recent`
 
-Frontend local: `http://localhost:5173`
+## Segurança
 
-### Mobile (Flutter)
+Consulte [SECURITY.md](./SECURITY.md) e [docs/SECURITY_TEST_CHECKLIST.md](./docs/SECURITY_TEST_CHECKLIST.md).
 
-```bash
-cd flutter_capture_app
-flutter pub get
-flutter run
-```
+## Compliance e segurança
 
-> Configure o `apiBaseUrl` em `flutter_capture_app/lib/main.dart` apontando para o backend acessível pelo dispositivo/emulador.
+- [Normas e padrões adotados](./docs/COMPLIANCE_AND_STANDARDS.md)
+- [Política de resposta a incidentes](./docs/INCIDENT_RESPONSE_POLICY.md)
+- [Checklist de testes de segurança](./docs/SECURITY_TEST_CHECKLIST.md)
 
----
-
-## Arquitetura e APIs
-
-### Evolução planejada: renderização 3D + análise preditiva
-
-Como próximo passo do MG Location, vamos incorporar um pipeline voltado para nuvens de pontos (Point Cloud):
-
-1. **Renderização 3D de dados de campo** usando uma biblioteca como **Potree** (ou alternativa compatível), permitindo inspeção espacial de áreas críticas.
-2. **Enriquecimento com dados climáticos e geométricos** para compor features de risco.
-3. **Inferência com modelos de machine learning** treinados para **estimar áreas de soterramento**.
-4. **Integração no fluxo operacional** para que visualização 3D e predição convivam no centro de comando, apoiando priorização de buscas em tempo real.
-
-Essa linha de evolução será implementada de forma incremental, com validação por cenários reais e comparação contínua entre predição e evidências coletadas em campo.
-
-### Estrutura principal do repositório
-
-- `core/` — configuração central do projeto Django (`settings.py`, `urls.py`).
-- `apps/api/` — endpoints REST para operação e suporte a resposta.
-- `apps/map/` — rotas/templates do mapa no backend.
-- `frontend-react/` — aplicação web (React + Leaflet + Three.js).
-- `flutter_capture_app/` — app mobile para captura em campo.
-- `templates/`, `static/` — assets e páginas do backend.
-- `geolocations_service/` — serviço legado/experimental relacionado a geolocalizações.
-
-### Endpoints disponíveis (`/api`)
-
-### API MVP implemented (rescue suite)
-* `GET /api/hotspots` - ranking de áreas críticas.
-* `GET,POST /api/collapse-reports` - upload de vídeos e fila de ingestão.
-* `GET /api/rescue-support` - snapshot tático com agentes especialistas e locais prováveis.
-* `POST /api/location/flow-simulation` - simulação simplificada de fluxo de rejeitos (base CFD) com ajuste por vegetação, tipo/densidade do solo e saturação climática.
-* `GET /api/terrain/context` - contexto de terreno com fontes abertas (Open-Meteo + fallback local referenciado em SoilGrids/Copernicus).
-* `GET,POST /api/searched-areas` - registro de áreas já buscadas por equipes.
-* `GET,POST /api/report-info` - relatos de pessoas e animais desaparecidos.
-* `GET /api/missing-people.csv` - exportação CSV de desaparecidos.
-* `POST /api/identify-victim` - matching inicial de identificação (triagem).
-* `GET /api/cfd/ideas` - referências e materiais técnicos de fluidodinâmica.
-
----
-
-## Prioridades Atuais (P0)
-
-1. **Docker Compose completo** (frontend + backend + banco + volumes + rede + variáveis).
-2. **Dados de exemplo/seed confiáveis** para demo local e QA.
-3. **Documentação de setup única e reproduzível** (onboarding em minutos).
-4. **Padronização de contratos da API** (erros, status, validações, schemas).
-5. **Fluxo mínimo de observabilidade e saúde** (`/health`, logs e checks básicos).
-
-👉 **Chamada para ação:** escolha uma dessas prioridades, abra uma issue/PR e ajude a acelerar o impacto do projeto.
-
----
-
-## Segurança e Uso Responsável
-
-Este projeto pode lidar com dados sensíveis de pessoas em situação de risco. Portanto:
-
-- Não publique dados pessoais sem base legal e sem necessidade operacional.
-- Minimize coleta e retenção de dados identificáveis.
-- Revise permissões de acesso e sanitização de uploads.
-- Reporte vulnerabilidades de forma responsável.
-
-Consulte a política em **[SECURITY.md](./SECURITY.md)**.
-
----
-
-## Projetos Relacionados
-
-- **Victims Location Prediction:** https://github.com/sosmg-location/victims_location_prediction
-- **MG Location Crawlers:** https://github.com/sosmg-location/mg-location_crawlers
-
----
 
 ## Contribuição
 
-Toda ajuda é bem-vinda — código, validação de dados, testes, documentação e operação.
-
-### PR Checklist
-
-Antes de abrir PR, verifique:
-
-- [ ] O escopo está claro e objetivo.
-- [ ] A mudança foi testada localmente.
-- [ ] Não há segredos/chaves no código ou histórico.
-- [ ] Documentação/README atualizados quando necessário.
-- [ ] Endpoints/contratos alterados foram descritos.
-- [ ] Issue relacionada foi referenciada (quando aplicável).
-
-Também consulte **[CONTRIBUTING.md](./CONTRIBUTING.md)** para orientações de convivência e colaboração.
-
----
+Veja [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ## Licença
 
-Distribuído sob licença **MIT**.
-
----
-
-## Apoie o MG Location
-
-Se este projeto fizer sentido para você:
-
-- ⭐ Dê uma estrela no repositório
-- 🔁 Compartilhe com outras pessoas e comunidades
-- 🤝 Contribua com código, dados, validação e operação
-
-Juntos, conseguimos entregar uma resposta mais rápida, coordenada e humana em cenários de desastre.
+MIT.
 
 
-## Persistência e Resiliência (PostgreSQL)
+## Portas oficiais locais (sem legado)
 
-A API agora suporta persistência em PostgreSQL para cargas de desastre e retenção confiável dos cadastros de campo:
+- Frontend atualizado: `http://localhost:8000`
+- API backend: `http://localhost:8001`
 
-- `AttentionAlert` (áreas de risco)
-- `MissingPerson` (pessoas desaparecidas)
-- `CollapseReport` (relatos com vídeo)
-
-### Variáveis de banco
-
-Configure no ambiente da API:
-
-- `DB_ENGINE` (ex: `django.db.backends.postgresql`)
-- `DB_NAME`
-- `DB_USER`
-- `DB_PASSWORD`
-- `DB_HOST`
-- `DB_PORT`
-- `DB_CONN_MAX_AGE`
-- `DB_SSLMODE`
-
-Com `DB_ENGINE` não definido, o projeto continua em SQLite para desenvolvimento local.
-
-### Endpoints principais (frontend + backend alinhados)
-
-- `GET/POST /api/attention-alerts`
-- `GET/POST /api/missing-persons`
-- `GET/POST /api/collapse-reports`
-- `POST /api/location/flow-simulation` (aceita `lat/lng` e também `sourceLat/sourceLng`)
-
-### Arquitetura recomendada para eventos de desastre
-
-- API Django em múltiplas réplicas atrás de load balancer
-- PostgreSQL gerenciado com réplica de leitura e backup contínuo (PITR)
-- Pool de conexões e `CONN_MAX_AGE` ativo
-- Criptografia em trânsito (TLS) e em repouso no banco
-- Segredos fora do código (variáveis/secret manager)
-- Logs e auditoria de acesso para dados pessoais sensíveis
-
-
-## Portas oficiais (docker-compose)
-
-- Frontend web: `http://localhost:8080`
-- API backend (atual): `http://localhost:8001`
-- PostgreSQL: interno na rede docker (`postgres:5432`)
-
-> Observação: `http://localhost:8000` não é mais a porta pública padrão da API neste setup; a API foi movida para `8001` para evitar conflito e manter separação clara entre front/back.
+A porta `8080` foi descontinuada para evitar duas versões concorrentes da interface.

@@ -20,6 +20,18 @@ from apps.api.views import (
     terrain_context,
 )
 
+from apps.api.views_integrations import (
+    alerts as alerts_feed,
+    satellite_goes_recent,
+    satellite_layers,
+    satellite_stac_search,
+    transparency_search,
+    transparency_transfers,
+    weather_archive,
+    weather_forecast,
+)
+
+
 app_name = 'api'
 
 urlpatterns = [
@@ -40,4 +52,12 @@ urlpatterns = [
     path('splat/convert', splat_convert, name='splat_convert'),
     path('push/register', push_register, name='push_register'),
     path('attention-alerts', attention_alerts, name='attention_alerts'),
+    path('weather/forecast', weather_forecast, name='weather_forecast'),
+    path('weather/archive', weather_archive, name='weather_archive'),
+    path('alerts', alerts_feed, name='alerts_feed'),
+    path('transparency/transfers', transparency_transfers, name='transparency_transfers'),
+    path('transparency/search', transparency_search, name='transparency_search'),
+    path('satellite/layers', satellite_layers, name='satellite_layers'),
+    path('satellite/stac/search', satellite_stac_search, name='satellite_stac_search'),
+    path('satellite/goes/recent', satellite_goes_recent, name='satellite_goes_recent'),
 ]

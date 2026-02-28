@@ -2,20 +2,22 @@
 
 ## Supported Versions
 
-Use this section to tell people about which versions of your project are
-currently being supported with security updates.
+As correções de segurança são aplicadas na branch principal ativa.
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 5.1.x   | :white_check_mark: |
-| 5.0.x   | :x:                |
-| 4.0.x   | :white_check_mark: |
-| < 4.0   | :x:                |
+| Branch/Version | Supported |
+| --- | --- |
+| main (ativa) | ✅ |
+| versões antigas sem manutenção | ❌ |
 
 ## Reporting a Vulnerability
 
-Use this section to tell people how to report a vulnerability.
+- Não abra issue pública para vulnerabilidade sensível.
+- Reporte de forma privada para os mantenedores do projeto (canal institucional do time).
+- Inclua: descrição, impacto, passos de reprodução, evidências e sugestão de mitigação.
+- O time confirma recebimento e inicia triagem conforme severidade.
 
-Tell them where to go, how often they can expect to get an update on a
-reported vulnerability, what to expect if the vulnerability is accepted or
-declined, etc.
+## Security References
+
+- [Checklist de testes de segurança](./docs/SECURITY_TEST_CHECKLIST.md)
+- [Normas e padrões](./docs/COMPLIANCE_AND_STANDARDS.md)
+- [Política de resposta a incidentes](./docs/INCIDENT_RESPONSE_POLICY.md)

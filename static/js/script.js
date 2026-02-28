@@ -13,6 +13,20 @@ const i18n = {
         calculating: 'Calculando…',
         clearMap: 'Limpar',
         quickActions: 'Ações rápidas',
+        toolsTitle: 'Caixa de ferramentas',
+        notificationsTitle: 'Notificações operacionais',
+        sidebarTitle: 'Central de alertas',
+        tabSecurity: 'Segurança civil',
+        tabMissing: 'Desaparecidos',
+        tabSystem: 'Sistema',
+        noItems: 'Sem itens no momento.',
+        locationInfoTitle: 'Informações relevantes do local',
+        refreshLocationInfo: 'Atualizar contexto local',
+        updatedAt: 'Atualizado em',
+        rainfall: 'Chuva 24h (mm)',
+        elevation: 'Elevação (m)',
+        soilSaturation: 'Saturação do solo',
+        flowMobility: 'Índice de mobilidade',
         presets: {
             center: 'Centro da operação',
             north: 'Zona norte',
@@ -40,12 +54,12 @@ const i18n = {
         },
         missingTitle: 'Cadastro de desaparecidos por clique',
         missingSubtitle: 'Selecione um ponto no mapa e cadastre a pessoa nas coordenadas clicadas.',
+        missingHint: 'Formulário simplificado: os demais dados são preenchidos automaticamente pela plataforma.',
         selectedPoint: 'Coordenadas selecionadas',
         missingName: 'Nome',
         missingNamePlaceholder: 'Ex.: Maria Silva',
         missingLastSeen: 'Último local visto',
         missingLastSeenPlaceholder: 'Ex.: Rua principal / comunidade',
-        missingDetails: 'Observações',
         addMissing: 'Adicionar desaparecido',
         savingMissing: 'Salvando…',
         baseLayers: {
@@ -68,6 +82,20 @@ const i18n = {
         calculating: 'Calculating…',
         clearMap: 'Clear',
         quickActions: 'Quick actions',
+        toolsTitle: 'Toolbox',
+        notificationsTitle: 'Operational notifications',
+        sidebarTitle: 'Alerts center',
+        tabSecurity: 'Civil security',
+        tabMissing: 'Missing',
+        tabSystem: 'System',
+        noItems: 'No items at the moment.',
+        locationInfoTitle: 'Relevant location information',
+        refreshLocationInfo: 'Refresh local context',
+        updatedAt: 'Updated at',
+        rainfall: 'Rainfall 24h (mm)',
+        elevation: 'Elevation (m)',
+        soilSaturation: 'Soil saturation',
+        flowMobility: 'Flow mobility index',
         presets: {
             center: 'Operations center',
             north: 'North zone',
@@ -95,12 +123,12 @@ const i18n = {
         },
         missingTitle: 'Click-to-register missing people',
         missingSubtitle: 'Select a point on the map and register a missing person on clicked coordinates.',
+        missingHint: 'Simplified form: remaining fields are auto-filled by the platform.',
         selectedPoint: 'Selected coordinates',
         missingName: 'Name',
         missingNamePlaceholder: 'Example: Maria Silva',
         missingLastSeen: 'Last seen location',
         missingLastSeenPlaceholder: 'Example: Main street / community',
-        missingDetails: 'Notes',
         addMissing: 'Add missing person',
         savingMissing: 'Saving…',
         baseLayers: {
@@ -124,9 +152,19 @@ var app = new Vue({
         errorMessage: '',
         missingForm: {
             name: '',
-            lastSeen: '',
-            details: ''
-        }
+            lastSeen: ''
+        },
+        locationInfo: {
+            rainfallMm24h: '-',
+            elevationM: '-',
+            soilSaturation: '-',
+            flowMobilityIndex: '-',
+            updatedAt: ''
+        },
+        notifications: [],
+        activeSidebarTab: 'security',
+        securityAlerts: [],
+        missingAlerts: []
     },
     computed: {
         t: function() { return i18n[this.locale]; }
@@ -135,7 +173,11 @@ var app = new Vue({
         calculate: calculate,
         clearMap: clearMap,
         setPreset: setPreset,
-        registerMissingPerson: registerMissingPerson
+        registerMissingPerson: registerMissingPerson,
+        refreshLocationInfo: refreshLocationInfo,
+        openTool: openTool,
+        setSidebarTab: setSidebarTab,
+        refreshAlertFeeds: refreshAlertFeeds
     },
     watch: {
         locale: function() {
@@ -144,6 +186,60 @@ var app = new Vue({
         }
     }
 });
+
+function pushNotification(message, level) {
+    const now = new Date();
+    app.notifications.unshift({
+        id: now.getTime() + Math.random(),
+        message: message,
+        level: level || 'info',
+        time: now.toLocaleTimeString()
+    });
+    app.notifications = app.notifications.slice(0, 8);
+}
+
+
+
+function setSidebarTab(tab) {
+    app.activeSidebarTab = tab;
+}
+
+async function refreshAlertFeeds() {
+    try {
+        const civilRes = await fetch('/api/attention-alerts');
+        if (civilRes.ok) {
+            const civil = await civilRes.json();
+            app.securityAlerts = (civil || []).slice(0, 12).map(function(item) {
+                return {
+                    id: item.id || item.external_id || Math.random(),
+                    title: item.title || item.event || 'Alerta',
+                    message: item.message || item.summary || '-',
+                    severity: item.severity || 'medium',
+                    createdAtUtc: item.createdAtUtc || item.effective || ''
+                };
+            });
+        }
+    } catch (_) {
+        pushNotification(app.t.errors.requestFailed, 'error');
+    }
+
+    try {
+        const missingRes = await fetch('/api/missing-persons');
+        if (missingRes.ok) {
+            const missing = await missingRes.json();
+            app.missingAlerts = (missing || []).slice(0, 12).map(function(item) {
+                return {
+                    id: item.id || Math.random(),
+                    personName: item.personName || item.name || 'Desconhecido',
+                    lastSeenLocation: item.lastSeenLocation || item.lastSeen || '-',
+                    reportedAtUtc: item.reportedAtUtc || ''
+                };
+            });
+        }
+    } catch (_) {
+        pushNotification(app.t.errors.requestFailed, 'error');
+    }
+}
 
 function createMarker(name, point, markerStyle) {
     const marker = L.circleMarker(point, markerStyle || {
@@ -191,11 +287,51 @@ function drawVector(pointA, pointB) {
     }).addTo(window.overlayGroup);
 }
 
+async function refreshLocationInfo() {
+    const lat = Number(app.lat);
+    const lng = Number(app.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+        return;
+    }
+
+    try {
+        const result = await fetch('/api/terrain/context?lat=' + lat + '&lng=' + lng);
+        if (!result.ok) {
+            throw new Error('terrain-error');
+        }
+        const payload = await result.json();
+        const ctx = payload.context || {};
+        app.locationInfo = {
+            rainfallMm24h: ctx.rainfallMm24h ?? '-',
+            elevationM: ctx.elevationM ?? '-',
+            soilSaturation: ctx.soilSaturation ?? '-',
+            flowMobilityIndex: ctx.flowMobilityIndex ?? '-',
+            updatedAt: new Date().toLocaleTimeString()
+        };
+        pushNotification('Contexto local atualizado.', 'info');
+    } catch (_) {
+        pushNotification(app.t.errors.requestFailed, 'error');
+    }
+}
+
+function openTool(kind) {
+    const routes = {
+        hotspots: '/api/hotspots',
+        rescue: '/api/rescue-support',
+        terrain: '/api/terrain/context?lat=' + app.lat + '&lng=' + app.lng,
+        transparency: '/api/transparency/search?query=auxilio'
+    };
+    const route = routes[kind] || '/api/hotspots';
+    window.open(route, '_blank', 'noopener,noreferrer');
+    pushNotification('Ferramenta aberta: ' + kind, 'info');
+}
+
 async function calculate() {
     const lat = Number(app.lat);
     const lng = Number(app.lng);
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
         app.errorMessage = app.t.errors.invalidCoordinates;
+        pushNotification(app.t.errors.invalidCoordinates, 'error');
         return;
     }
 
@@ -213,6 +349,7 @@ async function calculate() {
     if (!result.ok) {
         app.loading = false;
         app.errorMessage = app.t.errors.requestFailed;
+        pushNotification(app.t.errors.requestFailed, 'error');
         return;
     }
 
@@ -221,6 +358,8 @@ async function calculate() {
     window.map.panTo([data.lat, data.lng]);
     app.statusMessage = app.t.status.success;
     app.loading = false;
+    pushNotification(app.t.status.success, 'info');
+    refreshLocationInfo();
 }
 
 async function registerMissingPerson() {
@@ -229,39 +368,43 @@ async function registerMissingPerson() {
 
     if (!app.missingForm.name || !app.missingForm.lastSeen || !Number.isFinite(lat) || !Number.isFinite(lng)) {
         app.errorMessage = app.t.errors.missingFields;
+        pushNotification(app.t.errors.missingFields, 'error');
         return;
     }
 
     app.savingMissing = true;
     app.errorMessage = '';
 
-    const payload = new URLSearchParams({
-        kind: 'person',
-        name: app.missingForm.name,
-        lastSeen: app.missingForm.lastSeen,
-        details: app.missingForm.details,
-        lat: String(lat),
-        lng: String(lng)
-    });
+    const payload = {
+        personName: app.missingForm.name,
+        lastSeenLocation: app.missingForm.lastSeen,
+        city: app.locale === 'por' ? 'Não informado' : 'Not informed',
+        additionalInfo: `Registro via mapa em lat=${lat}, lng=${lng}`,
+        lat: lat,
+        lng: lng,
+        source: 'map-ui-simplified'
+    };
 
-    const result = await fetch('/api/report-info', {
+    const result = await fetch('/api/missing-persons', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
-        body: payload.toString()
+        headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
     });
 
     if (!result.ok) {
         app.savingMissing = false;
         app.errorMessage = app.t.errors.requestFailed;
+        pushNotification(app.t.errors.requestFailed, 'error');
         return;
     }
 
     createMissingMarker({ name: app.missingForm.name, lat: lat, lng: lng, lastSeen: app.missingForm.lastSeen });
     app.missingForm.name = '';
     app.missingForm.lastSeen = '';
-    app.missingForm.details = '';
     app.statusMessage = app.t.status.missingSaved;
     app.savingMissing = false;
+    pushNotification(app.t.status.missingSaved, 'info');
+    refreshAlertFeeds();
 }
 
 function createMissingMarker(item) {
@@ -270,19 +413,26 @@ function createMissingMarker(item) {
     }).bindPopup(
         '<b>' + app.t.markerLabels.missing + '</b>' +
         '<br/>' + item.name +
-        '<br/>' + item.lastSeen +
+        '<br/>' + (item.lastSeenLocation || item.lastSeen || '-') +
         '<br/>Lat: ' + item.lat + ' / Lng: ' + item.lng
     );
     marker.addTo(window.missingGroup);
 }
 
 async function loadMissingReports() {
-    const result = await fetch('/api/report-info');
+    const result = await fetch('/api/missing-persons');
     if (!result.ok) return;
     const list = await result.json();
     list.forEach(function(item) {
-        if (Number.isFinite(Number(item.lat)) && Number.isFinite(Number(item.lng))) {
-            createMissingMarker(item);
+        const lat = Number(item.lat);
+        const lng = Number(item.lng);
+        if (Number.isFinite(lat) && Number.isFinite(lng)) {
+            createMissingMarker({
+                name: item.personName || item.name || 'Desconhecido',
+                lastSeenLocation: item.lastSeenLocation || item.lastSeen || '-',
+                lat: lat,
+                lng: lng
+            });
         }
     });
 }
@@ -291,6 +441,7 @@ function clearMap() {
     window.overlayGroup.clearLayers();
     app.statusMessage = app.t.status.cleared;
     app.errorMessage = '';
+    pushNotification(app.t.status.cleared, 'info');
 }
 
 function setPreset(zone) {
@@ -304,6 +455,7 @@ function setPreset(zone) {
     app.lng = String(preset.lng);
     window.map.setView([preset.lat, preset.lng], preset.zoom);
     app.statusMessage = app.t.status.pointSelected;
+    refreshLocationInfo();
 }
 
 function initMap() {
@@ -330,6 +482,8 @@ function initMap() {
         createMarker(app.t.markerLabels.selected, e.latlng).openPopup();
         app.statusMessage = app.t.status.pointSelected;
         app.errorMessage = '';
+        pushNotification(app.t.status.pointSelected, 'info');
+        refreshLocationInfo();
     });
 
     fetch('/static/geodata/hot_area.json').then(function(response) {
@@ -341,6 +495,10 @@ function initMap() {
     });
 
     loadMissingReports();
+    refreshLocationInfo();
+    refreshAlertFeeds();
+    setInterval(refreshAlertFeeds, 60000);
+    pushNotification('Centro de comando inicializado.', 'info');
     return map;
 }
 
