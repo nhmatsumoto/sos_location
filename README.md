@@ -101,6 +101,17 @@ flutter run
 
 ## Arquitetura e APIs
 
+### Evolução planejada: renderização 3D + análise preditiva
+
+Como próximo passo do MG Location, vamos incorporar um pipeline voltado para nuvens de pontos (Point Cloud):
+
+1. **Renderização 3D de dados de campo** usando uma biblioteca como **Potree** (ou alternativa compatível), permitindo inspeção espacial de áreas críticas.
+2. **Enriquecimento com dados climáticos e geométricos** para compor features de risco.
+3. **Inferência com modelos de machine learning** treinados para **estimar áreas de soterramento**.
+4. **Integração no fluxo operacional** para que visualização 3D e predição convivam no centro de comando, apoiando priorização de buscas em tempo real.
+
+Essa linha de evolução será implementada de forma incremental, com validação por cenários reais e comparação contínua entre predição e evidências coletadas em campo.
+
 ### Estrutura principal do repositório
 
 - `core/` — configuração central do projeto Django (`settings.py`, `urls.py`).
