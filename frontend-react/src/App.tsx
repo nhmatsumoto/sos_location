@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, CircleMarker, LayersControl, Polyline, Circle, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
@@ -20,9 +20,10 @@ import {
   Users,
   Play,
   Droplets,
+  CloudRain,
 } from 'lucide-react';
-import LandslideSimulation from './LandslideSimulation';
-import PostDisasterSplat from './PostDisasterSplat';
+const LandslideSimulation = lazy(() => import('./LandslideSimulation'));
+const PostDisasterSplat = lazy(() => import('./PostDisasterSplat'));
 
 const API_BASE_URL = 'http://localhost:5031';
 
@@ -114,6 +115,16 @@ interface FlowSimulationResponse {
   disclaimer: string;
 }
 
+interface ClimakiSnapshot {
+  fetchedAtIso: string;
+  locationLabel: string;
+  rainLast24hMm: number;
+  rainLast72hMm: number;
+  soilMoisturePercent: number;
+  saturationLevel: 'Baixa' | 'Moderada' | 'Alta' | 'Crítica';
+  saturationRisk: string;
+}
+
 interface NewsUpdate {
   id: string;
   city: string;
@@ -198,6 +209,9 @@ export default function App() {
   const [flowForm, setFlowForm] = useState(initialFlowForm);
   const [flowResult, setFlowResult] = useState<FlowSimulationResponse | null>(null);
   const [flowError, setFlowError] = useState('');
+  const [climakiSnapshot, setClimakiSnapshot] = useState<ClimakiSnapshot | null>(null);
+  const [loadingClimaki, setLoadingClimaki] = useState(true);
+  const [climakiError, setClimakiError] = useState('');
 
   const [loading, setLoading] = useState(true);
   const [loadingNews, setLoadingNews] = useState(true);
@@ -253,6 +267,66 @@ export default function App() {
       .catch(() => setLoadingMissing(false));
   };
 
+  const loadClimakiContext = () => {
+    setLoadingClimaki(true);
+    setClimakiError('');
+
+    const params = new URLSearchParams({
+      latitude: '-21.1215',
+      longitude: '-42.9427',
+      timezone: 'America/Sao_Paulo',
+      hourly: 'precipitation,soil_moisture_0_to_1cm',
+      forecast_days: '1',
+      past_days: '3',
+    });
+
+    fetch(`https://api.open-meteo.com/v1/forecast?${params.toString()}`)
+      .then((res) => {
+        if (!res.ok) throw new Error('Não foi possível consultar dados climáticos agora.');
+        return res.json();
+      })
+      .then((data) => {
+        const precipitation = data?.hourly?.precipitation as number[] | undefined;
+        const soilMoisture = data?.hourly?.soil_moisture_0_to_1cm as number[] | undefined;
+
+        if (!precipitation?.length || !soilMoisture?.length) {
+          throw new Error('Dados de chuva/umidade indisponíveis para este ponto.');
+        }
+
+        const rainLast24hMm = precipitation.slice(-24).reduce((sum, value) => sum + (Number(value) || 0), 0);
+        const rainLast72hMm = precipitation.slice(-72).reduce((sum, value) => sum + (Number(value) || 0), 0);
+        const soilMoisturePercent = (Number(soilMoisture.at(-1)) || 0) * 100;
+
+        let saturationLevel: ClimakiSnapshot['saturationLevel'] = 'Baixa';
+        let saturationRisk = 'Solo com capacidade de infiltração ainda relevante.';
+
+        if (soilMoisturePercent >= 75 || rainLast72hMm >= 120) {
+          saturationLevel = 'Crítica';
+          saturationRisk = 'Solo próximo da saturação total; alto risco para escorregamentos e enxurradas.';
+        } else if (soilMoisturePercent >= 60 || rainLast72hMm >= 80) {
+          saturationLevel = 'Alta';
+          saturationRisk = 'Solo bastante encharcado; reforçar monitoramento de encostas e drenagem.';
+        } else if (soilMoisturePercent >= 45 || rainLast72hMm >= 40) {
+          saturationLevel = 'Moderada';
+          saturationRisk = 'Umidade moderada; atenção em caso de continuidade de chuva.';
+        }
+
+        setClimakiSnapshot({
+          fetchedAtIso: new Date().toISOString(),
+          locationLabel: 'Ubá (MG) • análise local',
+          rainLast24hMm,
+          rainLast72hMm,
+          soilMoisturePercent,
+          saturationLevel,
+          saturationRisk,
+        });
+      })
+      .catch((error) => {
+        setClimakiError(error instanceof Error ? error.message : 'Erro ao atualizar dados climáticos.');
+      })
+      .finally(() => setLoadingClimaki(false));
+  };
+
   useEffect(() => {
     fetch(`${API_BASE_URL}/api/hotspots`)
       .then((res) => res.json())
@@ -265,10 +339,12 @@ export default function App() {
     loadNews();
     loadMissingPeople();
     loadAttentionAlerts();
+    loadClimakiContext();
 
     const interval = setInterval(() => {
       loadNews();
       loadAttentionAlerts();
+      loadClimakiContext();
     }, 120000);
     return () => clearInterval(interval);
   }, []);
@@ -620,6 +696,44 @@ export default function App() {
             )}
           </div>
 
+          <div className="absolute top-4 left-4 bg-slate-900/85 backdrop-blur-md border border-cyan-700/70 shadow-xl rounded-xl p-4 w-80 z-[400] text-sm">
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <h4 className="font-bold text-white uppercase tracking-wide text-xs flex items-center gap-1"><CloudRain className="w-3 h-3 text-cyan-300" /> Situação do Terreno</h4>
+              <a href="https://climaki.com/" target="_blank" rel="noreferrer" className="text-cyan-300 hover:text-cyan-100" title="Abrir Climaki">
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            </div>
+            <p className="text-[11px] text-slate-400 mb-2">Referência visual do Climaki + séries meteorológicas recentes.</p>
+
+            {loadingClimaki ? (
+              <p className="text-xs text-slate-400">Consultando chuva e umidade do solo...</p>
+            ) : climakiError ? (
+              <p className="text-xs text-amber-300">{climakiError}</p>
+            ) : climakiSnapshot ? (
+              <>
+                <p className="text-[11px] text-slate-400 mb-2">{climakiSnapshot.locationLabel}</p>
+                <div className="grid grid-cols-3 gap-2 mb-2">
+                  <div className="bg-slate-950/70 border border-slate-700 rounded p-2">
+                    <p className="text-[10px] text-slate-500">Chuva 24h</p>
+                    <p className="font-semibold text-cyan-200">{climakiSnapshot.rainLast24hMm.toFixed(1)} mm</p>
+                  </div>
+                  <div className="bg-slate-950/70 border border-slate-700 rounded p-2">
+                    <p className="text-[10px] text-slate-500">Chuva 72h</p>
+                    <p className="font-semibold text-cyan-200">{climakiSnapshot.rainLast72hMm.toFixed(1)} mm</p>
+                  </div>
+                  <div className="bg-slate-950/70 border border-slate-700 rounded p-2">
+                    <p className="text-[10px] text-slate-500">Umid. Solo</p>
+                    <p className="font-semibold text-cyan-200">{climakiSnapshot.soilMoisturePercent.toFixed(0)}%</p>
+                  </div>
+                </div>
+                <div className="bg-slate-950/70 border border-slate-700 rounded p-2">
+                  <p className="font-semibold text-white">Saturação: <span className="text-cyan-200">{climakiSnapshot.saturationLevel}</span></p>
+                  <p className="text-[11px] text-slate-300 mt-1">{climakiSnapshot.saturationRisk}</p>
+                </div>
+              </>
+            ) : null}
+          </div>
+
           {selectedPanel && (
             <div className={`absolute z-50 bg-slate-900 shadow-2xl border border-slate-600 flex flex-col overflow-hidden animate-in fade-in ${isPanelFullscreen ? 'inset-0 rounded-none' : 'bottom-4 left-4 w-96 h-80 rounded-xl slide-in-from-bottom-4'}`}>
               <div className="flex justify-between items-center p-2 border-b border-slate-700 bg-slate-800">
@@ -629,7 +743,11 @@ export default function App() {
                   <button onClick={() => setSelectedPanel(null)} className="text-slate-400 hover:text-white bg-slate-700 hover:bg-slate-600 rounded p-0.5 transition-colors"><X className="w-4 h-4" /></button>
                 </div>
               </div>
-              <div className="flex-1 w-full h-full relative">{selectedPanel.mode === 'sim' ? <LandslideSimulation sourceLat={selectedPanel.sourceLat ?? selectedPanel.hotspot?.lat} sourceLng={selectedPanel.sourceLng ?? selectedPanel.hotspot?.lng} radiusMeters={500} allowRadiusControl={false} /> : <PostDisasterSplat />}</div>
+              <div className="flex-1 w-full h-full relative">
+                <Suspense fallback={<div className="h-full w-full flex items-center justify-center text-slate-400 text-sm">Carregando visualização 3D...</div>}>
+                  {selectedPanel.mode === 'sim' ? <LandslideSimulation sourceLat={selectedPanel.sourceLat ?? selectedPanel.hotspot?.lat} sourceLng={selectedPanel.sourceLng ?? selectedPanel.hotspot?.lng} radiusMeters={500} allowRadiusControl={false} /> : <PostDisasterSplat />}
+                </Suspense>
+              </div>
             </div>
           )}
         </div>
