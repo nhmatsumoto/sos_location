@@ -100,13 +100,15 @@ const toSceneHeight = (terrainGrid: TerrainGrid, elevation: number) => {
 };
 
 const TerrainPatch = ({ radiusMeters, terrainGrid }: TerrainPatchProps) => {
-  const geometry = useMemo(() => {
+  const { geometry, contourGeometry } = useMemo(() => {
     const halfExtent = Math.max(12, radiusMeters / 50);
     const segments = terrainGrid.gridSize - 1;
     const geo = new THREE.PlaneGeometry(halfExtent * 2, halfExtent * 2, segments, segments);
     geo.rotateX(-Math.PI / 2);
 
     const positions = geo.attributes.position;
+    const colors = new Float32Array(positions.count * 3);
+    const color = new THREE.Color();
 
     for (let i = 0; i < positions.count; i += 1) {
       const x = positions.getX(i);
@@ -114,17 +116,40 @@ const TerrainPatch = ({ radiusMeters, terrainGrid }: TerrainPatchProps) => {
       const xNorm = (x + halfExtent) / (halfExtent * 2);
       const zNorm = (z + halfExtent) / (halfExtent * 2);
       const elevation = sampleGridHeight(terrainGrid, xNorm, zNorm);
-      positions.setY(i, toSceneHeight(terrainGrid, elevation));
+      const normalizedElevation = (elevation - terrainGrid.minElevation) / Math.max(1, terrainGrid.maxElevation - terrainGrid.minElevation);
+      const reliefNoise = Math.sin(xNorm * 18) * 0.04 + Math.cos(zNorm * 16) * 0.04;
+      positions.setY(i, toSceneHeight(terrainGrid, elevation) + reliefNoise);
+
+      const rockyBlend = Math.min(1, normalizedElevation * 1.2);
+      color.setRGB(
+        0.14 + rockyBlend * 0.24,
+        0.21 + rockyBlend * 0.21,
+        0.13 + rockyBlend * 0.16,
+      );
+      color.toArray(colors, i * 3);
     }
 
+    geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     geo.computeVertexNormals();
-    return geo;
+
+    const contour = geo.clone();
+    const contourPos = contour.attributes.position;
+    for (let i = 0; i < contourPos.count; i += 1) {
+      contourPos.setY(i, contourPos.getY(i) + 0.05);
+    }
+
+    return { geometry: geo, contourGeometry: contour };
   }, [radiusMeters, terrainGrid]);
 
   return (
-    <mesh geometry={geometry} receiveShadow>
-      <meshStandardMaterial color="#263246" roughness={0.92} metalness={0.08} />
-    </mesh>
+    <group>
+      <mesh geometry={geometry} receiveShadow>
+        <meshStandardMaterial vertexColors roughness={0.94} metalness={0.05} />
+      </mesh>
+      <mesh geometry={contourGeometry} receiveShadow>
+        <meshBasicMaterial color="#9ca3af" wireframe transparent opacity={0.12} />
+      </mesh>
+    </group>
   );
 };
 
@@ -350,6 +375,8 @@ export default function LandslideSimulation({
       <Canvas camera={{ position: [12, 10, 14], fov: 47 }} shadows>
         <ambientLight intensity={0.42} />
         <directionalLight position={[10, 20, 5]} intensity={1.15} castShadow />
+        <directionalLight position={[-8, 6, -4]} intensity={0.35} color="#93c5fd" />
+        <fog attach="fog" args={['#0f172a', 18, 45]} />
         <color attach="background" args={['#0f172a']} />
 
         <TerrainPatch radiusMeters={localRadiusMeters} terrainGrid={terrainGrid} />

@@ -1,5 +1,5 @@
-import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
-import type { FormEvent } from 'react';
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
+import type { FormEvent, PointerEvent as ReactPointerEvent, ReactNode } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, CircleMarker, LayersControl, Polyline, Circle, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import {
@@ -20,65 +20,13 @@ import {
   Users,
   Play,
   Droplets,
-  CloudRain,
+  Siren,
 } from 'lucide-react';
 const LandslideSimulation = lazy(() => import('./LandslideSimulation'));
 const PostDisasterSplat = lazy(() => import('./PostDisasterSplat'));
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? 'http://localhost:8000';
-
-
-const LOCAL_WEEKLY_RAIN_NEWS: NewsUpdate[] = [
-  {
-    id: 'news-uba-1',
-    city: 'Ubá',
-    title: 'Defesa Civil reforça alerta de chuva forte em bairros ribeirinhos de Ubá',
-    source: 'Boletim Regional MG',
-    url: 'https://exemplo.local/noticias/uba-alerta-chuva-forte',
-    publishedAtUtc: new Date(Date.now() - (1 * 24 * 60 * 60 * 1000)).toISOString(),
-  },
-  {
-    id: 'news-uba-2',
-    city: 'Ubá',
-    title: 'Acumulado de chuva da semana eleva atenção para enxurradas no centro de Ubá',
-    source: 'Radar da Chuva Zona da Mata',
-    url: 'https://exemplo.local/noticias/uba-acumulado-semana',
-    publishedAtUtc: new Date(Date.now() - (3 * 24 * 60 * 60 * 1000)).toISOString(),
-  },
-  {
-    id: 'news-jf-1',
-    city: 'Juiz de Fora',
-    title: 'Juiz de Fora registra pontos de alagamento após chuva intensa no fim da tarde',
-    source: 'Painel Metropolitano JF',
-    url: 'https://exemplo.local/noticias/jf-alagamento-chuva',
-    publishedAtUtc: new Date(Date.now() - (2 * 24 * 60 * 60 * 1000)).toISOString(),
-  },
-  {
-    id: 'news-jf-2',
-    city: 'Juiz de Fora',
-    title: 'Nova frente de chuva mantém risco hidrológico moderado em Juiz de Fora',
-    source: 'Tempo e Cidade',
-    url: 'https://exemplo.local/noticias/jf-frente-de-chuva',
-    publishedAtUtc: new Date(Date.now() - (5 * 24 * 60 * 60 * 1000)).toISOString(),
-  },
-  {
-    id: 'news-mb-1',
-    city: 'Matias Barbosa',
-    title: 'Matias Barbosa entra em observação após sequência de chuvas na última semana',
-    source: 'Monitor Mata Sul',
-    url: 'https://exemplo.local/noticias/matias-barbosa-sequencia-chuvas',
-    publishedAtUtc: new Date(Date.now() - (1.5 * 24 * 60 * 60 * 1000)).toISOString(),
-  },
-  {
-    id: 'news-mb-2',
-    city: 'Matias Barbosa',
-    title: 'Defesa local atualiza pontos críticos de drenagem devido à chuva acumulada',
-    source: 'Informe Municipal',
-    url: 'https://exemplo.local/noticias/matias-drenagem-chuva',
-    publishedAtUtc: new Date(Date.now() - (6 * 24 * 60 * 60 * 1000)).toISOString(),
-  },
-];
-
+const API_BASE_URL = ((import.meta.env.VITE_API_BASE_URL as string | undefined) ?? '').replace(/\/$/, '');
+const resolveApiUrl = (path: string) => (API_BASE_URL ? `${API_BASE_URL}${path}` : path);
 
 const LOCAL_WEEKLY_RAIN_NEWS: NewsUpdate[] = [
   {
@@ -130,6 +78,8 @@ const LOCAL_WEEKLY_RAIN_NEWS: NewsUpdate[] = [
     publishedAtUtc: new Date(Date.now() - (6 * 24 * 60 * 60 * 1000)).toISOString(),
   },
 ];
+
+
 
 const iconLandslide = new L.Icon({
   iconUrl: 'https://cdn.jsdelivr.net/gh/pointhi/leaflet-color-markers@master/img/marker-icon-orange.png',
@@ -240,28 +190,6 @@ interface ClimakiSnapshot {
   saturationRisk: string;
 }
 
-interface NewsUpdate {
-  id: string;
-  city: string;
-  title: string;
-  source: string;
-  url: string;
-  publishedAtUtc: string;
-}
-
-interface MissingPerson {
-  id: string;
-  personName: string;
-  age?: number | null;
-  city: string;
-  lastSeenLocation: string;
-  physicalDescription: string;
-  additionalInfo: string;
-  contactName: string;
-  contactPhone: string;
-  reportedAtUtc: string;
-}
-
 const initialFormState = {
   locationName: '',
   latitude: '',
@@ -285,6 +213,19 @@ const initialMissingForm = {
 
 
 
+const initialRiskForm = {
+  title: 'Nova área de risco mapeada',
+  message: 'Possível risco identificado em campo. Avaliar prioridade.',
+  severity: 'high',
+  radiusMeters: '350',
+  addMissingPerson: false,
+  personName: '',
+  city: 'Ubá',
+  contactName: '',
+  contactPhone: '',
+  additionalInfo: '',
+};
+
 interface SelectedPanel {
   hotspot?: Hotspot;
   mode: 'sim' | 'splat';
@@ -304,16 +245,69 @@ function MapClickSelector({ enabled, onSelect }: { enabled: boolean; onSelect: (
   return null;
 }
 
+
+interface FloatingPanelPosition {
+  top: number;
+  left: number;
+}
+
+type FloatingPanelId = 'global' | 'terrain';
+
+const FLOATING_PANEL_WIDTHS: Record<FloatingPanelId, number> = {
+  global: 288,
+  terrain: 320,
+};
+
+interface DraggablePanelProps {
+  title: string;
+  panelId: FloatingPanelId;
+  position: FloatingPanelPosition;
+  docked: boolean;
+  onStartDrag: (panelId: FloatingPanelId, event: ReactPointerEvent<HTMLDivElement>) => void;
+  onToggleDock: (panelId: FloatingPanelId) => void;
+  children: ReactNode;
+  widthClass?: string;
+}
+
+function DraggablePanel({
+  title,
+  panelId,
+  position,
+  docked,
+  onStartDrag,
+  onToggleDock,
+  children,
+  widthClass = 'w-72',
+}: DraggablePanelProps) {
+  return (
+    <div
+      className={`absolute bg-slate-900/85 backdrop-blur-md border border-slate-700 shadow-xl rounded-xl z-[410] text-sm ${widthClass} ${docked ? 'opacity-70' : ''}`}
+      style={{ top: `${position.top}px`, left: `${position.left}px` }}
+    >
+      <div
+        className="px-3 py-2 border-b border-slate-700 bg-slate-800/70 rounded-t-xl flex items-center justify-between cursor-move touch-none"
+        onPointerDown={(event) => onStartDrag(panelId, event)}
+      >
+        <h4 className="font-bold text-white uppercase tracking-wide text-xs">{title}</h4>
+        <button
+          type="button"
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={() => onToggleDock(panelId)}
+          className="text-[10px] px-2 py-1 rounded border border-slate-600 text-slate-200 hover:text-white hover:border-cyan-400"
+        >
+          {docked ? 'Soltar' : 'Integrar'}
+        </button>
+      </div>
+      <div className="p-4">{children}</div>
+    </div>
+  );
+}
+
 const initialFlowForm = {
   sourceLat: '-21.1215',
   sourceLng: '-42.9427',
-  rainfallMmPerHour: '80',
-  initialVolume: '3.5',
-  steps: '120',
-  gridSize: '40',
-  cellSizeMeters: '25',
-  manningCoefficient: '0.045',
-  infiltrationRate: '0.002',
+  rainfallMmPerHour: '70',
+  scenario: 'encosta' as 'encosta' | 'urbano' | 'rural',
 };
 
 export default function App() {
@@ -349,9 +343,109 @@ export default function App() {
   const [selectedPanel, setSelectedPanel] = useState<SelectedPanel | null>(null);
   const [isPanelFullscreen, setIsPanelFullscreen] = useState(true);
   const [isSelectingIncidentPoint, setIsSelectingIncidentPoint] = useState(false);
+  const [isSelectingRiskArea, setIsSelectingRiskArea] = useState(false);
   const [selectedIncidentPoint, setSelectedIncidentPoint] = useState<{ lat: number; lng: number } | null>(null);
+  const [riskDraftPoint, setRiskDraftPoint] = useState<{ lat: number; lng: number } | null>(null);
+  const [showRiskModal, setShowRiskModal] = useState(false);
+  const [savingRiskArea, setSavingRiskArea] = useState(false);
+  const [riskError, setRiskError] = useState('');
+  const [riskSuccess, setRiskSuccess] = useState('');
+  const [riskForm, setRiskForm] = useState(initialRiskForm);
+  const mapOverlayRef = useRef<HTMLDivElement | null>(null);
+  const [floatingPanelPositions, setFloatingPanelPositions] = useState<Record<FloatingPanelId, FloatingPanelPosition>>({
+    global: { top: 16, left: 16 },
+    terrain: { top: 16, left: 320 },
+  });
+  const [dockedPanels, setDockedPanels] = useState<Record<FloatingPanelId, boolean>>({
+    global: false,
+    terrain: false,
+  });
+  const [dragState, setDragState] = useState<{
+    panelId: FloatingPanelId;
+    offsetX: number;
+    offsetY: number;
+  } | null>(null);
 
   const flowPathLatLng = useMemo(() => flowResult?.mainPath.map((point) => [point.lat, point.lng] as [number, number]) ?? [], [flowResult]);
+
+  const clampPanelPosition = (panelId: FloatingPanelId, nextLeft: number, nextTop: number) => {
+    const mapRect = mapOverlayRef.current?.getBoundingClientRect();
+    if (!mapRect) return { left: Math.max(8, nextLeft), top: Math.max(8, nextTop) };
+
+    const maxLeft = Math.max(8, mapRect.width - FLOATING_PANEL_WIDTHS[panelId] - 8);
+    const maxTop = Math.max(8, mapRect.height - 120);
+
+    return {
+      left: Math.min(maxLeft, Math.max(8, nextLeft)),
+      top: Math.min(maxTop, Math.max(8, nextTop)),
+    };
+  };
+
+  useEffect(() => {
+    if (!dragState) return;
+
+    const handlePointerMove = (event: PointerEvent) => {
+      const mapRect = mapOverlayRef.current?.getBoundingClientRect();
+      if (!mapRect) return;
+
+      const rawLeft = event.clientX - mapRect.left - dragState.offsetX;
+      const rawTop = event.clientY - mapRect.top - dragState.offsetY;
+      const next = clampPanelPosition(dragState.panelId, rawLeft, rawTop);
+
+      setFloatingPanelPositions((prev) => ({
+        ...prev,
+        [dragState.panelId]: next,
+      }));
+    };
+
+    const handlePointerUp = () => {
+      setDragState(null);
+    };
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+    };
+  }, [dragState]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setFloatingPanelPositions((prev) => ({
+        global: clampPanelPosition('global', prev.global.left, prev.global.top),
+        terrain: clampPanelPosition('terrain', prev.terrain.left, prev.terrain.top),
+      }));
+    };
+
+    window.addEventListener('resize', handleResize);
+    handleResize();
+
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const startPanelDrag = (panelId: FloatingPanelId, event: ReactPointerEvent<HTMLDivElement>) => {
+    if (dockedPanels[panelId]) return;
+
+    const mapRect = mapOverlayRef.current?.getBoundingClientRect();
+    if (!mapRect) return;
+
+    const current = floatingPanelPositions[panelId];
+    setDragState({
+      panelId,
+      offsetX: event.clientX - mapRect.left - current.left,
+      offsetY: event.clientY - mapRect.top - current.top,
+    });
+  };
+
+  const togglePanelDock = (panelId: FloatingPanelId) => {
+    setDockedPanels((prev) => ({
+      ...prev,
+      [panelId]: !prev[panelId],
+    }));
+  };
+
 
   const filteredNewsUpdates = useMemo(() => {
     const oneWeekAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
@@ -372,7 +466,7 @@ export default function App() {
 
   const loadNews = () => {
     setLoadingNews(true);
-    fetch(`${API_BASE_URL}/api/news-updates`)
+    fetch(resolveApiUrl('/api/news-updates'))
       .then((res) => {
         if (!res.ok) throw new Error('endpoint unavailable');
         return res.json();
@@ -387,7 +481,7 @@ export default function App() {
 
 
   const loadAttentionAlerts = () => {
-    fetch(`${API_BASE_URL}/api/attention-alerts`)
+    fetch(resolveApiUrl('/api/attention-alerts'))
       .then((res) => res.json())
       .then((data: AttentionAlert[]) => setAttentionAlerts(data.slice(0, 6)))
       .catch(() => undefined);
@@ -395,7 +489,7 @@ export default function App() {
 
   const loadMissingPeople = () => {
     setLoadingMissing(true);
-    fetch(`${API_BASE_URL}/api/missing-persons`)
+    fetch(resolveApiUrl('/api/missing-persons'))
       .then((res) => res.json())
       .then((data: MissingPerson[]) => {
         setMissingPeople(data);
@@ -465,7 +559,7 @@ export default function App() {
   };
 
   useEffect(() => {
-    fetch(`${API_BASE_URL}/api/hotspots`)
+    fetch(resolveApiUrl('/api/hotspots'))
       .then((res) => res.json())
       .then((data) => {
         setHotspots(data);
@@ -507,7 +601,7 @@ export default function App() {
     payload.append('video', formState.video);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/collapse-reports`, {
+      const response = await fetch(resolveApiUrl('/api/collapse-reports'), {
         method: 'POST',
         body: payload,
       });
@@ -533,7 +627,7 @@ export default function App() {
     setSavingMissing(true);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/missing-persons`, {
+      const response = await fetch(resolveApiUrl('/api/missing-persons'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -568,39 +662,139 @@ export default function App() {
     setFlowError('');
     setRunningFlow(true);
 
+    const scenarioConfig: Record<typeof flowForm.scenario, { steps: number; gridSize: number; cellSizeMeters: number; manningCoefficient: number; infiltrationRate: number; volumeFactor: number; label: string }> = {
+      encosta: { steps: 130, gridSize: 44, cellSizeMeters: 20, manningCoefficient: 0.04, infiltrationRate: 0.0015, volumeFactor: 0.055, label: 'Encosta crítica' },
+      urbano: { steps: 110, gridSize: 38, cellSizeMeters: 22, manningCoefficient: 0.03, infiltrationRate: 0.001, volumeFactor: 0.045, label: 'Bairro urbano' },
+      rural: { steps: 95, gridSize: 34, cellSizeMeters: 26, manningCoefficient: 0.05, infiltrationRate: 0.003, volumeFactor: 0.038, label: 'Área rural' },
+    };
+
+    const activeScenario = scenarioConfig[flowForm.scenario];
+    const rainfall = Number(flowForm.rainfallMmPerHour);
+
+    const payload = {
+      sourceLat: Number(flowForm.sourceLat),
+      sourceLng: Number(flowForm.sourceLng),
+      rainfallMmPerHour: rainfall,
+      initialVolume: Math.max(1.8, Number((rainfall * activeScenario.volumeFactor).toFixed(2))),
+      steps: activeScenario.steps,
+      gridSize: activeScenario.gridSize,
+      cellSizeMeters: activeScenario.cellSizeMeters,
+      manningCoefficient: activeScenario.manningCoefficient,
+      infiltrationRate: activeScenario.infiltrationRate,
+    };
+
+    const endpoints = Array.from(new Set([
+      resolveApiUrl('/api/location/flow-simulation'),
+      '/api/location/flow-simulation',
+    ]));
+
     try {
-      const response = await fetch(`${API_BASE_URL}/api/location/flow-simulation`, {
+      let lastError = '';
+
+      for (const endpoint of endpoints) {
+        try {
+          const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+
+          if (!response.ok) {
+            const errorPayload = await tryParseJson<{ error?: string }>(response);
+            throw new Error(errorPayload?.error ?? `Falha na simulação (HTTP ${response.status}).`);
+          }
+
+          const data = await tryParseJson<FlowSimulationResponse>(response);
+          if (!data) {
+            throw new Error('Resposta inválida da simulação hidrodinâmica.');
+          }
+
+          setFlowResult(data);
+          setFlowError(`Cenário aplicado: ${activeScenario.label}. Ajuste a chuva e rode novamente para comparar.`);
+          setRunningFlow(false);
+          return;
+        } catch (error) {
+          lastError = error instanceof Error ? error.message : 'Erro inesperado na simulação.';
+        }
+      }
+
+      throw new Error(lastError || 'Não foi possível conectar ao serviço de simulação.');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Erro inesperado na simulação.';
+      setFlowError(
+        message.includes('NetworkError') || message.includes('Failed to fetch')
+          ? 'Não conseguimos alcançar a API de enchente. Verifique backend/CORS ou configure VITE_API_BASE_URL corretamente.'
+          : message,
+      );
+    } finally {
+      setRunningFlow(false);
+    }
+  };
+
+
+  const handleRiskAreaSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!riskDraftPoint) {
+      setRiskError('Selecione um ponto de risco no mapa antes de salvar.');
+      return;
+    }
+
+    setSavingRiskArea(true);
+    setRiskError('');
+    setRiskSuccess('');
+
+    try {
+      const response = await fetch(resolveApiUrl('/api/attention-alerts'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          sourceLat: Number(flowForm.sourceLat),
-          sourceLng: Number(flowForm.sourceLng),
-          rainfallMmPerHour: Number(flowForm.rainfallMmPerHour),
-          initialVolume: Number(flowForm.initialVolume),
-          steps: Number(flowForm.steps),
-          gridSize: Number(flowForm.gridSize),
-          cellSizeMeters: Number(flowForm.cellSizeMeters),
-          manningCoefficient: Number(flowForm.manningCoefficient),
-          infiltrationRate: Number(flowForm.infiltrationRate),
+          title: riskForm.title,
+          message: riskForm.message,
+          severity: riskForm.severity,
+          lat: riskDraftPoint.lat,
+          lng: riskDraftPoint.lng,
+          radiusMeters: Number(riskForm.radiusMeters) || 350,
         }),
       });
 
       if (!response.ok) {
         const errorPayload = await tryParseJson<{ error?: string }>(response);
-        throw new Error(
-          errorPayload?.error ?? `Falha na simulação hidrodinâmica (HTTP ${response.status}).`,
-        );
+        throw new Error(errorPayload?.error ?? 'Não foi possível salvar a área de risco.');
       }
 
-      const data = await tryParseJson<FlowSimulationResponse>(response);
-      if (!data) {
-        throw new Error('Resposta inválida da simulação hidrodinâmica.');
+      await loadAttentionAlerts();
+
+      if (riskForm.addMissingPerson && riskForm.personName && riskForm.contactName && riskForm.contactPhone) {
+        try {
+          await fetch(resolveApiUrl('/api/missing-persons'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              personName: riskForm.personName,
+              age: null,
+              city: riskForm.city,
+              lastSeenLocation: `Área marcada ${riskDraftPoint.lat.toFixed(5)}, ${riskDraftPoint.lng.toFixed(5)}`,
+              physicalDescription: 'Registrado via marcação de área de risco no mapa.',
+              additionalInfo: riskForm.additionalInfo,
+              contactName: riskForm.contactName,
+              contactPhone: riskForm.contactPhone,
+            }),
+          });
+          loadMissingPeople();
+        } catch {
+          // Mantém sucesso da área de risco mesmo se cadastro de desaparecido falhar.
+        }
       }
-      setFlowResult(data);
+
+      setRiskSuccess('Área de risco registrada com sucesso.');
+      setShowRiskModal(false);
+      setRiskForm(initialRiskForm);
+      setRiskDraftPoint(null);
+      setIsSelectingRiskArea(false);
     } catch (error) {
-      setFlowError(error instanceof Error ? error.message : 'Erro inesperado na simulação.');
+      setRiskError(error instanceof Error ? error.message : 'Erro ao registrar área de risco.');
     } finally {
-      setRunningFlow(false);
+      setSavingRiskArea(false);
     }
   };
 
@@ -618,7 +812,7 @@ export default function App() {
               <h1 className="text-2xl font-bold tracking-tight text-white">Centro de Comando</h1>
             </div>
             <p className="text-sm text-slate-400">Triagem tática: onde agir primeiro para maximizar vidas salvas.</p>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
               <button
                 onClick={() => {
                   setShowUploadModal(true);
@@ -647,37 +841,69 @@ export default function App() {
               >
                 <MapPin className="w-4 h-4" /> {isSelectingIncidentPoint ? 'Clique no mapa...' : 'Marcar ponto (1 clique)'}
               </button>
+
+              <button
+                onClick={() => {
+                  setIsSelectingRiskArea((prev) => !prev);
+                  setRiskError('');
+                  setRiskSuccess('');
+                }}
+                className={`flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-semibold transition-colors ${isSelectingRiskArea ? 'bg-rose-600 hover:bg-rose-500 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-100'}`}
+              >
+                <Siren className="w-4 h-4" /> {isSelectingRiskArea ? 'Clique no risco...' : 'Marcar área de risco'}
+              </button>
             </div>
           </div>
 
           <div className="px-4 py-3 border-b border-slate-700 bg-slate-800/50">
             <h2 className="text-xs uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-2">
-              <Droplets className="w-3 h-3" /> Simulação de Enchente (CFD simplificado)
+              <Droplets className="w-3 h-3" /> Simulação de Enchente (modo fácil)
             </h2>
+            <p className="text-[11px] text-slate-400 mb-2">Escolha um cenário, ajuste a chuva e clique em simular.</p>
             <form className="space-y-2" onSubmit={handleRunFlow}>
               <div className="grid grid-cols-2 gap-2">
-                <input value={flowForm.sourceLat} onChange={(e) => setFlowForm((prev) => ({ ...prev, sourceLat: e.target.value }))} className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs" placeholder="Lat" />
-                <input value={flowForm.sourceLng} onChange={(e) => setFlowForm((prev) => ({ ...prev, sourceLng: e.target.value }))} className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs" placeholder="Lng" />
-                <input value={flowForm.rainfallMmPerHour} onChange={(e) => setFlowForm((prev) => ({ ...prev, rainfallMmPerHour: e.target.value }))} className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs" placeholder="Chuva mm/h" />
-                <input value={flowForm.initialVolume} onChange={(e) => setFlowForm((prev) => ({ ...prev, initialVolume: e.target.value }))} className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs" placeholder="Volume inicial" />
+                <input value={flowForm.sourceLat} onChange={(e) => setFlowForm((prev) => ({ ...prev, sourceLat: e.target.value }))} className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs" placeholder="Latitude" />
+                <input value={flowForm.sourceLng} onChange={(e) => setFlowForm((prev) => ({ ...prev, sourceLng: e.target.value }))} className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs" placeholder="Longitude" />
               </div>
-              <div className="grid grid-cols-3 gap-2">
-                <input value={flowForm.steps} onChange={(e) => setFlowForm((prev) => ({ ...prev, steps: e.target.value }))} className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs" placeholder="steps" />
-                <input value={flowForm.gridSize} onChange={(e) => setFlowForm((prev) => ({ ...prev, gridSize: e.target.value }))} className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs" placeholder="grid" />
-                <input value={flowForm.cellSizeMeters} onChange={(e) => setFlowForm((prev) => ({ ...prev, cellSizeMeters: e.target.value }))} className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs" placeholder="célula m" />
-              </div>
+              {selectedIncidentPoint && (
+                <button
+                  type="button"
+                  onClick={() => setFlowForm((prev) => ({ ...prev, sourceLat: selectedIncidentPoint.lat.toFixed(5), sourceLng: selectedIncidentPoint.lng.toFixed(5) }))}
+                  className="w-full text-xs px-2 py-1 rounded border border-slate-600 text-slate-200 hover:border-cyan-400"
+                >
+                  Usar ponto marcado no mapa
+                </button>
+              )}
               <div className="grid grid-cols-2 gap-2">
-                <input value={flowForm.manningCoefficient} onChange={(e) => setFlowForm((prev) => ({ ...prev, manningCoefficient: e.target.value }))} className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs" placeholder="Manning n" />
-                <input value={flowForm.infiltrationRate} onChange={(e) => setFlowForm((prev) => ({ ...prev, infiltrationRate: e.target.value }))} className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs" placeholder="Infiltração" />
+                <label className="text-[11px] text-slate-300 space-y-1">
+                  <span>Cenário</span>
+                  <select value={flowForm.scenario} onChange={(e) => setFlowForm((prev) => ({ ...prev, scenario: e.target.value as typeof flowForm.scenario }))} className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs">
+                    <option value="encosta">Encosta crítica</option>
+                    <option value="urbano">Bairro urbano</option>
+                    <option value="rural">Área rural</option>
+                  </select>
+                </label>
+                <label className="text-[11px] text-slate-300 space-y-1">
+                  <span>Chuva (mm/h)</span>
+                  <input type="range" min={20} max={140} step={5} value={flowForm.rainfallMmPerHour} onChange={(e) => setFlowForm((prev) => ({ ...prev, rainfallMmPerHour: e.target.value }))} className="w-full" />
+                  <span className="text-cyan-300 font-semibold">{flowForm.rainfallMmPerHour} mm/h</span>
+                </label>
               </div>
               <button type="submit" disabled={runningFlow} className="w-full flex items-center justify-center gap-2 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-70 text-white px-3 py-1.5 rounded text-xs font-semibold">
-                <Play className="w-3 h-3" /> {runningFlow ? 'Simulando...' : 'Rodar Navier-Stokes simplificado'}
+                <Play className="w-3 h-3" /> {runningFlow ? 'Simulando...' : 'Simular área de alagamento'}
               </button>
-              {flowError && <p className="text-xs text-red-400">{flowError}</p>}
+              {flowError && <p className="text-xs text-amber-300">{flowError}</p>}
               {flowResult && (
-                <p className="text-[11px] text-cyan-300">
-                  Prof. máx: {flowResult.maxDepth.toFixed(2)} m • Área: {Math.round(flowResult.estimatedAffectedAreaM2)} m²
-                </p>
+                <div className="grid grid-cols-2 gap-2 text-[11px]">
+                  <div className="bg-slate-900/70 border border-slate-700 rounded px-2 py-1">
+                    <p className="text-slate-400">Profundidade máx.</p>
+                    <p className="text-cyan-300 font-semibold">{flowResult.maxDepth.toFixed(2)} m</p>
+                  </div>
+                  <div className="bg-slate-900/70 border border-slate-700 rounded px-2 py-1">
+                    <p className="text-slate-400">Área estimada</p>
+                    <p className="text-cyan-300 font-semibold">{Math.round(flowResult.estimatedAffectedAreaM2)} m²</p>
+                  </div>
+                </div>
               )}
             </form>
           </div>
@@ -745,7 +971,7 @@ export default function App() {
           </div>
         </div>
 
-        <div className="w-2/3 h-full relative z-10">
+        <div ref={mapOverlayRef} className="w-2/3 h-full relative z-10">
           <MapContainer center={[-21.1215, -42.9427]} zoom={14} className="h-full w-full" zoomControl={false}>
             <LayersControl position="topright">
               <LayersControl.BaseLayer checked name="Mapa em relevo">
@@ -762,6 +988,20 @@ export default function App() {
                 setSelectedIncidentPoint({ lat, lng });
                 setIsSelectingIncidentPoint(false);
                 openPanel({ mode: 'sim', sourceLat: lat, sourceLng: lng, label: 'Ponto manual' });
+              }}
+            />
+
+            <MapClickSelector
+              enabled={isSelectingRiskArea}
+              onSelect={(lat, lng) => {
+                setRiskDraftPoint({ lat, lng });
+                setShowRiskModal(true);
+                setRiskError('');
+                setRiskSuccess('');
+                setRiskForm((prev) => ({
+                  ...prev,
+                  message: `Risco reportado próximo a ${lat.toFixed(5)}, ${lng.toFixed(5)}.`,
+                }));
               }}
             />
 
@@ -797,6 +1037,29 @@ export default function App() {
               </>
             )}
 
+
+            {attentionAlerts.map((alert) => (
+              <Circle
+                key={`alert-area-${alert.id}`}
+                center={[alert.lat, alert.lng]}
+                radius={Math.max(80, alert.radiusMeters)}
+                pathOptions={{
+                  color: alert.severity === 'critical' ? '#ef4444' : alert.severity === 'high' ? '#f97316' : '#facc15',
+                  fillColor: alert.severity === 'critical' ? '#ef4444' : alert.severity === 'high' ? '#f97316' : '#facc15',
+                  fillOpacity: 0.12,
+                  weight: 1.5,
+                }}
+              >
+                <Popup className="custom-popup">
+                  <div className="text-slate-900 text-xs">
+                    <p><strong>{alert.title}</strong></p>
+                    <p>{alert.message}</p>
+                    <p><strong>Raio:</strong> {alert.radiusMeters} m</p>
+                  </div>
+                </Popup>
+              </Circle>
+            ))}
+
             {flowResult?.floodedCells.map((cell, index) => (
               <CircleMarker
                 key={`flow-${index}`}
@@ -824,72 +1087,115 @@ export default function App() {
             )}
           </MapContainer>
 
-          <div className="absolute top-4 right-4 bg-slate-800/80 backdrop-blur-md border border-slate-700 shadow-xl rounded-xl p-4 w-72 z-[400] text-sm">
-            <h4 className="font-bold text-white mb-2 uppercase tracking-wide text-xs">Status Global</h4>
-            <div className="flex justify-between items-center mb-1"><span className="text-slate-400">Total Hotspots:</span><span className="font-semibold">{hotspots.length}</span></div>
-            <div className="flex justify-between items-center mb-1"><span className="text-slate-400">Pop. em Perigo:</span><span className="font-semibold text-yellow-500">{hotspots.reduce((a, b) => a + b.estimatedAffected, 0)}</span></div>
-            <div className="flex justify-between items-center mb-1"><span className="text-slate-400">Desaparecidos:</span><span className="font-semibold text-amber-400">{missingPeople.length}</span></div>
-            <div className="mt-2 border-t border-slate-700 pt-2">
-              <p className="text-[11px] uppercase tracking-wide text-slate-400 mb-1">Alertas de atenção</p>
-              {attentionAlerts.length === 0 ? (
-                <p className="text-xs text-slate-500">Sem alertas no momento.</p>
-              ) : (
-                <ul className="space-y-1 max-h-24 overflow-y-auto pr-1">
-                  {attentionAlerts.slice(0, 3).map((alert) => (
-                    <li key={alert.id} className="text-[11px] bg-slate-900/70 border border-slate-700 rounded px-2 py-1">
-                      <p className="font-semibold text-white truncate">{alert.title}</p>
-                      <p className="text-slate-400 truncate">{alert.message}</p>
-                    </li>
-                  ))}
-                </ul>
+          {dockedPanels.global || dockedPanels.terrain ? (
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[420] bg-slate-900/90 border border-slate-700 rounded-xl px-3 py-2 shadow-xl flex items-center gap-2 text-xs">
+              <span className="text-slate-300 uppercase tracking-wide">Barra flutuante</span>
+              {dockedPanels.global && (
+                <button
+                  type="button"
+                  onClick={() => togglePanelDock('global')}
+                  className="px-2 py-1 rounded border border-slate-600 text-slate-100 hover:border-cyan-400"
+                >
+                  Status Global
+                </button>
+              )}
+              {dockedPanels.terrain && (
+                <button
+                  type="button"
+                  onClick={() => togglePanelDock('terrain')}
+                  className="px-2 py-1 rounded border border-slate-600 text-slate-100 hover:border-cyan-400"
+                >
+                  Situação do Terreno
+                </button>
               )}
             </div>
-            {flowResult && (
-              <>
-                <div className="mt-2 border-t border-slate-700 pt-2 text-xs text-cyan-300">Flood-CFD (didático)</div>
-                <div className="flex justify-between items-center text-xs"><span className="text-slate-400">Prof. máxima:</span><span className="font-semibold text-cyan-300">{flowResult.maxDepth.toFixed(2)} m</span></div>
-                <div className="flex justify-between items-center text-xs"><span className="text-slate-400">Área estimada:</span><span className="font-semibold text-cyan-300">{Math.round(flowResult.estimatedAffectedAreaM2)} m²</span></div>
-              </>
-            )}
-          </div>
+          ) : null}
 
-          <div className="absolute top-4 left-4 bg-slate-900/85 backdrop-blur-md border border-cyan-700/70 shadow-xl rounded-xl p-4 w-80 z-[400] text-sm">
-            <div className="flex items-center justify-between gap-2 mb-2">
-              <h4 className="font-bold text-white uppercase tracking-wide text-xs flex items-center gap-1"><CloudRain className="w-3 h-3 text-cyan-300" /> Situação do Terreno</h4>
-              <a href="https://climaki.com/" target="_blank" rel="noreferrer" className="text-cyan-300 hover:text-cyan-100" title="Abrir Climaki">
-                <ExternalLink className="w-3.5 h-3.5" />
-              </a>
-            </div>
-            <p className="text-[11px] text-slate-400 mb-2">Referência visual do Climaki + séries meteorológicas recentes.</p>
+          {!dockedPanels.global && (
+            <DraggablePanel
+              title="Status Global"
+              panelId="global"
+              position={floatingPanelPositions.global}
+              docked={dockedPanels.global}
+              onStartDrag={startPanelDrag}
+              onToggleDock={togglePanelDock}
+              widthClass="w-72"
+            >
+              <div className="flex justify-between items-center mb-1"><span className="text-slate-400">Total Hotspots:</span><span className="font-semibold">{hotspots.length}</span></div>
+              <div className="flex justify-between items-center mb-1"><span className="text-slate-400">Pop. em Perigo:</span><span className="font-semibold text-yellow-500">{hotspots.reduce((a, b) => a + b.estimatedAffected, 0)}</span></div>
+              <div className="flex justify-between items-center mb-1"><span className="text-slate-400">Desaparecidos:</span><span className="font-semibold text-amber-400">{missingPeople.length}</span></div>
+              <div className="mt-2 border-t border-slate-700 pt-2">
+                <p className="text-[11px] uppercase tracking-wide text-slate-400 mb-1">Alertas de atenção</p>
+                {attentionAlerts.length === 0 ? (
+                  <p className="text-xs text-slate-500">Sem alertas no momento.</p>
+                ) : (
+                  <ul className="space-y-1 max-h-24 overflow-y-auto pr-1">
+                    {attentionAlerts.slice(0, 3).map((alert) => (
+                      <li key={alert.id} className="text-[11px] bg-slate-900/70 border border-slate-700 rounded px-2 py-1">
+                        <p className="font-semibold text-white truncate">{alert.title}</p>
+                        <p className="text-slate-400 truncate">{alert.message}</p>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              {flowResult && (
+                <>
+                  <div className="mt-2 border-t border-slate-700 pt-2 text-xs text-cyan-300">Flood-CFD (didático)</div>
+                  <div className="flex justify-between items-center text-xs"><span className="text-slate-400">Prof. máxima:</span><span className="font-semibold text-cyan-300">{flowResult.maxDepth.toFixed(2)} m</span></div>
+                  <div className="flex justify-between items-center text-xs"><span className="text-slate-400">Área estimada:</span><span className="font-semibold text-cyan-300">{Math.round(flowResult.estimatedAffectedAreaM2)} m²</span></div>
+                </>
+              )}
+            </DraggablePanel>
+          )}
 
-            {loadingClimaki ? (
-              <p className="text-xs text-slate-400">Consultando chuva e umidade do solo...</p>
-            ) : climakiError ? (
-              <p className="text-xs text-amber-300">{climakiError}</p>
-            ) : climakiSnapshot ? (
-              <>
-                <p className="text-[11px] text-slate-400 mb-2">{climakiSnapshot.locationLabel}</p>
-                <div className="grid grid-cols-3 gap-2 mb-2">
-                  <div className="bg-slate-950/70 border border-slate-700 rounded p-2">
-                    <p className="text-[10px] text-slate-500">Chuva 24h</p>
-                    <p className="font-semibold text-cyan-200">{climakiSnapshot.rainLast24hMm.toFixed(1)} mm</p>
+          {!dockedPanels.terrain && (
+            <DraggablePanel
+              title="Situação do Terreno"
+              panelId="terrain"
+              position={floatingPanelPositions.terrain}
+              docked={dockedPanels.terrain}
+              onStartDrag={startPanelDrag}
+              onToggleDock={togglePanelDock}
+              widthClass="w-80"
+            >
+              <div className="flex items-center justify-end mb-2">
+                <a href="https://climaki.com/" target="_blank" rel="noreferrer" className="text-cyan-300 hover:text-cyan-100" title="Abrir Climaki">
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              </div>
+              <p className="text-[11px] text-slate-400 mb-2">Referência visual do Climaki + séries meteorológicas recentes.</p>
+
+              {loadingClimaki ? (
+                <p className="text-xs text-slate-400">Consultando chuva e umidade do solo...</p>
+              ) : climakiError ? (
+                <p className="text-xs text-amber-300">{climakiError}</p>
+              ) : climakiSnapshot ? (
+                <>
+                  <p className="text-[11px] text-slate-400 mb-2">{climakiSnapshot.locationLabel}</p>
+                  <div className="grid grid-cols-3 gap-2 mb-2">
+                    <div className="bg-slate-950/70 border border-slate-700 rounded p-2">
+                      <p className="text-[10px] text-slate-500">Chuva 24h</p>
+                      <p className="font-semibold text-cyan-200">{climakiSnapshot.rainLast24hMm.toFixed(1)} mm</p>
+                    </div>
+                    <div className="bg-slate-950/70 border border-slate-700 rounded p-2">
+                      <p className="text-[10px] text-slate-500">Chuva 72h</p>
+                      <p className="font-semibold text-cyan-200">{climakiSnapshot.rainLast72hMm.toFixed(1)} mm</p>
+                    </div>
+                    <div className="bg-slate-950/70 border border-slate-700 rounded p-2">
+                      <p className="text-[10px] text-slate-500">Umid. Solo</p>
+                      <p className="font-semibold text-cyan-200">{climakiSnapshot.soilMoisturePercent.toFixed(0)}%</p>
+                    </div>
                   </div>
                   <div className="bg-slate-950/70 border border-slate-700 rounded p-2">
-                    <p className="text-[10px] text-slate-500">Chuva 72h</p>
-                    <p className="font-semibold text-cyan-200">{climakiSnapshot.rainLast72hMm.toFixed(1)} mm</p>
+                    <p className="font-semibold text-white">Saturação: <span className="text-cyan-200">{climakiSnapshot.saturationLevel}</span></p>
+                    <p className="text-[11px] text-slate-300 mt-1">{climakiSnapshot.saturationRisk}</p>
                   </div>
-                  <div className="bg-slate-950/70 border border-slate-700 rounded p-2">
-                    <p className="text-[10px] text-slate-500">Umid. Solo</p>
-                    <p className="font-semibold text-cyan-200">{climakiSnapshot.soilMoisturePercent.toFixed(0)}%</p>
-                  </div>
-                </div>
-                <div className="bg-slate-950/70 border border-slate-700 rounded p-2">
-                  <p className="font-semibold text-white">Saturação: <span className="text-cyan-200">{climakiSnapshot.saturationLevel}</span></p>
-                  <p className="text-[11px] text-slate-300 mt-1">{climakiSnapshot.saturationRisk}</p>
-                </div>
-              </>
-            ) : null}
-          </div>
+                </>
+              ) : null}
+            </DraggablePanel>
+          )}
+
 
           {selectedPanel && (
             <div className={`absolute z-50 bg-slate-900 shadow-2xl border border-slate-600 flex flex-col overflow-hidden animate-in fade-in ${isPanelFullscreen ? 'inset-0 rounded-none' : 'bottom-4 left-4 w-96 h-80 rounded-xl slide-in-from-bottom-4'}`}>
@@ -909,6 +1215,54 @@ export default function App() {
           )}
         </div>
       </div>
+
+      {showRiskModal && (
+        <div className="fixed inset-0 z-[999] bg-black/70 flex items-center justify-center p-4">
+          <div className="w-full max-w-xl bg-slate-900 border border-slate-700 rounded-xl shadow-2xl">
+            <div className="p-4 border-b border-slate-700 flex items-start justify-between">
+              <div>
+                <h3 className="text-lg font-bold text-white flex items-center gap-2"><Siren className="w-5 h-5 text-rose-400" /> Marcar área de risco</h3>
+                {riskDraftPoint && <p className="text-xs text-slate-400 mt-1">Coordenadas: {riskDraftPoint.lat.toFixed(5)}, {riskDraftPoint.lng.toFixed(5)}</p>}
+              </div>
+              <button onClick={() => setShowRiskModal(false)} className="text-slate-400 hover:text-white"><X className="w-5 h-5" /></button>
+            </div>
+            <form className="p-4 space-y-3" onSubmit={handleRiskAreaSubmit}>
+              <input required value={riskForm.title} onChange={(event) => setRiskForm((prev) => ({ ...prev, title: event.target.value }))} className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm" placeholder="Título do alerta" />
+              <textarea required value={riskForm.message} onChange={(event) => setRiskForm((prev) => ({ ...prev, message: event.target.value }))} className="w-full min-h-20 bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm" placeholder="Descrição do risco" />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <select value={riskForm.severity} onChange={(event) => setRiskForm((prev) => ({ ...prev, severity: event.target.value }))} className="bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm">
+                  <option value="medium">Médio</option>
+                  <option value="high">Alto</option>
+                  <option value="critical">Crítico</option>
+                </select>
+                <input value={riskForm.radiusMeters} onChange={(event) => setRiskForm((prev) => ({ ...prev, radiusMeters: event.target.value }))} className="bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm" placeholder="Raio (m)" />
+              </div>
+              <label className="flex items-center gap-2 text-sm text-slate-300">
+                <input type="checkbox" checked={riskForm.addMissingPerson} onChange={(event) => setRiskForm((prev) => ({ ...prev, addMissingPerson: event.target.checked }))} />
+                Também cadastrar pessoa desaparecida neste ponto
+              </label>
+
+              {riskForm.addMissingPerson && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <input value={riskForm.personName} onChange={(event) => setRiskForm((prev) => ({ ...prev, personName: event.target.value }))} className="bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm" placeholder="Nome da pessoa" />
+                  <select value={riskForm.city} onChange={(event) => setRiskForm((prev) => ({ ...prev, city: event.target.value }))} className="bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm"><option>Ubá</option><option>Juiz de Fora</option><option>Matias Barbosa</option></select>
+                  <input value={riskForm.contactName} onChange={(event) => setRiskForm((prev) => ({ ...prev, contactName: event.target.value }))} className="bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm" placeholder="Nome do contato" />
+                  <input value={riskForm.contactPhone} onChange={(event) => setRiskForm((prev) => ({ ...prev, contactPhone: event.target.value }))} className="bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm" placeholder="Telefone" />
+                  <textarea value={riskForm.additionalInfo} onChange={(event) => setRiskForm((prev) => ({ ...prev, additionalInfo: event.target.value }))} className="md:col-span-2 w-full min-h-16 bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm" placeholder="Informações adicionais" />
+                </div>
+              )}
+
+              {riskError && <p className="text-xs text-red-400">{riskError}</p>}
+              {riskSuccess && <p className="text-xs text-emerald-400">{riskSuccess}</p>}
+              <div className="flex justify-end gap-2">
+                <button type="button" onClick={() => setShowRiskModal(false)} className="px-3 py-2 text-sm rounded border border-slate-600 text-slate-300 hover:text-white">Cancelar</button>
+                <button type="submit" disabled={savingRiskArea} className="px-3 py-2 text-sm rounded bg-rose-600 text-white font-semibold hover:bg-rose-500 disabled:opacity-70">{savingRiskArea ? 'Salvando...' : 'Salvar área de risco'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
 
       {showUploadModal && (
         <div className="fixed inset-0 z-[999] bg-black/70 flex items-center justify-center p-4">
