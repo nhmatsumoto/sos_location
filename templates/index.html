@@ -106,6 +106,21 @@
                                 <p class="small mb-1"><strong>{{ t.cfd.endpointLabel }}:</strong> <code>POST /api/location/flow-simulation</code></p>
                                 <p class="small mb-0 text-muted">{{ t.cfd.note }}</p>
                             </div>
+
+                            <hr>
+
+                            <h3 class="h6 text-uppercase text-muted">{{ t.quickActions }}</h3>
+                            <div class="btn-group-vertical w-100" role="group" :aria-label="t.quickActions">
+                                <button class="btn btn-outline-info text-left" type="button" @click="setPreset('center')">{{ t.presets.center }}</button>
+                                <button class="btn btn-outline-info text-left" type="button" @click="setPreset('north')">{{ t.presets.north }}</button>
+                                <button class="btn btn-outline-info text-left" type="button" @click="setPreset('south')">{{ t.presets.south }}</button>
+                            </div>
+
+                            <div class="status-box mt-3" role="status" aria-live="polite">
+                                <strong>{{ t.statusLabel }}:</strong>
+                                <span>{{ statusMessage }}</span>
+                            </div>
+                            <p v-if="errorMessage" class="text-danger small mt-2 mb-0">{{ errorMessage }}</p>
                         </div>
                     </div>
                 </section>

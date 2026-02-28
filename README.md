@@ -1,15 +1,14 @@
-# MG Location
+# MG Location — Centro de Comando para Resgate e Voluntariado (MG)
 
+Plataforma open-source para apoiar operações de resposta a desastres (enchentes, deslizamentos, rompimentos e eventos correlatos), conectando **coordenação tática**, **coleta de relatos em campo** e **visualização geoespacial** para acelerar decisões de busca, salvamento e prevenção.
 
-## Interface atual (Centro de Comando)
+**Produção:** https://mg-location.osei.ong.br
 
-![Centro de Comando com mapa em relevo](browser:/tmp/codex_browser_invocations/3619128cf054b41e/artifacts/docs/images/centro-comando.png)
+---
 
-## Stack atual
+## Estado do Projeto
 
-* Backend principal mantido em **Python (Django)**.
-* Projeto **.NET removido** deste repositório para simplificar operação e manutenção.
-* Frontend web em React + Leaflet + render 3D e app mobile em Flutter para captura em campo.
+O repositório está organizado em três frentes principais:
 
 ## Cobertura atual da interface (voluntários e busca/resgate)
 
@@ -24,135 +23,195 @@ A interface web principal agora cobre, de forma operacional, os fluxos essenciai
 
 ## Important
 
-* If you're looking for the project to predict victims' location of
-  disasters like Dam Collapse go to the project [Victims Location
-  Prediction](https://github.com/sosmg-location/victims_location_prediction)
+> Status atual: o `docker-compose` do repositório está focado no frontend web e é prioridade evoluir para stack completa (frontend + backend + persistência + serviços auxiliares).
 
-* If you want to contribute crawling data related with [MG LOCATION dam
-  disaster](https://en.wikipedia.org/wiki/MG LOCATION_dam_disaster) go to
-  the project [MG LOCATION
-  Crawlers](https://github.com/sosmg-location/mg-location_crawlers)
+---
 
-## English
-The aim of this project is to build and maintain a repository of tools to support emergency response, search, rescue, and recovery operations in disaster scenarios. This repository is inspired by MG LOCATION, but the current project is called MG Location and is currently focused on supporting response efforts for the ongoing disaster context in Brazil, including events such as dam failures, floods, wildfires, earthquakes, tsunamis, hurricanes, and related critical incidents.
+## Como Você Pode Ajudar
 
-### How to colaborate:
-* Please see the list of [Projects](https://github.com/dieegom/mg_location/projects) that are being worked on and their respective issues. Project details are also listed below.
-* If you can help with any issue, please add a comment to the issue to indicate that you will work on it. 
-* If you are the first to work on any given project, you can choose the language or technology that you are more familiar with.
-* If other volunteers are already helping with the project then please contact them to discuss what still needs to be implemented.
-* Once your change is complete please submit your Pull Request tagging the associated issue.
-* If you would like to suggest other tools for development then please create an issue and tag it with the #suggestion label.
+### Para devs
 
-We also have a Telegram discussion group. You can access it in [this link](https://t.me/joinchat/K2pTZk1Xjo0UEzmCzkJvXQ). Anyway, let's keep the discussion here on GitHub and let Telegram only for suggestions and/or others things not related to the code. 
+- Corrigir e simplificar setup de desenvolvimento local.
+- Evoluir o `docker-compose` para ambiente completo de ponta a ponta.
+- Melhorar APIs (validação, paginação, autenticação, contratos e documentação).
+- Evoluir UX do mapa (camadas, filtros, desempenho e acessibilidade).
+- Melhorar ingestão de mídia e pipeline de processamento (`/api/splat/convert`).
+- Adicionar observabilidade (logs estruturados, métricas, traces, health checks).
+- Criar testes automatizados (backend e frontend) e fixtures de dados de exemplo.
 
-You can fork the project at will. We will continue to improve the code throughout the week.
+### Para voluntários não devs
 
-Join us in this project! This may be useful in the future as well.
-Thank you!
+- Coletar relatos de campo (localização, contexto e evidências).
+- Validar qualidade de dados (duplicidade, inconsistências e atualização de status).
+- Ajudar no mapeamento de áreas já vistoriadas e áreas de risco.
+- Apoiar revisão textual e comunicação para públicos locais.
 
-### - Location 
-This tool calculates the probable location of missing individuals' bodies by taking into consideration their last known location coordinates (i.e. latitude and longitude) and the tailing flows.
+---
 
-The algorithm still needs improvement and to improve it, we will need tailings physical-chemical data, location topographic map (.csv), simulations of the tailing spreading, and, of course, the latitude and longitude coordinates from the victims' cell phones.
+## 5 minutos para rodar (Docker Compose)
 
-The production enviromment is currently live at: https://mg-location.osei.ong.br
+> O `docker-compose.yml` atual sobe o frontend em container na porta `8080`.
 
-We ask that those contributing to the project submit their Pull Requests as soon as possible to help improve the algorithm and make it available to those responsible for the search and rescue operations.
+```bash
+git clone https://github.com/<seu-user>/mg_location.git
+cd mg_location
+docker compose up --build
+```
 
-#### Ideas to be implemented:
-*  http://fluidityproject.github.io/
-*  http://lorenabarba.com/blog/cfd-python-12-steps-to-navier-stokes/
-*  https://pt.wikipedia.org/wiki/Equa%C3%A7%C3%B5es_de_Navier-Stokes
-*  http://rlguy.com/gridfluidsim/
-  
-### Support material
-* Using Python to Solve the Navier-Stokes Equations
-  http://www.journalrepository.org/media/journals/JSRR_22/2015/May/Liu732015JSRR17346.pdf
-* Grid Fluid Sim 3D Exemples
-  https://github.com/rlguy/GridFluidSim3D/tree/master/src/examples/python
+Acesse: **http://localhost:8080**
 
-### API MVP implemented (rescue suite)
-* `GET /api/hotspots` - ranking de áreas críticas.
-* `GET,POST /api/collapse-reports` - upload de vídeos e fila de ingestão.
-* `GET /api/rescue-support` - snapshot tático com agentes especialistas e locais prováveis.
-* `POST /api/location/flow-simulation` - simulação simplificada de fluxo de rejeitos (base CFD).
-* `GET,POST /api/searched-areas` - registro de áreas já buscadas por equipes.
-* `GET,POST /api/report-info` - relatos de pessoas e animais desaparecidos.
-* `GET /api/missing-people.csv` - exportação CSV de desaparecidos.
-* `POST /api/identify-victim` - matching inicial de identificação (triagem).
-* `GET /api/cfd/ideas` - referências e materiais técnicos de fluidodinâmica.
+---
 
+## Desenvolvimento Local
 
-### - Where we had searched
-This tool provides information regarding  areas that have already been inspected by the search and rescue teams. 
+### Backend (Django)
 
-### - Report info
-App to report missing people and missing animals.
+Pré-requisitos sugeridos:
 
-### - Missing people list
-This tool returns an updated .csv with all the names of missing people.
+- Python 3.10+
+- `pip`
 
-### - Identify the victim body
-Through a set of photos provided by victims relatives in [this project](https://github.com/dieegom/mg_location/projects/3) and based on the picture of the body found, identify who is the possible victim.
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python manage.py migrate
+python manage.py runserver 0.0.0.0:8000
+```
 
-## Português
-Este projeto tem como foco ser um repositório de ferramentas para apoiar ações de resposta a emergências, busca, resgate e recuperação em diferentes tipos de desastres. O repositório é inspirado no MG LOCATION, mas este projeto se chama MG Location e, por enquanto, está focado no desastre atual em curso no Brasil, incluindo cenários como rompimentos de barragem, enchentes, incêndios, terremotos, tsunamis, furacões e outros eventos críticos. 
+API local: `http://localhost:8000/api/...`
 
->No início da tarde do dia 25 de janeiro de 2019 rompeu-se uma barragem de rejeitos de mineração controlada pela Vale S.A.,construída no ribeirão Ferro-Carvão, na localidade de Córrego do Feijão.
->
-> — https://pt.wikipedia.org/wiki/Rompimento_de_barragem_em_MG LOCATION
+### Frontend (React + Vite)
 
-### Como colaborar
+Pré-requisitos sugeridos:
 
-* Acesse [Projetos](https://github.com/dieegom/mg_location/projects) e veja a lista de ferramentas que estamos desenvolvendo e suas respectivas issues. Você também pode ver essa lista logo abaixo. 
-* Se você puder ajudar com alguma issue, escreva um comentário dizendo que você irá trabalhar nela.
-* Se você for o primeiro a trabalhar no projeto, você pode escolher a linguagem ou tecnologia que se sinta mais confortável.
-* Se mais voluntários estiverem ajudando, contate-os antes para saber o que ainda precisa ser implementado.
-* Quando acabar, façam seu Pull Request informando a issue associada.
-* Se tiver sugestão de alguma outra ferramenta, cadastre uma issue usando o label #suggestion
+- Node.js 20+
+- npm
 
+```bash
+cd frontend-react
+npm install
+npm run dev
+```
 
-Nós também temos um grupo de discussão no Telegram que pode ser acessado [neste link](https://t.me/joinchat/K2pTZk1Xjo0UEzmCzkJvXQ). De qualquer maneira, vamos manter a discussão aqui no GitHub e usar o Telegram apenas para sugestões e/ou dúvidas não relacionadas ao código. 
+Frontend local: `http://localhost:5173`
 
+### Mobile (Flutter)
 
-"Forkem" à vontade. Continuaremos melhorando o código ao longo da semana. <br/><br/>
-Vamos todos fazer a nossa parte! Isto pode ser útil no futuro também.<br/>
-Obrigado.
+```bash
+cd flutter_capture_app
+flutter pub get
+flutter run
+```
 
-### - Location 
+> Configure o `apiBaseUrl` em `flutter_capture_app/lib/main.dart` apontando para o backend acessível pelo dispositivo/emulador.
 
-Essa ferramenta requer as coordenadas de latitude e longitude dos desaparecidos para calcular a estimativa baseando-se no fluxo de rejeitos <br/>
-O algoritmo precisa ser melhorado (e muito) ainda. Além disso, fizemos apenas com os poucos dados que obtivemos. Ideal seria termos dados físico-químicos do rejeito, mapa topográfico (em .csv) do local, simulações do rejeito se espalhando e, claro, latitude e longitude dos celulares.<br/>
+---
 
-Vamos deixar o sistema atualizado rodando em: https://mg-location.osei.ong.br  <br/>
-Pedimos aos Devs que façam seus Pull Requests para que possamos deixar este algoritmo mais robusto e disponível para os responsáveis pelo resgate. "Forkem" à vontade. Continuaremos melhorando o código ao longo da semana. <br/><br/>
+## Arquitetura e APIs
 
-####  Ideias a serem implementadas: <br/>
-*  http://fluidityproject.github.io/ <br/>
-*  http://lorenabarba.com/blog/cfd-python-12-steps-to-navier-stokes/ <br/>
-*  https://pt.wikipedia.org/wiki/Equa%C3%A7%C3%B5es_de_Navier-Stokes <br/>
-*  http://rlguy.com/gridfluidsim/<br/><br/>
+### Evolução planejada: renderização 3D + análise preditiva
 
+Como próximo passo do MG Location, vamos incorporar um pipeline voltado para nuvens de pontos (Point Cloud):
 
-### Materiais de apoio: 
-* Using Python to Solve the Navier-Stokes Equations
-  http://www.journalrepository.org/media/journals/JSRR_22/2015/May/Liu732015JSRR17346.pdf
-* Grid Fluid Sim 3D Exemplos
-  https://github.com/rlguy/GridFluidSim3D/tree/master/src/examples/python
+1. **Renderização 3D de dados de campo** usando uma biblioteca como **Potree** (ou alternativa compatível), permitindo inspeção espacial de áreas críticas.
+2. **Enriquecimento com dados climáticos e geométricos** para compor features de risco.
+3. **Inferência com modelos de machine learning** treinados para **estimar áreas de soterramento**.
+4. **Integração no fluxo operacional** para que visualização 3D e predição convivam no centro de comando, apoiando priorização de buscas em tempo real.
 
+Essa linha de evolução será implementada de forma incremental, com validação por cenários reais e comparação contínua entre predição e evidências coletadas em campo.
 
+### Estrutura principal do repositório
 
-### - Onde já foi buscado
-Nesta ferramenta locais e equipes de resgatem podem fornecer informações de geolocalização sobre as áreas onde as buscas já foram realizadas.
+- `core/` — configuração central do projeto Django (`settings.py`, `urls.py`).
+- `apps/api/` — endpoints REST para operação e suporte a resposta.
+- `apps/map/` — rotas/templates do mapa no backend.
+- `frontend-react/` — aplicação web (React + Leaflet + Three.js).
+- `flutter_capture_app/` — app mobile para captura em campo.
+- `templates/`, `static/` — assets e páginas do backend.
+- `geolocations_service/` — serviço legado/experimental relacionado a geolocalizações.
 
-### - Report info
-App para relatar informações de pessoas e animais desaparecidos
+### Endpoints disponíveis (`/api`)
 
+- `POST /api/calculate`
+- `GET /api/hotspots`
+- `GET, POST /api/collapse-reports`
+- `GET /api/rescue-support`
+- `POST /api/location/flow-simulation`
+- `GET, POST /api/searched-areas`
+- `GET, POST /api/report-info`
+- `GET /api/missing-people.csv`
+- `POST /api/identify-victim`
+- `GET /api/cfd/ideas`
+- `GET, POST /api/splat/convert`
+- `POST /api/push/register`
+- `GET, POST /api/attention-alerts`
 
-### - Missing people list
-Essa ferramenta retorna um arquivo .csv atualizado com todos os nomes das pessoas desaparecidas.
+---
 
+## Prioridades Atuais (P0)
 
-### - Identificar o corpo da vítima
-Utilizando um conjunto de fotos fornecidos por parentes e amigos da vítimas [neste projeto] (https://github.com/dieegom/mg_location/projects/3) e baseado na foto do corpo, identificar quem possivelmente é a vítima.
+1. **Docker Compose completo** (frontend + backend + banco + volumes + rede + variáveis).
+2. **Dados de exemplo/seed confiáveis** para demo local e QA.
+3. **Documentação de setup única e reproduzível** (onboarding em minutos).
+4. **Padronização de contratos da API** (erros, status, validações, schemas).
+5. **Fluxo mínimo de observabilidade e saúde** (`/health`, logs e checks básicos).
+
+👉 **Chamada para ação:** escolha uma dessas prioridades, abra uma issue/PR e ajude a acelerar o impacto do projeto.
+
+---
+
+## Segurança e Uso Responsável
+
+Este projeto pode lidar com dados sensíveis de pessoas em situação de risco. Portanto:
+
+- Não publique dados pessoais sem base legal e sem necessidade operacional.
+- Minimize coleta e retenção de dados identificáveis.
+- Revise permissões de acesso e sanitização de uploads.
+- Reporte vulnerabilidades de forma responsável.
+
+Consulte a política em **[SECURITY.md](./SECURITY.md)**.
+
+---
+
+## Projetos Relacionados
+
+- **Victims Location Prediction:** https://github.com/sosmg-location/victims_location_prediction
+- **MG Location Crawlers:** https://github.com/sosmg-location/mg-location_crawlers
+
+---
+
+## Contribuição
+
+Toda ajuda é bem-vinda — código, validação de dados, testes, documentação e operação.
+
+### PR Checklist
+
+Antes de abrir PR, verifique:
+
+- [ ] O escopo está claro e objetivo.
+- [ ] A mudança foi testada localmente.
+- [ ] Não há segredos/chaves no código ou histórico.
+- [ ] Documentação/README atualizados quando necessário.
+- [ ] Endpoints/contratos alterados foram descritos.
+- [ ] Issue relacionada foi referenciada (quando aplicável).
+
+Também consulte **[CONTRIBUTING.md](./CONTRIBUTING.md)** para orientações de convivência e colaboração.
+
+---
+
+## Licença
+
+Distribuído sob licença **MIT**.
+
+---
+
+## Apoie o MG Location
+
+Se este projeto fizer sentido para você:
+
+- ⭐ Dê uma estrela no repositório
+- 🔁 Compartilhe com outras pessoas e comunidades
+- 🤝 Contribua com código, dados, validação e operação
+
+Juntos, conseguimos entregar uma resposta mais rápida, coordenada e humana em cenários de desastre.
