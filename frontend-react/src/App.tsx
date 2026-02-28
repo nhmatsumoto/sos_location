@@ -121,6 +121,14 @@ interface SupportPoint {
   createdAtUtc: string;
 }
 
+interface DonationTask {
+  id: string;
+  item: string;
+  quantity: string;
+  location: string;
+  status: 'aberto' | 'em_andamento' | 'concluido';
+}
+
 interface FlowCell {
   lat: number;
   lng: number;
@@ -214,6 +222,12 @@ const initialRiskForm = {
   contactName: '',
   contactPhone: '',
   additionalInfo: '',
+};
+
+const initialDonationForm = {
+  item: 'Água potável',
+  quantity: '120 kits',
+  location: 'Centro comunitário de Ubá',
 };
 
 interface SelectedPanel {
@@ -341,7 +355,7 @@ export default function App() {
   const [riskError, setRiskError] = useState('');
   const [riskSuccess, setRiskSuccess] = useState('');
   const [riskForm, setRiskForm] = useState(initialRiskForm);
-  const [sidebarTab, setSidebarTab] = useState<'flood' | 'news' | 'missing' | 'hotspots' | 'support'>('flood');
+  const [sidebarTab, setSidebarTab] = useState<'flood' | 'news' | 'missing' | 'hotspots' | 'support' | 'volunteers'>('flood');
   const [mapActionMode, setMapActionMode] = useState<'none' | 'incident' | 'risk' | 'support'>('none');
   const [lastMapClick, setLastMapClick] = useState<{ lat: number; lng: number } | null>(null);
   const [mapQuickMenu, setMapQuickMenu] = useState<{
@@ -352,6 +366,11 @@ export default function App() {
     lng: number;
   } | null>(null);
   const [supportPoints, setSupportPoints] = useState<SupportPoint[]>([]);
+  const [donationForm, setDonationForm] = useState(initialDonationForm);
+  const [donationTasks, setDonationTasks] = useState<DonationTask[]>([
+    { id: 'DT-001', item: 'Cobertores', quantity: '80 unidades', location: 'Escola Municipal A', status: 'aberto' },
+    { id: 'DT-002', item: 'Cestas básicas', quantity: '45 unidades', location: 'Paróquia Central', status: 'em_andamento' },
+  ]);
   const mapOverlayRef = useRef<HTMLDivElement | null>(null);
   const [floatingPanelPositions, setFloatingPanelPositions] = useState<Record<FloatingPanelId, FloatingPanelPosition>>({
     global: { top: 16, left: 16 },
@@ -821,6 +840,19 @@ export default function App() {
   };
 
 
+  const handleDonationSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setDonationTasks((prev) => ([{
+      id: `DT-${Date.now()}`,
+      item: donationForm.item,
+      quantity: donationForm.quantity,
+      location: donationForm.location,
+      status: 'aberto',
+    }, ...prev]));
+    setDonationForm(initialDonationForm);
+  };
+
+
   const openPanel = (panel: SelectedPanel) => {
     setSelectedPanel(panel);
     setIsPanelFullscreen(true);
@@ -902,13 +934,14 @@ export default function App() {
           </div>
 
           <div className="px-4 py-2 border-b border-slate-700 bg-slate-900/60">
-            <div className="grid grid-cols-5 gap-2 text-[11px]">
+            <div className="grid grid-cols-6 gap-2 text-[11px]">
               {([
                 { key: 'flood', label: 'Enchente' },
                 { key: 'news', label: 'Notícias' },
                 { key: 'missing', label: 'Desaparecidos' },
                 { key: 'hotspots', label: 'Hotspots' },
                 { key: 'support', label: 'Apoio' },
+                { key: 'volunteers', label: 'Voluntários' },
               ] as const).map((tab) => (
                 <button
                   key={tab.key}
@@ -997,6 +1030,31 @@ export default function App() {
                 ))}
               </ul>
             )}
+          </div>
+
+          <div className={`px-4 py-3 border-b border-slate-700 bg-slate-800/50 transition-all duration-300 ${sidebarTab === 'volunteers' ? 'opacity-100 translate-y-0' : 'hidden opacity-0 -translate-y-1'}`}>
+            <h2 className="text-xs uppercase tracking-wider text-slate-400 mb-2">Central de voluntários</h2>
+            <div className="grid grid-cols-2 gap-2 mb-2">
+              <button onClick={() => { setShowMissingModal(true); setMissingError(''); setMissingSuccess(''); }} className="text-xs px-2 py-1.5 rounded bg-amber-600 hover:bg-amber-500 text-white">Cadastrar desaparecido</button>
+              <button onClick={() => { setShowUploadModal(true); setUploadError(''); setUploadSuccess(''); }} className="text-xs px-2 py-1.5 rounded bg-blue-600 hover:bg-blue-500 text-white">Enviar evidência</button>
+            </div>
+            <form className="space-y-2 mb-2" onSubmit={handleDonationSubmit}>
+              <input value={donationForm.item} onChange={(e) => setDonationForm((prev) => ({ ...prev, item: e.target.value }))} className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs" placeholder="Item de doação" />
+              <div className="grid grid-cols-2 gap-2">
+                <input value={donationForm.quantity} onChange={(e) => setDonationForm((prev) => ({ ...prev, quantity: e.target.value }))} className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs" placeholder="Quantidade" />
+                <input value={donationForm.location} onChange={(e) => setDonationForm((prev) => ({ ...prev, location: e.target.value }))} className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs" placeholder="Local de entrega" />
+              </div>
+              <button type="submit" className="w-full text-xs px-2 py-1.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white">Adicionar demanda de doação</button>
+            </form>
+            <ul className="space-y-2 max-h-36 overflow-y-auto pr-1">
+              {donationTasks.slice(0, 8).map((task) => (
+                <li key={task.id} className="text-xs bg-slate-900/60 border border-slate-700 rounded-md p-2">
+                  <p className="font-semibold text-white">{task.item} • {task.quantity}</p>
+                  <p className="text-slate-400">{task.location}</p>
+                  <p className="text-cyan-300">Status: {task.status.replace('_', ' ')}</p>
+                </li>
+              ))}
+            </ul>
           </div>
 
           <div className={`flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar transition-all duration-300 ${sidebarTab === 'hotspots' ? 'opacity-100 translate-y-0' : 'hidden opacity-0 -translate-y-1'}`}>
