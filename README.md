@@ -238,3 +238,43 @@ Se este projeto fizer sentido para você:
 - 🤝 Contribua com código, dados, validação e operação
 
 Juntos, conseguimos entregar uma resposta mais rápida, coordenada e humana em cenários de desastre.
+
+
+## Persistência e Resiliência (PostgreSQL)
+
+A API agora suporta persistência em PostgreSQL para cargas de desastre e retenção confiável dos cadastros de campo:
+
+- `AttentionAlert` (áreas de risco)
+- `MissingPerson` (pessoas desaparecidas)
+- `CollapseReport` (relatos com vídeo)
+
+### Variáveis de banco
+
+Configure no ambiente da API:
+
+- `DB_ENGINE` (ex: `django.db.backends.postgresql`)
+- `DB_NAME`
+- `DB_USER`
+- `DB_PASSWORD`
+- `DB_HOST`
+- `DB_PORT`
+- `DB_CONN_MAX_AGE`
+- `DB_SSLMODE`
+
+Com `DB_ENGINE` não definido, o projeto continua em SQLite para desenvolvimento local.
+
+### Endpoints principais (frontend + backend alinhados)
+
+- `GET/POST /api/attention-alerts`
+- `GET/POST /api/missing-persons`
+- `GET/POST /api/collapse-reports`
+- `POST /api/location/flow-simulation` (aceita `lat/lng` e também `sourceLat/sourceLng`)
+
+### Arquitetura recomendada para eventos de desastre
+
+- API Django em múltiplas réplicas atrás de load balancer
+- PostgreSQL gerenciado com réplica de leitura e backup contínuo (PITR)
+- Pool de conexões e `CONN_MAX_AGE` ativo
+- Criptografia em trânsito (TLS) e em repouso no banco
+- Segredos fora do código (variáveis/secret manager)
+- Logs e auditoria de acesso para dados pessoais sensíveis

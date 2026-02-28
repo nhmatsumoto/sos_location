@@ -9,12 +9,14 @@ from urllib.request import urlopen
 
 import googlemaps
 from django.conf import settings
+from django.db import transaction
 from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.api.models import AttentionAlert, CollapseReport, MissingPerson
 from apps.api.serializers import CoordinateSerializer
 from apps.api.utils import Position
 
@@ -162,6 +164,52 @@ def _parse_float(value):
         return float(value)
     except (TypeError, ValueError):
         return None
+
+
+def _attention_alert_to_dict(alert):
+    return {
+        'id': alert.external_id,
+        'title': alert.title,
+        'message': alert.message,
+        'severity': alert.severity,
+        'lat': alert.lat,
+        'lng': alert.lng,
+        'radiusMeters': alert.radius_meters,
+        'createdAtUtc': alert.created_at.isoformat(),
+    }
+
+
+def _missing_person_to_dict(person):
+    return {
+        'id': person.external_id,
+        'personName': person.person_name,
+        'age': person.age,
+        'city': person.city,
+        'lastSeenLocation': person.last_seen_location,
+        'physicalDescription': person.physical_description,
+        'additionalInfo': person.additional_info,
+        'contactName': person.contact_name,
+        'contactPhone': person.contact_phone,
+        'reportedAtUtc': person.created_at.isoformat(),
+    }
+
+
+def _collapse_report_to_dict(report):
+    return {
+        'id': report.external_id,
+        'locationName': report.location_name,
+        'latitude': report.latitude,
+        'longitude': report.longitude,
+        'description': report.description,
+        'reporterName': report.reporter_name,
+        'reporterPhone': report.reporter_phone,
+        'videoFileName': report.video_file_name,
+        'storedVideoPath': report.stored_video_path,
+        'videoSizeBytes': report.video_size_bytes,
+        'uploadedAtUtc': report.created_at.isoformat(),
+        'processingStatus': report.processing_status,
+        'splatPipelineHint': report.splat_pipeline_hint,
+    }
 
 
 def _safe_fetch_json(url, timeout=3):
@@ -455,8 +503,8 @@ def hotspots(request):
 @csrf_exempt
 def collapse_reports(request):
     if request.method == 'GET':
-        ordered = sorted(COLLAPSE_REPORTS, key=lambda r: r["uploadedAtUtc"], reverse=True)
-        return JsonResponse(ordered, safe=False)
+        reports = [_collapse_report_to_dict(item) for item in CollapseReport.objects.order_by('-created_at')[:500]]
+        return JsonResponse(reports, safe=False)
 
     if request.method != 'POST':
         return HttpResponse(status=405)
@@ -478,34 +526,33 @@ def collapse_reports(request):
         for chunk in video.chunks():
             destination.write(chunk)
 
-    report = {
-        "id": report_id,
-        "locationName": request.POST.get('locationName') or 'Sem nome',
-        "latitude": latitude,
-        "longitude": longitude,
-        "description": request.POST.get('description') or '',
-        "reporterName": request.POST.get('reporterName') or '',
-        "reporterPhone": request.POST.get('reporterPhone') or '',
-        "videoFileName": video.name,
-        "storedVideoPath": file_path,
-        "videoSizeBytes": video.size,
-        "uploadedAtUtc": datetime.now(timezone.utc).isoformat(),
-        "processingStatus": 'Pending',
-        "splatPipelineHint": 'Pronto para ingestão em gaussian-splatting/convert.py e train.py',
-    }
+    with transaction.atomic():
+        report = CollapseReport.objects.create(
+            external_id=report_id,
+            location_name=request.POST.get('locationName') or 'Sem nome',
+            latitude=latitude,
+            longitude=longitude,
+            description=request.POST.get('description') or '',
+            reporter_name=request.POST.get('reporterName') or '',
+            reporter_phone=request.POST.get('reporterPhone') or '',
+            video_file_name=video.name,
+            stored_video_path=file_path,
+            video_size_bytes=video.size,
+            processing_status='Pending',
+            splat_pipeline_hint='Pronto para ingestão em gaussian-splatting/convert.py e train.py',
+        )
 
-    COLLAPSE_REPORTS.append(report)
-    ATTENTION_ALERTS.append({
-        "id": "AL-{}".format(uuid.uuid4().hex[:8]),
-        "title": "Novo vídeo de deslizamento",
-        "message": "Relato enviado de {}. Priorizar revisão de campo e drone.".format(report["locationName"]),
-        "severity": "critical",
-        "lat": latitude,
-        "lng": longitude,
-        "radiusMeters": 500,
-        "createdAtUtc": datetime.now(timezone.utc).isoformat(),
-    })
-    return JsonResponse(report, status=201)
+        AttentionAlert.objects.create(
+            external_id='AL-{}'.format(uuid.uuid4().hex[:8]),
+            title='Novo vídeo de deslizamento',
+            message='Relato enviado de {}. Priorizar revisão de campo e drone.'.format(report.location_name),
+            severity='critical',
+            lat=latitude,
+            lng=longitude,
+            radius_meters=500,
+        )
+
+    return JsonResponse(_collapse_report_to_dict(report), status=201)
 
 
 @csrf_exempt
@@ -526,17 +573,56 @@ def location_flow_simulation(request):
         return HttpResponse(status=405)
 
     payload = _request_payload(request)
-    lat = _parse_float(payload.get('lat'))
-    lng = _parse_float(payload.get('lng'))
-    rainfall_override = _parse_float(payload.get('rainfallMm'))
+    lat = _parse_float(payload.get('lat', payload.get('sourceLat')))
+    lng = _parse_float(payload.get('lng', payload.get('sourceLng')))
+    rainfall_override = _parse_float(payload.get('rainfallMm', payload.get('rainfallMmPerHour')))
     slope_factor = _parse_float(payload.get('slopeFactor')) or 35.0
     steps = int(payload.get('steps') or 8)
 
     if lat is None or lng is None:
-        return _json_error('lat e lng são obrigatórios para simulação de fluxo.')
+        return _json_error('lat/lng ou sourceLat/sourceLng são obrigatórios para simulação de fluxo.')
 
     terrain_context = _terrain_open_data_context(lat, lng, rainfall_override)
-    return JsonResponse(_simulate_tailing_flow(lat, lng, slope_factor, steps, terrain_context), safe=False)
+    legacy = _simulate_tailing_flow(lat, lng, slope_factor, steps, terrain_context)
+
+    path = legacy.get('flowPath') or []
+    flooded_cells = []
+    max_depth = 0.0
+    for point in path:
+        depth = float(point.get('relativeDepthM') or 0.0)
+        max_depth = max(max_depth, depth)
+        flooded_cells.append({
+            'lat': point.get('lat'),
+            'lng': point.get('lng'),
+            'depth': round(depth, 3),
+            'terrain': point.get('terrain', {}).get('elevationM', 0),
+            'velocity': round(0.8 + depth * 2.4, 3),
+        })
+
+    cell_size = _parse_float(payload.get('cellSizeMeters')) or 25
+    estimated_area = len(flooded_cells) * (cell_size ** 2)
+
+    return JsonResponse(
+        {
+            'generatedAtUtc': datetime.now(timezone.utc).isoformat(),
+            'floodedCells': flooded_cells,
+            'mainPath': [
+                {
+                    'lat': p.get('lat'),
+                    'lng': p.get('lng'),
+                    'step': p.get('step'),
+                    'depth': round(float(p.get('relativeDepthM') or 0), 3),
+                }
+                for p in path
+            ],
+            'maxDepth': round(max_depth, 3),
+            'estimatedAffectedAreaM2': round(estimated_area, 1),
+            'disclaimer': legacy.get('notes'),
+            'references': legacy.get('references'),
+            'terrainContext': legacy.get('terrainContext'),
+        },
+        safe=False,
+    )
 
 
 @csrf_exempt
@@ -642,9 +728,17 @@ def missing_people_csv(request):
 
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(['name', 'age', 'category', 'lastSeen', 'status'])
-    for person in MISSING_PEOPLE:
-        writer.writerow([person['name'], person.get('age', ''), person['category'], person['lastSeen'], person['status']])
+    writer.writerow(['personName', 'age', 'city', 'lastSeenLocation', 'contactName', 'reportedAtUtc'])
+    queryset = MissingPerson.objects.order_by('-created_at')[:5000]
+    for person in queryset:
+      writer.writerow([
+          person.person_name,
+          person.age if person.age is not None else '',
+          person.city,
+          person.last_seen_location,
+          person.contact_name,
+          person.created_at.isoformat(),
+      ])
 
     response = HttpResponse(output.getvalue(), content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="missing_people.csv"'
@@ -791,8 +885,11 @@ def push_register(request):
 @csrf_exempt
 def attention_alerts(request):
     if request.method == 'GET':
-        ordered = sorted(ATTENTION_ALERTS, key=lambda alert: alert['createdAtUtc'], reverse=True)
-        return JsonResponse(ordered, safe=False)
+        alerts = [_attention_alert_to_dict(item) for item in AttentionAlert.objects.order_by('-created_at')[:500]]
+        if not alerts:
+            for seed in ATTENTION_ALERTS:
+                alerts.append(seed)
+        return JsonResponse(alerts, safe=False)
 
     if request.method != 'POST':
         return HttpResponse(status=405)
@@ -806,21 +903,61 @@ def attention_alerts(request):
     if not title or not message or lat is None or lng is None:
         return _json_error('title, message, lat e lng são obrigatórios.')
 
-    alert = {
-        'id': 'AL-{}'.format(uuid.uuid4().hex[:8]),
-        'title': title,
-        'message': message,
-        'severity': payload.get('severity') or 'medium',
-        'lat': lat,
-        'lng': lng,
-        'radiusMeters': int(payload.get('radiusMeters') or 500),
-        'createdAtUtc': datetime.now(timezone.utc).isoformat(),
-    }
-
-    ATTENTION_ALERTS.append(alert)
+    alert = AttentionAlert.objects.create(
+        external_id='AL-{}'.format(uuid.uuid4().hex[:8]),
+        title=title,
+        message=message,
+        severity=payload.get('severity') or 'medium',
+        lat=lat,
+        lng=lng,
+        radius_meters=int(payload.get('radiusMeters') or 500),
+    )
 
     return JsonResponse({
-        'alert': alert,
+        'alert': _attention_alert_to_dict(alert),
         'registeredDevices': len(DEVICE_SUBSCRIPTIONS),
         'delivery': 'Simulação local: envio via provedor push externo (FCM/APNs).',
     }, status=201)
+
+
+@csrf_exempt
+def missing_persons(request):
+    if request.method == 'GET':
+        people = [_missing_person_to_dict(item) for item in MissingPerson.objects.order_by('-created_at')[:1000]]
+        return JsonResponse(people, safe=False)
+
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    payload = _request_payload(request)
+    person_name = payload.get('personName')
+    city = payload.get('city')
+    last_seen = payload.get('lastSeenLocation')
+    contact_name = payload.get('contactName')
+    contact_phone = payload.get('contactPhone')
+
+    if not person_name or not city or not last_seen or not contact_name or not contact_phone:
+        return _json_error('personName, city, lastSeenLocation, contactName e contactPhone são obrigatórios.')
+
+    age_raw = payload.get('age')
+    age = None
+    if age_raw not in (None, ''):
+        try:
+            age = int(age_raw)
+        except (TypeError, ValueError):
+            return _json_error('age deve ser numérico quando informado.')
+
+    person = MissingPerson.objects.create(
+        external_id='MP-{}'.format(uuid.uuid4().hex[:8]),
+        person_name=person_name,
+        age=age,
+        city=city,
+        last_seen_location=last_seen,
+        physical_description=payload.get('physicalDescription') or '',
+        additional_info=payload.get('additionalInfo') or '',
+        contact_name=contact_name,
+        contact_phone=contact_phone,
+        source=payload.get('source') or 'manual',
+    )
+
+    return JsonResponse(_missing_person_to_dict(person), status=201)
