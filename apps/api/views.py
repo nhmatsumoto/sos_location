@@ -1,8 +1,11 @@
 import csv
 import io
+import json
 import os
 import uuid
 from datetime import datetime, timezone
+from urllib.parse import quote
+from urllib.request import urlopen
 
 import googlemaps
 from django.conf import settings
@@ -130,6 +133,25 @@ CFD_REFERENCE = {
     ],
 }
 
+# Camadas simplificadas de terreno (fallback local) inspiradas em fontes abertas
+# de cobertura vegetal (Copernicus/ESA), textura de solo (SoilGrids),
+# e umidade antecedente por precipitação (Open-Meteo).
+OPEN_TERRAIN_FALLBACK = {
+    "soilTexture": "clay_loam",
+    "soilDensityKgM3": 1430,
+    "vegetationCoverPercent": 62,
+    "landUse": "Mosaico agroflorestal",
+    "baseSoilSaturation": 0.52,
+}
+
+SOIL_TYPE_FACTORS = {
+    "sand": {"infiltration": 0.82, "stability": 0.55, "roughness": 0.45},
+    "sandy_loam": {"infiltration": 0.70, "stability": 0.62, "roughness": 0.52},
+    "loam": {"infiltration": 0.64, "stability": 0.70, "roughness": 0.58},
+    "clay_loam": {"infiltration": 0.47, "stability": 0.66, "roughness": 0.64},
+    "clay": {"infiltration": 0.31, "stability": 0.59, "roughness": 0.73},
+}
+
 
 def _json_error(message, status_code=400):
     return JsonResponse({"error": message}, status=status_code)
@@ -142,6 +164,93 @@ def _parse_float(value):
         return None
 
 
+def _safe_fetch_json(url, timeout=3):
+    try:
+        with urlopen(url, timeout=timeout) as response:
+            return json.loads(response.read().decode('utf-8'))
+    except Exception:
+        return None
+
+
+def _open_meteo_rainfall_mm(lat, lng):
+    query = (
+        'https://api.open-meteo.com/v1/forecast?latitude={}&longitude={}'
+        '&hourly=precipitation&past_days=1&forecast_days=1'
+    ).format(lat, lng)
+    payload = _safe_fetch_json(query)
+    if not payload:
+        return None
+    hourly = payload.get('hourly', {})
+    values = hourly.get('precipitation') or []
+    if not values:
+        return None
+    return round(sum(v for v in values if isinstance(v, (int, float))), 2)
+
+
+def _open_elevation_m(lat, lng):
+    # Open-Meteo elevation endpoint (fonte aberta)
+    query = 'https://api.open-meteo.com/v1/elevation?latitude={}&longitude={}'.format(lat, lng)
+    payload = _safe_fetch_json(query)
+    if not payload:
+        return None
+    elevation = payload.get('elevation') or []
+    if not elevation:
+        return None
+    return round(float(elevation[0]), 2)
+
+
+def _terrain_open_data_context(lat, lng, rainfall_override=None):
+    rainfall_mm = rainfall_override if rainfall_override is not None else _open_meteo_rainfall_mm(lat, lng)
+    elevation_m = _open_elevation_m(lat, lng)
+
+    # Mantém fallback local para reduzir dependência de rede e garantir resposta.
+    vegetation = OPEN_TERRAIN_FALLBACK['vegetationCoverPercent']
+    soil_density = OPEN_TERRAIN_FALLBACK['soilDensityKgM3']
+    soil_type = OPEN_TERRAIN_FALLBACK['soilTexture']
+    land_use = OPEN_TERRAIN_FALLBACK['landUse']
+    base_saturation = OPEN_TERRAIN_FALLBACK['baseSoilSaturation']
+
+    # Se não houver chuva da API aberta, estima valor conservador por fallback.
+    if rainfall_mm is None:
+        rainfall_mm = 48.0
+
+    soil_factor = SOIL_TYPE_FACTORS.get(soil_type, SOIL_TYPE_FACTORS['loam'])
+    climate_saturation = min(0.98, base_saturation + (rainfall_mm / 220.0))
+
+    # Cruzamento simples entre terreno + clima + cobertura vegetal.
+    friction = (
+        (0.35 * soil_factor['roughness'])
+        + (0.30 * (vegetation / 100.0))
+        + (0.35 * (1.0 - climate_saturation))
+    )
+
+    flow_mobility_index = max(
+        0.1,
+        min(
+            1.25,
+            (1.05 - friction) + (1.0 - soil_factor['stability']) * 0.42 + climate_saturation * 0.28,
+        ),
+    )
+
+    source_flags = {
+        'rainfall': 'Open-Meteo' if rainfall_override is None else 'request-override',
+        'elevation': 'Open-Meteo' if elevation_m is not None else 'fallback-local',
+        'vegetation': 'fallback-local (referência Copernicus/ESA)',
+        'soil': 'fallback-local (referência SoilGrids)',
+    }
+
+    return {
+        'rainfallMm24h': round(rainfall_mm, 2),
+        'elevationM': elevation_m if elevation_m is not None else 780.0,
+        'soilType': soil_type,
+        'soilDensityKgM3': soil_density,
+        'soilSaturation': round(climate_saturation, 3),
+        'vegetationCoverPercent': vegetation,
+        'landUse': land_use,
+        'soilInfiltrationFactor': soil_factor['infiltration'],
+        'flowMobilityIndex': round(flow_mobility_index, 3),
+        'dataSources': source_flags,
+    }
 
 
 def _request_payload(request):
@@ -265,22 +374,51 @@ def _build_rescue_support(area_m2):
     }
 
 
-def _simulate_tailing_flow(lat, lng, rainfall_mm, slope_factor, steps):
+def _simulate_tailing_flow(lat, lng, slope_factor, steps, terrain_context):
     path = []
     cur_lat = lat
     cur_lng = lng
-    velocity = 0.00028 + (rainfall_mm / 400000.0) + (slope_factor / 100000.0)
+
+    rainfall_mm = terrain_context['rainfallMm24h']
+    saturation = terrain_context['soilSaturation']
+    vegetation_factor = terrain_context['vegetationCoverPercent'] / 100.0
+    soil_density_factor = min(1.15, terrain_context['soilDensityKgM3'] / 1500.0)
+    mobility_index = terrain_context['flowMobilityIndex']
+
+    velocity = (
+        0.00024
+        + (rainfall_mm / 420000.0)
+        + (slope_factor / 120000.0)
+        + (mobility_index / 9000.0)
+        - (vegetation_factor / 16000.0)
+        + (soil_density_factor / 50000.0)
+    )
 
     for step in range(steps):
-        cur_lat -= velocity * (1 + (step * 0.08))
-        cur_lng += velocity * 0.4
-        spread_radius = 10 + step * 12 + (rainfall_mm * 0.05)
+        step_multiplier = 1 + (step * 0.08)
+        cur_lat -= velocity * step_multiplier
+        cur_lng += velocity * (0.35 + saturation * 0.1)
+
+        spread_radius = (
+            10
+            + step * 12
+            + (rainfall_mm * 0.05)
+            + (saturation * 12)
+            + (mobility_index * 5)
+            - (vegetation_factor * 4)
+        )
+
         path.append(
             {
                 "step": step + 1,
                 "lat": round(cur_lat, 6),
                 "lng": round(cur_lng, 6),
-                "spreadRadiusMeters": round(spread_radius, 2),
+                "spreadRadiusMeters": round(max(8.0, spread_radius), 2),
+                "terrainCrossFactor": {
+                    "soilType": terrain_context['soilType'],
+                    "soilSaturation": saturation,
+                    "vegetationCoverPercent": terrain_context['vegetationCoverPercent'],
+                },
             }
         )
 
@@ -292,8 +430,9 @@ def _simulate_tailing_flow(lat, lng, rainfall_mm, slope_factor, steps):
             "slopeFactor": slope_factor,
             "steps": steps,
         },
+        "terrainContext": terrain_context,
         "flowPath": path,
-        "notes": "Simulação simplificada inspirada em métodos CFD/Navier-Stokes para triagem rápida.",
+        "notes": "Simulação simplificada inspirada em métodos CFD/Navier-Stokes com cruzamento terreno+clima para triagem rápida.",
         "references": CFD_REFERENCE,
     }
 
@@ -386,16 +525,39 @@ def location_flow_simulation(request):
     if request.method != 'POST':
         return HttpResponse(status=405)
 
-    lat = _parse_float(request.POST.get('lat'))
-    lng = _parse_float(request.POST.get('lng'))
-    rainfall_mm = _parse_float(request.POST.get('rainfallMm')) or 60.0
-    slope_factor = _parse_float(request.POST.get('slopeFactor')) or 35.0
-    steps = int(request.POST.get('steps') or 8)
+    payload = _request_payload(request)
+    lat = _parse_float(payload.get('lat'))
+    lng = _parse_float(payload.get('lng'))
+    rainfall_override = _parse_float(payload.get('rainfallMm'))
+    slope_factor = _parse_float(payload.get('slopeFactor')) or 35.0
+    steps = int(payload.get('steps') or 8)
 
     if lat is None or lng is None:
         return _json_error('lat e lng são obrigatórios para simulação de fluxo.')
 
-    return JsonResponse(_simulate_tailing_flow(lat, lng, rainfall_mm, slope_factor, steps), safe=False)
+    terrain_context = _terrain_open_data_context(lat, lng, rainfall_override)
+    return JsonResponse(_simulate_tailing_flow(lat, lng, slope_factor, steps, terrain_context), safe=False)
+
+
+@csrf_exempt
+def terrain_context(request):
+    if request.method != 'GET':
+        return HttpResponse(status=405)
+
+    lat = _parse_float(request.GET.get('lat'))
+    lng = _parse_float(request.GET.get('lng'))
+    if lat is None or lng is None:
+        return _json_error('lat e lng são obrigatórios para contexto de terreno.')
+
+    return JsonResponse(
+        {
+            'lat': lat,
+            'lng': lng,
+            'context': _terrain_open_data_context(lat, lng),
+            'notes': 'Contexto híbrido com dados abertos (Open-Meteo) e fallback local para operação contínua.',
+        },
+        safe=False,
+    )
 
 
 @csrf_exempt
@@ -435,9 +597,12 @@ def report_info(request):
     if request.method != 'POST':
         return HttpResponse(status=405)
 
-    kind = (request.POST.get('kind') or 'person').lower()
-    name = request.POST.get('name')
-    last_seen = request.POST.get('lastSeen')
+    data = _request_payload(request)
+    kind = (data.get('kind') or 'person').lower()
+    name = data.get('name')
+    last_seen = data.get('lastSeen')
+    lat = _parse_float(data.get('lat'))
+    lng = _parse_float(data.get('lng'))
 
     if kind not in ['person', 'animal']:
         return _json_error('kind deve ser person ou animal.')
@@ -449,8 +614,10 @@ def report_info(request):
         'kind': kind,
         'name': name,
         'lastSeen': last_seen,
-        'contact': request.POST.get('contact') or '',
-        'details': request.POST.get('details') or '',
+        'lat': lat,
+        'lng': lng,
+        'contact': data.get('contact') or '',
+        'details': data.get('details') or '',
         'reportedAtUtc': datetime.now(timezone.utc).isoformat(),
     }
     MISSING_REPORTS.append(payload)
@@ -458,7 +625,7 @@ def report_info(request):
     MISSING_PEOPLE.append(
         {
             'name': name,
-            'age': int(request.POST.get('age') or 0),
+            'age': int(data.get('age') or 0),
             'category': kind,
             'lastSeen': last_seen,
             'status': 'missing',
@@ -530,7 +697,13 @@ def cfd_ideas(request):
     if request.method != 'GET':
         return HttpResponse(status=405)
 
-    return JsonResponse(CFD_REFERENCE, safe=False)
+    payload = dict(CFD_REFERENCE)
+    payload['openDataTerrain'] = {
+        'climate': 'https://open-meteo.com/',
+        'soil_reference': 'https://soilgrids.org/',
+        'vegetation_reference': 'https://land.copernicus.eu/',
+    }
+    return JsonResponse(payload, safe=False)
 
 
 @csrf_exempt

@@ -1,5 +1,42 @@
-[v-cloak] {
-    display: none;
+[v-cloak] { display: none; }
+
+body {
+    margin: 0;
+    font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: #eef3f9;
+    color: #1d2b3a;
+}
+
+.app-shell {
+    min-height: 100vh;
+    padding: 0.75rem;
+}
+
+.app-header {
+    background: #fff;
+    border: 1px solid #dbe4f0;
+    border-radius: 10px;
+    padding: 0.65rem 0.9rem;
+    margin-bottom: 0.75rem;
+}
+
+.header-kicker {
+    text-transform: uppercase;
+    font-weight: 700;
+    letter-spacing: .08em;
+    color: #2f6dba;
+    font-size: .75rem;
+}
+
+.locale-switcher { display: flex; gap: .4rem; }
+.gap-sm { gap: .5rem; }
+
+.map-layout {
+    position: relative;
+    height: calc(100vh - 105px);
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid #cfdceb;
 }
 
 #map {
@@ -7,21 +44,69 @@
     height: 100%;
 }
 
-.container-fluid {
-    min-height: 100vh;
+.map-panel {
+    position: absolute;
+    z-index: 900;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid #d1deee;
+    border-radius: 10px;
+    box-shadow: 0 6px 18px rgba(17, 35, 58, .12);
+    padding: .75rem;
 }
 
-.repo {
-    position: fixed;
-    left: 10px;
-    bottom: 10px;
-    background: rgba(255, 255, 255, 0.9);
-    border: 1px solid #CCC;
-    border-radius: 3px;
-    z-index: 1000;
-    padding: 4px 8px;
+.panel-main {
+    left: 12px;
+    top: 12px;
+    width: 320px;
+    max-height: calc(100% - 24px);
+    overflow-y: auto;
 }
 
-#map {
-    min-height: 80vh;
+.panel-missing {
+    right: 12px;
+    top: 12px;
+    width: 320px;
+}
+
+.panel-services {
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: 12px;
+    width: auto;
+    max-width: calc(100% - 32px);
+}
+
+.status-box {
+    background: #f1f8ff;
+    border: 1px solid #cfe5ff;
+    border-radius: 8px;
+    padding: .45rem .6rem;
+    font-size: .88rem;
+}
+
+@media (max-width: 992px) {
+    .map-layout {
+        height: auto;
+        min-height: 78vh;
+        padding: 10px;
+    }
+
+    #map {
+        min-height: 62vh;
+        border-radius: 10px;
+    }
+
+    .map-panel {
+        position: static;
+        transform: none;
+        width: 100%;
+        margin-bottom: 0.55rem;
+    }
+
+    .panel-main,
+    .panel-missing,
+    .panel-services {
+        max-height: none;
+        overflow: visible;
+    }
 }
