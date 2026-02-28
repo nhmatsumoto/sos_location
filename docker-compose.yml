@@ -1,16 +1,70 @@
 name: mg-location-simulation
 
 services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: mg-location-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: mg_location
+      POSTGRES_USER: mg_location_user
+      POSTGRES_PASSWORD: mg_location_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mg_location_user -d mg_location"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    networks:
+      - mg-location-network
+
+  backend:
+    image: python:3.11-slim
+    container_name: mg-location-backend
+    restart: unless-stopped
+    working_dir: /app
+    command: >
+      sh -c "pip install --no-cache-dir -r requirements.txt &&
+             python manage.py migrate &&
+             python manage.py runserver 0.0.0.0:8000"
+    environment:
+      SECRET_KEY: dev-secret-key
+      DEBUG: "True"
+      ALLOWED_HOSTS: "*"
+      DB_ENGINE: django.db.backends.postgresql
+      DB_NAME: mg_location
+      DB_USER: mg_location_user
+      DB_PASSWORD: mg_location_password
+      DB_HOST: postgres
+      DB_PORT: "5432"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./:/app
+    ports:
+      - "8001:8000"
+    networks:
+      - mg-location-network
+
   frontend:
     build:
       context: ./frontend-react
       dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: http://localhost:8001
     container_name: simulador-mg-location
     ports:
       - "8080:8000"
     restart: unless-stopped
+    depends_on:
+      - backend
     networks:
       - mg-location-network
+
+volumes:
+  postgres_data:
 
 networks:
   mg-location-network:
