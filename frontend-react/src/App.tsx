@@ -549,12 +549,19 @@ export default function App() {
     loadAttentionAlerts();
     loadClimakiContext();
 
-    const interval = setInterval(() => {
-      loadNews();
+    const tacticalInterval = setInterval(() => {
       loadAttentionAlerts();
       loadClimakiContext();
     }, 120000);
-    return () => clearInterval(interval);
+
+    const publicSourcesInterval = setInterval(() => {
+      loadNews();
+    }, 1800000);
+
+    return () => {
+      clearInterval(tacticalInterval);
+      clearInterval(publicSourcesInterval);
+    };
   }, []);
 
   const handleUpload = async (event: FormEvent<HTMLFormElement>) => {

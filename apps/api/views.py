@@ -2,8 +2,9 @@ import csv
 import io
 import json
 import os
+import re
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from urllib.parse import quote
 from urllib.request import urlopen
 
@@ -134,6 +135,98 @@ CFD_REFERENCE = {
         "https://github.com/rlguy/GridFluidSim3D/tree/master/src/examples/python",
     ],
 }
+
+
+PUBLIC_ALERT_SOURCES = [
+    {
+        'id': 'defesa-civil-alerta',
+        'city': 'Brasil',
+        'label': 'Defesa Civil Alerta (MDR)',
+        'url': 'https://www.gov.br/mdr/pt-br/assuntos/protecao-e-defesa-civil/defesa-civil-alerta',
+    },
+]
+
+NEWS_UPDATES_CACHE = {
+    'fetchedAtUtc': None,
+    'expiresAtUtc': None,
+    'items': [],
+}
+
+
+def _strip_html(text):
+    return re.sub(r'\s+', ' ', re.sub(r'<[^>]*>', ' ', text or '')).strip()
+
+
+def _extract_public_alert_news(source):
+    try:
+        with urlopen(source['url'], timeout=12) as response:
+            raw = response.read().decode('utf-8', errors='ignore')
+    except Exception:
+        return []
+
+    cleaned = _strip_html(raw)
+    snippets = re.findall(r'([^.]{40,220}(?:alerta|chuva|risco|desastre|emerg[eê]ncia)[^.]{0,180})', cleaned, flags=re.IGNORECASE)
+    unique = []
+    seen = set()
+    for chunk in snippets:
+        sentence = chunk.strip(' -:;')
+        if len(sentence) < 40:
+            continue
+        key = sentence.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append({
+            'id': f"{source['id']}-{len(unique)+1}",
+            'city': source['city'],
+            'title': sentence[:180],
+            'source': source['label'],
+            'url': source['url'],
+            'publishedAtUtc': datetime.now(timezone.utc).isoformat(),
+        })
+        if len(unique) >= 8:
+            break
+
+    if unique:
+        return unique
+
+    title_match = re.search(r'<title>(.*?)</title>', raw, flags=re.IGNORECASE | re.DOTALL)
+    fallback_title = _strip_html(title_match.group(1)) if title_match else source['label']
+    return [{
+        'id': f"{source['id']}-fallback",
+        'city': source['city'],
+        'title': fallback_title[:180],
+        'source': source['label'],
+        'url': source['url'],
+        'publishedAtUtc': datetime.now(timezone.utc).isoformat(),
+    }]
+
+
+def _load_public_news_updates(force_refresh=False):
+    now = datetime.now(timezone.utc)
+    expires_at = NEWS_UPDATES_CACHE.get('expiresAtUtc')
+    if not force_refresh and expires_at and now < expires_at and NEWS_UPDATES_CACHE.get('items'):
+        return NEWS_UPDATES_CACHE['items']
+
+    all_items = []
+    for source in PUBLIC_ALERT_SOURCES:
+        all_items.extend(_extract_public_alert_news(source))
+
+    if not all_items:
+        all_items = [{
+            'id': 'fallback-public-alert',
+            'city': 'Brasil',
+            'title': 'Monitoramento ativo de alertas públicos de defesa civil.',
+            'source': 'Fallback local',
+            'url': 'https://www.gov.br/mdr/pt-br/assuntos/protecao-e-defesa-civil/defesa-civil-alerta',
+            'publishedAtUtc': now.isoformat(),
+        }]
+
+    NEWS_UPDATES_CACHE['items'] = all_items
+    NEWS_UPDATES_CACHE['fetchedAtUtc'] = now
+    NEWS_UPDATES_CACHE['expiresAtUtc'] = now + timedelta(minutes=30)
+    return all_items
+
 
 # Camadas simplificadas de terreno (fallback local) inspiradas em fontes abertas
 # de cobertura vegetal (Copernicus/ESA), textura de solo (SoilGrids),
@@ -826,6 +919,17 @@ def identify_victim(request):
         },
         safe=False,
     )
+
+
+
+@csrf_exempt
+def news_updates(request):
+    if request.method != 'GET':
+        return HttpResponse(status=405)
+
+    force_refresh = request.GET.get('refresh') == '1'
+    items = _load_public_news_updates(force_refresh=force_refresh)
+    return JsonResponse(items, safe=False)
 
 
 @csrf_exempt
