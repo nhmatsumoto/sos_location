@@ -24,8 +24,8 @@ import {
 const LandslideSimulation = lazy(() => import('./LandslideSimulation'));
 const PostDisasterSplat = lazy(() => import('./PostDisasterSplat'));
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? 'http://localhost:8000';
-
+const API_BASE_URL = ((import.meta.env.VITE_API_BASE_URL as string | undefined) ?? '').replace(/\/$/, '');
+const resolveApiUrl = (path: string) => (API_BASE_URL ? `${API_BASE_URL}${path}` : path);
 
 const LOCAL_WEEKLY_RAIN_NEWS: NewsUpdate[] = [
   {
@@ -292,13 +292,8 @@ function DraggablePanel({
 const initialFlowForm = {
   sourceLat: '-21.1215',
   sourceLng: '-42.9427',
-  rainfallMmPerHour: '80',
-  initialVolume: '3.5',
-  steps: '120',
-  gridSize: '40',
-  cellSizeMeters: '25',
-  manningCoefficient: '0.045',
-  infiltrationRate: '0.002',
+  rainfallMmPerHour: '70',
+  scenario: 'encosta' as 'encosta' | 'urbano' | 'rural',
 };
 
 export default function App() {
@@ -450,7 +445,7 @@ export default function App() {
 
   const loadNews = () => {
     setLoadingNews(true);
-    fetch(`${API_BASE_URL}/api/news-updates`)
+    fetch(resolveApiUrl('/api/news-updates'))
       .then((res) => {
         if (!res.ok) throw new Error('endpoint unavailable');
         return res.json();
@@ -465,7 +460,7 @@ export default function App() {
 
 
   const loadAttentionAlerts = () => {
-    fetch(`${API_BASE_URL}/api/attention-alerts`)
+    fetch(resolveApiUrl('/api/attention-alerts'))
       .then((res) => res.json())
       .then((data: AttentionAlert[]) => setAttentionAlerts(data.slice(0, 6)))
       .catch(() => undefined);
@@ -473,7 +468,7 @@ export default function App() {
 
   const loadMissingPeople = () => {
     setLoadingMissing(true);
-    fetch(`${API_BASE_URL}/api/missing-persons`)
+    fetch(resolveApiUrl('/api/missing-persons'))
       .then((res) => res.json())
       .then((data: MissingPerson[]) => {
         setMissingPeople(data);
@@ -543,7 +538,7 @@ export default function App() {
   };
 
   useEffect(() => {
-    fetch(`${API_BASE_URL}/api/hotspots`)
+    fetch(resolveApiUrl('/api/hotspots'))
       .then((res) => res.json())
       .then((data) => {
         setHotspots(data);
@@ -585,7 +580,7 @@ export default function App() {
     payload.append('video', formState.video);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/collapse-reports`, {
+      const response = await fetch(resolveApiUrl('/api/collapse-reports'), {
         method: 'POST',
         body: payload,
       });
@@ -611,7 +606,7 @@ export default function App() {
     setSavingMissing(true);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/missing-persons`, {
+      const response = await fetch(resolveApiUrl('/api/missing-persons'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -646,41 +641,75 @@ export default function App() {
     setFlowError('');
     setRunningFlow(true);
 
+    const scenarioConfig: Record<typeof flowForm.scenario, { steps: number; gridSize: number; cellSizeMeters: number; manningCoefficient: number; infiltrationRate: number; volumeFactor: number; label: string }> = {
+      encosta: { steps: 130, gridSize: 44, cellSizeMeters: 20, manningCoefficient: 0.04, infiltrationRate: 0.0015, volumeFactor: 0.055, label: 'Encosta crítica' },
+      urbano: { steps: 110, gridSize: 38, cellSizeMeters: 22, manningCoefficient: 0.03, infiltrationRate: 0.001, volumeFactor: 0.045, label: 'Bairro urbano' },
+      rural: { steps: 95, gridSize: 34, cellSizeMeters: 26, manningCoefficient: 0.05, infiltrationRate: 0.003, volumeFactor: 0.038, label: 'Área rural' },
+    };
+
+    const activeScenario = scenarioConfig[flowForm.scenario];
+    const rainfall = Number(flowForm.rainfallMmPerHour);
+
+    const payload = {
+      sourceLat: Number(flowForm.sourceLat),
+      sourceLng: Number(flowForm.sourceLng),
+      rainfallMmPerHour: rainfall,
+      initialVolume: Math.max(1.8, Number((rainfall * activeScenario.volumeFactor).toFixed(2))),
+      steps: activeScenario.steps,
+      gridSize: activeScenario.gridSize,
+      cellSizeMeters: activeScenario.cellSizeMeters,
+      manningCoefficient: activeScenario.manningCoefficient,
+      infiltrationRate: activeScenario.infiltrationRate,
+    };
+
+    const endpoints = Array.from(new Set([
+      resolveApiUrl('/api/location/flow-simulation'),
+      '/api/location/flow-simulation',
+    ]));
+
     try {
-      const response = await fetch(`${API_BASE_URL}/api/location/flow-simulation`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sourceLat: Number(flowForm.sourceLat),
-          sourceLng: Number(flowForm.sourceLng),
-          rainfallMmPerHour: Number(flowForm.rainfallMmPerHour),
-          initialVolume: Number(flowForm.initialVolume),
-          steps: Number(flowForm.steps),
-          gridSize: Number(flowForm.gridSize),
-          cellSizeMeters: Number(flowForm.cellSizeMeters),
-          manningCoefficient: Number(flowForm.manningCoefficient),
-          infiltrationRate: Number(flowForm.infiltrationRate),
-        }),
-      });
+      let lastError = '';
 
-      if (!response.ok) {
-        const errorPayload = await tryParseJson<{ error?: string }>(response);
-        throw new Error(
-          errorPayload?.error ?? `Falha na simulação hidrodinâmica (HTTP ${response.status}).`,
-        );
+      for (const endpoint of endpoints) {
+        try {
+          const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+
+          if (!response.ok) {
+            const errorPayload = await tryParseJson<{ error?: string }>(response);
+            throw new Error(errorPayload?.error ?? `Falha na simulação (HTTP ${response.status}).`);
+          }
+
+          const data = await tryParseJson<FlowSimulationResponse>(response);
+          if (!data) {
+            throw new Error('Resposta inválida da simulação hidrodinâmica.');
+          }
+
+          setFlowResult(data);
+          setFlowError(`Cenário aplicado: ${activeScenario.label}. Ajuste a chuva e rode novamente para comparar.`);
+          setRunningFlow(false);
+          return;
+        } catch (error) {
+          lastError = error instanceof Error ? error.message : 'Erro inesperado na simulação.';
+        }
       }
 
-      const data = await tryParseJson<FlowSimulationResponse>(response);
-      if (!data) {
-        throw new Error('Resposta inválida da simulação hidrodinâmica.');
-      }
-      setFlowResult(data);
+      throw new Error(lastError || 'Não foi possível conectar ao serviço de simulação.');
     } catch (error) {
-      setFlowError(error instanceof Error ? error.message : 'Erro inesperado na simulação.');
+      const message = error instanceof Error ? error.message : 'Erro inesperado na simulação.';
+      setFlowError(
+        message.includes('NetworkError') || message.includes('Failed to fetch')
+          ? 'Não conseguimos alcançar a API de enchente. Verifique backend/CORS ou configure VITE_API_BASE_URL corretamente.'
+          : message,
+      );
     } finally {
       setRunningFlow(false);
     }
   };
+
 
   const openPanel = (panel: SelectedPanel) => {
     setSelectedPanel(panel);
@@ -730,59 +759,53 @@ export default function App() {
 
           <div className="px-4 py-3 border-b border-slate-700 bg-slate-800/50">
             <h2 className="text-xs uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-2">
-              <Droplets className="w-3 h-3" /> Simulação de Enchente (CFD simplificado)
+              <Droplets className="w-3 h-3" /> Simulação de Enchente (modo fácil)
             </h2>
+            <p className="text-[11px] text-slate-400 mb-2">Escolha um cenário, ajuste a chuva e clique em simular.</p>
             <form className="space-y-2" onSubmit={handleRunFlow}>
               <div className="grid grid-cols-2 gap-2">
-                <label className="space-y-1 text-[11px] text-slate-300">
-                  <span>Latitude da fonte</span>
-                  <input value={flowForm.sourceLat} onChange={(e) => setFlowForm((prev) => ({ ...prev, sourceLat: e.target.value }))} className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs" placeholder="-21.1215" />
-                </label>
-                <label className="space-y-1 text-[11px] text-slate-300">
-                  <span>Longitude da fonte</span>
-                  <input value={flowForm.sourceLng} onChange={(e) => setFlowForm((prev) => ({ ...prev, sourceLng: e.target.value }))} className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs" placeholder="-42.9427" />
-                </label>
-                <label className="space-y-1 text-[11px] text-slate-300">
-                  <span>Chuva (mm/h)</span>
-                  <input value={flowForm.rainfallMmPerHour} onChange={(e) => setFlowForm((prev) => ({ ...prev, rainfallMmPerHour: e.target.value }))} className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs" placeholder="80" />
-                </label>
-                <label className="space-y-1 text-[11px] text-slate-300">
-                  <span>Volume inicial (m³)</span>
-                  <input value={flowForm.initialVolume} onChange={(e) => setFlowForm((prev) => ({ ...prev, initialVolume: e.target.value }))} className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs" placeholder="3.5" />
-                </label>
+                <input value={flowForm.sourceLat} onChange={(e) => setFlowForm((prev) => ({ ...prev, sourceLat: e.target.value }))} className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs" placeholder="Latitude" />
+                <input value={flowForm.sourceLng} onChange={(e) => setFlowForm((prev) => ({ ...prev, sourceLng: e.target.value }))} className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs" placeholder="Longitude" />
               </div>
-              <div className="grid grid-cols-3 gap-2">
-                <label className="space-y-1 text-[11px] text-slate-300">
-                  <span>Passos</span>
-                  <input value={flowForm.steps} onChange={(e) => setFlowForm((prev) => ({ ...prev, steps: e.target.value }))} className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs" placeholder="120" />
-                </label>
-                <label className="space-y-1 text-[11px] text-slate-300">
-                  <span>Grid</span>
-                  <input value={flowForm.gridSize} onChange={(e) => setFlowForm((prev) => ({ ...prev, gridSize: e.target.value }))} className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs" placeholder="40" />
-                </label>
-                <label className="space-y-1 text-[11px] text-slate-300">
-                  <span>Célula (m)</span>
-                  <input value={flowForm.cellSizeMeters} onChange={(e) => setFlowForm((prev) => ({ ...prev, cellSizeMeters: e.target.value }))} className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs" placeholder="25" />
-                </label>
-              </div>
+              {selectedIncidentPoint && (
+                <button
+                  type="button"
+                  onClick={() => setFlowForm((prev) => ({ ...prev, sourceLat: selectedIncidentPoint.lat.toFixed(5), sourceLng: selectedIncidentPoint.lng.toFixed(5) }))}
+                  className="w-full text-xs px-2 py-1 rounded border border-slate-600 text-slate-200 hover:border-cyan-400"
+                >
+                  Usar ponto marcado no mapa
+                </button>
+              )}
               <div className="grid grid-cols-2 gap-2">
-                <label className="space-y-1 text-[11px] text-slate-300">
-                  <span>Coef. Manning (n)</span>
-                  <input value={flowForm.manningCoefficient} onChange={(e) => setFlowForm((prev) => ({ ...prev, manningCoefficient: e.target.value }))} className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs" placeholder="0.045" />
+                <label className="text-[11px] text-slate-300 space-y-1">
+                  <span>Cenário</span>
+                  <select value={flowForm.scenario} onChange={(e) => setFlowForm((prev) => ({ ...prev, scenario: e.target.value as typeof flowForm.scenario }))} className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs">
+                    <option value="encosta">Encosta crítica</option>
+                    <option value="urbano">Bairro urbano</option>
+                    <option value="rural">Área rural</option>
+                  </select>
                 </label>
-                <label className="space-y-1 text-[11px] text-slate-300">
-                  <span>Taxa de infiltração</span>
-                  <input value={flowForm.infiltrationRate} onChange={(e) => setFlowForm((prev) => ({ ...prev, infiltrationRate: e.target.value }))} className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs" placeholder="0.002" />
+                <label className="text-[11px] text-slate-300 space-y-1">
+                  <span>Chuva (mm/h)</span>
+                  <input type="range" min={20} max={140} step={5} value={flowForm.rainfallMmPerHour} onChange={(e) => setFlowForm((prev) => ({ ...prev, rainfallMmPerHour: e.target.value }))} className="w-full" />
+                  <span className="text-cyan-300 font-semibold">{flowForm.rainfallMmPerHour} mm/h</span>
                 </label>
               </div>
               <button type="submit" disabled={runningFlow} className="w-full flex items-center justify-center gap-2 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-70 text-white px-3 py-1.5 rounded text-xs font-semibold">
-                <Play className="w-3 h-3" /> {runningFlow ? 'Simulando...' : 'Rodar Navier-Stokes simplificado'}
+                <Play className="w-3 h-3" /> {runningFlow ? 'Simulando...' : 'Simular área de alagamento'}
               </button>
-              {flowError && <p className="text-xs text-red-400">{flowError}</p>}
+              {flowError && <p className="text-xs text-amber-300">{flowError}</p>}
               {flowResult && (
-                <p className="text-[11px] text-cyan-300">
-                  Prof. máx: {flowResult.maxDepth.toFixed(2)} m • Área: {Math.round(flowResult.estimatedAffectedAreaM2)} m²
-                </p>
+                <div className="grid grid-cols-2 gap-2 text-[11px]">
+                  <div className="bg-slate-900/70 border border-slate-700 rounded px-2 py-1">
+                    <p className="text-slate-400">Profundidade máx.</p>
+                    <p className="text-cyan-300 font-semibold">{flowResult.maxDepth.toFixed(2)} m</p>
+                  </div>
+                  <div className="bg-slate-900/70 border border-slate-700 rounded px-2 py-1">
+                    <p className="text-slate-400">Área estimada</p>
+                    <p className="text-cyan-300 font-semibold">{Math.round(flowResult.estimatedAffectedAreaM2)} m²</p>
+                  </div>
+                </div>
               )}
             </form>
           </div>
