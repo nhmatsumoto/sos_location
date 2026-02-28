@@ -1,5 +1,10 @@
 # MG Location
 
+
+## Interface atual (Centro de Comando)
+
+![Centro de Comando com mapa em relevo](browser:/tmp/codex_browser_invocations/3619128cf054b41e/artifacts/docs/images/centro-comando.png)
+
 ## Important
 
 * If you're looking for the project to predict victims' location of
