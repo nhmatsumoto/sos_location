@@ -94,6 +94,33 @@
                                 <span>{{ statusMessage }}</span>
                             </div>
                             <p v-if="errorMessage" class="text-danger small mt-2 mb-0">{{ errorMessage }}</p>
+
+                            <div class="cfd-box mt-3 p-3">
+                                <h3 class="h6 mb-2">{{ t.cfd.title }}</h3>
+                                <p class="small mb-2">{{ t.cfd.description }}</p>
+                                <ul class="small mb-2 pl-3">
+                                    <li>{{ t.cfd.step1 }}</li>
+                                    <li>{{ t.cfd.step2 }}</li>
+                                    <li>{{ t.cfd.step3 }}</li>
+                                </ul>
+                                <p class="small mb-1"><strong>{{ t.cfd.endpointLabel }}:</strong> <code>POST /api/location/flow-simulation</code></p>
+                                <p class="small mb-0 text-muted">{{ t.cfd.note }}</p>
+                            </div>
+
+                            <hr>
+
+                            <h3 class="h6 text-uppercase text-muted">{{ t.quickActions }}</h3>
+                            <div class="btn-group-vertical w-100" role="group" :aria-label="t.quickActions">
+                                <button class="btn btn-outline-info text-left" type="button" @click="setPreset('center')">{{ t.presets.center }}</button>
+                                <button class="btn btn-outline-info text-left" type="button" @click="setPreset('north')">{{ t.presets.north }}</button>
+                                <button class="btn btn-outline-info text-left" type="button" @click="setPreset('south')">{{ t.presets.south }}</button>
+                            </div>
+
+                            <div class="status-box mt-3" role="status" aria-live="polite">
+                                <strong>{{ t.statusLabel }}:</strong>
+                                <span>{{ statusMessage }}</span>
+                            </div>
+                            <p v-if="errorMessage" class="text-danger small mt-2 mb-0">{{ errorMessage }}</p>
                         </div>
                     </div>
                 </section>
@@ -109,6 +136,22 @@
                                     <li>{{ t.legendItems.flow }}</li>
                                     <li>{{ t.legendItems.hotArea }}</li>
                                 </ul>
+                            </div>
+
+                            <div class="service-box mt-3 p-3">
+                                <h3 class="h6 mb-2">{{ t.services.title }}</h3>
+                                <p class="small text-muted mb-2">{{ t.services.description }}</p>
+                                <ul class="small mb-2 pl-3">
+                                    <li v-for="service in t.services.items" :key="service.name">
+                                        <strong>{{ service.name }}</strong> — {{ service.desc }}
+                                    </li>
+                                </ul>
+                                <div class="d-flex flex-wrap gap-sm">
+                                    <a class="btn btn-sm btn-outline-primary" href="/api/hotspots" target="_blank" rel="noopener noreferrer">GET /api/hotspots</a>
+                                    <a class="btn btn-sm btn-outline-primary" href="/api/rescue-support" target="_blank" rel="noopener noreferrer">GET /api/rescue-support</a>
+                                    <a class="btn btn-sm btn-outline-primary" href="/api/missing-people.csv" target="_blank" rel="noopener noreferrer">GET /api/missing-people.csv</a>
+                                    <a class="btn btn-sm btn-outline-primary" href="/api/cfd/ideas" target="_blank" rel="noopener noreferrer">GET /api/cfd/ideas</a>
+                                </div>
                             </div>
                         </div>
                     </div>

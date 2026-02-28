@@ -19,12 +19,32 @@ const i18n = {
             north: 'Foco na zona norte de busca',
             south: 'Foco na zona sul de busca'
         },
+        cfd: {
+            title: 'Simulação de Enchente (CFD simplificado)',
+            description: 'Este módulo usa uma aproximação inicial de dinâmica de fluidos para projetar direção e alcance da massa de água/rejeito.',
+            step1: 'Entrada principal: coordenada inicial (lat/lng) e cenário de vazão disponível na API.',
+            step2: 'Saída operacional: direção estimada de deslocamento e ponto provável para priorização da busca.',
+            step3: 'Use em conjunto com camadas de relevo/topografia para validar obstáculos e rotas de acesso.',
+            endpointLabel: 'Endpoint da simulação',
+            note: 'Importante: resultado é apoio tático inicial e não substitui validação da engenharia de campo.'
+        },
         statusLabel: 'Situação',
         legendTitle: 'Como usar em campo',
         legendItems: {
             click: 'Clique no mapa para definir a última posição conhecida.',
             flow: 'Use “Calcular estimativa” para gerar direção e ponto provável.',
             hotArea: 'Área quente em destaque para priorização operacional.'
+        },
+        services: {
+            title: 'Módulos operacionais disponíveis no MVP',
+            description: 'Atalhos para serviços já implementados na API e usados no fluxo de busca, triagem e coordenação.',
+            items: [
+                { name: 'Hotspots', desc: 'Ranking de áreas críticas para priorização.' },
+                { name: 'Rescue Support', desc: 'Snapshot tático com agentes e locais prováveis.' },
+                { name: 'Searched Areas', desc: 'Registro das áreas já verificadas por equipes.' },
+                { name: 'Report Info', desc: 'Relatos de pessoas e animais desaparecidos.' },
+                { name: 'Identify Victim', desc: 'Triagem inicial para identificação.' }
+            ]
         },
         status: {
             idle: 'Aguardando coordenadas para iniciar.',
@@ -68,12 +88,32 @@ const i18n = {
             north: 'Focus on northern search area',
             south: 'Focus on southern search area'
         },
+        cfd: {
+            title: 'Flood simulation (simplified CFD)',
+            description: 'This module uses an initial fluid-dynamics approximation to project water/tailings direction and reach.',
+            step1: 'Primary input: starting coordinate (lat/lng) and available flow scenario in the API.',
+            step2: 'Operational output: estimated displacement direction and probable destination for search prioritization.',
+            step3: 'Use together with relief/topography layers to validate barriers and access routes.',
+            endpointLabel: 'Simulation endpoint',
+            note: 'Important: this is initial tactical support and does not replace field engineering validation.'
+        },
         statusLabel: 'Status',
         legendTitle: 'Field usage',
         legendItems: {
             click: 'Click the map to define the last known position.',
             flow: 'Use “Calculate estimate” to generate direction and probable destination.',
             hotArea: 'Highlighted hot area to prioritize operations.'
+        },
+        services: {
+            title: 'Operational modules available in the MVP',
+            description: 'Shortcuts to services already implemented in the API for search, triage and coordination.',
+            items: [
+                { name: 'Hotspots', desc: 'Ranking of critical areas for prioritization.' },
+                { name: 'Rescue Support', desc: 'Tactical snapshot with agents and probable locations.' },
+                { name: 'Searched Areas', desc: 'Registry of areas already inspected by teams.' },
+                { name: 'Report Info', desc: 'Reports of missing people and animals.' },
+                { name: 'Identify Victim', desc: 'Initial victim identification triage.' }
+            ]
         },
         status: {
             idle: 'Waiting for coordinates.',

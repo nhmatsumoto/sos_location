@@ -66,6 +66,27 @@ body {
     border-radius: 8px;
 }
 
+
+.cfd-box {
+    background: #fffaf0;
+    border: 1px solid #f0dfb6;
+    border-radius: 8px;
+}
+
+.cfd-box code {
+    color: #6c4a00;
+    background: #fff3d4;
+    padding: 0.1rem 0.25rem;
+    border-radius: 4px;
+}
+
+
+.service-box {
+    background: #f7fbff;
+    border: 1px solid #cde1f5;
+    border-radius: 8px;
+}
+
 @media (max-width: 1199px) {
     .app-shell {
         padding: 0.75rem;
