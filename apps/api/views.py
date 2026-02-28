@@ -2,8 +2,9 @@ import csv
 import io
 import json
 import os
+import re
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from urllib.parse import quote
 from urllib.request import urlopen
 
@@ -134,6 +135,125 @@ CFD_REFERENCE = {
         "https://github.com/rlguy/GridFluidSim3D/tree/master/src/examples/python",
     ],
 }
+
+
+PUBLIC_ALERT_SOURCES = [
+    {
+        'id': 'defesa-civil-alerta',
+        'city': 'Brasil',
+        'label': 'Defesa Civil Alerta (MDR)',
+        'url': 'https://www.gov.br/mdr/pt-br/assuntos/protecao-e-defesa-civil/defesa-civil-alerta',
+        'thumbnailUrl': 'https://www.gov.br/mdr/++theme++padrao_govbr/img/logo.svg',
+        'kind': 'alert',
+    },
+    {
+        'id': 'portal-transparencia-acoes',
+        'city': 'Brasil',
+        'label': 'Portal da Transparência',
+        'url': 'https://portaldatransparencia.gov.br/busca?termo=defesa%20civil',
+        'thumbnailUrl': 'https://portaldatransparencia.gov.br/favicon.ico',
+        'kind': 'government_action',
+    },
+]
+
+NEWS_UPDATES_CACHE = {
+    'fetchedAtUtc': None,
+    'expiresAtUtc': None,
+    'items': [],
+}
+
+
+def _strip_html(text):
+    return re.sub(r'\s+', ' ', re.sub(r'<[^>]*>', ' ', text or '')).strip()
+
+
+def _extract_public_alert_news(source):
+    try:
+        with urlopen(source['url'], timeout=12) as response:
+            raw = response.read().decode('utf-8', errors='ignore')
+    except Exception:
+        return []
+
+    cleaned = _strip_html(raw)
+    snippets = re.findall(r'([^.]{40,220}(?:alerta|chuva|risco|desastre|emerg[eê]ncia)[^.]{0,180})', cleaned, flags=re.IGNORECASE)
+    unique = []
+    seen = set()
+    for chunk in snippets:
+        sentence = chunk.strip(' -:;')
+        if len(sentence) < 40:
+            continue
+        key = sentence.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append({
+            'id': f"{source['id']}-{len(unique)+1}",
+            'city': source['city'],
+            'title': sentence[:180],
+            'source': source['label'],
+            'url': source['url'],
+            'publishedAtUtc': datetime.now(timezone.utc).isoformat(),
+            'thumbnailUrl': source.get('thumbnailUrl'),
+            'kind': source.get('kind', 'alert'),
+        })
+        if len(unique) >= 8:
+            break
+
+    if unique:
+        return unique
+
+    title_match = re.search(r'<title>(.*?)</title>', raw, flags=re.IGNORECASE | re.DOTALL)
+    fallback_title = _strip_html(title_match.group(1)) if title_match else source['label']
+    return [{
+        'id': f"{source['id']}-fallback",
+        'city': source['city'],
+        'title': fallback_title[:180],
+        'source': source['label'],
+        'url': source['url'],
+        'publishedAtUtc': datetime.now(timezone.utc).isoformat(),
+        'thumbnailUrl': source.get('thumbnailUrl'),
+        'kind': source.get('kind', 'alert'),
+    }]
+
+
+def _load_public_news_updates(force_refresh=False):
+    now = datetime.now(timezone.utc)
+    expires_at = NEWS_UPDATES_CACHE.get('expiresAtUtc')
+    if not force_refresh and expires_at and now < expires_at and NEWS_UPDATES_CACHE.get('items'):
+        return NEWS_UPDATES_CACHE['items']
+
+    all_items = []
+    for source in PUBLIC_ALERT_SOURCES:
+        all_items.extend(_extract_public_alert_news(source))
+
+    if not all_items:
+        all_items = [{
+            'id': 'fallback-public-alert',
+            'city': 'Brasil',
+            'title': 'Monitoramento ativo de alertas públicos de defesa civil.',
+            'source': 'Fallback local',
+            'url': 'https://www.gov.br/mdr/pt-br/assuntos/protecao-e-defesa-civil/defesa-civil-alerta',
+            'publishedAtUtc': now.isoformat(),
+            'thumbnailUrl': 'https://portaldatransparencia.gov.br/favicon.ico',
+            'kind': 'government_action',
+        }]
+
+    dedup = []
+    seen = set()
+    for item in all_items:
+        key = (item.get('title', '').strip().lower(), item.get('source', '').strip().lower())
+        if key in seen:
+            continue
+        seen.add(key)
+        dedup.append(item)
+
+    dedup.sort(key=lambda i: i.get('publishedAtUtc', ''), reverse=True)
+
+    NEWS_UPDATES_CACHE['items'] = dedup
+    NEWS_UPDATES_CACHE['fetchedAtUtc'] = now
+    NEWS_UPDATES_CACHE['expiresAtUtc'] = now + timedelta(minutes=30)
+    return dedup
+
 
 # Camadas simplificadas de terreno (fallback local) inspiradas em fontes abertas
 # de cobertura vegetal (Copernicus/ESA), textura de solo (SoilGrids),
@@ -626,6 +746,48 @@ def location_flow_simulation(request):
 
 
 @csrf_exempt
+def unified_easy_simulation(request):
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    payload = _request_payload(request)
+    lat = _parse_float(payload.get('lat', payload.get('sourceLat')))
+    lng = _parse_float(payload.get('lng', payload.get('sourceLng')))
+    area_m2 = _parse_float(payload.get('areaM2')) or 15000
+
+    if lat is None or lng is None:
+        return _json_error('lat/lng ou sourceLat/sourceLng são obrigatórios para simulação unificada.')
+
+    flow_response = location_flow_simulation(request)
+    if flow_response.status_code >= 400:
+        return flow_response
+
+    flow_payload = json.loads(flow_response.content.decode('utf-8'))
+
+    terrain = _terrain_open_data_context(
+        lat,
+        lng,
+        _parse_float(payload.get('rainfallMm', payload.get('rainfallMmPerHour'))),
+    )
+
+    return JsonResponse(
+        {
+            'generatedAtUtc': datetime.now(timezone.utc).isoformat(),
+            'input': {
+                'lat': lat,
+                'lng': lng,
+                'scenario': payload.get('scenario') or 'encosta',
+            },
+            'flowSimulation': flow_payload,
+            'terrainContext': terrain,
+            'rescueSupport': _build_rescue_support(area_m2),
+            'notes': 'Endpoint unificado para o modo fácil: fluxo + terreno + suporte tático.',
+        },
+        safe=False,
+    )
+
+
+@csrf_exempt
 def terrain_context(request):
     if request.method != 'GET':
         return HttpResponse(status=405)
@@ -784,6 +946,17 @@ def identify_victim(request):
         },
         safe=False,
     )
+
+
+
+@csrf_exempt
+def news_updates(request):
+    if request.method != 'GET':
+        return HttpResponse(status=405)
+
+    force_refresh = request.GET.get('refresh') == '1'
+    items = _load_public_news_updates(force_refresh=force_refresh)
+    return JsonResponse(items, safe=False)
 
 
 @csrf_exempt

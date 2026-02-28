@@ -21,6 +21,7 @@ import {
   Play,
   Droplets,
   Siren,
+  Building2,
 } from 'lucide-react';
 const LandslideSimulation = lazy(() => import('./LandslideSimulation'));
 const PostDisasterSplat = lazy(() => import('./PostDisasterSplat'));
@@ -32,11 +33,11 @@ const inferApiBaseUrl = () => {
   if (typeof window === 'undefined') return '';
 
   const { protocol, hostname, port } = window.location;
-  if (port === '8080') {
-    return `${protocol}//${hostname}:8001`;
-  }
+  if (port === '8080') return `${protocol}//${hostname}:8001`;
+  if (port === '5173') return `${protocol}//${hostname}:8000`;
+  if (port === '8000') return `${protocol}//${hostname}:8000`;
 
-  return '';
+  return `${protocol}//${hostname}:8000`;
 };
 
 const API_BASE_URL = inferApiBaseUrl();
@@ -82,6 +83,8 @@ interface NewsUpdate {
   source: string;
   url: string;
   publishedAtUtc: string;
+  thumbnailUrl?: string;
+  kind?: 'alert' | 'government_action' | string;
 }
 
 interface MissingPerson {
@@ -107,6 +110,23 @@ interface AttentionAlert {
   lng: number;
   radiusMeters: number;
   createdAtUtc: string;
+}
+
+interface SupportPoint {
+  id: string;
+  type: 'Atendimento' | 'Abrigo' | 'Distribuição';
+  lat: number;
+  lng: number;
+  notes: string;
+  createdAtUtc: string;
+}
+
+interface DonationTask {
+  id: string;
+  item: string;
+  quantity: string;
+  location: string;
+  status: 'aberto' | 'em_andamento' | 'concluido';
 }
 
 interface FlowCell {
@@ -143,6 +163,20 @@ const tryParseJson = async <T,>(response: Response): Promise<T | null> => {
     return null;
   }
 };
+
+
+const LOCAL_WEEKLY_RAIN_NEWS: NewsUpdate[] = [
+  {
+    id: 'local-1',
+    city: 'Ubá',
+    title: 'Defesa Civil mantém monitoramento de chuva intensa em áreas de encosta.',
+    source: 'Painel local',
+    url: '#',
+    publishedAtUtc: new Date().toISOString(),
+    thumbnailUrl: 'https://portaldatransparencia.gov.br/favicon.ico',
+    kind: 'alert',
+  },
+];
 
 interface ClimakiSnapshot {
   fetchedAtIso: string;
@@ -190,6 +224,18 @@ const initialRiskForm = {
   additionalInfo: '',
 };
 
+const initialDonationForm = {
+  item: 'Água potável',
+  quantity: '120 kits',
+  location: 'Centro comunitário de Ubá',
+};
+
+const initialSplatForm = {
+  latitude: '-21.1215',
+  longitude: '-42.9427',
+  video: null as File | null,
+};
+
 interface SelectedPanel {
   hotspot?: Hotspot;
   mode: 'sim' | 'splat';
@@ -198,11 +244,13 @@ interface SelectedPanel {
   label?: string;
 }
 
-function MapClickSelector({ enabled, onSelect }: { enabled: boolean; onSelect: (lat: number, lng: number) => void }) {
+function MapClickSelector({ enabled, onSelect }: { enabled: boolean; onSelect: (lat: number, lng: number, clientX: number, clientY: number) => void }) {
   useMapEvents({
     click(event) {
       if (!enabled) return;
-      onSelect(event.latlng.lat, event.latlng.lng);
+      const clientX = (event.originalEvent as MouseEvent).clientX;
+      const clientY = (event.originalEvent as MouseEvent).clientY;
+      onSelect(event.latlng.lat, event.latlng.lng, clientX, clientY);
     },
   });
 
@@ -306,8 +354,6 @@ export default function App() {
   const [missingForm, setMissingForm] = useState(initialMissingForm);
   const [selectedPanel, setSelectedPanel] = useState<SelectedPanel | null>(null);
   const [isPanelFullscreen, setIsPanelFullscreen] = useState(true);
-  const [isSelectingIncidentPoint, setIsSelectingIncidentPoint] = useState(false);
-  const [isSelectingRiskArea, setIsSelectingRiskArea] = useState(false);
   const [selectedIncidentPoint, setSelectedIncidentPoint] = useState<{ lat: number; lng: number } | null>(null);
   const [riskDraftPoint, setRiskDraftPoint] = useState<{ lat: number; lng: number } | null>(null);
   const [showRiskModal, setShowRiskModal] = useState(false);
@@ -315,6 +361,26 @@ export default function App() {
   const [riskError, setRiskError] = useState('');
   const [riskSuccess, setRiskSuccess] = useState('');
   const [riskForm, setRiskForm] = useState(initialRiskForm);
+  const [sidebarTab, setSidebarTab] = useState<'flood' | 'news' | 'missing' | 'hotspots' | 'support' | 'volunteers'>('flood');
+  const [mapActionMode, setMapActionMode] = useState<'none' | 'incident' | 'risk' | 'support'>('none');
+  const [lastMapClick, setLastMapClick] = useState<{ lat: number; lng: number } | null>(null);
+  const [mapQuickMenu, setMapQuickMenu] = useState<{
+    visible: boolean;
+    x: number;
+    y: number;
+    lat: number;
+    lng: number;
+  } | null>(null);
+  const [supportPoints, setSupportPoints] = useState<SupportPoint[]>([]);
+  const [donationForm, setDonationForm] = useState(initialDonationForm);
+  const [donationTasks, setDonationTasks] = useState<DonationTask[]>([
+    { id: 'DT-001', item: 'Cobertores', quantity: '80 unidades', location: 'Escola Municipal A', status: 'aberto' },
+    { id: 'DT-002', item: 'Cestas básicas', quantity: '45 unidades', location: 'Paróquia Central', status: 'em_andamento' },
+  ]);
+  const [splatForm, setSplatForm] = useState(initialSplatForm);
+  const [splatUploading, setSplatUploading] = useState(false);
+  const [splatError, setSplatError] = useState('');
+  const [splatPreview, setSplatPreview] = useState<{ splatUrl?: string | null; sourceVideoUrl?: string } | null>(null);
   const mapOverlayRef = useRef<HTMLDivElement | null>(null);
   const [floatingPanelPositions, setFloatingPanelPositions] = useState<Record<FloatingPanelId, FloatingPanelPosition>>({
     global: { top: 16, left: 16 },
@@ -410,6 +476,18 @@ export default function App() {
     }));
   };
 
+
+  const tacticalMapEnabled = sidebarTab === 'hotspots';
+
+  const displayedHotspots = useMemo(() => {
+    if (!tacticalMapEnabled) return hotspots;
+
+    return hotspots.filter((hotspot) => {
+      const riskText = `${hotspot.type} ${hotspot.riskFactors.join(' ')}`.toLowerCase();
+      const disasterKeywords = ['flood', 'enchente', 'alag', 'corrente', 'desliz', 'desmoron', 'desab'];
+      return hotspot.score >= 90 || disasterKeywords.some((keyword) => riskText.includes(keyword));
+    });
+  }, [hotspots, tacticalMapEnabled]);
 
   const filteredNewsUpdates = useMemo(() => {
     const oneWeekAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
@@ -536,12 +614,19 @@ export default function App() {
     loadAttentionAlerts();
     loadClimakiContext();
 
-    const interval = setInterval(() => {
-      loadNews();
+    const tacticalInterval = setInterval(() => {
       loadAttentionAlerts();
       loadClimakiContext();
     }, 120000);
-    return () => clearInterval(interval);
+
+    const publicSourcesInterval = setInterval(() => {
+      loadNews();
+    }, 1800000);
+
+    return () => {
+      clearInterval(tacticalInterval);
+      clearInterval(publicSourcesInterval);
+    };
   }, []);
 
   const handleUpload = async (event: FormEvent<HTMLFormElement>) => {
@@ -648,6 +733,8 @@ export default function App() {
     };
 
     const endpoints = Array.from(new Set([
+      resolveApiUrl('/api/simulation/easy'),
+      '/api/simulation/easy',
       resolveApiUrl('/api/location/flow-simulation'),
       '/api/location/flow-simulation',
     ]));
@@ -668,12 +755,13 @@ export default function App() {
             throw new Error(errorPayload?.error ?? `Falha na simulação (HTTP ${response.status}).`);
           }
 
-          const data = await tryParseJson<FlowSimulationResponse>(response);
-          if (!data) {
+          const data = await tryParseJson<FlowSimulationResponse & { flowSimulation?: FlowSimulationResponse }>(response);
+          const flowData = data?.flowSimulation ?? data;
+          if (!flowData) {
             throw new Error('Resposta inválida da simulação hidrodinâmica.');
           }
 
-          setFlowResult(data);
+          setFlowResult(flowData);
           setFlowError(`Cenário aplicado: ${activeScenario.label}. Ajuste a chuva e rode novamente para comparar.`);
           setRunningFlow(false);
           return;
@@ -754,12 +842,64 @@ export default function App() {
       setShowRiskModal(false);
       setRiskForm(initialRiskForm);
       setRiskDraftPoint(null);
-      setIsSelectingRiskArea(false);
     } catch (error) {
       setRiskError(error instanceof Error ? error.message : 'Erro ao registrar área de risco.');
     } finally {
       setSavingRiskArea(false);
     }
+  };
+
+
+
+  const handleSplatUpload = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setSplatError('');
+
+    if (!splatForm.video) {
+      setSplatError('Selecione um vídeo para gerar a cena 3D com gaussian splatting.');
+      return;
+    }
+
+    setSplatUploading(true);
+    try {
+      const payload = new FormData();
+      payload.append('latitude', splatForm.latitude);
+      payload.append('longitude', splatForm.longitude);
+      payload.append('video', splatForm.video);
+
+      const response = await fetch(resolveApiUrl('/api/splat/convert'), {
+        method: 'POST',
+        body: payload,
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.error ?? 'Falha ao converter vídeo para .splat.');
+      }
+
+      setSplatPreview({
+        splatUrl: data?.splatUrl ? resolveApiUrl(data.splatUrl) : null,
+        sourceVideoUrl: data?.storedVideoPath,
+      });
+      setSplatForm((prev) => ({ ...prev, video: null }));
+      openPanel({ mode: 'splat', label: 'Render 3D (gaussian-splatting)' });
+    } catch (error) {
+      setSplatError(error instanceof Error ? error.message : 'Erro no pipeline gaussian-splatting.');
+    } finally {
+      setSplatUploading(false);
+    }
+  };
+
+  const handleDonationSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setDonationTasks((prev) => ([{
+      id: `DT-${Date.now()}`,
+      item: donationForm.item,
+      quantity: donationForm.quantity,
+      location: donationForm.location,
+      status: 'aberto',
+    }, ...prev]));
+    setDonationForm(initialDonationForm);
   };
 
 
@@ -777,50 +917,20 @@ export default function App() {
               <h1 className="text-2xl font-bold tracking-tight text-white">Centro de Comando</h1>
             </div>
             <p className="text-sm text-slate-400">Triagem tática: onde agir primeiro para maximizar vidas salvas.</p>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
-              <button
-                onClick={() => {
-                  setShowUploadModal(true);
-                  setUploadError('');
-                  setUploadSuccess('');
-                }}
-                className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-3 py-2 rounded-md text-sm font-semibold transition-colors"
-              >
-                <Upload className="w-4 h-4" /> Enviar vídeo
-              </button>
-              <button
-                onClick={() => {
-                  setShowMissingModal(true);
-                  setMissingError('');
-                  setMissingSuccess('');
-                }}
-                className="flex items-center justify-center gap-2 bg-amber-600 hover:bg-amber-500 text-white px-3 py-2 rounded-md text-sm font-semibold transition-colors"
-              >
-                <Users className="w-4 h-4" /> Cadastrar desaparecido
-              </button>
-              <button
-                onClick={() => {
-                  setIsSelectingIncidentPoint((prev) => !prev);
-                }}
-                className={`flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-semibold transition-colors ${isSelectingIncidentPoint ? 'bg-emerald-600 hover:bg-emerald-500 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-100'}`}
-              >
-                <MapPin className="w-4 h-4" /> {isSelectingIncidentPoint ? 'Clique no mapa...' : 'Marcar ponto (1 clique)'}
-              </button>
-
-              <button
-                onClick={() => {
-                  setIsSelectingRiskArea((prev) => !prev);
-                  setRiskError('');
-                  setRiskSuccess('');
-                }}
-                className={`flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-semibold transition-colors ${isSelectingRiskArea ? 'bg-rose-600 hover:bg-rose-500 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-100'}`}
-              >
-                <Siren className="w-4 h-4" /> {isSelectingRiskArea ? 'Clique no risco...' : 'Marcar área de risco'}
-              </button>
+            <div className="space-y-2">
+              <p className="text-[11px] text-slate-400">
+                O menu de ações rápidas abre no mapa, no local clicado pelo usuário.
+              </p>
+              <p className="text-[11px] text-slate-400">
+                Último clique: {lastMapClick ? `${lastMapClick.lat.toFixed(5)}, ${lastMapClick.lng.toFixed(5)}` : 'nenhum ponto selecionado'}.
+              </p>
+              <p className="text-[11px] text-cyan-300">
+                {mapActionMode !== 'none' ? `Ferramenta ativa: ${mapActionMode}.` : 'Ferramenta ativa: menu contextual no mapa.'}
+              </p>
             </div>
           </div>
 
-          <div className="px-4 py-3 border-b border-slate-700 bg-slate-800/50">
+          <div className={`px-4 py-3 border-b border-slate-700 bg-slate-800/50 transition-all duration-300 ${sidebarTab === 'flood' ? 'opacity-100 translate-y-0' : 'hidden opacity-0 -translate-y-1'}`}>
             <h2 className="text-xs uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-2">
               <Droplets className="w-3 h-3" /> Simulação de Enchente (modo fácil)
             </h2>
@@ -873,8 +983,30 @@ export default function App() {
             </form>
           </div>
 
-          <div className="px-4 py-3 border-b border-slate-700 bg-slate-800/50">
-            <h2 className="text-xs uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-2"><Newspaper className="w-3 h-3" />Aba notícias • Chuvas (últimos 7 dias)</h2>
+          <div className="px-4 py-2 border-b border-slate-700 bg-slate-900/60">
+            <div className="grid grid-cols-6 gap-2 text-[11px]">
+              {([
+                { key: 'flood', label: 'Enchente' },
+                { key: 'news', label: 'Notícias' },
+                { key: 'missing', label: 'Desaparecidos' },
+                { key: 'hotspots', label: 'Hotspots' },
+                { key: 'support', label: 'Apoio' },
+                { key: 'volunteers', label: 'Voluntários' },
+              ] as const).map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setSidebarTab(tab.key)}
+                  className={`rounded-md px-2 py-1.5 border transition-all duration-200 ${sidebarTab === tab.key ? 'bg-cyan-600 border-cyan-400 text-white shadow-md shadow-cyan-900/30 scale-[1.02]' : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'}`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className={`px-4 py-3 border-b border-slate-700 bg-slate-800/50 transition-all duration-300 ${sidebarTab === 'news' ? 'opacity-100 translate-y-0' : 'hidden opacity-0 -translate-y-1'}`}>
+            <h2 className="text-xs uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-2"><Newspaper className="w-3 h-3" />Notícias e ações do governo • alertas e transparência</h2>
             <div className="grid grid-cols-2 gap-1 mb-2 text-[11px]">
               {(['Todas', 'Ubá', 'Juiz de Fora', 'Matias Barbosa'] as const).map((cityTab) => (
                 <button
@@ -889,20 +1021,35 @@ export default function App() {
             </div>
             {loadingNews ? <p className="text-xs text-slate-500">Buscando atualizações...</p> : (
               filteredNewsUpdates.length ? (
-                <ul className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                <ul className="space-y-2 max-h-56 overflow-y-auto pr-1">
                   {filteredNewsUpdates.map((news) => (
                     <li key={news.id} className="text-xs bg-slate-900/60 border border-slate-700 rounded-md p-2">
-                      <p className="font-semibold text-white">{news.city}: {news.title}</p>
-                      <p className="text-slate-400">{new Date(news.publishedAtUtc).toLocaleString('pt-BR')}</p>
-                      <a href={news.url} target="_blank" rel="noreferrer" className="text-blue-300 hover:text-blue-200 underline">{news.source}</a>
+                      <div className="flex gap-2">
+                        <img
+                          src={news.thumbnailUrl || 'https://portaldatransparencia.gov.br/favicon.ico'}
+                          alt={`thumb ${news.source}`}
+                          className="w-10 h-10 rounded object-cover border border-slate-700 bg-slate-800"
+                          loading="lazy"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <span className={`px-1.5 py-0.5 rounded text-[10px] border ${news.kind === 'government_action' ? 'border-emerald-500 text-emerald-300' : 'border-amber-500 text-amber-300'}`}>
+                              {news.kind === 'government_action' ? 'Ação gov' : 'Alerta'}
+                            </span>
+                            <span className="text-slate-500 text-[10px]">{new Date(news.publishedAtUtc).toLocaleString('pt-BR')}</span>
+                          </div>
+                          <p className="font-semibold text-white line-clamp-3">{news.city}: {news.title}</p>
+                          <a href={news.url} target="_blank" rel="noreferrer" className="text-blue-300 hover:text-blue-200 underline">{news.source}</a>
+                        </div>
+                      </div>
                     </li>
                   ))}
                 </ul>
-              ) : <p className="text-xs text-slate-500">Sem notícias de chuva para o filtro selecionado na última semana.</p>
+              ) : <p className="text-xs text-slate-500">Sem alertas/notícias governamentais para o filtro selecionado na última semana.</p>
             )}
           </div>
 
-          <div className="px-4 py-3 border-b border-slate-700 bg-slate-800/50">
+          <div className={`px-4 py-3 border-b border-slate-700 bg-slate-800/50 transition-all duration-300 ${sidebarTab === 'missing' ? 'opacity-100 translate-y-0' : 'hidden opacity-0 -translate-y-1'}`}>
             <h2 className="text-xs uppercase tracking-wider text-slate-400 mb-2">Pessoas desaparecidas</h2>
             {loadingMissing ? <p className="text-xs text-slate-500">Carregando cadastros...</p> : (
               <ul className="space-y-2 max-h-28 overflow-y-auto pr-1">
@@ -916,8 +1063,73 @@ export default function App() {
             )}
           </div>
 
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
-            {loading ? <div className="flex items-center justify-center h-full"><Activity className="w-8 h-8 text-blue-500 animate-spin" /></div> : hotspots.map((hs, i) => (
+
+          <div className={`px-4 py-3 border-b border-slate-700 bg-slate-800/50 transition-all duration-300 ${sidebarTab === 'support' ? 'opacity-100 translate-y-0' : 'hidden opacity-0 -translate-y-1'}`}>
+            <h2 className="text-xs uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-2"><Building2 className="w-3 h-3" /> Pontos de apoio</h2>
+            <p className="text-[11px] text-slate-400 mb-2">Clique no mapa e use o menu contextual para demarcar atendimento, abrigos e distribuição.</p>
+            {supportPoints.length === 0 ? (
+              <p className="text-xs text-slate-500">Nenhum ponto cadastrado ainda.</p>
+            ) : (
+              <ul className="space-y-2 max-h-28 overflow-y-auto pr-1">
+                {supportPoints.slice(0, 6).map((point) => (
+                  <li key={point.id} className="text-xs bg-slate-900/60 border border-slate-700 rounded-md p-2">
+                    <p className="font-semibold text-white">{point.type}</p>
+                    <p className="text-slate-400">{point.lat.toFixed(5)}, {point.lng.toFixed(5)}</p>
+                    {point.notes ? <p className="text-slate-500">{point.notes}</p> : null}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <div className={`px-4 py-3 border-b border-slate-700 bg-slate-800/50 transition-all duration-300 ${sidebarTab === 'volunteers' ? 'opacity-100 translate-y-0' : 'hidden opacity-0 -translate-y-1'}`}>
+            <h2 className="text-xs uppercase tracking-wider text-slate-400 mb-2">Central de voluntários</h2>
+            <div className="grid grid-cols-2 gap-2 mb-2">
+              <button onClick={() => { setShowMissingModal(true); setMissingError(''); setMissingSuccess(''); }} className="text-xs px-2 py-1.5 rounded bg-amber-600 hover:bg-amber-500 text-white">Cadastrar desaparecido</button>
+              <button onClick={() => { setShowUploadModal(true); setUploadError(''); setUploadSuccess(''); }} className="text-xs px-2 py-1.5 rounded bg-blue-600 hover:bg-blue-500 text-white">Enviar evidência</button>
+            </div>
+            <form className="space-y-2 mb-2" onSubmit={handleDonationSubmit}>
+              <input value={donationForm.item} onChange={(e) => setDonationForm((prev) => ({ ...prev, item: e.target.value }))} className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs" placeholder="Item de doação" />
+              <div className="grid grid-cols-2 gap-2">
+                <input value={donationForm.quantity} onChange={(e) => setDonationForm((prev) => ({ ...prev, quantity: e.target.value }))} className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs" placeholder="Quantidade" />
+                <input value={donationForm.location} onChange={(e) => setDonationForm((prev) => ({ ...prev, location: e.target.value }))} className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs" placeholder="Local de entrega" />
+              </div>
+              <button type="submit" className="w-full text-xs px-2 py-1.5 rounded bg-emerald-600 hover:bg-emerald-500 text-white">Adicionar demanda de doação</button>
+            </form>
+            <ul className="space-y-2 max-h-24 overflow-y-auto pr-1">
+              {donationTasks.slice(0, 6).map((task) => (
+                <li key={task.id} className="text-xs bg-slate-900/60 border border-slate-700 rounded-md p-2">
+                  <p className="font-semibold text-white">{task.item} • {task.quantity}</p>
+                  <p className="text-slate-400">{task.location}</p>
+                  <p className="text-cyan-300">Status: {task.status.replace('_', ' ')}</p>
+                </li>
+              ))}
+            </ul>
+
+            <div className="mt-3 border-t border-slate-700 pt-3">
+              <h3 className="text-[11px] uppercase tracking-wide text-slate-400 mb-2">Renderizar cena 3D por vídeo (Gaussian Splatting)</h3>
+              <form className="space-y-2" onSubmit={handleSplatUpload}>
+                <div className="grid grid-cols-2 gap-2">
+                  <input value={splatForm.latitude} onChange={(e) => setSplatForm((prev) => ({ ...prev, latitude: e.target.value }))} className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs" placeholder="Latitude" required />
+                  <input value={splatForm.longitude} onChange={(e) => setSplatForm((prev) => ({ ...prev, longitude: e.target.value }))} className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs" placeholder="Longitude" required />
+                </div>
+                <input type="file" accept="video/*" onChange={(e) => setSplatForm((prev) => ({ ...prev, video: e.target.files && e.target.files.length > 0 ? e.target.files[0] : null }))} className="text-xs w-full" required />
+                <button type="submit" disabled={splatUploading} className="w-full text-xs px-2 py-1.5 rounded bg-violet-600 hover:bg-violet-500 text-white disabled:opacity-70">
+                  {splatUploading ? 'Processando pipeline 3D...' : 'Enviar vídeo e gerar cena 3D'}
+                </button>
+                {splatError && <p className="text-xs text-red-400">{splatError}</p>}
+              </form>
+
+              {splatPreview && (
+                <div className="mt-3 h-48 rounded border border-slate-700 overflow-hidden">
+                  <PostDisasterSplat splatUrl={splatPreview.splatUrl} sourceVideoUrl={splatPreview.sourceVideoUrl} />
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className={`flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar transition-all duration-300 ${sidebarTab === 'hotspots' ? 'opacity-100 translate-y-0' : 'hidden opacity-0 -translate-y-1'}`}>
+            {loading ? <div className="flex items-center justify-center h-full"><Activity className="w-8 h-8 text-blue-500 animate-spin" /></div> : displayedHotspots.map((hs, i) => (
               <div key={hs.id} className={`rounded-xl p-4 border transition-all ${hs.score > 90 ? 'bg-red-950/40 border-red-500/50 hover:bg-red-900/40' : 'bg-slate-700/50 border-orange-500/30 hover:bg-slate-700'}`}>
                 <div className="flex justify-between items-start mb-3">
                   <div className="flex items-center gap-2">
@@ -937,40 +1149,62 @@ export default function App() {
         </div>
 
         <div ref={mapOverlayRef} className="w-2/3 h-full relative z-10">
-          <MapContainer center={[-21.1215, -42.9427]} zoom={14} className="h-full w-full" zoomControl={false}>
+          <MapContainer key={`map-${tacticalMapEnabled ? 'tactical' : 'default'}`} center={[-21.1215, -42.9427]} zoom={14} className="h-full w-full" zoomControl={false}>
             <LayersControl position="topright">
-              <LayersControl.BaseLayer checked name="Mapa em relevo">
+              <LayersControl.BaseLayer checked={!tacticalMapEnabled} name="Mapa em relevo">
                 <TileLayer attribution='Map data: &copy; OpenStreetMap contributors | Style: OpenTopoMap' url="https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png" />
               </LayersControl.BaseLayer>
-              <LayersControl.BaseLayer name="Mapa escuro tático">
+              <LayersControl.BaseLayer checked={tacticalMapEnabled} name="Mapa escuro tático">
                 <TileLayer attribution='&copy; <a href="https://carto.com/">CartoDB</a>' url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
               </LayersControl.BaseLayer>
             </LayersControl>
 
             <MapClickSelector
-              enabled={isSelectingIncidentPoint}
-              onSelect={(lat, lng) => {
-                setSelectedIncidentPoint({ lat, lng });
-                setIsSelectingIncidentPoint(false);
-                openPanel({ mode: 'sim', sourceLat: lat, sourceLng: lng, label: 'Ponto manual' });
+              enabled
+              onSelect={(lat, lng, clientX, clientY) => {
+                setLastMapClick({ lat, lng });
+
+                const mapRect = mapOverlayRef.current?.getBoundingClientRect();
+                const x = mapRect ? Math.max(12, Math.min(mapRect.width - 220, clientX - mapRect.left)) : 24;
+                const y = mapRect ? Math.max(12, Math.min(mapRect.height - 260, clientY - mapRect.top)) : 24;
+                setMapQuickMenu({ visible: true, x, y, lat, lng });
+
+                if (mapActionMode === 'incident') {
+                  setSelectedIncidentPoint({ lat, lng });
+                  setFlowForm((prev) => ({ ...prev, sourceLat: lat.toFixed(5), sourceLng: lng.toFixed(5) }));
+                  setMapActionMode('none');
+                  openPanel({ mode: 'sim', sourceLat: lat, sourceLng: lng, label: 'Ponto manual' });
+                  return;
+                }
+
+                if (mapActionMode === 'risk') {
+                  setRiskDraftPoint({ lat, lng });
+                  setShowRiskModal(true);
+                  setRiskError('');
+                  setRiskSuccess('');
+                  setMapActionMode('none');
+                  setRiskForm((prev) => ({
+                    ...prev,
+                    message: `Risco reportado próximo a ${lat.toFixed(5)}, ${lng.toFixed(5)}.`,
+                  }));
+                  return;
+                }
+
+                if (mapActionMode === 'support') {
+                  setSupportPoints((prev) => ([{
+                    id: `SP-${Date.now()}`,
+                    type: 'Atendimento',
+                    lat,
+                    lng,
+                    notes: 'Criado via ferramenta ativa no mapa.',
+                    createdAtUtc: new Date().toISOString(),
+                  }, ...prev]));
+                  setMapActionMode('none');
+                }
               }}
             />
 
-            <MapClickSelector
-              enabled={isSelectingRiskArea}
-              onSelect={(lat, lng) => {
-                setRiskDraftPoint({ lat, lng });
-                setShowRiskModal(true);
-                setRiskError('');
-                setRiskSuccess('');
-                setRiskForm((prev) => ({
-                  ...prev,
-                  message: `Risco reportado próximo a ${lat.toFixed(5)}, ${lng.toFixed(5)}.`,
-                }));
-              }}
-            />
-
-            {hotspots.map((hs, i) => (
+            {displayedHotspots.map((hs, i) => (
               <Marker key={hs.id} position={[hs.lat, hs.lng]} icon={hs.score > 90 ? iconCritical : hs.type === 'Flood' ? iconFlood : iconLandslide}>
                 <Popup className="custom-popup">
                   <div className="text-slate-900 font-sans">
@@ -1002,6 +1236,18 @@ export default function App() {
               </>
             )}
 
+
+            {supportPoints.map((point) => (
+              <Marker key={point.id} position={[point.lat, point.lng]} icon={iconCritical}>
+                <Popup className="custom-popup">
+                  <div className="text-slate-900 text-xs">
+                    <p><strong>{point.type}</strong></p>
+                    <p>{point.lat.toFixed(5)}, {point.lng.toFixed(5)}</p>
+                    {point.notes ? <p>{point.notes}</p> : null}
+                  </div>
+                </Popup>
+              </Marker>
+            ))}
 
             {attentionAlerts.map((alert) => (
               <Circle
@@ -1051,6 +1297,21 @@ export default function App() {
               <Polyline positions={flowPathLatLng} pathOptions={{ color: '#06b6d4', weight: 3, opacity: 0.9, dashArray: '6 6' }} />
             )}
           </MapContainer>
+
+          {mapQuickMenu?.visible && (
+            <div
+              className="absolute z-[430] w-56 rounded-md border border-slate-600 bg-slate-900/95 shadow-2xl p-2 space-y-1"
+              style={{ left: `${mapQuickMenu.x}px`, top: `${mapQuickMenu.y}px` }}
+            >
+              <p className="text-[11px] text-slate-400 px-1">{mapQuickMenu.lat.toFixed(5)}, {mapQuickMenu.lng.toFixed(5)}</p>
+              <button onClick={() => { setShowUploadModal(true); setUploadError(''); setUploadSuccess(''); setMapQuickMenu(null); }} className="w-full text-left flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-slate-800"><Upload className="w-4 h-4 text-blue-400" /> Enviar vídeo</button>
+              <button onClick={() => { setShowMissingModal(true); setMissingError(''); setMissingSuccess(''); setMapQuickMenu(null); }} className="w-full text-left flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-slate-800"><Users className="w-4 h-4 text-amber-400" /> Cadastrar desaparecido</button>
+              <button onClick={() => { setSelectedIncidentPoint({ lat: mapQuickMenu.lat, lng: mapQuickMenu.lng }); setFlowForm((prev) => ({ ...prev, sourceLat: mapQuickMenu.lat.toFixed(5), sourceLng: mapQuickMenu.lng.toFixed(5) })); openPanel({ mode: 'sim', sourceLat: mapQuickMenu.lat, sourceLng: mapQuickMenu.lng, label: 'Ponto manual' }); setMapQuickMenu(null); }} className="w-full text-left flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-slate-800"><MapPin className="w-4 h-4 text-emerald-400" /> Marcar incidente</button>
+              <button onClick={() => { setRiskDraftPoint({ lat: mapQuickMenu.lat, lng: mapQuickMenu.lng }); setShowRiskModal(true); setRiskForm((prev) => ({ ...prev, message: `Risco reportado próximo a ${mapQuickMenu.lat.toFixed(5)}, ${mapQuickMenu.lng.toFixed(5)}.` })); setMapQuickMenu(null); }} className="w-full text-left flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-slate-800"><Siren className="w-4 h-4 text-rose-400" /> Marcar risco</button>
+              <button onClick={() => { setSupportPoints((prev) => ([{ id: `SP-${Date.now()}`, type: 'Abrigo', lat: mapQuickMenu.lat, lng: mapQuickMenu.lng, notes: 'Marcado pelo menu contextual.', createdAtUtc: new Date().toISOString() }, ...prev])); setMapQuickMenu(null); }} className="w-full text-left flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-slate-800"><Building2 className="w-4 h-4 text-cyan-400" /> Novo ponto de apoio</button>
+              <button onClick={() => setMapQuickMenu(null)} className="w-full text-left flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-slate-800"><X className="w-4 h-4 text-slate-400" /> Fechar menu</button>
+            </div>
+          )}
 
           {dockedPanels.global || dockedPanels.terrain ? (
             <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[420] bg-slate-900/90 border border-slate-700 rounded-xl px-3 py-2 shadow-xl flex items-center gap-2 text-xs">
@@ -1173,7 +1434,7 @@ export default function App() {
               </div>
               <div className="flex-1 w-full h-full relative">
                 <Suspense fallback={<div className="h-full w-full flex items-center justify-center text-slate-400 text-sm">Carregando visualização 3D...</div>}>
-                  {selectedPanel.mode === 'sim' ? <LandslideSimulation sourceLat={selectedPanel.sourceLat ?? selectedPanel.hotspot?.lat} sourceLng={selectedPanel.sourceLng ?? selectedPanel.hotspot?.lng} radiusMeters={500} allowRadiusControl /> : <PostDisasterSplat />}
+                  {selectedPanel.mode === 'sim' ? <LandslideSimulation sourceLat={selectedPanel.sourceLat ?? selectedPanel.hotspot?.lat} sourceLng={selectedPanel.sourceLng ?? selectedPanel.hotspot?.lng} radiusMeters={500} allowRadiusControl /> : <PostDisasterSplat splatUrl={splatPreview?.splatUrl} sourceVideoUrl={splatPreview?.sourceVideoUrl} />}
                 </Suspense>
               </div>
             </div>
