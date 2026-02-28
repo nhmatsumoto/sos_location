@@ -1,6 +1,6 @@
 import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent, PointerEvent as ReactPointerEvent, ReactNode } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, CircleMarker, LayersControl, Polyline, Circle, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, CircleMarker, LayersControl, Polyline, Circle, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import {
   AlertTriangle,
@@ -19,9 +19,9 @@ import {
   Newspaper,
   Users,
   Play,
-  Droplets,
   Siren,
   Building2,
+  Flame,
 } from 'lucide-react';
 const LandslideSimulation = lazy(() => import('./LandslideSimulation'));
 const PostDisasterSplat = lazy(() => import('./PostDisasterSplat'));
@@ -127,6 +127,27 @@ interface DonationTask {
   quantity: string;
   location: string;
   status: 'aberto' | 'em_andamento' | 'concluido';
+}
+
+interface CatastropheEvent {
+  id: string;
+  title: string;
+  description: string;
+  atUtc: string;
+  lat: number;
+  lng: number;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+}
+
+interface Catastrophe {
+  id: string;
+  name: string;
+  type: 'Enchente' | 'Deslizamento' | 'Desabamento' | "Corrente d'água";
+  status: 'Ativa' | 'Monitorada' | 'Encerrada';
+  centerLat: number;
+  centerLng: number;
+  createdAtUtc: string;
+  events: CatastropheEvent[];
 }
 
 interface FlowCell {
@@ -236,6 +257,21 @@ const initialSplatForm = {
   video: null as File | null,
 };
 
+
+const initialCatastropheForm = {
+  name: 'Nova Catástrofe',
+  type: 'Enchente' as Catastrophe['type'],
+  status: 'Ativa' as Catastrophe['status'],
+  centerLat: '-21.1215',
+  centerLng: '-42.9427',
+};
+
+const initialCatastropheEventForm = {
+  title: 'Novo acontecimento',
+  description: 'Equipe em campo reportou atualização da situação.',
+  severity: 'high' as CatastropheEvent['severity'],
+};
+
 interface SelectedPanel {
   hotspot?: Hotspot;
   mode: 'sim' | 'splat';
@@ -253,6 +289,17 @@ function MapClickSelector({ enabled, onSelect }: { enabled: boolean; onSelect: (
       onSelect(event.latlng.lat, event.latlng.lng, clientX, clientY);
     },
   });
+
+  return null;
+}
+
+function MapFocusController({ target }: { target: { lat: number; lng: number } | null }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!target) return;
+    map.flyTo([target.lat, target.lng], Math.max(map.getZoom(), 14), { duration: 1.1 });
+  }, [target, map]);
 
   return null;
 }
@@ -381,6 +428,31 @@ export default function App() {
   const [splatUploading, setSplatUploading] = useState(false);
   const [splatError, setSplatError] = useState('');
   const [splatPreview, setSplatPreview] = useState<{ splatUrl?: string | null; sourceVideoUrl?: string } | null>(null);
+  const [catastropheForm, setCatastropheForm] = useState(initialCatastropheForm);
+  const [catastropheEventForm, setCatastropheEventForm] = useState(initialCatastropheEventForm);
+  const [catastrophes, setCatastrophes] = useState<Catastrophe[]>([
+    {
+      id: 'CT-001',
+      name: 'Enchente no perímetro urbano de Ubá',
+      type: 'Enchente',
+      status: 'Ativa',
+      centerLat: -21.1215,
+      centerLng: -42.9427,
+      createdAtUtc: new Date().toISOString(),
+      events: [
+        {
+          id: 'CTE-001',
+          title: 'Primeiro alerta da Defesa Civil',
+          description: 'Volume elevado no córrego e risco de transbordamento.',
+          atUtc: new Date().toISOString(),
+          lat: -21.1215,
+          lng: -42.9427,
+          severity: 'high',
+        },
+      ],
+    },
+  ]);
+  const [selectedCatastropheId, setSelectedCatastropheId] = useState<string>('CT-001');
   const mapOverlayRef = useRef<HTMLDivElement | null>(null);
   const [floatingPanelPositions, setFloatingPanelPositions] = useState<Record<FloatingPanelId, FloatingPanelPosition>>({
     global: { top: 16, left: 16 },
@@ -478,6 +550,11 @@ export default function App() {
 
 
   const tacticalMapEnabled = sidebarTab === 'hotspots';
+
+  const activeCatastrophe = useMemo(
+    () => catastrophes.find((item) => item.id === selectedCatastropheId) ?? null,
+    [catastrophes, selectedCatastropheId],
+  );
 
   const displayedHotspots = useMemo(() => {
     if (!tacticalMapEnabled) return hotspots;
@@ -903,6 +980,47 @@ export default function App() {
   };
 
 
+
+  const handleCreateCatastrophe = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const payload: Catastrophe = {
+      id: `CT-${Date.now()}`,
+      name: catastropheForm.name,
+      type: catastropheForm.type,
+      status: catastropheForm.status,
+      centerLat: Number(catastropheForm.centerLat),
+      centerLng: Number(catastropheForm.centerLng),
+      createdAtUtc: new Date().toISOString(),
+      events: [],
+    };
+    setCatastrophes((prev) => [payload, ...prev]);
+    setSelectedCatastropheId(payload.id);
+    setCatastropheForm(initialCatastropheForm);
+  };
+
+  const handleAddCatastropheEvent = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!activeCatastrophe || !lastMapClick) return;
+
+    const newEvent: CatastropheEvent = {
+      id: `CTE-${Date.now()}`,
+      title: catastropheEventForm.title,
+      description: catastropheEventForm.description,
+      atUtc: new Date().toISOString(),
+      lat: lastMapClick.lat,
+      lng: lastMapClick.lng,
+      severity: catastropheEventForm.severity,
+    };
+
+    setCatastrophes((prev) => prev.map((item) => (
+      item.id === activeCatastrophe.id
+        ? { ...item, events: [newEvent, ...item.events] }
+        : item
+    )));
+
+    setCatastropheEventForm(initialCatastropheEventForm);
+  };
+
   const openPanel = (panel: SelectedPanel) => {
     setSelectedPanel(panel);
     setIsPanelFullscreen(true);
@@ -932,8 +1050,56 @@ export default function App() {
 
           <div className={`px-4 py-3 border-b border-slate-700 bg-slate-800/50 transition-all duration-300 ${sidebarTab === 'flood' ? 'opacity-100 translate-y-0' : 'hidden opacity-0 -translate-y-1'}`}>
             <h2 className="text-xs uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-2">
-              <Droplets className="w-3 h-3" /> Simulação de Enchente (modo fácil)
+              <Flame className="w-3 h-3" /> Catástrofe (modo operacional)
             </h2>
+            <p className="text-[11px] text-slate-400 mb-2">Onboard de catástrofes em tempo real + simulação rápida integrada ao mapa.</p>
+            <form className="space-y-2 mb-3" onSubmit={handleCreateCatastrophe}>
+              <input value={catastropheForm.name} onChange={(e) => setCatastropheForm((prev) => ({ ...prev, name: e.target.value }))} className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs" placeholder="Nome da catástrofe" required />
+              <div className="grid grid-cols-2 gap-2">
+                <select value={catastropheForm.type} onChange={(e) => setCatastropheForm((prev) => ({ ...prev, type: e.target.value as Catastrophe['type'] }))} className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs">
+                  <option>Enchente</option><option>Deslizamento</option><option>Desabamento</option><option>Corrente d'água</option>
+                </select>
+                <select value={catastropheForm.status} onChange={(e) => setCatastropheForm((prev) => ({ ...prev, status: e.target.value as Catastrophe['status'] }))} className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs">
+                  <option>Ativa</option><option>Monitorada</option><option>Encerrada</option>
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <input value={catastropheForm.centerLat} onChange={(e) => setCatastropheForm((prev) => ({ ...prev, centerLat: e.target.value }))} className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs" placeholder="Latitude" required />
+                <input value={catastropheForm.centerLng} onChange={(e) => setCatastropheForm((prev) => ({ ...prev, centerLng: e.target.value }))} className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs" placeholder="Longitude" required />
+              </div>
+              <button type="submit" className="w-full text-xs px-2 py-1.5 rounded bg-fuchsia-600 hover:bg-fuchsia-500 text-white">Criar catástrofe</button>
+            </form>
+
+            <div className="space-y-2 mb-3">
+              <p className="text-[11px] text-slate-400">Catástrofes em tempo real</p>
+              <ul className="space-y-1 max-h-24 overflow-y-auto">
+                {catastrophes.map((cat) => (
+                  <li key={cat.id}>
+                    <button type="button" onClick={() => setSelectedCatastropheId(cat.id)} className={`w-full text-left text-xs px-2 py-1 rounded border ${selectedCatastropheId === cat.id ? 'border-fuchsia-400 bg-fuchsia-900/30 text-fuchsia-100' : 'border-slate-700 bg-slate-900/60 text-slate-300 hover:bg-slate-800'}`}>
+                      <span className="font-semibold">{cat.name}</span> · {cat.type} · {cat.status}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <form className="space-y-2 mb-3" onSubmit={handleAddCatastropheEvent}>
+              <p className="text-[11px] text-slate-400">Linha do tempo da catástrofe ativa</p>
+              <input value={catastropheEventForm.title} onChange={(e) => setCatastropheEventForm((prev) => ({ ...prev, title: e.target.value }))} className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs" placeholder="Título do acontecimento" required />
+              <textarea value={catastropheEventForm.description} onChange={(e) => setCatastropheEventForm((prev) => ({ ...prev, description: e.target.value }))} className="w-full min-h-14 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs" placeholder="Descrição (use clique no mapa para coordenadas)" required />
+              <button type="submit" disabled={!lastMapClick || !activeCatastrophe} className="w-full text-xs px-2 py-1.5 rounded bg-sky-600 hover:bg-sky-500 text-white disabled:opacity-60">Adicionar evento na posição clicada</button>
+              {activeCatastrophe ? (
+                <ul className="space-y-1 max-h-24 overflow-y-auto">
+                  {activeCatastrophe.events.slice(0, 5).map((evt) => (
+                    <li key={evt.id} className="text-[11px] bg-slate-900/60 border border-slate-700 rounded px-2 py-1">
+                      <p className="text-white font-semibold">{evt.title}</p>
+                      <p className="text-slate-400">{new Date(evt.atUtc).toLocaleString('pt-BR')} · {evt.lat.toFixed(4)}, {evt.lng.toFixed(4)}</p>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </form>
+
             <p className="text-[11px] text-slate-400 mb-2">Escolha um cenário, ajuste a chuva e clique em simular.</p>
             <form className="space-y-2" onSubmit={handleRunFlow}>
               <div className="grid grid-cols-2 gap-2">
@@ -986,7 +1152,7 @@ export default function App() {
           <div className="px-4 py-2 border-b border-slate-700 bg-slate-900/60">
             <div className="grid grid-cols-6 gap-2 text-[11px]">
               {([
-                { key: 'flood', label: 'Enchente' },
+                { key: 'flood', label: 'Catástrofe' },
                 { key: 'news', label: 'Notícias' },
                 { key: 'missing', label: 'Desaparecidos' },
                 { key: 'hotspots', label: 'Hotspots' },
@@ -1159,6 +1325,8 @@ export default function App() {
               </LayersControl.BaseLayer>
             </LayersControl>
 
+            <MapFocusController target={activeCatastrophe ? { lat: activeCatastrophe.centerLat, lng: activeCatastrophe.centerLng } : null} />
+
             <MapClickSelector
               enabled
               onSelect={(lat, lng, clientX, clientY) => {
@@ -1203,6 +1371,35 @@ export default function App() {
                 }
               }}
             />
+
+            {catastrophes.map((catastrophe) => (
+              <Circle
+                key={`cat-area-${catastrophe.id}`}
+                center={[catastrophe.centerLat, catastrophe.centerLng]}
+                radius={Math.max(120, 80 + catastrophe.events.length * 30)}
+                pathOptions={{
+                  color: catastrophe.status === 'Ativa' ? '#ef4444' : catastrophe.status === 'Monitorada' ? '#f59e0b' : '#10b981',
+                  fillColor: catastrophe.status === 'Ativa' ? '#ef4444' : catastrophe.status === 'Monitorada' ? '#f59e0b' : '#10b981',
+                  fillOpacity: 0.08,
+                  weight: 1.5,
+                }}
+              >
+                <Popup className="custom-popup">
+                  <div className="text-slate-900 text-xs">
+                    <p><strong>{catastrophe.name}</strong></p>
+                    <p>{catastrophe.type} • {catastrophe.status}</p>
+                    <p><strong>Eventos:</strong> {catastrophe.events.length}</p>
+                  </div>
+                </Popup>
+              </Circle>
+            ))}
+
+            {activeCatastrophe && activeCatastrophe.events.length > 1 && (
+              <Polyline
+                positions={activeCatastrophe.events.map((evt) => [evt.lat, evt.lng] as [number, number])}
+                pathOptions={{ color: '#f43f5e', weight: 2.5, opacity: 0.9 }}
+              />
+            )}
 
             {displayedHotspots.map((hs, i) => (
               <Marker key={hs.id} position={[hs.lat, hs.lng]} icon={hs.score > 90 ? iconCritical : hs.type === 'Flood' ? iconFlood : iconLandslide}>
