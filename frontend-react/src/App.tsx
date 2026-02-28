@@ -20,6 +20,7 @@ import {
   Users,
   Play,
   Droplets,
+  Siren,
 } from 'lucide-react';
 const LandslideSimulation = lazy(() => import('./LandslideSimulation'));
 const PostDisasterSplat = lazy(() => import('./PostDisasterSplat'));
@@ -212,6 +213,19 @@ const initialMissingForm = {
 
 
 
+const initialRiskForm = {
+  title: 'Nova área de risco mapeada',
+  message: 'Possível risco identificado em campo. Avaliar prioridade.',
+  severity: 'high',
+  radiusMeters: '350',
+  addMissingPerson: false,
+  personName: '',
+  city: 'Ubá',
+  contactName: '',
+  contactPhone: '',
+  additionalInfo: '',
+};
+
 interface SelectedPanel {
   hotspot?: Hotspot;
   mode: 'sim' | 'splat';
@@ -329,7 +343,14 @@ export default function App() {
   const [selectedPanel, setSelectedPanel] = useState<SelectedPanel | null>(null);
   const [isPanelFullscreen, setIsPanelFullscreen] = useState(true);
   const [isSelectingIncidentPoint, setIsSelectingIncidentPoint] = useState(false);
+  const [isSelectingRiskArea, setIsSelectingRiskArea] = useState(false);
   const [selectedIncidentPoint, setSelectedIncidentPoint] = useState<{ lat: number; lng: number } | null>(null);
+  const [riskDraftPoint, setRiskDraftPoint] = useState<{ lat: number; lng: number } | null>(null);
+  const [showRiskModal, setShowRiskModal] = useState(false);
+  const [savingRiskArea, setSavingRiskArea] = useState(false);
+  const [riskError, setRiskError] = useState('');
+  const [riskSuccess, setRiskSuccess] = useState('');
+  const [riskForm, setRiskForm] = useState(initialRiskForm);
   const mapOverlayRef = useRef<HTMLDivElement | null>(null);
   const [floatingPanelPositions, setFloatingPanelPositions] = useState<Record<FloatingPanelId, FloatingPanelPosition>>({
     global: { top: 16, left: 16 },
@@ -711,6 +732,73 @@ export default function App() {
   };
 
 
+  const handleRiskAreaSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!riskDraftPoint) {
+      setRiskError('Selecione um ponto de risco no mapa antes de salvar.');
+      return;
+    }
+
+    setSavingRiskArea(true);
+    setRiskError('');
+    setRiskSuccess('');
+
+    try {
+      const response = await fetch(resolveApiUrl('/api/attention-alerts'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: riskForm.title,
+          message: riskForm.message,
+          severity: riskForm.severity,
+          lat: riskDraftPoint.lat,
+          lng: riskDraftPoint.lng,
+          radiusMeters: Number(riskForm.radiusMeters) || 350,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorPayload = await tryParseJson<{ error?: string }>(response);
+        throw new Error(errorPayload?.error ?? 'Não foi possível salvar a área de risco.');
+      }
+
+      await loadAttentionAlerts();
+
+      if (riskForm.addMissingPerson && riskForm.personName && riskForm.contactName && riskForm.contactPhone) {
+        try {
+          await fetch(resolveApiUrl('/api/missing-persons'), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              personName: riskForm.personName,
+              age: null,
+              city: riskForm.city,
+              lastSeenLocation: `Área marcada ${riskDraftPoint.lat.toFixed(5)}, ${riskDraftPoint.lng.toFixed(5)}`,
+              physicalDescription: 'Registrado via marcação de área de risco no mapa.',
+              additionalInfo: riskForm.additionalInfo,
+              contactName: riskForm.contactName,
+              contactPhone: riskForm.contactPhone,
+            }),
+          });
+          loadMissingPeople();
+        } catch {
+          // Mantém sucesso da área de risco mesmo se cadastro de desaparecido falhar.
+        }
+      }
+
+      setRiskSuccess('Área de risco registrada com sucesso.');
+      setShowRiskModal(false);
+      setRiskForm(initialRiskForm);
+      setRiskDraftPoint(null);
+      setIsSelectingRiskArea(false);
+    } catch (error) {
+      setRiskError(error instanceof Error ? error.message : 'Erro ao registrar área de risco.');
+    } finally {
+      setSavingRiskArea(false);
+    }
+  };
+
+
   const openPanel = (panel: SelectedPanel) => {
     setSelectedPanel(panel);
     setIsPanelFullscreen(true);
@@ -725,7 +813,7 @@ export default function App() {
               <h1 className="text-2xl font-bold tracking-tight text-white">Centro de Comando</h1>
             </div>
             <p className="text-sm text-slate-400">Triagem tática: onde agir primeiro para maximizar vidas salvas.</p>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
               <button
                 onClick={() => {
                   setShowUploadModal(true);
@@ -753,6 +841,17 @@ export default function App() {
                 className={`flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-semibold transition-colors ${isSelectingIncidentPoint ? 'bg-emerald-600 hover:bg-emerald-500 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-100'}`}
               >
                 <MapPin className="w-4 h-4" /> {isSelectingIncidentPoint ? 'Clique no mapa...' : 'Marcar ponto (1 clique)'}
+              </button>
+
+              <button
+                onClick={() => {
+                  setIsSelectingRiskArea((prev) => !prev);
+                  setRiskError('');
+                  setRiskSuccess('');
+                }}
+                className={`flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-semibold transition-colors ${isSelectingRiskArea ? 'bg-rose-600 hover:bg-rose-500 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-100'}`}
+              >
+                <Siren className="w-4 h-4" /> {isSelectingRiskArea ? 'Clique no risco...' : 'Marcar área de risco'}
               </button>
             </div>
           </div>
@@ -893,6 +992,20 @@ export default function App() {
               }}
             />
 
+            <MapClickSelector
+              enabled={isSelectingRiskArea}
+              onSelect={(lat, lng) => {
+                setRiskDraftPoint({ lat, lng });
+                setShowRiskModal(true);
+                setRiskError('');
+                setRiskSuccess('');
+                setRiskForm((prev) => ({
+                  ...prev,
+                  message: `Risco reportado próximo a ${lat.toFixed(5)}, ${lng.toFixed(5)}.`,
+                }));
+              }}
+            />
+
             {hotspots.map((hs, i) => (
               <Marker key={hs.id} position={[hs.lat, hs.lng]} icon={hs.score > 90 ? iconCritical : hs.type === 'Flood' ? iconFlood : iconLandslide}>
                 <Popup className="custom-popup">
@@ -924,6 +1037,29 @@ export default function App() {
                 <Circle center={[selectedIncidentPoint.lat, selectedIncidentPoint.lng]} radius={500} pathOptions={{ color: '#f97316', fillColor: '#fb923c', fillOpacity: 0.12, weight: 1.5 }} />
               </>
             )}
+
+
+            {attentionAlerts.map((alert) => (
+              <Circle
+                key={`alert-area-${alert.id}`}
+                center={[alert.lat, alert.lng]}
+                radius={Math.max(80, alert.radiusMeters)}
+                pathOptions={{
+                  color: alert.severity === 'critical' ? '#ef4444' : alert.severity === 'high' ? '#f97316' : '#facc15',
+                  fillColor: alert.severity === 'critical' ? '#ef4444' : alert.severity === 'high' ? '#f97316' : '#facc15',
+                  fillOpacity: 0.12,
+                  weight: 1.5,
+                }}
+              >
+                <Popup className="custom-popup">
+                  <div className="text-slate-900 text-xs">
+                    <p><strong>{alert.title}</strong></p>
+                    <p>{alert.message}</p>
+                    <p><strong>Raio:</strong> {alert.radiusMeters} m</p>
+                  </div>
+                </Popup>
+              </Circle>
+            ))}
 
             {flowResult?.floodedCells.map((cell, index) => (
               <CircleMarker
@@ -1080,6 +1216,54 @@ export default function App() {
           )}
         </div>
       </div>
+
+      {showRiskModal && (
+        <div className="fixed inset-0 z-[999] bg-black/70 flex items-center justify-center p-4">
+          <div className="w-full max-w-xl bg-slate-900 border border-slate-700 rounded-xl shadow-2xl">
+            <div className="p-4 border-b border-slate-700 flex items-start justify-between">
+              <div>
+                <h3 className="text-lg font-bold text-white flex items-center gap-2"><Siren className="w-5 h-5 text-rose-400" /> Marcar área de risco</h3>
+                {riskDraftPoint && <p className="text-xs text-slate-400 mt-1">Coordenadas: {riskDraftPoint.lat.toFixed(5)}, {riskDraftPoint.lng.toFixed(5)}</p>}
+              </div>
+              <button onClick={() => setShowRiskModal(false)} className="text-slate-400 hover:text-white"><X className="w-5 h-5" /></button>
+            </div>
+            <form className="p-4 space-y-3" onSubmit={handleRiskAreaSubmit}>
+              <input required value={riskForm.title} onChange={(event) => setRiskForm((prev) => ({ ...prev, title: event.target.value }))} className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm" placeholder="Título do alerta" />
+              <textarea required value={riskForm.message} onChange={(event) => setRiskForm((prev) => ({ ...prev, message: event.target.value }))} className="w-full min-h-20 bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm" placeholder="Descrição do risco" />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <select value={riskForm.severity} onChange={(event) => setRiskForm((prev) => ({ ...prev, severity: event.target.value }))} className="bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm">
+                  <option value="medium">Médio</option>
+                  <option value="high">Alto</option>
+                  <option value="critical">Crítico</option>
+                </select>
+                <input value={riskForm.radiusMeters} onChange={(event) => setRiskForm((prev) => ({ ...prev, radiusMeters: event.target.value }))} className="bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm" placeholder="Raio (m)" />
+              </div>
+              <label className="flex items-center gap-2 text-sm text-slate-300">
+                <input type="checkbox" checked={riskForm.addMissingPerson} onChange={(event) => setRiskForm((prev) => ({ ...prev, addMissingPerson: event.target.checked }))} />
+                Também cadastrar pessoa desaparecida neste ponto
+              </label>
+
+              {riskForm.addMissingPerson && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <input value={riskForm.personName} onChange={(event) => setRiskForm((prev) => ({ ...prev, personName: event.target.value }))} className="bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm" placeholder="Nome da pessoa" />
+                  <select value={riskForm.city} onChange={(event) => setRiskForm((prev) => ({ ...prev, city: event.target.value }))} className="bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm"><option>Ubá</option><option>Juiz de Fora</option><option>Matias Barbosa</option></select>
+                  <input value={riskForm.contactName} onChange={(event) => setRiskForm((prev) => ({ ...prev, contactName: event.target.value }))} className="bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm" placeholder="Nome do contato" />
+                  <input value={riskForm.contactPhone} onChange={(event) => setRiskForm((prev) => ({ ...prev, contactPhone: event.target.value }))} className="bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm" placeholder="Telefone" />
+                  <textarea value={riskForm.additionalInfo} onChange={(event) => setRiskForm((prev) => ({ ...prev, additionalInfo: event.target.value }))} className="md:col-span-2 w-full min-h-16 bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm" placeholder="Informações adicionais" />
+                </div>
+              )}
+
+              {riskError && <p className="text-xs text-red-400">{riskError}</p>}
+              {riskSuccess && <p className="text-xs text-emerald-400">{riskSuccess}</p>}
+              <div className="flex justify-end gap-2">
+                <button type="button" onClick={() => setShowRiskModal(false)} className="px-3 py-2 text-sm rounded border border-slate-600 text-slate-300 hover:text-white">Cancelar</button>
+                <button type="submit" disabled={savingRiskArea} className="px-3 py-2 text-sm rounded bg-rose-600 text-white font-semibold hover:bg-rose-500 disabled:opacity-70">{savingRiskArea ? 'Salvando...' : 'Salvar área de risco'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
 
       {showUploadModal && (
         <div className="fixed inset-0 z-[999] bg-black/70 flex items-center justify-center p-4">
