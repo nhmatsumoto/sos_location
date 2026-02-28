@@ -1,88 +1,152 @@
 <!DOCTYPE html>
 {% load static %}
-<html lang="pt">
+<html lang="pt-BR">
     <head>
-        <title>MG LOCATION</title>
+        <title>MG Location | Centro de comando</title>
 
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-        <!-- Add bootstrap library by rel="stylesheet" -->
         <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.2.1/css/bootstrap.min.css" integrity="sha384-GJzZqFGwb1QTTN6wy59ffF1BuGJpLSa9DkKMp0DgiMDm4iYMj70gZWKYbI706tWS" crossorigin="anonymous">
         <link rel="stylesheet" href="https://unpkg.com/leaflet@1.4.0/dist/leaflet.css" integrity="sha512-puBpdR0798OZvTTbP4A8Ix/l+A4dHDD0DGqYW6RQ+9jxkRFclaxxQb/SJAWZfWAkuyeQUytO7+7N4QKrDh+drA==" crossorigin>
 
-        <!-- Include styles for better code reading -->
         <link rel="stylesheet" href="{% static 'styles/style.css' %}">
     </head>
     <body>
-        <div id="app">
-            <div class="container-fluid d-flex flex-column">
-                <div class="d-flex flex-column flex-md-row align-items-center py-3 px-md-3">
-                    <h5 class="my-0 mr-md-auto font-weight-normal">MG LOCATION</h5>
-                    <nav class="my-2 my-md-0 mr-md-3" v-cloak>
-                        <a v-for="(localeName, localeCode) of locales"
-                            :href="'#' + localeCode"
-                            :class="'p-2 text-' + (locale === localeCode ? 'primary' : 'dark')"
-                            @click.prevent="locale = localeCode"
-                        >{{ localeName }}</a>
+        <div id="app" class="app-shell" v-cloak>
+            <header class="app-header d-flex flex-column flex-lg-row align-items-lg-center justify-content-between">
+                <div>
+                    <p class="header-kicker mb-1">MG Location</p>
+                    <h1 class="h3 mb-2">{{ t.title }}</h1>
+                    <p class="text-muted mb-0">{{ t.subtitle }}</p>
+                </div>
+                <div class="d-flex flex-column flex-sm-row align-items-sm-center mt-3 mt-lg-0">
+                    <nav class="locale-switcher mb-2 mb-sm-0 mr-sm-3" :aria-label="t.languageLabel">
+                        <button
+                            v-for="(localeName, localeCode) of locales"
+                            :key="localeCode"
+                            type="button"
+                            class="btn btn-sm"
+                            :class="locale === localeCode ? 'btn-primary' : 'btn-outline-secondary'"
+                            @click="locale = localeCode"
+                        >
+                            {{ localeName }}
+                        </button>
                     </nav>
-                    <a class="btn btn-outline-primary" href="https://github.com/dieegom/mg_location">GitHub</a>
+                    <a class="btn btn-outline-dark btn-sm" href="https://github.com/dieegom/mg_location" target="_blank" rel="noopener noreferrer">{{ t.github }}</a>
                 </div>
-                <div class="d-flex flex-column px-md-3">
-                    <p>We aim that this project will be a repository for tools to help rescue and location of missed people from <a href="https://en.wikipedia.org/wiki/MG LOCATION_dam_disaster">the huge Dam Burst occurred recently in MG LOCATION/MG</a>.</p>
-                    <p>This tool requires the latitude and longitude coordinates to calculate the estimative based on the tailing flows. For more info check <a href="https://github.com/dieegom/mg_location/#--location">the GitHub page</a>.</p>
-                </div>
-                <div class="row flex-grow-0 px-md-3">
-                    <div class="col-12 py-2">
-                        <div class="input-group">
-                            <div class="input-group-prepend">
-                                <span class="input-group-text">Coordinates</span>
+            </header>
+
+            <main class="app-main row no-gutters">
+                <section class="col-12 col-xl-4 pr-xl-3 mb-3 mb-xl-0">
+                    <div class="control-panel card shadow-sm">
+                        <div class="card-body">
+                            <h2 class="h5 mb-3">{{ t.panelTitle }}</h2>
+                            <p class="small text-muted">{{ t.panelDescription }}</p>
+
+                            <div class="form-group">
+                                <label for="lat">{{ t.latitude }}</label>
+                                <input
+                                    id="lat"
+                                    type="number"
+                                    class="form-control form-control-lg"
+                                    step="any"
+                                    v-model="lat"
+                                    :placeholder="t.latitudePlaceholder"
+                                >
                             </div>
-                            <input
-                                type="text"
-                                class="form-control"
-                                placeholder="Latitude"
-                                id="lat"
-                                v-model="lat">
-                            <input
-                                type="text"
-                                class="form-control"
-                                placeholder="Longitude"
-                                id="lng"
-                                v-model="lng">
-                            <div class="input-group-append" id="button-addon4">
+
+                            <div class="form-group">
+                                <label for="lng">{{ t.longitude }}</label>
+                                <input
+                                    id="lng"
+                                    type="number"
+                                    class="form-control form-control-lg"
+                                    step="any"
+                                    v-model="lng"
+                                    :placeholder="t.longitudePlaceholder"
+                                >
+                            </div>
+
+                            <div class="d-flex flex-wrap gap-sm">
                                 <button
-                                    class="btn btn-primary"
+                                    class="btn btn-primary btn-lg flex-fill mb-2"
                                     type="button"
-                                    @click="calculate">
-                                    Calculate
+                                    :disabled="loading"
+                                    @click="calculate"
+                                >
+                                    {{ loading ? t.calculating : t.calculate }}
                                 </button>
+                                <button class="btn btn-outline-secondary btn-lg flex-fill mb-2" type="button" @click="clearMap">{{ t.clearMap }}</button>
+                            </div>
+
+                            <hr>
+
+                            <h3 class="h6 text-uppercase text-muted">{{ t.quickActions }}</h3>
+                            <div class="btn-group-vertical w-100" role="group" :aria-label="t.quickActions">
+                                <button class="btn btn-outline-info text-left" type="button" @click="setPreset('center')">{{ t.presets.center }}</button>
+                                <button class="btn btn-outline-info text-left" type="button" @click="setPreset('north')">{{ t.presets.north }}</button>
+                                <button class="btn btn-outline-info text-left" type="button" @click="setPreset('south')">{{ t.presets.south }}</button>
+                            </div>
+
+                            <div class="status-box mt-3" role="status" aria-live="polite">
+                                <strong>{{ t.statusLabel }}:</strong>
+                                <span>{{ statusMessage }}</span>
+                            </div>
+                            <p v-if="errorMessage" class="text-danger small mt-2 mb-0">{{ errorMessage }}</p>
+
+                            <div class="cfd-box mt-3 p-3">
+                                <h3 class="h6 mb-2">{{ t.cfd.title }}</h3>
+                                <p class="small mb-2">{{ t.cfd.description }}</p>
+                                <ul class="small mb-2 pl-3">
+                                    <li>{{ t.cfd.step1 }}</li>
+                                    <li>{{ t.cfd.step2 }}</li>
+                                    <li>{{ t.cfd.step3 }}</li>
+                                    <li>{{ t.cfd.step4 }}</li>
+                                </ul>
+                                <p class="small mb-1"><strong>{{ t.cfd.endpointLabel }}:</strong> <code>POST /api/location/flow-simulation</code></p>
+                                <p class="small mb-1"><strong>{{ t.cfd.terrainEndpointLabel }}:</strong> <code>GET /api/terrain/context?lat=&lt;lat&gt;&amp;lng=&lt;lng&gt;</code></p>
+                                <p class="small mb-0 text-muted">{{ t.cfd.note }}</p>
                             </div>
                         </div>
                     </div>
-                </div>
-                <div class="row flex-grow-1 px-md-3 pb-3">
-                    <div class="col-12">
-                        <div id='map'></div>
+                </section>
+
+                <section class="col-12 col-xl-8">
+                    <div class="map-frame card shadow-sm">
+                        <div class="card-body p-2 p-md-3">
+                            <div id="map"></div>
+                            <div class="legend mt-3 p-3">
+                                <h3 class="h6 mb-2">{{ t.legendTitle }}</h3>
+                                <ul class="mb-0 pl-3 small">
+                                    <li>{{ t.legendItems.click }}</li>
+                                    <li>{{ t.legendItems.flow }}</li>
+                                    <li>{{ t.legendItems.hotArea }}</li>
+                                </ul>
+                            </div>
+
+                            <div class="service-box mt-3 p-3">
+                                <h3 class="h6 mb-2">{{ t.services.title }}</h3>
+                                <p class="small text-muted mb-2">{{ t.services.description }}</p>
+                                <ul class="small mb-2 pl-3">
+                                    <li v-for="service in t.services.items" :key="service.name">
+                                        <strong>{{ service.name }}</strong> — {{ service.desc }}
+                                    </li>
+                                </ul>
+                                <div class="d-flex flex-wrap gap-sm">
+                                    <a class="btn btn-sm btn-outline-primary" href="/api/hotspots" target="_blank" rel="noopener noreferrer">GET /api/hotspots</a>
+                                    <a class="btn btn-sm btn-outline-primary" href="/api/rescue-support" target="_blank" rel="noopener noreferrer">GET /api/rescue-support</a>
+                                    <a class="btn btn-sm btn-outline-primary" href="/api/missing-people.csv" target="_blank" rel="noopener noreferrer">GET /api/missing-people.csv</a>
+                                    <a class="btn btn-sm btn-outline-primary" href="/api/cfd/ideas" target="_blank" rel="noopener noreferrer">GET /api/cfd/ideas</a>
+                                    <a class="btn btn-sm btn-outline-primary" href="/api/terrain/context?lat=-20.135896&lng=-44.123509" target="_blank" rel="noopener noreferrer">GET /api/terrain/context</a>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                </div>
-            </div>
-            <div class="repo small d-flex align-content-center">
-                <svg
-                    height="20"
-                    class="octicon octicon-mark-github"
-                    viewBox="0 0 16 16"
-                    version="1.1"
-                    width="20"
-                    aria-hidden="true">
-                <path fill-rule="evenodd"
-                    d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"></path>
-                </svg>
-                <a href="https://github.com/dieegom/mg_location" class="ml-2">https://github.com/dieegom/mg_location</a></h6>
-            </div>
+                </section>
+            </main>
         </div>
 
-        <!-- Include scripts for better code reading -->
         <script src="https://unpkg.com/leaflet@1.4.0/dist/leaflet.js" integrity="sha512-QVftwZFqvtRNi0ZyCtsznlKSWOStnDORoefr1enyq5mVL4tmKB3S/EnC3rRJcxCPavG10IcrVGSmPh6Qw5lwrg==" crossorigin></script>
         <script src='https://bbecquet.github.io/Leaflet.PolylineDecorator/dist/leaflet.polylineDecorator.js'></script>
         <script src="https://unpkg.com/leaflet-providers@2.0.0/leaflet-providers.js"></script>

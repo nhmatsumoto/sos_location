@@ -2,26 +2,97 @@
     display: none;
 }
 
+body {
+    margin: 0;
+    font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: #f3f6fb;
+    color: #1d2b3a;
+}
+
+.app-shell {
+    min-height: 100vh;
+    padding: 1rem;
+}
+
+.app-header {
+    background: #fff;
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1rem;
+    border: 1px solid #dbe4f0;
+}
+
+.header-kicker {
+    text-transform: uppercase;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: #2f6dba;
+    font-size: 0.8rem;
+}
+
+.locale-switcher {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.control-panel,
+.map-frame {
+    border-radius: 12px;
+    border: 1px solid #dbe4f0;
+}
+
+.gap-sm {
+    gap: 0.5rem;
+}
+
 #map {
     width: 100%;
-    height: 100%;
+    min-height: 62vh;
+    border-radius: 10px;
+    border: 1px solid #dde5ef;
 }
 
-.container-fluid {
-    min-height: 100vh;
+.status-box {
+    background: #f1f8ff;
+    border: 1px solid #cfe5ff;
+    border-radius: 8px;
+    padding: 0.6rem 0.75rem;
+    font-size: 0.92rem;
 }
 
-.repo {
-    position: fixed;
-    left: 10px;
-    bottom: 10px;
-    background: rgba(255, 255, 255, 0.9);
-    border: 1px solid #CCC;
-    border-radius: 3px;
-    z-index: 1000;
-    padding: 4px 8px;
+.legend {
+    background: #fafcff;
+    border: 1px solid #dbe4f0;
+    border-radius: 8px;
 }
 
-#map {
-    min-height: 80vh;
+
+.cfd-box {
+    background: #fffaf0;
+    border: 1px solid #f0dfb6;
+    border-radius: 8px;
+}
+
+.cfd-box code {
+    color: #6c4a00;
+    background: #fff3d4;
+    padding: 0.1rem 0.25rem;
+    border-radius: 4px;
+}
+
+
+.service-box {
+    background: #f7fbff;
+    border: 1px solid #cde1f5;
+    border-radius: 8px;
+}
+
+@media (max-width: 1199px) {
+    .app-shell {
+        padding: 0.75rem;
+    }
+
+    #map {
+        min-height: 52vh;
+    }
 }
