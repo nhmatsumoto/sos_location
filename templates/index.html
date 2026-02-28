@@ -108,6 +108,12 @@
                                 <p class="small mb-1"><strong>{{ t.cfd.terrainEndpointLabel }}:</strong> <code>GET /api/terrain/context?lat=&lt;lat&gt;&amp;lng=&lt;lng&gt;</code></p>
                                 <p class="small mb-0 text-muted">{{ t.cfd.note }}</p>
                             </div>
+
+                            <div class="status-box mt-3" role="status" aria-live="polite">
+                                <strong>{{ t.statusLabel }}:</strong>
+                                <span>{{ statusMessage }}</span>
+                            </div>
+                            <p v-if="errorMessage" class="text-danger small mt-2 mb-0">{{ errorMessage }}</p>
                         </div>
                     </div>
                 </section>
