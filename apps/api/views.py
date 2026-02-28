@@ -143,6 +143,16 @@ PUBLIC_ALERT_SOURCES = [
         'city': 'Brasil',
         'label': 'Defesa Civil Alerta (MDR)',
         'url': 'https://www.gov.br/mdr/pt-br/assuntos/protecao-e-defesa-civil/defesa-civil-alerta',
+        'thumbnailUrl': 'https://www.gov.br/mdr/++theme++padrao_govbr/img/logo.svg',
+        'kind': 'alert',
+    },
+    {
+        'id': 'portal-transparencia-acoes',
+        'city': 'Brasil',
+        'label': 'Portal da Transparência',
+        'url': 'https://portaldatransparencia.gov.br/busca?termo=defesa%20civil',
+        'thumbnailUrl': 'https://portaldatransparencia.gov.br/favicon.ico',
+        'kind': 'government_action',
     },
 ]
 
@@ -183,6 +193,8 @@ def _extract_public_alert_news(source):
             'source': source['label'],
             'url': source['url'],
             'publishedAtUtc': datetime.now(timezone.utc).isoformat(),
+            'thumbnailUrl': source.get('thumbnailUrl'),
+            'kind': source.get('kind', 'alert'),
         })
         if len(unique) >= 8:
             break
@@ -199,6 +211,8 @@ def _extract_public_alert_news(source):
         'source': source['label'],
         'url': source['url'],
         'publishedAtUtc': datetime.now(timezone.utc).isoformat(),
+        'thumbnailUrl': source.get('thumbnailUrl'),
+        'kind': source.get('kind', 'alert'),
     }]
 
 
@@ -220,12 +234,25 @@ def _load_public_news_updates(force_refresh=False):
             'source': 'Fallback local',
             'url': 'https://www.gov.br/mdr/pt-br/assuntos/protecao-e-defesa-civil/defesa-civil-alerta',
             'publishedAtUtc': now.isoformat(),
+            'thumbnailUrl': 'https://portaldatransparencia.gov.br/favicon.ico',
+            'kind': 'government_action',
         }]
 
-    NEWS_UPDATES_CACHE['items'] = all_items
+    dedup = []
+    seen = set()
+    for item in all_items:
+        key = (item.get('title', '').strip().lower(), item.get('source', '').strip().lower())
+        if key in seen:
+            continue
+        seen.add(key)
+        dedup.append(item)
+
+    dedup.sort(key=lambda i: i.get('publishedAtUtc', ''), reverse=True)
+
+    NEWS_UPDATES_CACHE['items'] = dedup
     NEWS_UPDATES_CACHE['fetchedAtUtc'] = now
     NEWS_UPDATES_CACHE['expiresAtUtc'] = now + timedelta(minutes=30)
-    return all_items
+    return dedup
 
 
 # Camadas simplificadas de terreno (fallback local) inspiradas em fontes abertas

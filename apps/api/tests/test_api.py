@@ -64,3 +64,5 @@ class NewsUpdatesApiTestCase(TestCase):
         self.assertTrue(len(payload) >= 1)
         self.assertIn('title', payload[0])
         self.assertIn('url', payload[0])
+        self.assertIn('thumbnailUrl', payload[0])
+        self.assertIn('kind', payload[0])
