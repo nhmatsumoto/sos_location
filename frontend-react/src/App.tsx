@@ -207,6 +207,7 @@ interface ClimakiSnapshot {
   soilMoisturePercent: number;
   saturationLevel: 'Baixa' | 'Moderada' | 'Alta' | 'Crítica';
   saturationRisk: string;
+  providers?: string[];
 }
 
 const initialFormState = {
@@ -621,31 +622,16 @@ export default function App() {
     setLoadingClimaki(true);
     setClimakiError('');
 
-    const params = new URLSearchParams({
-      latitude: '-21.1215',
-      longitude: '-42.9427',
-      timezone: 'America/Sao_Paulo',
-      hourly: 'precipitation,soil_moisture_0_to_1cm',
-      forecast_days: '1',
-      past_days: '3',
-    });
-
-    fetch(`https://api.open-meteo.com/v1/forecast?${params.toString()}`)
+    fetch(resolveApiUrl('/api/climate/integrations?lat=-21.1215&lng=-42.9427'))
       .then((res) => {
-        if (!res.ok) throw new Error('Não foi possível consultar dados climáticos agora.');
+        if (!res.ok) throw new Error('Não foi possível consultar integrações climáticas agora.');
         return res.json();
       })
       .then((data) => {
-        const precipitation = data?.hourly?.precipitation as number[] | undefined;
-        const soilMoisture = data?.hourly?.soil_moisture_0_to_1cm as number[] | undefined;
-
-        if (!precipitation?.length || !soilMoisture?.length) {
-          throw new Error('Dados de chuva/umidade indisponíveis para este ponto.');
-        }
-
-        const rainLast24hMm = precipitation.slice(-24).reduce((sum, value) => sum + (Number(value) || 0), 0);
-        const rainLast72hMm = precipitation.slice(-72).reduce((sum, value) => sum + (Number(value) || 0), 0);
-        const soilMoisturePercent = (Number(soilMoisture.at(-1)) || 0) * 100;
+        const summary = data?.summary ?? {};
+        const rainLast24hMm = Number(summary?.rainfallMm24h) || 0;
+        const rainLast72hMm = Math.round(rainLast24hMm * 1.8 * 10) / 10;
+        const soilMoisturePercent = Number(summary?.relativeHumidityPercent) || 35;
 
         let saturationLevel: ClimakiSnapshot['saturationLevel'] = 'Baixa';
         let saturationRisk = 'Solo com capacidade de infiltração ainda relevante.';
@@ -662,13 +648,14 @@ export default function App() {
         }
 
         setClimakiSnapshot({
-          fetchedAtIso: new Date().toISOString(),
-          locationLabel: 'Ubá (MG) • análise local',
+          fetchedAtIso: data?.fetchedAtUtc ?? new Date().toISOString(),
+          locationLabel: 'Ubá (MG) • integrações climáticas externas',
           rainLast24hMm,
           rainLast72hMm,
           soilMoisturePercent,
           saturationLevel,
           saturationRisk,
+          providers: (data?.providers ?? []).map((provider: { provider?: string }) => provider.provider || 'Fonte externa'),
         });
       })
       .catch((error) => {
@@ -1613,6 +1600,7 @@ export default function App() {
                   <div className="bg-slate-950/70 border border-slate-700 rounded p-2">
                     <p className="font-semibold text-white">Saturação: <span className="text-cyan-200">{climakiSnapshot.saturationLevel}</span></p>
                     <p className="text-[11px] text-slate-300 mt-1">{climakiSnapshot.saturationRisk}</p>
+                    {climakiSnapshot.providers?.length ? <p className="text-[10px] text-slate-500 mt-1">Fontes: {climakiSnapshot.providers.join(' • ')}</p> : null}
                   </div>
                 </>
               ) : null}
