@@ -798,6 +798,7 @@ export default function App() {
     }
   };
 
+
   const openPanel = (panel: SelectedPanel) => {
     setSelectedPanel(panel);
     setIsPanelFullscreen(true);
@@ -1208,7 +1209,7 @@ export default function App() {
               </div>
               <div className="flex-1 w-full h-full relative">
                 <Suspense fallback={<div className="h-full w-full flex items-center justify-center text-slate-400 text-sm">Carregando visualização 3D...</div>}>
-                  {selectedPanel.mode === 'sim' ? <LandslideSimulation sourceLat={selectedPanel.sourceLat ?? selectedPanel.hotspot?.lat} sourceLng={selectedPanel.sourceLng ?? selectedPanel.hotspot?.lng} radiusMeters={500} allowRadiusControl={false} /> : <PostDisasterSplat />}
+                  {selectedPanel.mode === 'sim' ? <LandslideSimulation sourceLat={selectedPanel.sourceLat ?? selectedPanel.hotspot?.lat} sourceLng={selectedPanel.sourceLng ?? selectedPanel.hotspot?.lng} radiusMeters={500} allowRadiusControl /> : <PostDisasterSplat />}
                 </Suspense>
               </div>
             </div>
