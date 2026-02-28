@@ -72,6 +72,44 @@ body {
     width: 320px;
 }
 
+.panel-location-info {
+    right: 12px;
+    top: 330px;
+    width: 320px;
+}
+
+.panel-notifications {
+    left: 12px;
+    bottom: 62px;
+    width: 350px;
+    max-height: 220px;
+    overflow-y: auto;
+}
+
+.tool-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .4rem;
+}
+
+.notification-list {
+    list-style: none;
+    padding-left: 0;
+}
+
+.notification-list li {
+    display: flex;
+    flex-direction: column;
+    border-left: 3px solid #2f6dba;
+    padding-left: .5rem;
+    margin-bottom: .45rem;
+    font-size: .82rem;
+}
+
+.notification-list li small {
+    color: #6b7e92;
+}
+
 .helper-muted {
     color: #4f657d;
 }
@@ -109,11 +147,6 @@ body {
         transform: none;
         width: 100%;
         margin-bottom: 0.55rem;
-    }
-
-    .panel-main,
-    .panel-missing,
-    .panel-services {
         max-height: none;
         overflow: visible;
     }

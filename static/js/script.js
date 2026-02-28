@@ -13,6 +13,15 @@ const i18n = {
         calculating: 'Calculando…',
         clearMap: 'Limpar',
         quickActions: 'Ações rápidas',
+        toolsTitle: 'Caixa de ferramentas',
+        notificationsTitle: 'Notificações operacionais',
+        locationInfoTitle: 'Informações relevantes do local',
+        refreshLocationInfo: 'Atualizar contexto local',
+        updatedAt: 'Atualizado em',
+        rainfall: 'Chuva 24h (mm)',
+        elevation: 'Elevação (m)',
+        soilSaturation: 'Saturação do solo',
+        flowMobility: 'Índice de mobilidade',
         presets: {
             center: 'Centro da operação',
             north: 'Zona norte',
@@ -46,7 +55,6 @@ const i18n = {
         missingNamePlaceholder: 'Ex.: Maria Silva',
         missingLastSeen: 'Último local visto',
         missingLastSeenPlaceholder: 'Ex.: Rua principal / comunidade',
-        missingDetails: 'Observações',
         addMissing: 'Adicionar desaparecido',
         savingMissing: 'Salvando…',
         baseLayers: {
@@ -69,6 +77,15 @@ const i18n = {
         calculating: 'Calculating…',
         clearMap: 'Clear',
         quickActions: 'Quick actions',
+        toolsTitle: 'Toolbox',
+        notificationsTitle: 'Operational notifications',
+        locationInfoTitle: 'Relevant location information',
+        refreshLocationInfo: 'Refresh local context',
+        updatedAt: 'Updated at',
+        rainfall: 'Rainfall 24h (mm)',
+        elevation: 'Elevation (m)',
+        soilSaturation: 'Soil saturation',
+        flowMobility: 'Flow mobility index',
         presets: {
             center: 'Operations center',
             north: 'North zone',
@@ -102,7 +119,6 @@ const i18n = {
         missingNamePlaceholder: 'Example: Maria Silva',
         missingLastSeen: 'Last seen location',
         missingLastSeenPlaceholder: 'Example: Main street / community',
-        missingDetails: 'Notes',
         addMissing: 'Add missing person',
         savingMissing: 'Saving…',
         baseLayers: {
@@ -127,7 +143,15 @@ var app = new Vue({
         missingForm: {
             name: '',
             lastSeen: ''
-        }
+        },
+        locationInfo: {
+            rainfallMm24h: '-',
+            elevationM: '-',
+            soilSaturation: '-',
+            flowMobilityIndex: '-',
+            updatedAt: ''
+        },
+        notifications: []
     },
     computed: {
         t: function() { return i18n[this.locale]; }
@@ -136,7 +160,9 @@ var app = new Vue({
         calculate: calculate,
         clearMap: clearMap,
         setPreset: setPreset,
-        registerMissingPerson: registerMissingPerson
+        registerMissingPerson: registerMissingPerson,
+        refreshLocationInfo: refreshLocationInfo,
+        openTool: openTool
     },
     watch: {
         locale: function() {
@@ -145,6 +171,17 @@ var app = new Vue({
         }
     }
 });
+
+function pushNotification(message, level) {
+    const now = new Date();
+    app.notifications.unshift({
+        id: now.getTime() + Math.random(),
+        message: message,
+        level: level || 'info',
+        time: now.toLocaleTimeString()
+    });
+    app.notifications = app.notifications.slice(0, 8);
+}
 
 function createMarker(name, point, markerStyle) {
     const marker = L.circleMarker(point, markerStyle || {
@@ -192,11 +229,51 @@ function drawVector(pointA, pointB) {
     }).addTo(window.overlayGroup);
 }
 
+async function refreshLocationInfo() {
+    const lat = Number(app.lat);
+    const lng = Number(app.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+        return;
+    }
+
+    try {
+        const result = await fetch('/api/terrain/context?lat=' + lat + '&lng=' + lng);
+        if (!result.ok) {
+            throw new Error('terrain-error');
+        }
+        const payload = await result.json();
+        const ctx = payload.context || {};
+        app.locationInfo = {
+            rainfallMm24h: ctx.rainfallMm24h ?? '-',
+            elevationM: ctx.elevationM ?? '-',
+            soilSaturation: ctx.soilSaturation ?? '-',
+            flowMobilityIndex: ctx.flowMobilityIndex ?? '-',
+            updatedAt: new Date().toLocaleTimeString()
+        };
+        pushNotification('Contexto local atualizado.', 'info');
+    } catch (_) {
+        pushNotification(app.t.errors.requestFailed, 'error');
+    }
+}
+
+function openTool(kind) {
+    const routes = {
+        hotspots: '/api/hotspots',
+        rescue: '/api/rescue-support',
+        terrain: '/api/terrain/context?lat=' + app.lat + '&lng=' + app.lng,
+        transparency: '/api/transparency/search?query=auxilio'
+    };
+    const route = routes[kind] || '/api/hotspots';
+    window.open(route, '_blank', 'noopener,noreferrer');
+    pushNotification('Ferramenta aberta: ' + kind, 'info');
+}
+
 async function calculate() {
     const lat = Number(app.lat);
     const lng = Number(app.lng);
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
         app.errorMessage = app.t.errors.invalidCoordinates;
+        pushNotification(app.t.errors.invalidCoordinates, 'error');
         return;
     }
 
@@ -214,6 +291,7 @@ async function calculate() {
     if (!result.ok) {
         app.loading = false;
         app.errorMessage = app.t.errors.requestFailed;
+        pushNotification(app.t.errors.requestFailed, 'error');
         return;
     }
 
@@ -222,6 +300,8 @@ async function calculate() {
     window.map.panTo([data.lat, data.lng]);
     app.statusMessage = app.t.status.success;
     app.loading = false;
+    pushNotification(app.t.status.success, 'info');
+    refreshLocationInfo();
 }
 
 async function registerMissingPerson() {
@@ -230,6 +310,7 @@ async function registerMissingPerson() {
 
     if (!app.missingForm.name || !app.missingForm.lastSeen || !Number.isFinite(lat) || !Number.isFinite(lng)) {
         app.errorMessage = app.t.errors.missingFields;
+        pushNotification(app.t.errors.missingFields, 'error');
         return;
     }
 
@@ -255,6 +336,7 @@ async function registerMissingPerson() {
     if (!result.ok) {
         app.savingMissing = false;
         app.errorMessage = app.t.errors.requestFailed;
+        pushNotification(app.t.errors.requestFailed, 'error');
         return;
     }
 
@@ -263,6 +345,7 @@ async function registerMissingPerson() {
     app.missingForm.lastSeen = '';
     app.statusMessage = app.t.status.missingSaved;
     app.savingMissing = false;
+    pushNotification(app.t.status.missingSaved, 'info');
 }
 
 function createMissingMarker(item) {
@@ -299,6 +382,7 @@ function clearMap() {
     window.overlayGroup.clearLayers();
     app.statusMessage = app.t.status.cleared;
     app.errorMessage = '';
+    pushNotification(app.t.status.cleared, 'info');
 }
 
 function setPreset(zone) {
@@ -312,6 +396,7 @@ function setPreset(zone) {
     app.lng = String(preset.lng);
     window.map.setView([preset.lat, preset.lng], preset.zoom);
     app.statusMessage = app.t.status.pointSelected;
+    refreshLocationInfo();
 }
 
 function initMap() {
@@ -338,6 +423,8 @@ function initMap() {
         createMarker(app.t.markerLabels.selected, e.latlng).openPopup();
         app.statusMessage = app.t.status.pointSelected;
         app.errorMessage = '';
+        pushNotification(app.t.status.pointSelected, 'info');
+        refreshLocationInfo();
     });
 
     fetch('/static/geodata/hot_area.json').then(function(response) {
@@ -349,6 +436,8 @@ function initMap() {
     });
 
     loadMissingReports();
+    refreshLocationInfo();
+    pushNotification('Centro de comando inicializado.', 'info');
     return map;
 }
 
