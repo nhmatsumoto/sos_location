@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, CircleMarker, LayersControl, Polyline } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, CircleMarker, LayersControl, Polyline, Circle, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import {
   AlertTriangle,
@@ -145,6 +145,27 @@ const initialMissingForm = {
   contactPhone: '',
 };
 
+
+
+interface SelectedPanel {
+  hotspot?: Hotspot;
+  mode: 'sim' | 'splat';
+  sourceLat?: number;
+  sourceLng?: number;
+  label?: string;
+}
+
+function MapClickSelector({ enabled, onSelect }: { enabled: boolean; onSelect: (lat: number, lng: number) => void }) {
+  useMapEvents({
+    click(event) {
+      if (!enabled) return;
+      onSelect(event.latlng.lat, event.latlng.lng);
+    },
+  });
+
+  return null;
+}
+
 const initialFlowForm = {
   sourceLat: '-21.1215',
   sourceLng: '-42.9427',
@@ -182,8 +203,10 @@ export default function App() {
 
   const [formState, setFormState] = useState(initialFormState);
   const [missingForm, setMissingForm] = useState(initialMissingForm);
-  const [selectedPanel, setSelectedPanel] = useState<{ hotspot?: Hotspot; mode: 'sim' | 'splat' } | null>(null);
+  const [selectedPanel, setSelectedPanel] = useState<SelectedPanel | null>(null);
   const [isPanelFullscreen, setIsPanelFullscreen] = useState(true);
+  const [isSelectingIncidentPoint, setIsSelectingIncidentPoint] = useState(false);
+  const [selectedIncidentPoint, setSelectedIncidentPoint] = useState<{ lat: number; lng: number } | null>(null);
 
   const flowPathLatLng = useMemo(() => flowResult?.mainPath.map((point) => [point.lat, point.lng] as [number, number]) ?? [], [flowResult]);
 
@@ -338,11 +361,10 @@ export default function App() {
     }
   };
 
-  const openPanel = (panel: { hotspot?: Hotspot; mode: 'sim' | 'splat' }) => {
+  const openPanel = (panel: SelectedPanel) => {
     setSelectedPanel(panel);
     setIsPanelFullscreen(true);
   };
-
   return (
     <>
       <div className="flex h-screen w-full bg-slate-900 text-slate-200 font-sans overflow-hidden">
@@ -353,7 +375,7 @@ export default function App() {
               <h1 className="text-2xl font-bold tracking-tight text-white">Centro de Comando</h1>
             </div>
             <p className="text-sm text-slate-400">Triagem tática: onde agir primeiro para maximizar vidas salvas.</p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
               <button
                 onClick={() => {
                   setShowUploadModal(true);
@@ -373,6 +395,14 @@ export default function App() {
                 className="flex items-center justify-center gap-2 bg-amber-600 hover:bg-amber-500 text-white px-3 py-2 rounded-md text-sm font-semibold transition-colors"
               >
                 <Users className="w-4 h-4" /> Cadastrar desaparecido
+              </button>
+              <button
+                onClick={() => {
+                  setIsSelectingIncidentPoint((prev) => !prev);
+                }}
+                className={`flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-semibold transition-colors ${isSelectingIncidentPoint ? 'bg-emerald-600 hover:bg-emerald-500 text-white' : 'bg-slate-700 hover:bg-slate-600 text-slate-100'}`}
+              >
+                <MapPin className="w-4 h-4" /> {isSelectingIncidentPoint ? 'Clique no mapa...' : 'Marcar ponto (1 clique)'}
               </button>
             </div>
           </div>
@@ -468,6 +498,15 @@ export default function App() {
               </LayersControl.BaseLayer>
             </LayersControl>
 
+            <MapClickSelector
+              enabled={isSelectingIncidentPoint}
+              onSelect={(lat, lng) => {
+                setSelectedIncidentPoint({ lat, lng });
+                setIsSelectingIncidentPoint(false);
+                openPanel({ mode: 'sim', sourceLat: lat, sourceLng: lng, label: 'Ponto manual' });
+              }}
+            />
+
             {hotspots.map((hs, i) => (
               <Marker key={hs.id} position={[hs.lat, hs.lng]} icon={hs.score > 90 ? iconCritical : hs.type === 'Flood' ? iconFlood : iconLandslide}>
                 <Popup className="custom-popup">
@@ -477,7 +516,7 @@ export default function App() {
                     <div className="bg-slate-100 p-2 rounded text-xs mb-2"><strong>Pessoas Risco:</strong> {hs.estimatedAffected}<br /><strong>Exposição:</strong> {hs.humanExposure}</div>
                     {hs.type === 'Landslide' && (
                       <div className="flex flex-col gap-1 mt-1">
-                        <button onClick={() => openPanel({ hotspot: hs, mode: 'sim' })} className="w-full flex justify-center items-center gap-1 bg-orange-600 hover:bg-orange-700 text-white py-1.5 px-2 rounded text-xs font-bold transition-colors"><ExternalLink className="w-3 h-3" /> Ver Simulação 3D</button>
+                        <button onClick={() => openPanel({ hotspot: hs, mode: 'sim', sourceLat: hs.lat, sourceLng: hs.lng })} className="w-full flex justify-center items-center gap-1 bg-orange-600 hover:bg-orange-700 text-white py-1.5 px-2 rounded text-xs font-bold transition-colors"><ExternalLink className="w-3 h-3" /> Ver Simulação 3D</button>
                         <button onClick={() => openPanel({ hotspot: hs, mode: 'splat' })} className="w-full flex justify-center items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white py-1.5 px-2 rounded text-xs font-bold transition-colors"><Camera className="w-3 h-3" /> Ver Drone Splatting</button>
                       </div>
                     )}
@@ -485,6 +524,20 @@ export default function App() {
                 </Popup>
               </Marker>
             ))}
+
+            {selectedIncidentPoint && (
+              <>
+                <Marker position={[selectedIncidentPoint.lat, selectedIncidentPoint.lng]} icon={iconLandslide}>
+                  <Popup className="custom-popup">
+                    <div className="text-slate-900 text-xs">
+                      <p><strong>Ponto selecionado:</strong> {selectedIncidentPoint.lat.toFixed(5)}, {selectedIncidentPoint.lng.toFixed(5)}</p>
+                      <p><strong>Raio de simulação:</strong> 500m</p>
+                    </div>
+                  </Popup>
+                </Marker>
+                <Circle center={[selectedIncidentPoint.lat, selectedIncidentPoint.lng]} radius={500} pathOptions={{ color: '#f97316', fillColor: '#fb923c', fillOpacity: 0.12, weight: 1.5 }} />
+              </>
+            )}
 
             {flowResult?.floodedCells.map((cell, index) => (
               <CircleMarker
@@ -530,13 +583,13 @@ export default function App() {
           {selectedPanel && (
             <div className={`absolute z-50 bg-slate-900 shadow-2xl border border-slate-600 flex flex-col overflow-hidden animate-in fade-in ${isPanelFullscreen ? 'inset-0 rounded-none' : 'bottom-4 left-4 w-96 h-80 rounded-xl slide-in-from-bottom-4'}`}>
               <div className="flex justify-between items-center p-2 border-b border-slate-700 bg-slate-800">
-                <span className="text-xs font-bold text-slate-200 flex items-center gap-1">{selectedPanel.mode === 'sim' ? <MapPin className="w-3 h-3 text-orange-500" /> : <Camera className="w-3 h-3 text-blue-500" />}{selectedPanel.mode === 'sim' ? 'Simulação' : 'Drone (Splat)'}: {selectedPanel.hotspot?.id}</span>
+                <span className="text-xs font-bold text-slate-200 flex items-center gap-1">{selectedPanel.mode === 'sim' ? <MapPin className="w-3 h-3 text-orange-500" /> : <Camera className="w-3 h-3 text-blue-500" />}{selectedPanel.mode === 'sim' ? 'Simulação' : 'Drone (Splat)'}: {selectedPanel.label ?? selectedPanel.hotspot?.id ?? 'Sem identificação'}</span>
                 <div className="flex items-center gap-2">
                   <button onClick={() => setIsPanelFullscreen((prev) => !prev)} className="text-slate-400 hover:text-white bg-slate-700 hover:bg-slate-600 rounded p-0.5 transition-colors" title={isPanelFullscreen ? 'Sair de tela cheia' : 'Tela cheia'}>{isPanelFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}</button>
                   <button onClick={() => setSelectedPanel(null)} className="text-slate-400 hover:text-white bg-slate-700 hover:bg-slate-600 rounded p-0.5 transition-colors"><X className="w-4 h-4" /></button>
                 </div>
               </div>
-              <div className="flex-1 w-full h-full relative">{selectedPanel.mode === 'sim' ? <LandslideSimulation /> : <PostDisasterSplat />}</div>
+              <div className="flex-1 w-full h-full relative">{selectedPanel.mode === 'sim' ? <LandslideSimulation sourceLat={selectedPanel.sourceLat ?? selectedPanel.hotspot?.lat} sourceLng={selectedPanel.sourceLng ?? selectedPanel.hotspot?.lng} radiusMeters={500} allowRadiusControl={false} /> : <PostDisasterSplat />}</div>
             </div>
           )}
         </div>
