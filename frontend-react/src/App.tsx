@@ -102,6 +102,28 @@ interface FlowSimulationResponse {
   disclaimer: string;
 }
 
+interface NewsUpdate {
+  id: string;
+  city: string;
+  title: string;
+  source: string;
+  url: string;
+  publishedAtUtc: string;
+}
+
+interface MissingPerson {
+  id: string;
+  personName: string;
+  age?: number | null;
+  city: string;
+  lastSeenLocation: string;
+  physicalDescription: string;
+  additionalInfo: string;
+  contactName: string;
+  contactPhone: string;
+  reportedAtUtc: string;
+}
+
 const initialFormState = {
   locationName: '',
   latitude: '',
