@@ -626,6 +626,48 @@ def location_flow_simulation(request):
 
 
 @csrf_exempt
+def unified_easy_simulation(request):
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    payload = _request_payload(request)
+    lat = _parse_float(payload.get('lat', payload.get('sourceLat')))
+    lng = _parse_float(payload.get('lng', payload.get('sourceLng')))
+    area_m2 = _parse_float(payload.get('areaM2')) or 15000
+
+    if lat is None or lng is None:
+        return _json_error('lat/lng ou sourceLat/sourceLng são obrigatórios para simulação unificada.')
+
+    flow_response = location_flow_simulation(request)
+    if flow_response.status_code >= 400:
+        return flow_response
+
+    flow_payload = json.loads(flow_response.content.decode('utf-8'))
+
+    terrain = _terrain_open_data_context(
+        lat,
+        lng,
+        _parse_float(payload.get('rainfallMm', payload.get('rainfallMmPerHour'))),
+    )
+
+    return JsonResponse(
+        {
+            'generatedAtUtc': datetime.now(timezone.utc).isoformat(),
+            'input': {
+                'lat': lat,
+                'lng': lng,
+                'scenario': payload.get('scenario') or 'encosta',
+            },
+            'flowSimulation': flow_payload,
+            'terrainContext': terrain,
+            'rescueSupport': _build_rescue_support(area_m2),
+            'notes': 'Endpoint unificado para o modo fácil: fluxo + terreno + suporte tático.',
+        },
+        safe=False,
+    )
+
+
+@csrf_exempt
 def terrain_context(request):
     if request.method != 'GET':
         return HttpResponse(status=405)
