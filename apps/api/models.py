@@ -31,6 +31,8 @@ class MissingPerson(TimestampedModel):
     age = models.PositiveIntegerField(null=True, blank=True)
     city = models.CharField(max_length=120)
     last_seen_location = models.CharField(max_length=255)
+    lat = models.FloatField(null=True, blank=True)
+    lng = models.FloatField(null=True, blank=True)
     physical_description = models.TextField(blank=True)
     additional_info = models.TextField(blank=True)
     contact_name = models.CharField(max_length=160)

@@ -3,7 +3,7 @@
 body {
     margin: 0;
     font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    background: #eef3f9;
+    background: #f3f6fb;
     color: #1d2b3a;
 }
 
@@ -39,21 +39,23 @@ body {
     border: 1px solid #cfdceb;
 }
 
-body {
-    margin: 0;
-    font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    background: #f3f6fb;
-    color: #1d2b3a;
-}
-
 .map-panel {
     position: absolute;
     z-index: 900;
-    background: rgba(255, 255, 255, 0.95);
+    background: rgba(255, 255, 255, 0.96);
     border: 1px solid #d1deee;
     border-radius: 10px;
     box-shadow: 0 6px 18px rgba(17, 35, 58, .12);
     padding: .75rem;
+}
+
+.map-panel .form-control {
+    border-color: #c8d7ea;
+}
+
+.map-panel .form-control:focus {
+    border-color: #2f6dba;
+    box-shadow: 0 0 0 0.1rem rgba(47, 109, 186, .2);
 }
 
 .panel-main {
@@ -68,6 +70,48 @@ body {
     right: 12px;
     top: 12px;
     width: 320px;
+}
+
+.panel-location-info {
+    right: 12px;
+    top: 330px;
+    width: 320px;
+}
+
+.panel-notifications {
+    left: 12px;
+    bottom: 62px;
+    width: 350px;
+    max-height: 220px;
+    overflow-y: auto;
+}
+
+.tool-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .4rem;
+}
+
+.notification-list {
+    list-style: none;
+    padding-left: 0;
+}
+
+.notification-list li {
+    display: flex;
+    flex-direction: column;
+    border-left: 3px solid #2f6dba;
+    padding-left: .5rem;
+    margin-bottom: .45rem;
+    font-size: .82rem;
+}
+
+.notification-list li small {
+    color: #6b7e92;
+}
+
+.helper-muted {
+    color: #4f657d;
 }
 
 .panel-services {
@@ -103,11 +147,6 @@ body {
         transform: none;
         width: 100%;
         margin-bottom: 0.55rem;
-    }
-
-    .panel-main,
-    .panel-missing,
-    .panel-services {
         max-height: none;
         overflow: visible;
     }

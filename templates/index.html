@@ -52,6 +52,14 @@
                         <button class="btn btn-outline-info text-left btn-sm" type="button" @click="setPreset('south')">{{ t.presets.south }}</button>
                     </div>
 
+                    <h3 class="h6 mt-3 mb-2">{{ t.toolsTitle }}</h3>
+                    <div class="tool-grid mb-2">
+                        <button class="btn btn-outline-primary btn-sm" type="button" @click="openTool('hotspots')">Hotspots</button>
+                        <button class="btn btn-outline-primary btn-sm" type="button" @click="openTool('rescue')">Rescue</button>
+                        <button class="btn btn-outline-primary btn-sm" type="button" @click="openTool('terrain')">Terrain</button>
+                        <button class="btn btn-outline-primary btn-sm" type="button" @click="openTool('transparency')">Transparência</button>
+                    </div>
+
                     <div class="status-box" role="status" aria-live="polite">
                         <strong>{{ t.statusLabel }}:</strong> {{ statusMessage }}
                     </div>
@@ -61,6 +69,7 @@
                 <aside class="map-panel panel-missing">
                     <h2 class="h6 mb-2">{{ t.missingTitle }}</h2>
                     <p class="small text-muted mb-2">{{ t.missingSubtitle }}</p>
+                    <p class="small helper-muted mb-2">{{ t.missingHint }}</p>
                     <div class="small mb-2"><strong>{{ t.selectedPoint }}:</strong> {{ lat }}, {{ lng }}</div>
                     <div class="form-group mb-2">
                         <label class="mb-1" for="missing-name">{{ t.missingName }}</label>
@@ -70,18 +79,37 @@
                         <label class="mb-1" for="missing-last-seen">{{ t.missingLastSeen }}</label>
                         <input id="missing-last-seen" class="form-control form-control-sm" v-model="missingForm.lastSeen" :placeholder="t.missingLastSeenPlaceholder">
                     </div>
-                    <div class="form-group mb-2">
-                        <label class="mb-1" for="missing-details">{{ t.missingDetails }}</label>
-                        <textarea id="missing-details" class="form-control form-control-sm" rows="2" v-model="missingForm.details"></textarea>
-                    </div>
-                    <button class="btn btn-danger btn-sm w-100" :disabled="savingMissing" @click="registerMissingPerson">{{ savingMissing ? t.savingMissing : t.addMissing }}</button>
+                    <button class="btn btn-primary btn-sm w-100" :disabled="savingMissing" @click="registerMissingPerson">{{ savingMissing ? t.savingMissing : t.addMissing }}</button>
+                </aside>
+
+                <aside class="map-panel panel-location-info">
+                    <h2 class="h6 mb-2">{{ t.locationInfoTitle }}</h2>
+                    <div class="small"><strong>Lat/Lng:</strong> {{ lat }}, {{ lng }}</div>
+                    <div class="small" v-if="locationInfo.updatedAt"><strong>{{ t.updatedAt }}:</strong> {{ locationInfo.updatedAt }}</div>
+                    <hr class="my-2">
+                    <div class="small"><strong>{{ t.rainfall }}:</strong> {{ locationInfo.rainfallMm24h }}</div>
+                    <div class="small"><strong>{{ t.elevation }}:</strong> {{ locationInfo.elevationM }}</div>
+                    <div class="small"><strong>{{ t.soilSaturation }}:</strong> {{ locationInfo.soilSaturation }}</div>
+                    <div class="small"><strong>{{ t.flowMobility }}:</strong> {{ locationInfo.flowMobilityIndex }}</div>
+                    <button class="btn btn-outline-secondary btn-sm mt-2 w-100" type="button" @click="refreshLocationInfo">{{ t.refreshLocationInfo }}</button>
+                </aside>
+
+                <aside class="map-panel panel-notifications">
+                    <h2 class="h6 mb-2">{{ t.notificationsTitle }}</h2>
+                    <ul class="notification-list mb-0">
+                        <li v-for="item in notifications" :key="item.id">
+                            <span class="badge badge-pill" :class="item.level === 'error' ? 'badge-danger' : 'badge-primary'">{{ item.level }}</span>
+                            <span>{{ item.message }}</span>
+                            <small>{{ item.time }}</small>
+                        </li>
+                    </ul>
                 </aside>
 
                 <div class="map-panel panel-services">
                     <div class="d-flex flex-wrap gap-sm">
                         <a class="btn btn-sm btn-outline-primary" href="/api/hotspots" target="_blank" rel="noopener noreferrer">/api/hotspots</a>
                         <a class="btn btn-sm btn-outline-primary" href="/api/rescue-support" target="_blank" rel="noopener noreferrer">/api/rescue-support</a>
-                        <a class="btn btn-sm btn-outline-primary" href="/api/report-info" target="_blank" rel="noopener noreferrer">/api/report-info</a>
+                        <a class="btn btn-sm btn-outline-primary" href="/api/missing-persons" target="_blank" rel="noopener noreferrer">/api/missing-persons</a>
                         <a class="btn btn-sm btn-outline-primary" href="/api/terrain/context?lat=-20.135896&lng=-44.123509" target="_blank" rel="noopener noreferrer">/api/terrain/context</a>
                     </div>
                 </div>
