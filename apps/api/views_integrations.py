@@ -100,7 +100,10 @@ def transparency_transfers(request):
             end=request.GET.get('end'),
         )
     except TransparencyApiKeyMissing as exc:
-        return JsonResponse({'error': str(exc)}, status=400)
+        return JsonResponse(
+            {'error': 'Configuração de chave de API de transparência ausente.'},
+            status=400,
+        )
     except Exception as exc:
         return _integration_error(exc)
     data['cacheHit'] = cache_hit
@@ -116,7 +119,10 @@ def transparency_search(request):
     try:
         data, cache_hit = search(query, request.GET.get('start'), request.GET.get('end'))
     except TransparencyApiKeyMissing as exc:
-        return JsonResponse({'error': str(exc)}, status=400)
+        return JsonResponse(
+            {'error': 'Configuração de chave de API de transparência ausente.'},
+            status=400,
+        )
     except Exception as exc:
         return _integration_error(exc)
 
