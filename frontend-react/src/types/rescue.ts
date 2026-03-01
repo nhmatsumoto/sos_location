@@ -2,8 +2,10 @@ export type TaskStatus = 'aberto' | 'em_acao' | 'concluido';
 
 export type RescueTaskPriority = 'alta' | 'media' | 'baixa';
 
+export type RescueTaskId = number | string;
+
 export interface RescueTask {
-  id: string;
+  id: RescueTaskId;
   title: string;
   team: string;
   priority: RescueTaskPriority;

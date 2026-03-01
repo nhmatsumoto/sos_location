@@ -1,5 +1,5 @@
 import { apiClient } from './apiClient';
-import type { RescueTask, RescueTaskInput } from '../types/rescue';
+import type { RescueTask, RescueTaskId, RescueTaskInput } from '../types/rescue';
 
 const STORAGE_KEY = 'rescue_tasks_local_v1';
 
@@ -47,7 +47,7 @@ export const rescueTasksApi = {
     }
   },
 
-  async update(id: string, payload: RescueTaskInput): Promise<RescueTask> {
+  async update(id: RescueTaskId, payload: RescueTaskInput): Promise<RescueTask> {
     try {
       const response = await apiClient.put<RescueTask>(`/api/rescue-tasks/${id}`, payload);
       return response.data;
@@ -59,7 +59,7 @@ export const rescueTasksApi = {
     }
   },
 
-  async remove(id: string): Promise<void> {
+  async remove(id: RescueTaskId): Promise<void> {
     try {
       await apiClient.delete(`/api/rescue-tasks/${id}`);
     } catch {

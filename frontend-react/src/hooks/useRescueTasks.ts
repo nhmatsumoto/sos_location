@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { rescueTasksApi } from '../services/rescueTasksApi';
 import { useRescueFiltersStore } from '../store/rescueFiltersStore';
-import type { RescueTask, RescueTaskInput, TaskStatus } from '../types/rescue';
+import type { RescueTask, RescueTaskId, RescueTaskInput, TaskStatus } from '../types/rescue';
 
 export function useRescueTasks() {
   const [tasks, setTasks] = useState<RescueTask[]>([]);
@@ -42,18 +42,18 @@ export function useRescueTasks() {
     setTasks((prev) => [task, ...prev]);
   };
 
-  const updateTask = async (id: string, input: RescueTaskInput) => {
+  const updateTask = async (id: RescueTaskId, input: RescueTaskInput) => {
     const updated = await rescueTasksApi.update(id, input);
     setTasks((prev) => prev.map((task) => (task.id === id ? updated : task)));
   };
 
-  const removeTask = async (id: string) => {
+  const removeTask = async (id: RescueTaskId) => {
     await rescueTasksApi.remove(id);
     setTasks((prev) => prev.filter((task) => task.id !== id));
     if (editingTask?.id === id) setEditingTask(null);
   };
 
-  const updateStatus = async (id: string, nextStatus: TaskStatus) => {
+  const updateStatus = async (id: RescueTaskId, nextStatus: TaskStatus) => {
     const task = tasks.find((item) => item.id === id);
     if (!task) return;
     await updateTask(id, { ...task, status: nextStatus });
