@@ -96,7 +96,7 @@ export default function RescueOpsPage() {
   };
 
   return (
-    <Box p={{ base: 4, md: 6 }} bg="gray.950" minH="100vh" color="gray.100">
+    <Box p={{ base: 4, md: 6 }} bg="linear-gradient(180deg, #0b1220 0%, #101827 40%, #0f172a 100%)" minH="100vh" color="gray.100">
       <Stack gap={6} maxW="7xl" mx="auto">
         <Flex justify="space-between" align={{ base: 'start', md: 'center' }} direction={{ base: 'column', md: 'row' }} gap={3}>
           <Box>
@@ -110,14 +110,14 @@ export default function RescueOpsPage() {
         </Flex>
 
         <Grid templateColumns={{ base: '1fr', md: 'repeat(4, 1fr)' }} gap={3}>
-          <Card.Root bg="gray.900"><Card.Body><HStack justify="space-between"><Text>Total</Text><ClipboardCheck size={18} /></HStack><Heading size="md">{summary.total}</Heading></Card.Body></Card.Root>
-          <Card.Root bg="gray.900"><Card.Body><HStack justify="space-between"><Text>Abertos</Text><Siren size={18} /></HStack><Heading size="md" color="red.300">{summary.open}</Heading></Card.Body></Card.Root>
-          <Card.Root bg="gray.900"><Card.Body><HStack justify="space-between"><Text>Em ação</Text><Users size={18} /></HStack><Heading size="md" color="orange.300">{summary.active}</Heading></Card.Body></Card.Root>
-          <Card.Root bg="gray.900"><Card.Body><HStack justify="space-between"><Text>Concluídos</Text><ClipboardCheck size={18} /></HStack><Heading size="md" color="green.300">{summary.done}</Heading></Card.Body></Card.Root>
+          <Card.Root bg="#111b2e" border="1px solid" borderColor="#23314a"><Card.Body><HStack justify="space-between"><Text color="gray.300">Total</Text><ClipboardCheck size={18} /></HStack><Heading size="md">{summary.total}</Heading></Card.Body></Card.Root>
+          <Card.Root bg="#1f1515" border="1px solid" borderColor="#5b1f1f"><Card.Body><HStack justify="space-between"><Text color="red.200">Abertos</Text><Siren size={18} color="#f87171" /></HStack><Heading size="md" color="red.300">{summary.open}</Heading></Card.Body></Card.Root>
+          <Card.Root bg="#221a11" border="1px solid" borderColor="#6a3f18"><Card.Body><HStack justify="space-between"><Text color="orange.200">Em ação</Text><Users size={18} color="#fb923c" /></HStack><Heading size="md" color="orange.300">{summary.active}</Heading></Card.Body></Card.Root>
+          <Card.Root bg="#112117" border="1px solid" borderColor="#1f5f3a"><Card.Body><HStack justify="space-between"><Text color="green.200">Concluídos</Text><ClipboardCheck size={18} color="#4ade80" /></HStack><Heading size="md" color="green.300">{summary.done}</Heading></Card.Body></Card.Root>
         </Grid>
 
         <Grid templateColumns={{ base: '1fr', lg: '1.1fr 1.9fr' }} gap={4}>
-          <Card.Root bg="gray.900">
+          <Card.Root bg="#111827" border="1px solid" borderColor="#243244">
             <Card.Header>
               <Heading size="sm">{editingId ? 'Editar ocorrência' : 'Nova ocorrência de resgate'}</Heading>
             </Card.Header>
@@ -145,7 +145,7 @@ export default function RescueOpsPage() {
             </Card.Body>
           </Card.Root>
 
-          <Card.Root bg="gray.900">
+          <Card.Root bg="#111827" border="1px solid" borderColor="#243244">
             <Card.Header>
               <Heading size="sm">Fila operacional (CRUD)</Heading>
             </Card.Header>
