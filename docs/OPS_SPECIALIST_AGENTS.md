@@ -49,8 +49,10 @@ Padronizar decisões rápidas com qualidade operacional para reduzir tempo de re
 1. Atualizar `docker-compose.yml` e documentação relevante.
 2. Rodar validação estática:
    - `docker compose config`
-3. Subir stack localmente (quando possível):
-   - `docker compose up -d --build`
+3. Recriar stack para evitar versão antiga em cache (quando possível):
+   - `docker compose down --remove-orphans`
+   - `docker compose build --no-cache backend frontend`
+   - `docker compose up -d --force-recreate`
 4. Verificar saúde dos serviços:
    - `docker compose ps`
    - `docker compose logs --tail=100 backend frontend postgres`
