@@ -2,7 +2,7 @@
 
 Plataforma open-source para apoio operacional em desastres (enchentes, deslizamentos e eventos correlatos), com foco em coordenação, geolocalização e integração de dados públicos.
 
-**Produção:** https://mg-location.osei.ong.br
+**Produção:** EM BREVE
 
 ## Comunidade
 
