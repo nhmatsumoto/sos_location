@@ -1,9 +1,10 @@
 Django==4.2.28
-django-rest-framework==0.1.0
+# Keep canonical DRF package only; remove legacy django-rest-framework package.
 djangorestframework==3.15.2
 googlemaps==3.0.2
-numpy==1.22.0
+# Python 3.12 compatible scientific stack (used in apps/api/utils.py)
+numpy==1.26.4
+scipy==1.13.1
 python-decouple==3.1
-pytz==2018.9
-scipy==1.2.0
+pytz==2024.1
 psycopg2-binary==2.9.9

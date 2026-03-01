@@ -6,7 +6,7 @@ import re
 import uuid
 from datetime import datetime, timedelta, timezone
 from urllib.parse import quote
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
 
 import googlemaps
 from django.conf import settings
@@ -341,6 +341,98 @@ def _safe_fetch_json(url, timeout=3):
     except Exception:
         return None
 
+
+
+
+def _safe_fetch_json_with_headers(url, headers=None, timeout=4):
+    try:
+        request = Request(url, headers=headers or {})
+        with urlopen(request, timeout=timeout) as response:
+            return json.loads(response.read().decode('utf-8'))
+    except Exception:
+        return None
+
+
+def _metno_weather_snapshot(lat, lng):
+    query = 'https://api.met.no/weatherapi/locationforecast/2.0/compact?lat={}&lon={}'.format(lat, lng)
+    payload = _safe_fetch_json_with_headers(
+        query,
+        headers={'User-Agent': 'mg-location/1.0 (contact: open-source-demo)'},
+        timeout=5,
+    )
+    if not payload:
+        return None
+
+    timeseries = payload.get('properties', {}).get('timeseries') or []
+    if not timeseries:
+        return None
+
+    details = timeseries[0].get('data', {}).get('instant', {}).get('details', {})
+    temp = details.get('air_temperature')
+    humidity = details.get('relative_humidity')
+    wind = details.get('wind_speed')
+
+    return {
+        'provider': 'MET Norway',
+        'temperatureC': temp,
+        'relativeHumidityPercent': humidity,
+        'windSpeedMs': wind,
+    }
+
+
+def _open_meteo_weather_snapshot(lat, lng):
+    query = (
+        'https://api.open-meteo.com/v1/forecast?latitude={}&longitude={}'
+        '&current=temperature_2m,relative_humidity_2m,wind_speed_10m,precipitation'
+        '&hourly=precipitation&past_days=1&forecast_days=1'
+    ).format(lat, lng)
+    payload = _safe_fetch_json(query, timeout=5)
+    if not payload:
+        return None
+
+    current = payload.get('current') or {}
+    rainfall_mm = _open_meteo_rainfall_mm(lat, lng)
+
+    return {
+        'provider': 'Open-Meteo',
+        'temperatureC': current.get('temperature_2m'),
+        'relativeHumidityPercent': current.get('relative_humidity_2m'),
+        'windSpeedMs': current.get('wind_speed_10m'),
+        'rainfallMm24h': rainfall_mm,
+    }
+
+
+def _climate_integrations_context(lat, lng):
+    providers = []
+
+    open_meteo = _open_meteo_weather_snapshot(lat, lng)
+    if open_meteo:
+        providers.append(open_meteo)
+
+    met_no = _metno_weather_snapshot(lat, lng)
+    if met_no:
+        providers.append(met_no)
+
+    summary = {
+        'temperatureC': None,
+        'relativeHumidityPercent': None,
+        'windSpeedMs': None,
+        'rainfallMm24h': None,
+    }
+
+    if providers:
+        summary['temperatureC'] = next((p.get('temperatureC') for p in providers if isinstance(p.get('temperatureC'), (int, float))), None)
+        summary['relativeHumidityPercent'] = next((p.get('relativeHumidityPercent') for p in providers if isinstance(p.get('relativeHumidityPercent'), (int, float))), None)
+        summary['windSpeedMs'] = next((p.get('windSpeedMs') for p in providers if isinstance(p.get('windSpeedMs'), (int, float))), None)
+        summary['rainfallMm24h'] = next((p.get('rainfallMm24h') for p in providers if isinstance(p.get('rainfallMm24h'), (int, float))), None)
+
+    return {
+        'lat': lat,
+        'lng': lng,
+        'providers': providers,
+        'summary': summary,
+        'fetchedAtUtc': datetime.now(timezone.utc).isoformat(),
+    }
 
 def _open_meteo_rainfall_mm(lat, lng):
     query = (
@@ -787,6 +879,19 @@ def unified_easy_simulation(request):
         },
         safe=False,
     )
+
+
+@csrf_exempt
+def climate_integrations(request):
+    if request.method != 'GET':
+        return HttpResponse(status=405)
+
+    lat = _parse_float(request.GET.get('lat'))
+    lng = _parse_float(request.GET.get('lng'))
+    if lat is None or lng is None:
+        return _json_error('lat e lng são obrigatórios para integrações climáticas.')
+
+    return JsonResponse(_climate_integrations_context(lat, lng), safe=False)
 
 
 @csrf_exempt
