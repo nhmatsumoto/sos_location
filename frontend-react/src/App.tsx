@@ -1,7 +1,7 @@
 import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import type { FormEvent, PointerEvent as ReactPointerEvent, ReactNode } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, CircleMarker, LayersControl, Polyline, Circle, useMap, useMapEvents } from 'react-leaflet';
+import type { FormEvent, PointerEvent as ReactPointerEvent } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, CircleMarker, LayersControl, Polyline, Circle } from 'react-leaflet';
 import L from 'leaflet';
 import {
   AlertTriangle,
@@ -26,26 +26,23 @@ import {
 } from 'lucide-react';
 const LandslideSimulation = lazy(() => import('./LandslideSimulation'));
 const PostDisasterSplat = lazy(() => import('./PostDisasterSplat'));
+import { DraggablePanel, type FloatingPanelId, type FloatingPanelPosition } from './components/map/DraggablePanel';
+import { MapClickSelector } from './components/map/MapClickSelector';
+import { MapFocusController } from './components/map/MapFocusController';
+import { resolveApiUrl } from './lib/apiBaseUrl';
+import { frontendLogger } from './lib/logger';
 
-const configuredApiBase = ((import.meta.env.VITE_API_BASE_URL as string | undefined) ?? '').replace(/\/$/, '');
 
-const inferApiBaseUrl = () => {
-  if (configuredApiBase) return configuredApiBase;
-  if (typeof window === 'undefined') return '';
 
-  const { protocol, hostname, port } = window.location;
-  if (port === '5173') return `${protocol}//${hostname}:8000`;
-  if (port === '8000') return `${protocol}//${hostname}:8001`;
-  if (port === '8088') return `${protocol}//${hostname}:8001`;
 
-  return `${protocol}//${hostname}:8001`;
-};
 
-const API_BASE_URL = inferApiBaseUrl();
-const resolveApiUrl = (path: string) => (API_BASE_URL ? `${API_BASE_URL}${path}` : path);
+
 const ENABLE_SIMULATION = false;
 
-
+const FLOATING_PANEL_WIDTHS: Record<FloatingPanelId, number> = {
+  global: 288,
+  terrain: 320,
+};
 
 const iconLandslide = new L.Icon({
   iconUrl: 'https://cdn.jsdelivr.net/gh/pointhi/leaflet-color-markers@master/img/marker-icon-orange.png',
@@ -280,88 +277,6 @@ interface SelectedPanel {
   sourceLat?: number;
   sourceLng?: number;
   label?: string;
-}
-
-function MapClickSelector({ enabled, onSelect }: { enabled: boolean; onSelect: (lat: number, lng: number, clientX: number, clientY: number) => void }) {
-  useMapEvents({
-    click(event) {
-      if (!enabled) return;
-      const clientX = (event.originalEvent as MouseEvent).clientX;
-      const clientY = (event.originalEvent as MouseEvent).clientY;
-      onSelect(event.latlng.lat, event.latlng.lng, clientX, clientY);
-    },
-  });
-
-  return null;
-}
-
-function MapFocusController({ target }: { target: { lat: number; lng: number } | null }) {
-  const map = useMap();
-
-  useEffect(() => {
-    if (!target) return;
-    map.flyTo([target.lat, target.lng], Math.max(map.getZoom(), 14), { duration: 1.1 });
-  }, [target, map]);
-
-  return null;
-}
-
-
-interface FloatingPanelPosition {
-  top: number;
-  left: number;
-}
-
-type FloatingPanelId = 'global' | 'terrain';
-
-const FLOATING_PANEL_WIDTHS: Record<FloatingPanelId, number> = {
-  global: 288,
-  terrain: 320,
-};
-
-interface DraggablePanelProps {
-  title: string;
-  panelId: FloatingPanelId;
-  position: FloatingPanelPosition;
-  docked: boolean;
-  onStartDrag: (panelId: FloatingPanelId, event: ReactPointerEvent<HTMLDivElement>) => void;
-  onToggleDock: (panelId: FloatingPanelId) => void;
-  children: ReactNode;
-  widthClass?: string;
-}
-
-function DraggablePanel({
-  title,
-  panelId,
-  position,
-  docked,
-  onStartDrag,
-  onToggleDock,
-  children,
-  widthClass = 'w-72',
-}: DraggablePanelProps) {
-  return (
-    <div
-      className={`absolute bg-slate-900/85 backdrop-blur-md border border-slate-700 shadow-xl rounded-xl z-[410] text-sm ${widthClass} ${docked ? 'opacity-70' : ''}`}
-      style={{ top: `${position.top}px`, left: `${position.left}px` }}
-    >
-      <div
-        className="px-3 py-2 border-b border-slate-700 bg-slate-800/70 rounded-t-xl flex items-center justify-between cursor-move touch-none"
-        onPointerDown={(event) => onStartDrag(panelId, event)}
-      >
-        <h4 className="font-bold text-white uppercase tracking-wide text-xs">{title}</h4>
-        <button
-          type="button"
-          onPointerDown={(event) => event.stopPropagation()}
-          onClick={() => onToggleDock(panelId)}
-          className="text-[10px] px-2 py-1 rounded border border-slate-600 text-slate-200 hover:text-white hover:border-cyan-400"
-        >
-          {docked ? 'Soltar' : 'Integrar'}
-        </button>
-      </div>
-      <div className="p-4">{children}</div>
-    </div>
-  );
 }
 
 const initialFlowForm = {
@@ -736,6 +651,9 @@ export default function App() {
       setUploadSuccess('Upload recebido! O vídeo entrou na fila para gaussian-splatting.');
       setFormState(initialFormState);
     } catch (error) {
+      frontendLogger.error('Falha no upload de vídeo', {
+        message: error instanceof Error ? error.message : 'unknown',
+      });
       setUploadError(error instanceof Error ? error.message : 'Erro inesperado no envio.');
     } finally {
       setUploading(false);
@@ -773,6 +691,9 @@ export default function App() {
       setMissingForm(initialMissingForm);
       loadMissingPeople();
     } catch (error) {
+      frontendLogger.error('Falha no cadastro de pessoa desaparecida', {
+        message: error instanceof Error ? error.message : 'unknown',
+      });
       setMissingError(error instanceof Error ? error.message : 'Erro inesperado no cadastro.');
     } finally {
       setSavingMissing(false);
@@ -846,6 +767,10 @@ export default function App() {
           setRunningFlow(false);
           return;
         } catch (error) {
+          frontendLogger.warn('Tentativa de endpoint de simulação falhou', {
+            endpoint,
+            message: error instanceof Error ? error.message : 'unknown',
+          });
           lastError = error instanceof Error ? error.message : 'Erro inesperado na simulação.';
         }
       }
@@ -853,6 +778,9 @@ export default function App() {
       throw new Error(lastError || 'Não foi possível conectar ao serviço de simulação.');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro inesperado na simulação.';
+      frontendLogger.error('Falha ao executar simulação de fluxo', {
+        message,
+      });
       setFlowError(
         message.includes('NetworkError') || message.includes('Failed to fetch')
           ? 'Não conseguimos alcançar a API de enchente. Se estiver em docker, confirme API em http://localhost:8001.'
@@ -923,6 +851,9 @@ export default function App() {
       setRiskForm(initialRiskForm);
       setRiskDraftPoint(null);
     } catch (error) {
+      frontendLogger.error('Falha ao registrar área de risco', {
+        message: error instanceof Error ? error.message : 'unknown',
+      });
       setRiskError(error instanceof Error ? error.message : 'Erro ao registrar área de risco.');
     } finally {
       setSavingRiskArea(false);
@@ -964,6 +895,9 @@ export default function App() {
       setSplatForm((prev) => ({ ...prev, video: null }));
       openPanel({ mode: 'splat', label: 'Render 3D (gaussian-splatting)' });
     } catch (error) {
+      frontendLogger.error('Falha no pipeline de gaussian splatting', {
+        message: error instanceof Error ? error.message : 'unknown',
+      });
       setSplatError(error instanceof Error ? error.message : 'Erro no pipeline gaussian-splatting.');
     } finally {
       setSplatUploading(false);

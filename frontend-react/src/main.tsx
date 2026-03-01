@@ -1,15 +1,33 @@
-import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
-import './index.css'
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
+import { ChakraProvider, defaultSystem } from '@chakra-ui/react';
+import AppRoutes from './AppRoutes';
+import { frontendLogger } from './lib/logger';
+import './index.css';
 import 'leaflet/dist/leaflet.css';
-import AppRoutes from './AppRoutes.tsx'
-import { BrowserRouter } from 'react-router-dom'
-import { ChakraProvider, defaultSystem } from '@chakra-ui/react'
+
+window.addEventListener('error', (event) => {
+  frontendLogger.error('Unhandled window error', {
+    message: event.message,
+    filename: event.filename,
+    line: event.lineno,
+    column: event.colno,
+  });
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+  frontendLogger.error('Unhandled promise rejection', {
+    reason: String(event.reason),
+  });
+});
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ChakraProvider value={defaultSystem}>
-      <BrowserRouter><AppRoutes /></BrowserRouter>
+      <BrowserRouter>
+        <AppRoutes />
+      </BrowserRouter>
     </ChakraProvider>
   </StrictMode>,
-)
+);

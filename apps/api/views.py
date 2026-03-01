@@ -1,6 +1,7 @@
 import csv
 import io
 import json
+import logging
 import os
 import re
 import uuid
@@ -21,6 +22,8 @@ from werkzeug.utils import secure_filename
 from apps.api.models import AttentionAlert, CollapseReport, MissingPerson
 from apps.api.serializers import CoordinateSerializer
 from apps.api.utils import Position
+
+logger = logging.getLogger(__name__)
 
 
 class CalculateCoordinate(APIView):
@@ -169,10 +172,13 @@ def _strip_html(text):
 
 
 def _extract_public_alert_news(source):
+    logger.info('public_alert_fetch_started source=%s url=%s', source.get('id'), source.get('url'))
     try:
         with urlopen(source['url'], timeout=12) as response:
             raw = response.read().decode('utf-8', errors='ignore')
-    except Exception:
+            logger.info('public_alert_fetch_succeeded source=%s status=%s', source.get('id'), getattr(response, 'status', 'n/a'))
+    except Exception as exc:
+        logger.exception('public_alert_fetch_failed source=%s error=%s', source.get('id'), exc)
         return []
 
     cleaned = _strip_html(raw)
@@ -219,6 +225,7 @@ def _extract_public_alert_news(source):
 
 def _load_public_news_updates(force_refresh=False):
     now = datetime.now(timezone.utc)
+    logger.info('public_news_refresh_started force_refresh=%s', force_refresh)
     expires_at = NEWS_UPDATES_CACHE.get('expiresAtUtc')
     if not force_refresh and expires_at and now < expires_at and NEWS_UPDATES_CACHE.get('items'):
         return NEWS_UPDATES_CACHE['items']
@@ -250,6 +257,7 @@ def _load_public_news_updates(force_refresh=False):
 
     dedup.sort(key=lambda i: i.get('publishedAtUtc', ''), reverse=True)
 
+    logger.info('public_news_refresh_completed count=%s', len(dedup))
     NEWS_UPDATES_CACHE['items'] = dedup
     NEWS_UPDATES_CACHE['fetchedAtUtc'] = now
     NEWS_UPDATES_CACHE['expiresAtUtc'] = now + timedelta(minutes=30)
@@ -277,6 +285,7 @@ SOIL_TYPE_FACTORS = {
 
 
 def _json_error(message, status_code=400):
+    logger.warning("api_json_error status=%s message=%s", status_code, message)
     return JsonResponse({"error": message}, status=status_code)
 
 
