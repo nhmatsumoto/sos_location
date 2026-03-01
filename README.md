@@ -47,6 +47,23 @@ python manage.py runserver 0.0.0.0:8000
 
 Acesse: `http://localhost:8000`
 
+
+## Operação e confiabilidade
+
+- O `docker-compose.yml` inclui **healthchecks** para backend e frontend e dependência saudável do backend antes do frontend inicializar.
+- Para diretrizes de manutenção contínua e responsabilidades técnicas por área, consulte: [docs/OPS_SPECIALIST_AGENTS.md](./docs/OPS_SPECIALIST_AGENTS.md).
+
+### Atualizar stack sem risco de versão antiga
+
+Quando houver mudança de infra ou frontend, use este fluxo para evitar cache/imagem antiga:
+
+```bash
+docker compose down --remove-orphans
+docker compose build --no-cache backend frontend
+docker compose up -d --force-recreate
+docker compose ps
+```
+
 ## Endpoints principais
 
 ### Operacionais

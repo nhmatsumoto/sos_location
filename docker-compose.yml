@@ -42,6 +42,12 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000', timeout=5)\""]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
     volumes:
       - ./:/app
     ports:
@@ -62,7 +68,14 @@ services:
       - "${FRONTEND_PORT:-8088}:8000"
     restart: unless-stopped
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000', timeout=5)\""]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
     networks:
       - mg-location-network
 

@@ -15,4 +15,5 @@ Este diretório centraliza a documentação funcional e técnica do projeto.
 - [Compliance e padrões](./COMPLIANCE_AND_STANDARDS.md)
 - [Política de resposta a incidentes](./INCIDENT_RESPONSE_POLICY.md)
 - [Integrações externas](./INTEGRATIONS.md)
+- [Agentes especialistas de operação](./OPS_SPECIALIST_AGENTS.md)
 - [Diagramas](./diagrams/ARCHITECTURE.md)
