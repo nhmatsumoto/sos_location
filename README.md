@@ -44,6 +44,8 @@ Acesse: `http://localhost:8000`
    - `VITE_API_BASE_URL` (opcional, recomendável para domínio público, ex.: `https://api.seudominio.com`)
 5. Faça o deploy. O backend executa migrações automaticamente e sobe com Gunicorn.
 
+> Dica para testes locais com Docker Compose: se aparecer o aviso `Docker Compose requires buildx plugin to be installed`, instale o plugin `docker-buildx-plugin` no host antes de executar `docker compose build`.
+
 Sugestão de publicação (opcional):
 - Frontend: `app.seudominio.com`
 - Backend/API: `api.seudominio.com`

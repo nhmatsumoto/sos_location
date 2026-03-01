@@ -27,16 +27,18 @@ services:
     container_name: mg-location-backend
     restart: unless-stopped
     environment:
-      SECRET_KEY: dev-secret-key
-      DEBUG: "True"
-      ALLOWED_HOSTS: "*"
-      DB_ENGINE: django.db.backends.postgresql
-      DB_NAME: mg_location
-      DB_USER: mg_location_user
-      DB_PASSWORD: mg_location_password
-      DB_HOST: postgres
-      DB_PORT: "5432"
+      SECRET_KEY: ${SECRET_KEY:-troque-isto}
+      DEBUG: ${DEBUG:-False}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-*}
+      DB_ENGINE: ${DB_ENGINE:-django.db.backends.postgresql}
+      DB_NAME: ${DB_NAME:-mg_location}
+      DB_USER: ${DB_USER:-mg_location_user}
+      DB_PASSWORD: ${DB_PASSWORD:-mg_location_password}
+      DB_HOST: ${DB_HOST:-postgres}
+      DB_PORT: ${DB_PORT:-5432}
       FRONTEND_URL: ${FRONTEND_URL:-http://frontend:8000/}
+      GUNICORN_WORKERS: ${GUNICORN_WORKERS:-2}
+      GUNICORN_TIMEOUT: ${GUNICORN_TIMEOUT:-120}
     depends_on:
       postgres:
         condition: service_healthy
