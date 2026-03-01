@@ -1,13 +1,41 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { LayerControl } from '../components/maps/LayerControl';
 import { MapPanel } from '../components/maps/MapPanel';
 import { mapLayersMock } from '../mocks/dashboard';
+import { dataHubApi } from '../services/dataHubApi';
 
 const tabs = ['Clima', 'Alertas', 'Transparência', 'Satélite'] as const;
 type Tab = typeof tabs[number];
 
 export function DataHubPage() {
   const [tab, setTab] = useState<Tab>('Clima');
+  const [preview, setPreview] = useState('');
+
+  useEffect(() => {
+    const run = async () => {
+      try {
+        if (tab === 'Clima') {
+          const { data } = await dataHubApi.weatherForecast(-21.12, -42.94);
+          setPreview(`Forecast carregado (${Object.keys(data ?? {}).length} campos).`);
+        }
+        if (tab === 'Alertas') {
+          const { data } = await dataHubApi.alerts();
+          setPreview(`Alertas carregados (${Array.isArray(data) ? data.length : 0}).`);
+        }
+        if (tab === 'Transparência') {
+          const { data } = await dataHubApi.transparencyTransfers();
+          setPreview(`Transferências carregadas (${Array.isArray(data) ? data.length : 0}).`);
+        }
+        if (tab === 'Satélite') {
+          const { data } = await dataHubApi.satelliteLayers();
+          setPreview(`Layers satélite carregadas (${Array.isArray(data) ? data.length : 0}).`);
+        }
+      } catch {
+        setPreview('Falha ao consultar integrações externas.');
+      }
+    };
+    void run();
+  }, [tab]);
 
   return (
     <div className="space-y-4">
@@ -26,11 +54,7 @@ export function DataHubPage() {
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.4fr_1fr]">
         <section className="rounded-2xl border border-slate-700/60 bg-slate-900/70 p-4">
           <h2 className="mb-2 text-sm font-semibold text-slate-100">{tab}</h2>
-          {tab === 'Clima' && <p className="text-sm text-slate-300">Forecast + archive: chuva acumulada, vento, umidade e tendência de saturação do solo.</p>}
-          {tab === 'Alertas' && <p className="text-sm text-slate-300">Feed de alertas públicos com priorização por severidade e região.</p>}
-          {tab === 'Transparência' && <p className="text-sm text-slate-300">Transfers/search: monitoramento de transferências públicas para resposta a desastres.</p>}
-          {tab === 'Satélite' && <p className="text-sm text-slate-300">Layers, STAC search e GOES recent para apoio situacional.</p>}
-
+          <p className="text-sm text-slate-300">{preview}</p>
           <MapPanel title={`Mapa Data Hub · ${tab}`} />
         </section>
 

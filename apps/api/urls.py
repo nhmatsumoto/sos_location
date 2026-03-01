@@ -19,6 +19,11 @@ from apps.api.views import (
     splat_convert,
     searched_areas,
     terrain_context,
+    support_points,
+    risk_areas,
+    rescue_groups,
+    supply_logistics,
+    operations_snapshot,
 )
 
 from apps.api.views_integrations import (
@@ -54,6 +59,11 @@ urlpatterns = [
     path('splat/convert', splat_convert, name='splat_convert'),
     path('push/register', push_register, name='push_register'),
     path('attention-alerts', attention_alerts, name='attention_alerts'),
+    path('operations/snapshot', operations_snapshot, name='operations_snapshot'),
+    path('support-points', support_points, name='support_points'),
+    path('risk-areas', risk_areas, name='risk_areas'),
+    path('rescue-groups', rescue_groups, name='rescue_groups'),
+    path('supply-logistics', supply_logistics, name='supply_logistics'),
     path('weather/forecast', weather_forecast, name='weather_forecast'),
     path('weather/archive', weather_archive, name='weather_archive'),
     path('alerts', alerts_feed, name='alerts_feed'),

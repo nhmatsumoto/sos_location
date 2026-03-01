@@ -1258,3 +1258,236 @@ def missing_persons(request):
     )
 
     return JsonResponse(_missing_person_to_dict(person), status=201)
+
+
+SUPPORT_POINTS = [
+    {
+        'id': 'SP-001',
+        'name': 'Escola Municipal Setor Norte',
+        'type': 'abrigo',
+        'lat': -21.1178,
+        'lng': -42.9363,
+        'capacity': 180,
+        'status': 'ativo',
+        'createdAtUtc': datetime.now(timezone.utc).isoformat(),
+    }
+]
+
+RISK_AREAS = [
+    {
+        'id': 'RA-001',
+        'name': 'Encosta Serra Azul',
+        'severity': 'critical',
+        'lat': -21.1215,
+        'lng': -42.9427,
+        'radiusMeters': 650,
+        'notes': 'Solo saturado e histórico de deslizamento.',
+        'createdAtUtc': datetime.now(timezone.utc).isoformat(),
+    }
+]
+
+RESCUE_GROUPS = [
+    {
+        'id': 'RG-001',
+        'name': 'Brigada Alpha',
+        'members': 8,
+        'specialty': 'Busca e salvamento',
+        'status': 'em_campo',
+        'lat': -21.1199,
+        'lng': -42.9404,
+        'createdAtUtc': datetime.now(timezone.utc).isoformat(),
+    }
+]
+
+SUPPLY_LOGISTICS = [
+    {
+        'id': 'LG-001',
+        'item': 'Água potável',
+        'quantity': 320,
+        'unit': 'kits',
+        'origin': 'CD Ubá',
+        'destination': 'Abrigo Setor Norte',
+        'status': 'em_transporte',
+        'priority': 'alta',
+        'createdAtUtc': datetime.now(timezone.utc).isoformat(),
+    }
+]
+
+FLOW_PATHS = [
+    {
+        'id': 'FP-001',
+        'name': 'Escoamento principal setor leste',
+        'coordinates': [
+            {'lat': -21.1215, 'lng': -42.9427},
+            {'lat': -21.1202, 'lng': -42.9409},
+            {'lat': -21.1187, 'lng': -42.9388},
+            {'lat': -21.1171, 'lng': -42.9365},
+        ],
+    }
+]
+
+
+@csrf_exempt
+def support_points(request):
+    if request.method == 'GET':
+        return JsonResponse(sorted(SUPPORT_POINTS, key=lambda r: r['createdAtUtc'], reverse=True), safe=False)
+
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    payload = _request_payload(request)
+    name = (payload.get('name') or '').strip()
+    point_type = (payload.get('type') or 'apoio').strip()
+    lat = _parse_float(payload.get('lat'))
+    lng = _parse_float(payload.get('lng'))
+
+    if not name or lat is None or lng is None:
+        return _json_error('name, lat e lng são obrigatórios para ponto de apoio.')
+
+    record = {
+        'id': 'SP-{}'.format(uuid.uuid4().hex[:8]),
+        'name': name,
+        'type': point_type,
+        'lat': lat,
+        'lng': lng,
+        'capacity': int(payload.get('capacity') or 0),
+        'status': payload.get('status') or 'ativo',
+        'createdAtUtc': datetime.now(timezone.utc).isoformat(),
+    }
+    SUPPORT_POINTS.append(record)
+    return JsonResponse(record, status=201)
+
+
+@csrf_exempt
+def risk_areas(request):
+    if request.method == 'GET':
+        return JsonResponse(sorted(RISK_AREAS, key=lambda r: r['createdAtUtc'], reverse=True), safe=False)
+
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    payload = _request_payload(request)
+    name = (payload.get('name') or '').strip()
+    severity = (payload.get('severity') or 'high').strip()
+    lat = _parse_float(payload.get('lat'))
+    lng = _parse_float(payload.get('lng'))
+
+    if not name or lat is None or lng is None:
+        return _json_error('name, severity, lat e lng são obrigatórios para área de risco.')
+
+    record = {
+        'id': 'RA-{}'.format(uuid.uuid4().hex[:8]),
+        'name': name,
+        'severity': severity,
+        'lat': lat,
+        'lng': lng,
+        'radiusMeters': int(payload.get('radiusMeters') or 500),
+        'notes': payload.get('notes') or '',
+        'createdAtUtc': datetime.now(timezone.utc).isoformat(),
+    }
+    RISK_AREAS.append(record)
+    return JsonResponse(record, status=201)
+
+
+@csrf_exempt
+def rescue_groups(request):
+    if request.method == 'GET':
+        return JsonResponse(sorted(RESCUE_GROUPS, key=lambda r: r['createdAtUtc'], reverse=True), safe=False)
+
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    payload = _request_payload(request)
+    name = (payload.get('name') or '').strip()
+    members = payload.get('members')
+    lat = _parse_float(payload.get('lat'))
+    lng = _parse_float(payload.get('lng'))
+
+    if not name:
+        return _json_error('name é obrigatório para grupo de resgate.')
+
+    try:
+        members = int(members or 0)
+    except (TypeError, ValueError):
+        return _json_error('members deve ser numérico.')
+
+    record = {
+        'id': 'RG-{}'.format(uuid.uuid4().hex[:8]),
+        'name': name,
+        'members': members,
+        'specialty': payload.get('specialty') or 'generalista',
+        'status': payload.get('status') or 'pronto',
+        'lat': lat,
+        'lng': lng,
+        'createdAtUtc': datetime.now(timezone.utc).isoformat(),
+    }
+    RESCUE_GROUPS.append(record)
+    return JsonResponse(record, status=201)
+
+
+@csrf_exempt
+def supply_logistics(request):
+    if request.method == 'GET':
+        return JsonResponse(sorted(SUPPLY_LOGISTICS, key=lambda r: r['createdAtUtc'], reverse=True), safe=False)
+
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    payload = _request_payload(request)
+    item = (payload.get('item') or '').strip()
+    if not item:
+        return _json_error('item é obrigatório para logística de suprimento.')
+
+    try:
+        quantity = int(payload.get('quantity') or 0)
+    except (TypeError, ValueError):
+        return _json_error('quantity deve ser numérico.')
+
+    record = {
+        'id': 'LG-{}'.format(uuid.uuid4().hex[:8]),
+        'item': item,
+        'quantity': quantity,
+        'unit': payload.get('unit') or 'un',
+        'origin': payload.get('origin') or 'Não informado',
+        'destination': payload.get('destination') or 'Não informado',
+        'status': payload.get('status') or 'planejado',
+        'priority': payload.get('priority') or 'media',
+        'createdAtUtc': datetime.now(timezone.utc).isoformat(),
+    }
+    SUPPLY_LOGISTICS.append(record)
+    return JsonResponse(record, status=201)
+
+
+@csrf_exempt
+def operations_snapshot(request):
+    if request.method != 'GET':
+        return HttpResponse(status=405)
+
+    rain_mm_24h = 142
+    critical_risk = len([a for a in RISK_AREAS if a.get('severity') in ['critical', 'high']])
+
+    payload = {
+        'generatedAtUtc': datetime.now(timezone.utc).isoformat(),
+        'kpis': {
+            'criticalAlerts': critical_risk,
+            'activeTeams': len([g for g in RESCUE_GROUPS if g.get('status') in ['em_campo', 'pronto']]),
+            'rain24hMm': rain_mm_24h,
+            'suppliesInTransit': len([s for s in SUPPLY_LOGISTICS if s.get('status') == 'em_transporte']),
+        },
+        'layers': {
+            'supportPoints': SUPPORT_POINTS,
+            'riskAreas': RISK_AREAS,
+            'rescueGroups': RESCUE_GROUPS,
+            'flowPaths': FLOW_PATHS,
+            'missingPersons': [_missing_person_to_dict(item) for item in MissingPerson.objects.order_by('-created_at')[:500]],
+            'hotspots': sorted(HOTSPOTS, key=lambda h: h['score'], reverse=True),
+        },
+        'weather': {
+            'summary': 'Chuva forte intermitente com risco de enxurrada nas próximas 6h.',
+            'rain24hMm': rain_mm_24h,
+            'soilSaturation': 'Alta',
+        },
+        'logistics': SUPPLY_LOGISTICS,
+    }
+
+    return JsonResponse(payload, safe=False)
