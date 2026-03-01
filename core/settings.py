@@ -26,6 +26,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'apps.api',
     'apps.map',
+    'apps.rescue_ops',
 ]
 
 MIDDLEWARE = [

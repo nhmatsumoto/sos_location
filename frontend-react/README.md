@@ -71,3 +71,14 @@ export default defineConfig([
   },
 ])
 ```
+
+## Package manager
+
+Este frontend usa **Bun** como gerenciador de pacotes e runner de scripts.
+
+```bash
+bun install
+bun run dev
+bun run build
+```
+
