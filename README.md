@@ -4,32 +4,18 @@ Plataforma open-source para apoio operacional em desastres (enchentes, deslizame
 
 **Produção:** https://mg-location.osei.ong.br
 
-## Novidades recentes
+## Comunidade
 
-- ✅ **Data Hub de integrações públicas** para clima, alertas oficiais, transparência e satélite.
-- ✅ **Cache + resiliência HTTP** (retry/backoff/circuit breaker) para chamadas externas.
-- ✅ **Cadastro simplificado de desaparecidos no mapa** com persistência no banco.
-- ✅ **Persistência de coordenadas (`lat`,`lng`)** em `MissingPerson`.
-- ✅ **Layout operacional atualizado** com:
-  - caixa de notificações,
-  - caixa de ferramentas,
-  - caixa de informações relevantes do local.
+- **Grupo no Telegram:** https://t.me/+zVye-1dWSdFiMWZl
 
-## Estrutura de documentação
+## Tecnologias do projeto (referências oficiais)
 
-Toda a documentação do projeto foi centralizada em `docs/`:
-
-- [docs/README.md](./docs/README.md)
-- [Visão geral e objetivo](./docs/VISION_AND_GOALS.md)
-- [Regras de domínio](./docs/DOMAIN_RULES.md)
-- [Funcionalidades](./docs/FEATURES.md)
-- [Implementações](./docs/IMPLEMENTATIONS.md)
-- [Ideias/Roadmap](./docs/IDEAS.md)
-- [Política de uso](./docs/USAGE_POLICY.md)
-- [Checklist de implementações](./docs/IMPLEMENTATION_CHECKLIST.md)
-- [Checklist de testes de segurança](./docs/SECURITY_TEST_CHECKLIST.md)
-- [Integrações externas](./docs/INTEGRATIONS.md)
-- [Diagramas](./docs/diagrams/ARCHITECTURE.md)
+- Django: https://www.djangoproject.com/
+- React: https://react.dev/
+- TypeScript: https://www.typescriptlang.org/
+- PostgreSQL: https://www.postgresql.org/
+- Docker: https://www.docker.com/
+- OpenStreetMap: https://www.openstreetmap.org/
 
 ## Rodando localmente
 
@@ -47,15 +33,7 @@ python manage.py runserver 0.0.0.0:8000
 
 Acesse: `http://localhost:8000`
 
-
-## Operação e confiabilidade
-
-- O `docker-compose.yml` inclui **healthchecks** para backend e frontend e dependência saudável do backend antes do frontend inicializar.
-- Para diretrizes de manutenção contínua e responsabilidades técnicas por área, consulte: [docs/OPS_SPECIALIST_AGENTS.md](./docs/OPS_SPECIALIST_AGENTS.md).
-
-### Atualizar stack sem risco de versão antiga
-
-Quando houver mudança de infra ou frontend, use este fluxo para evitar cache/imagem antiga:
+## Atualizar stack sem risco de versão antiga
 
 ```bash
 docker compose down --remove-orphans
@@ -84,26 +62,6 @@ docker compose ps
 - `GET /api/satellite/stac/search`
 - `GET /api/satellite/goes/recent`
 
-## Segurança
-
-Consulte [SECURITY.md](./SECURITY.md) e [docs/SECURITY_TEST_CHECKLIST.md](./docs/SECURITY_TEST_CHECKLIST.md).
-
-## Compliance e segurança
-
-- [Normas e padrões adotados](./docs/COMPLIANCE_AND_STANDARDS.md)
-- [Política de resposta a incidentes](./docs/INCIDENT_RESPONSE_POLICY.md)
-- [Checklist de testes de segurança](./docs/SECURITY_TEST_CHECKLIST.md)
-
-
-## Contribuição
-
-Veja [CONTRIBUTING.md](./CONTRIBUTING.md).
-
-## Licença
-
-MIT.
-
-
 ## Portas oficiais locais (sem legado)
 
 - Frontend atualizado (default): `http://localhost:8088`
@@ -119,3 +77,7 @@ Exemplo para evitar conflito de porta já ocupada:
 ```bash
 FRONTEND_PORT=8090 BACKEND_PORT=8002 docker compose up --build
 ```
+
+## Licença
+
+MIT.
