@@ -22,9 +22,9 @@ export default function RescueOpsPage() {
   };
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 px-4 py-6 text-slate-100 md:px-6">
+    <main className="min-h-full bg-transparent px-4 py-6 text-slate-100 md:px-6">
       <div className="mx-auto max-w-7xl space-y-6">
-        <header className="rounded-2xl border border-slate-800/80 bg-slate-900/70 p-5 shadow-xl shadow-black/20 backdrop-blur-sm">
+        <header className="rounded-2xl border border-slate-700/70 bg-slate-900/75 p-5 shadow-xl shadow-black/30 backdrop-blur-sm">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
               <p className="mb-2 inline-flex items-center gap-1 rounded-full border border-blue-500/30 bg-blue-500/10 px-2 py-1 text-xs font-semibold text-blue-200">
@@ -42,7 +42,7 @@ export default function RescueOpsPage() {
 
         <RescueKpiCards total={summary.total} open={summary.open} active={summary.active} done={summary.done} />
 
-        <section className="rounded-2xl border border-slate-800/80 bg-slate-900/70 p-4 shadow-lg shadow-black/15">
+        <section className="rounded-2xl border border-slate-700/60 bg-slate-900/70 p-4 shadow-lg shadow-black/20">
           <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
             <input
               value={query}
@@ -66,12 +66,12 @@ export default function RescueOpsPage() {
         </section>
 
         <section className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_1.7fr]">
-          <article className="rounded-2xl border border-slate-800/80 bg-slate-900/80 p-4 shadow-lg shadow-black/20">
+          <article className="rounded-2xl border border-slate-700/60 bg-slate-900/80 p-4 shadow-lg shadow-black/25">
             <h2 className="mb-3 text-sm font-semibold text-slate-200">{editingTask ? 'Editar ocorrência' : 'Nova ocorrência de resgate'}</h2>
             <RescueTaskForm editingTask={editingTask} onCancel={() => setEditingTask(null)} onSubmitTask={onSubmitTask} />
           </article>
 
-          <article className="rounded-2xl border border-slate-800/80 bg-slate-900/80 p-4 shadow-lg shadow-black/20">
+          <article className="rounded-2xl border border-slate-700/60 bg-slate-900/80 p-4 shadow-lg shadow-black/25">
             <h2 className="mb-3 text-sm font-semibold text-slate-200">Fila operacional</h2>
             <RescueTaskTable tasks={tasks} loading={loading} onEdit={setEditingTask} onDelete={removeTask} onStatus={updateStatus} />
           </article>

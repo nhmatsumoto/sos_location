@@ -10,10 +10,13 @@ export default function AppRoutes() {
   return (
     <Routes>
       <Route path="/rescue" element={withShell(<RescueOpsPage />)} />
-      <Route path="/hotspots" element={withShell(<App />)} />
-      <Route path="/news" element={withShell(<App />)} />
       <Route path="/support" element={withShell(<RescueOpsPage />)} />
       <Route path="/volunteers" element={withShell(<RescueOpsPage />)} />
+
+      {/* Map/news experience keeps full-screen tactical layout */}
+      <Route path="/hotspots" element={<App />} />
+      <Route path="/news" element={<App />} />
+
       <Route path="/" element={<Navigate to="/rescue" replace />} />
       <Route path="*" element={<Navigate to="/rescue" replace />} />
     </Routes>
