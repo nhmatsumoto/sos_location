@@ -1485,27 +1485,35 @@ export default function App() {
           )}
 
           {dockedPanels.global || dockedPanels.terrain ? (
-            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[420] bg-slate-900/90 border border-slate-700 rounded-xl px-3 py-2 shadow-xl flex items-center gap-2 text-xs">
-              <span className="text-slate-300 uppercase tracking-wide">Barra flutuante</span>
+            <aside className="absolute right-4 top-1/2 -translate-y-1/2 z-[420] bg-slate-950/90 border border-slate-700 rounded-2xl px-2 py-2 shadow-2xl backdrop-blur-sm flex flex-col gap-2 min-w-[180px]">
+              <p className="px-2 text-[10px] uppercase tracking-[0.16em] text-slate-400">Painéis recolhidos</p>
               {dockedPanels.global && (
                 <button
                   type="button"
                   onClick={() => togglePanelDock('global')}
-                  className="px-2 py-1 rounded border border-slate-600 text-slate-100 hover:border-cyan-400"
+                  className="group flex items-center justify-between gap-2 rounded-lg border border-slate-700 bg-slate-900/80 px-2.5 py-2 text-left text-xs text-slate-100 transition-colors hover:border-cyan-400 hover:bg-slate-800"
                 >
-                  Status Global
+                  <span className="flex items-center gap-2">
+                    <Activity className="h-3.5 w-3.5 text-cyan-300" />
+                    <span>Status global</span>
+                  </span>
+                  <span className="text-[10px] text-slate-400 group-hover:text-cyan-200">abrir</span>
                 </button>
               )}
               {dockedPanels.terrain && (
                 <button
                   type="button"
                   onClick={() => togglePanelDock('terrain')}
-                  className="px-2 py-1 rounded border border-slate-600 text-slate-100 hover:border-cyan-400"
+                  className="group flex items-center justify-between gap-2 rounded-lg border border-slate-700 bg-slate-900/80 px-2.5 py-2 text-left text-xs text-slate-100 transition-colors hover:border-cyan-400 hover:bg-slate-800"
                 >
-                  Situação do Terreno
+                  <span className="flex items-center gap-2">
+                    <Waves className="h-3.5 w-3.5 text-cyan-300" />
+                    <span>Situação do terreno</span>
+                  </span>
+                  <span className="text-[10px] text-slate-400 group-hover:text-cyan-200">abrir</span>
                 </button>
               )}
-            </div>
+            </aside>
           ) : null}
 
           {!dockedPanels.global && (
