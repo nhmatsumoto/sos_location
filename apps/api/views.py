@@ -734,7 +734,8 @@ def collapse_reports(request):
         return _json_error('Latitude e longitude são obrigatórias.')
 
     report_id = "RP-{}-{}".format(datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S'), uuid.uuid4().hex[:6])
-    safe_name = "{}-{}".format(report_id, os.path.basename(video.name))
+    sanitized_video_name = secure_filename(video.name)
+    safe_name = "{}-{}".format(report_id, sanitized_video_name)
     file_path = os.path.join(_uploads_directory(), safe_name)
 
     with open(file_path, 'wb+') as destination:
