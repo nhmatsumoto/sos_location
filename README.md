@@ -33,6 +33,21 @@ python manage.py runserver 0.0.0.0:8000
 
 Acesse: `http://localhost:8000`
 
+## Deploy no Coolify (produção)
+
+1. No Coolify, crie um novo recurso selecionando **Docker Compose**.
+2. Configure o repositório `nhmatsumoto/mg_location` com a branch `master`.
+3. Defina o caminho do compose como `docker-compose.yml`.
+4. Configure variáveis de ambiente obrigatórias:
+   - `SECRET_KEY` com um valor forte e único
+   - `DEBUG=False`
+   - `VITE_API_BASE_URL` (opcional, recomendável para domínio público, ex.: `https://api.seudominio.com`)
+5. Faça o deploy. O backend executa migrações automaticamente e sobe com Gunicorn.
+
+Sugestão de publicação (opcional):
+- Frontend: `app.seudominio.com`
+- Backend/API: `api.seudominio.com`
+
 ## Atualizar stack sem risco de versão antiga
 
 ```bash
