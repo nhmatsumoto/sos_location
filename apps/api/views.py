@@ -16,6 +16,7 @@ from django.views.decorators.csrf import csrf_exempt
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from werkzeug.utils import secure_filename
 
 from apps.api.models import AttentionAlert, CollapseReport, MissingPerson
 from apps.api.serializers import CoordinateSerializer
@@ -733,7 +734,8 @@ def collapse_reports(request):
         return _json_error('Latitude e longitude são obrigatórias.')
 
     report_id = "RP-{}-{}".format(datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S'), uuid.uuid4().hex[:6])
-    safe_name = "{}-{}".format(report_id, os.path.basename(video.name))
+    sanitized_video_name = secure_filename(video.name)
+    safe_name = "{}-{}".format(report_id, sanitized_video_name)
     file_path = os.path.join(_uploads_directory(), safe_name)
 
     with open(file_path, 'wb+') as destination:
@@ -1102,7 +1104,7 @@ def splat_convert(request):
         return _json_error('latitude e longitude são obrigatórios para converter em .splat.')
 
     job_id = 'SPLAT-{}'.format(uuid.uuid4().hex[:8])
-    safe_name = '{}-{}'.format(job_id, os.path.basename(video.name))
+    safe_name = '{}-{}'.format(job_id, secure_filename(video.name))
     file_path = os.path.join(_uploads_directory(), safe_name)
 
     with open(file_path, 'wb+') as destination:
