@@ -1,0 +1,18 @@
+FROM python:3.11-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_ROOT_USER_ACTION=ignore
+
+WORKDIR /app
+
+COPY requirements.txt /app/requirements.txt
+RUN pip install --prefer-binary -r /app/requirements.txt
+
+COPY . /app
+
+EXPOSE 8000
+
+CMD ["sh", "-c", "attempt=1; max_attempts=${MIGRATE_MAX_ATTEMPTS:-24}; until python manage.py migrate --noinput; do if [ $attempt -ge $max_attempts ]; then echo 'Falha ao aplicar migrations após múltiplas tentativas.'; exit 1; fi; echo \"Aguardando banco de dados para aplicar migrations (tentativa $attempt/$max_attempts)...\"; attempt=$((attempt+1)); sleep 5; done; exec gunicorn core.wsgi:application --bind 0.0.0.0:8000 --workers ${GUNICORN_WORKERS:-2} --timeout ${GUNICORN_TIMEOUT:-120}"]

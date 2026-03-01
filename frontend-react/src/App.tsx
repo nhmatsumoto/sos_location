@@ -42,7 +42,7 @@ const inferApiBaseUrl = () => {
 
 const API_BASE_URL = inferApiBaseUrl();
 const resolveApiUrl = (path: string) => (API_BASE_URL ? `${API_BASE_URL}${path}` : path);
-
+const ENABLE_SIMULATION = false;
 
 
 
@@ -390,6 +390,7 @@ export default function App() {
 
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showMissingModal, setShowMissingModal] = useState(false);
+  const [showCatastropheModal, setShowCatastropheModal] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [savingMissing, setSavingMissing] = useState(false);
 
@@ -409,7 +410,7 @@ export default function App() {
   const [riskError, setRiskError] = useState('');
   const [riskSuccess, setRiskSuccess] = useState('');
   const [riskForm, setRiskForm] = useState(initialRiskForm);
-  const [sidebarTab, setSidebarTab] = useState<'flood' | 'news' | 'missing' | 'hotspots' | 'support' | 'volunteers'>('flood');
+  const [sidebarTab, setSidebarTab] = useState<'news' | 'hotspots' | 'support' | 'volunteers'>('hotspots');
   const [mapActionMode, setMapActionMode] = useState<'none' | 'incident' | 'risk' | 'support'>('none');
   const [mapQuickMenu, setMapQuickMenu] = useState<{
     visible: boolean;
@@ -550,7 +551,8 @@ export default function App() {
   };
 
 
-  const tacticalMapEnabled = sidebarTab === 'hotspots';
+  const [mapMode, setMapMode] = useState<'tactical' | 'topographic'>('tactical');
+  const tacticalMapEnabled = mapMode === 'tactical';
 
   const activeCatastrophe = useMemo(
     () => catastrophes.find((item) => item.id === selectedCatastropheId) ?? null,
@@ -773,6 +775,13 @@ export default function App() {
   const handleRunFlow = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setFlowError('');
+
+    if (!ENABLE_SIMULATION) {
+      setFlowResult(null);
+      setFlowError('Simulações estão desabilitadas no momento. Priorize marcações de resgate e risco no mapa.');
+      return;
+    }
+
     setRunningFlow(true);
 
     const scenarioConfig: Record<typeof flowForm.scenario, { steps: number; gridSize: number; cellSizeMeters: number; manningCoefficient: number; infiltrationRate: number; volumeFactor: number; label: string }> = {
@@ -983,6 +992,7 @@ export default function App() {
     setCatastrophes((prev) => [payload, ...prev]);
     setSelectedCatastropheId(payload.id);
     setCatastropheForm(initialCatastropheForm);
+    setShowCatastropheModal(false);
   };
 
   const handleAddCatastropheEvent = (event: FormEvent<HTMLFormElement>) => {
@@ -1014,36 +1024,26 @@ export default function App() {
   };
   return (
     <>
-      <div className="flex h-screen w-full bg-slate-900 text-slate-200 font-sans overflow-hidden">
-        <div className="w-1/3 h-full border-r border-slate-700 bg-slate-800 flex flex-col z-20 shadow-2xl overflow-y-auto custom-scrollbar">
+      <div className="flex flex-col h-screen w-full bg-slate-900 text-slate-200 font-sans overflow-hidden">
+        <div className="w-full max-h-[42vh] border-b border-slate-700 bg-slate-800 flex flex-col z-20 shadow-2xl overflow-y-auto custom-scrollbar">
           <div className="px-4 py-3 border-b border-slate-700 bg-slate-800/95 backdrop-blur-md sticky top-0 z-40">
-            <div className="flex items-center gap-2">
-              <ShieldAlert className="text-red-500 w-5 h-5" />
-              <h1 className="text-base font-bold tracking-tight text-white">Centro de comando</h1>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <ShieldAlert className="text-red-500 w-5 h-5" />
+                <h1 className="text-base font-bold tracking-tight text-white">Centro de comando</h1>
+              </div>
             </div>
           </div>
 
-          <div className={`px-4 py-3 border-b border-slate-700 bg-slate-800/50 transition-all duration-300 ${sidebarTab === 'flood' ? 'opacity-100 translate-y-0' : 'hidden opacity-0 -translate-y-1'}`}>
+          <div className={`px-4 py-3 border-b border-slate-700 bg-slate-800/50 transition-all duration-300 ${sidebarTab === 'hotspots' ? 'opacity-100 translate-y-0' : 'hidden opacity-0 -translate-y-1'}`}>
             <h2 className="text-xs uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-2">
               <Flame className="w-3 h-3" /> Catástrofe (modo operacional)
             </h2>
-            <p className="text-[11px] text-slate-400 mb-2">Onboard de catástrofes em tempo real + simulação rápida integrada ao mapa.</p>
-            <form className="space-y-2 mb-3" onSubmit={handleCreateCatastrophe}>
-              <input value={catastropheForm.name} onChange={(e) => setCatastropheForm((prev) => ({ ...prev, name: e.target.value }))} className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs" placeholder="Nome da catástrofe" required />
-              <div className="grid grid-cols-2 gap-2">
-                <select value={catastropheForm.type} onChange={(e) => setCatastropheForm((prev) => ({ ...prev, type: e.target.value as Catastrophe['type'] }))} className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs">
-                  <option>Enchente</option><option>Deslizamento</option><option>Desabamento</option><option>Corrente d'água</option>
-                </select>
-                <select value={catastropheForm.status} onChange={(e) => setCatastropheForm((prev) => ({ ...prev, status: e.target.value as Catastrophe['status'] }))} className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs">
-                  <option>Ativa</option><option>Monitorada</option><option>Encerrada</option>
-                </select>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <input value={catastropheForm.centerLat} onChange={(e) => setCatastropheForm((prev) => ({ ...prev, centerLat: e.target.value }))} className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs" placeholder="Latitude" required />
-                <input value={catastropheForm.centerLng} onChange={(e) => setCatastropheForm((prev) => ({ ...prev, centerLng: e.target.value }))} className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs" placeholder="Longitude" required />
-              </div>
-              <button type="submit" className="w-full text-xs px-2 py-1.5 rounded bg-fuchsia-600 hover:bg-fuchsia-500 text-white">Criar catástrofe</button>
-            </form>
+            <p className="text-[11px] text-slate-400 mb-2">Painel operacional do menu Hotspots: foco em resgate e marcações no mapa.</p>
+            <div className="flex items-center gap-2 mb-3">
+              <button type="button" onClick={() => setMapMode('tactical')} className={`text-xs px-2 py-1 rounded border ${mapMode === 'tactical' ? 'bg-cyan-600 border-cyan-400 text-white' : 'border-slate-600 text-slate-300'}`}>Mapa tático</button>
+              <button type="button" onClick={() => setMapMode('topographic')} className={`text-xs px-2 py-1 rounded border ${mapMode === 'topographic' ? 'bg-cyan-600 border-cyan-400 text-white' : 'border-slate-600 text-slate-300'}`}>Mapa topográfico</button>
+            </div>
 
             <div className="space-y-2 mb-3">
               <p className="text-[11px] text-slate-400">Catástrofes em tempo real</p>
@@ -1075,7 +1075,7 @@ export default function App() {
               ) : null}
             </form>
 
-            <p className="text-[11px] text-slate-400 mb-2">Escolha um cenário, ajuste a chuva e clique em simular.</p>
+            <p className="text-[11px] text-slate-400 mb-2">Simulações estão temporariamente desabilitadas. Use o mapa para marcação de incidentes, riscos e pontos de apoio.</p>
             <form className="space-y-2" onSubmit={handleRunFlow}>
               <div className="grid grid-cols-2 gap-2">
                 <input value={flowForm.sourceLat} onChange={(e) => setFlowForm((prev) => ({ ...prev, sourceLat: e.target.value }))} className="bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs" placeholder="Latitude" />
@@ -1086,6 +1086,7 @@ export default function App() {
                   type="button"
                   onClick={() => setFlowForm((prev) => ({ ...prev, sourceLat: selectedIncidentPoint.lat.toFixed(5), sourceLng: selectedIncidentPoint.lng.toFixed(5) }))}
                   className="w-full text-xs px-2 py-1 rounded border border-slate-600 text-slate-200 hover:border-cyan-400"
+                  disabled={!ENABLE_SIMULATION}
                 >
                   Usar ponto marcado no mapa
                 </button>
@@ -1105,8 +1106,8 @@ export default function App() {
                   <span className="text-cyan-300 font-semibold">{flowForm.rainfallMmPerHour} mm/h</span>
                 </label>
               </div>
-              <button type="submit" disabled={runningFlow} className="w-full flex items-center justify-center gap-2 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-70 text-white px-3 py-1.5 rounded text-xs font-semibold">
-                <Play className="w-3 h-3" /> {runningFlow ? 'Simulando...' : 'Simular área de alagamento'}
+              <button type="submit" disabled={!ENABLE_SIMULATION || runningFlow} className="w-full flex items-center justify-center gap-2 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-70 text-white px-3 py-1.5 rounded text-xs font-semibold">
+                <Play className="w-3 h-3" /> {ENABLE_SIMULATION ? (runningFlow ? 'Simulando...' : 'Simular área de alagamento') : 'Simulações temporariamente desabilitadas'}
               </button>
               {flowError && <p className="text-xs text-amber-300">{flowError}</p>}
               {flowResult && (
@@ -1124,25 +1125,32 @@ export default function App() {
             </form>
           </div>
 
-          <div className="px-4 py-2 border-b border-slate-700 bg-slate-900/85 sticky top-[52px] z-30">
-            <div className="grid grid-cols-6 gap-2 text-[11px]">
-              {([
-                { key: 'flood', label: 'Catástrofe' },
-                { key: 'news', label: 'Notícias' },
-                { key: 'missing', label: 'Desaparecidos' },
-                { key: 'hotspots', label: 'Hotspots' },
-                { key: 'support', label: 'Apoio' },
-                { key: 'volunteers', label: 'Voluntários' },
-              ] as const).map((tab) => (
-                <button
-                  key={tab.key}
-                  type="button"
-                  onClick={() => setSidebarTab(tab.key)}
-                  className={`rounded-md px-2 py-1.5 border transition-all duration-200 ${sidebarTab === tab.key ? 'bg-cyan-600 border-cyan-400 text-white shadow-md shadow-cyan-900/30 scale-[1.02]' : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'}`}
-                >
-                  {tab.label}
-                </button>
-              ))}
+          <div className="px-4 py-2 border-b border-slate-700 bg-slate-900/95 sticky top-[52px] z-30">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <nav className="flex items-center gap-2 text-[11px]">
+                {([
+                  { key: 'news', label: 'Notícias' },
+                  { key: 'hotspots', label: 'Hotspots' },
+                  { key: 'support', label: 'Apoio' },
+                  { key: 'volunteers', label: 'Voluntários' },
+                ] as const).map((tab) => (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => setSidebarTab(tab.key)}
+                    className={`rounded-md px-2 py-1.5 border transition-all duration-200 ${sidebarTab === tab.key ? 'bg-cyan-600 border-cyan-400 text-white shadow-md shadow-cyan-900/30 scale-[1.02]' : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'}`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </nav>
+              <button
+                type="button"
+                onClick={() => setShowCatastropheModal(true)}
+                className="text-xs px-2 py-1 rounded bg-fuchsia-600 hover:bg-fuchsia-500 text-white"
+              >
+                Catástrofes (modal)
+              </button>
             </div>
           </div>
 
@@ -1190,8 +1198,8 @@ export default function App() {
             )}
           </div>
 
-          <div className={`px-4 py-3 border-b border-slate-700 bg-slate-800/50 transition-all duration-300 ${sidebarTab === 'missing' ? 'opacity-100 translate-y-0' : 'hidden opacity-0 -translate-y-1'}`}>
-            <h2 className="text-xs uppercase tracking-wider text-slate-400 mb-2">Pessoas desaparecidas</h2>
+          <div className={`px-4 py-3 border-b border-slate-700 bg-slate-800/50 transition-all duration-300 ${sidebarTab === 'volunteers' ? 'opacity-100 translate-y-0' : 'hidden opacity-0 -translate-y-1'}`}>
+            <h2 className="text-xs uppercase tracking-wider text-slate-400 mb-2">Últimas posições conhecidas (desaparecidos)</h2>
             {loadingMissing ? <p className="text-xs text-slate-500">Carregando cadastros...</p> : (
               <ul className="space-y-2 max-h-28 overflow-y-auto pr-1">
                 {missingPeople.slice(0, 4).map((person) => (
@@ -1207,7 +1215,7 @@ export default function App() {
 
           <div className={`px-4 py-3 border-b border-slate-700 bg-slate-800/50 transition-all duration-300 ${sidebarTab === 'support' ? 'opacity-100 translate-y-0' : 'hidden opacity-0 -translate-y-1'}`}>
             <h2 className="text-xs uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-2"><Building2 className="w-3 h-3" /> Pontos de apoio</h2>
-            <p className="text-[11px] text-slate-400 mb-2">Clique no mapa e use o menu contextual para demarcar atendimento, abrigos e distribuição.</p>
+            <p className="text-[11px] text-slate-400 mb-2">Exibição exclusiva de pontos de apoio e rotas sugeridas a partir do incidente selecionado.</p>
             {supportPoints.length === 0 ? (
               <p className="text-xs text-slate-500">Nenhum ponto cadastrado ainda.</p>
             ) : (
@@ -1225,6 +1233,12 @@ export default function App() {
 
           <div className={`px-4 py-3 border-b border-slate-700 bg-slate-800/50 transition-all duration-300 ${sidebarTab === 'volunteers' ? 'opacity-100 translate-y-0' : 'hidden opacity-0 -translate-y-1'}`}>
             <h2 className="text-xs uppercase tracking-wider text-slate-400 mb-2">Central de voluntários</h2>
+            <p className="text-[11px] text-slate-400 mb-2">Níveis de acesso: Autoridade Local / Equipe de Resgate / Bombeiros / Voluntário de Campo.</p>
+            <div className="grid grid-cols-2 gap-2 mb-2 text-[11px]">
+              <div className="bg-slate-900/60 border border-slate-700 rounded p-2"><p className="text-slate-400">Prioridade alta</p><p className="text-rose-300 font-semibold">{attentionAlerts.filter((a) => a.severity === 'critical' || a.severity === 'high').length} áreas</p></div>
+              <div className="bg-slate-900/60 border border-slate-700 rounded p-2"><p className="text-slate-400">Desaparecidos ativos</p><p className="text-amber-300 font-semibold">{missingPeople.length}</p></div>
+            </div>
+            <p className="text-[11px] text-slate-500 mb-2">Privacidade: dados pessoais sensíveis devem ser criptografados e não armazenamos fotos de vítimas/corpos nesta interface.</p>
             <div className="grid grid-cols-2 gap-2 mb-2">
               <button onClick={() => { setShowMissingModal(true); setMissingError(''); setMissingSuccess(''); }} className="text-xs px-2 py-1.5 rounded bg-amber-600 hover:bg-amber-500 text-white">Cadastrar desaparecido</button>
               <button onClick={() => { setShowUploadModal(true); setUploadError(''); setUploadSuccess(''); }} className="text-xs px-2 py-1.5 rounded bg-blue-600 hover:bg-blue-500 text-white">Enviar evidência</button>
@@ -1289,7 +1303,7 @@ export default function App() {
           </div>
         </div>
 
-        <div ref={mapOverlayRef} className="w-2/3 h-full relative z-10">
+        <div ref={mapOverlayRef} className="w-full flex-1 relative z-10">
           <MapContainer key={`map-${tacticalMapEnabled ? 'tactical' : 'default'}`} center={[-21.1215, -42.9427]} zoom={14} className="h-full w-full" zoomControl={false}>
             <LayersControl position="topright">
               <LayersControl.BaseLayer checked={!tacticalMapEnabled} name="Mapa em relevo">
@@ -1316,7 +1330,6 @@ export default function App() {
                   setSelectedIncidentPoint({ lat, lng });
                   setFlowForm((prev) => ({ ...prev, sourceLat: lat.toFixed(5), sourceLng: lng.toFixed(5) }));
                   setMapActionMode('none');
-                  openPanel({ mode: 'sim', sourceLat: lat, sourceLng: lng, label: 'Ponto manual' });
                   return;
                 }
 
@@ -1385,7 +1398,7 @@ export default function App() {
                     <div className="bg-slate-100 p-2 rounded text-xs mb-2"><strong>Pessoas Risco:</strong> {hs.estimatedAffected}<br /><strong>Exposição:</strong> {hs.humanExposure}</div>
                     {hs.type === 'Landslide' && (
                       <div className="flex flex-col gap-1 mt-1">
-                        <button onClick={() => openPanel({ hotspot: hs, mode: 'sim', sourceLat: hs.lat, sourceLng: hs.lng })} className="w-full flex justify-center items-center gap-1 bg-orange-600 hover:bg-orange-700 text-white py-1.5 px-2 rounded text-xs font-bold transition-colors"><ExternalLink className="w-3 h-3" /> Ver Simulação 3D</button>
+                        <button type="button" disabled className="w-full flex justify-center items-center gap-1 bg-slate-600 text-slate-300 py-1.5 px-2 rounded text-xs font-bold cursor-not-allowed"><ExternalLink className="w-3 h-3" /> Simulação temporariamente desabilitada</button>
                         <button onClick={() => openPanel({ hotspot: hs, mode: 'splat' })} className="w-full flex justify-center items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white py-1.5 px-2 rounded text-xs font-bold transition-colors"><Camera className="w-3 h-3" /> Ver Drone Splatting</button>
                       </div>
                     )}
@@ -1400,7 +1413,7 @@ export default function App() {
                   <Popup className="custom-popup">
                     <div className="text-slate-900 text-xs">
                       <p><strong>Ponto selecionado:</strong> {selectedIncidentPoint.lat.toFixed(5)}, {selectedIncidentPoint.lng.toFixed(5)}</p>
-                      <p><strong>Raio de simulação:</strong> 500m</p>
+                      <p><strong>Raio de referência operacional:</strong> 500m</p>
                     </div>
                   </Popup>
                 </Marker>
@@ -1408,6 +1421,14 @@ export default function App() {
               </>
             )}
 
+
+            {sidebarTab === 'support' && selectedIncidentPoint && supportPoints.map((point) => (
+              <Polyline
+                key={`route-${point.id}`}
+                positions={[[selectedIncidentPoint.lat, selectedIncidentPoint.lng], [point.lat, point.lng]]}
+                pathOptions={{ color: '#22d3ee', weight: 2, opacity: 0.8, dashArray: '4 4' }}
+              />
+            ))}
 
             {supportPoints.map((point) => (
               <Marker key={point.id} position={[point.lat, point.lng]} icon={iconCritical}>
@@ -1478,7 +1499,7 @@ export default function App() {
               <p className="text-[11px] text-slate-400 px-1">{mapQuickMenu.lat.toFixed(5)}, {mapQuickMenu.lng.toFixed(5)}</p>
               <button onClick={() => { setShowUploadModal(true); setUploadError(''); setUploadSuccess(''); setMapQuickMenu(null); }} className="w-full text-left flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-slate-800"><Upload className="w-4 h-4 text-blue-400" /> Enviar vídeo</button>
               <button onClick={() => { setShowMissingModal(true); setMissingError(''); setMissingSuccess(''); setMapQuickMenu(null); }} className="w-full text-left flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-slate-800"><Users className="w-4 h-4 text-amber-400" /> Cadastrar desaparecido</button>
-              <button onClick={() => { setSelectedIncidentPoint({ lat: mapQuickMenu.lat, lng: mapQuickMenu.lng }); setFlowForm((prev) => ({ ...prev, sourceLat: mapQuickMenu.lat.toFixed(5), sourceLng: mapQuickMenu.lng.toFixed(5) })); openPanel({ mode: 'sim', sourceLat: mapQuickMenu.lat, sourceLng: mapQuickMenu.lng, label: 'Ponto manual' }); setMapQuickMenu(null); }} className="w-full text-left flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-slate-800"><MapPin className="w-4 h-4 text-emerald-400" /> Marcar incidente</button>
+              <button onClick={() => { setSelectedIncidentPoint({ lat: mapQuickMenu.lat, lng: mapQuickMenu.lng }); setFlowForm((prev) => ({ ...prev, sourceLat: mapQuickMenu.lat.toFixed(5), sourceLng: mapQuickMenu.lng.toFixed(5) })); setMapQuickMenu(null); }} className="w-full text-left flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-slate-800"><MapPin className="w-4 h-4 text-emerald-400" /> Marcar incidente de resgate</button>
               <button onClick={() => { setRiskDraftPoint({ lat: mapQuickMenu.lat, lng: mapQuickMenu.lng }); setShowRiskModal(true); setRiskForm((prev) => ({ ...prev, message: `Risco reportado próximo a ${mapQuickMenu.lat.toFixed(5)}, ${mapQuickMenu.lng.toFixed(5)}.` })); setMapQuickMenu(null); }} className="w-full text-left flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-slate-800"><Siren className="w-4 h-4 text-rose-400" /> Marcar risco</button>
               <button onClick={() => { setSupportPoints((prev) => ([{ id: `SP-${Date.now()}`, type: 'Abrigo', lat: mapQuickMenu.lat, lng: mapQuickMenu.lng, notes: 'Marcado pelo menu contextual.', createdAtUtc: new Date().toISOString() }, ...prev])); setMapQuickMenu(null); }} className="w-full text-left flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-slate-800"><Building2 className="w-4 h-4 text-cyan-400" /> Novo ponto de apoio</button>
               <button onClick={() => setMapQuickMenu(null)} className="w-full text-left flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-slate-800"><X className="w-4 h-4 text-slate-400" /> Fechar menu</button>
@@ -1596,7 +1617,7 @@ export default function App() {
           )}
 
 
-          {selectedPanel && (
+          {selectedPanel && ENABLE_SIMULATION && (
             <div className={`absolute z-50 bg-slate-900 shadow-2xl border border-slate-600 flex flex-col overflow-hidden animate-in fade-in ${isPanelFullscreen ? 'inset-0 rounded-none' : 'bottom-4 left-4 w-96 h-80 rounded-xl slide-in-from-bottom-4'}`}>
               <div className="flex justify-between items-center p-2 border-b border-slate-700 bg-slate-800">
                 <span className="text-xs font-bold text-slate-200 flex items-center gap-1">{selectedPanel.mode === 'sim' ? <MapPin className="w-3 h-3 text-orange-500" /> : <Camera className="w-3 h-3 text-blue-500" />}{selectedPanel.mode === 'sim' ? 'Simulação' : 'Drone (Splat)'}: {selectedPanel.label ?? selectedPanel.hotspot?.id ?? 'Sem identificação'}</span>
@@ -1614,6 +1635,40 @@ export default function App() {
           )}
         </div>
       </div>
+
+
+      {showCatastropheModal && (
+        <div className="fixed inset-0 z-[999] bg-black/70 flex items-center justify-center p-4">
+          <div className="w-full max-w-xl bg-slate-900 border border-slate-700 rounded-xl shadow-2xl">
+            <div className="p-4 border-b border-slate-700 flex items-start justify-between">
+              <div>
+                <h3 className="text-lg font-bold text-white flex items-center gap-2"><Flame className="w-5 h-5 text-fuchsia-400" /> Cadastrar catástrofe</h3>
+                <p className="text-xs text-slate-400 mt-1">Preencha os dados para criar um novo evento operacional.</p>
+              </div>
+              <button onClick={() => setShowCatastropheModal(false)} className="text-slate-400 hover:text-white"><X className="w-5 h-5" /></button>
+            </div>
+            <form className="p-4 space-y-3" onSubmit={handleCreateCatastrophe}>
+              <input value={catastropheForm.name} onChange={(e) => setCatastropheForm((prev) => ({ ...prev, name: e.target.value }))} className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm" placeholder="Nome da catástrofe" required />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <select value={catastropheForm.type} onChange={(e) => setCatastropheForm((prev) => ({ ...prev, type: e.target.value as Catastrophe['type'] }))} className="bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm">
+                  <option>Enchente</option><option>Deslizamento</option><option>Desabamento</option><option>Corrente d'água</option>
+                </select>
+                <select value={catastropheForm.status} onChange={(e) => setCatastropheForm((prev) => ({ ...prev, status: e.target.value as Catastrophe['status'] }))} className="bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm">
+                  <option>Ativa</option><option>Monitorada</option><option>Encerrada</option>
+                </select>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <input value={catastropheForm.centerLat} onChange={(e) => setCatastropheForm((prev) => ({ ...prev, centerLat: e.target.value }))} className="bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm" placeholder="Latitude" required />
+                <input value={catastropheForm.centerLng} onChange={(e) => setCatastropheForm((prev) => ({ ...prev, centerLng: e.target.value }))} className="bg-slate-800 border border-slate-700 rounded px-3 py-2 text-sm" placeholder="Longitude" required />
+              </div>
+              <div className="flex justify-end gap-2">
+                <button type="button" onClick={() => setShowCatastropheModal(false)} className="px-3 py-2 text-sm rounded border border-slate-600 text-slate-300 hover:text-white">Cancelar</button>
+                <button type="submit" className="px-3 py-2 text-sm rounded bg-fuchsia-600 text-white font-semibold hover:bg-fuchsia-500">Salvar catástrofe</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {showRiskModal && (
         <div className="fixed inset-0 z-[999] bg-black/70 flex items-center justify-center p-4">

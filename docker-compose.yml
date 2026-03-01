@@ -21,26 +21,25 @@ services:
       - mg-location-network
 
   backend:
-    image: python:3.11-slim
-    pull_policy: always
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
     container_name: mg-location-backend
     restart: unless-stopped
-    working_dir: /app
-    command: >
-      sh -c "pip install --no-cache-dir -r requirements.txt &&
-             python manage.py migrate &&
-             python manage.py runserver 0.0.0.0:8000"
     environment:
-      SECRET_KEY: dev-secret-key
-      DEBUG: "True"
-      ALLOWED_HOSTS: "*"
-      DB_ENGINE: django.db.backends.postgresql
-      DB_NAME: mg_location
-      DB_USER: mg_location_user
-      DB_PASSWORD: mg_location_password
-      DB_HOST: postgres
-      DB_PORT: "5432"
-      FRONTEND_URL: http://localhost:${FRONTEND_PORT:-8088}/
+      SECRET_KEY: ${SECRET_KEY:-troque-isto}
+      DEBUG: ${DEBUG:-False}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-*}
+      DB_ENGINE: ${DB_ENGINE:-django.db.backends.postgresql}
+      DB_NAME: ${DB_NAME:-mg_location}
+      DB_USER: ${DB_USER:-mg_location_user}
+      DB_PASSWORD: ${DB_PASSWORD:-mg_location_password}
+      DB_HOST: ${DB_HOST:-postgres}
+      DB_PORT: ${DB_PORT:-5432}
+      FRONTEND_URL: ${FRONTEND_URL:-http://frontend:8000/}
+      GUNICORN_WORKERS: ${GUNICORN_WORKERS:-2}
+      GUNICORN_TIMEOUT: ${GUNICORN_TIMEOUT:-120}
+      MIGRATE_MAX_ATTEMPTS: ${MIGRATE_MAX_ATTEMPTS:-24}
     depends_on:
       postgres:
         condition: service_healthy
@@ -48,10 +47,8 @@ services:
       test: ["CMD-SHELL", "python -c \"import socket; s=socket.create_connection(('127.0.0.1', 8000), 5); s.close()\""]
       interval: 15s
       timeout: 10s
-      retries: 5
-      start_period: 30s
-    volumes:
-      - ./:/app
+      retries: 10
+      start_period: 180s
     ports:
       - "${BACKEND_PORT:-8001}:8000"
     networks:
@@ -62,10 +59,10 @@ services:
       context: ./frontend-react
       dockerfile: Dockerfile
       args:
-        VITE_API_BASE_URL: http://localhost:${BACKEND_PORT:-8001}
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://backend:8000}
     container_name: simulador-mg-location
     environment:
-      VITE_API_BASE_URL: http://localhost:${BACKEND_PORT:-8001}
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://backend:8000}
     ports:
       - "${FRONTEND_PORT:-8088}:8000"
     restart: unless-stopped
