@@ -1,14 +1,14 @@
-# Etapa 1: Build da aplicação React/Vite localmente no container Node
-FROM node:22-alpine AS builder
+# Etapa 1: Build da aplicação React/Vite com Bun
+FROM oven/bun:1.2.14-alpine AS builder
 
 WORKDIR /app
-COPY package.json package-lock.json* ./
-RUN npm ci
+COPY package.json bun.lock* ./
+RUN bun install --frozen-lockfile
 
 COPY . .
 ARG VITE_API_BASE_URL="http://localhost:8001"
 ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
-RUN npm run build
+RUN bun run build
 
 # Etapa 2: Servir os arquivos minificados usando Python
 FROM python:3.11-slim
