@@ -418,6 +418,7 @@ export default function App() {
     lat: number;
     lng: number;
   } | null>(null);
+  const [lastMapClick, setLastMapClick] = useState<{ lat: number; lng: number } | null>(null);
   const [supportPoints, setSupportPoints] = useState<SupportPoint[]>([]);
   const [donationForm, setDonationForm] = useState(initialDonationForm);
   const [donationTasks, setDonationTasks] = useState<DonationTask[]>([
@@ -1304,6 +1305,7 @@ export default function App() {
             <MapClickSelector
               enabled
               onSelect={(lat, lng, clientX, clientY) => {
+                setLastMapClick({ lat, lng });
 
                 const mapRect = mapOverlayRef.current?.getBoundingClientRect();
                 const x = mapRect ? Math.max(12, Math.min(mapRect.width - 220, clientX - mapRect.left)) : 24;
