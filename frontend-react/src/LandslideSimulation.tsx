@@ -160,21 +160,28 @@ const RunoutParticles = ({ radiusMeters, postSlideIntensity, terrainGrid }: Runo
   const positions = useMemo(() => {
     const data = new Float32Array(count * 3);
     for (let i = 0; i < count; i += 1) {
-      data[i * 3] = (Math.random() - 0.5) * (halfExtent * 0.9);
-      data[i * 3 + 1] = 6 + Math.random() * 4;
-      data[i * 3 + 2] = -halfExtent * 0.8 + Math.random() * 4;
+      const n0 = (Math.sin((i + 1) * 12.9898) + 1) * 0.5;
+      const n1 = (Math.sin((i + 1) * 78.233) + 1) * 0.5;
+      const n2 = (Math.sin((i + 1) * 39.425) + 1) * 0.5;
+      data[i * 3] = (n0 - 0.5) * (halfExtent * 0.9);
+      data[i * 3 + 1] = 6 + n1 * 4;
+      data[i * 3 + 2] = -halfExtent * 0.8 + n2 * 4;
     }
     return data;
   }, [count, halfExtent]);
 
-  const velocities = useMemo(() => {
-    const data = new Float32Array(count * 3);
+  const velocitiesRef = useRef<Float32Array>(new Float32Array(count * 3));
+
+  useEffect(() => {
+    const velocities = velocitiesRef.current;
     for (let i = 0; i < count; i += 1) {
-      data[i * 3] = (Math.random() - 0.5) * 0.05;
-      data[i * 3 + 1] = -0.1 - Math.random() * 0.08;
-      data[i * 3 + 2] = 0.08 + Math.random() * 0.12;
+      const n0 = (Math.sin((i + 1) * 22.111) + 1) * 0.5;
+      const n1 = (Math.sin((i + 1) * 54.317) + 1) * 0.5;
+      const n2 = (Math.sin((i + 1) * 93.733) + 1) * 0.5;
+      velocities[i * 3] = (n0 - 0.5) * 0.05;
+      velocities[i * 3 + 1] = -0.1 - n1 * 0.08;
+      velocities[i * 3 + 2] = 0.08 + n2 * 0.12;
     }
-    return data;
   }, [count]);
 
   const geometryRef = useRef<THREE.BufferGeometry>(null);
@@ -187,6 +194,7 @@ const RunoutParticles = ({ radiusMeters, postSlideIntensity, terrainGrid }: Runo
     const videoPush = postSlideIntensity * 0.004;
 
     for (let i = 0; i < count; i += 1) {
+      const velocities = velocitiesRef.current;
       posArray[i * 3] += velocities[i * 3];
       posArray[i * 3 + 1] += velocities[i * 3 + 1];
       posArray[i * 3 + 2] += velocities[i * 3 + 2];
@@ -201,16 +209,19 @@ const RunoutParticles = ({ radiusMeters, postSlideIntensity, terrainGrid }: Runo
         posArray[i * 3 + 1] = terrainY + 0.2;
         velocities[i * 3 + 1] = -0.02;
         velocities[i * 3 + 2] += 0.004 + videoPush;
-        velocities[i * 3] += (Math.random() - 0.5) * (0.006 + videoPush * 0.5);
+        velocities[i * 3] += (Math.sin(i * 17.13) * 0.5) * (0.006 + videoPush * 0.5);
       }
 
       if (z > halfExtent || posArray[i * 3 + 1] < -10 || xNorm < -0.1 || xNorm > 1.1 || zNorm > 1.2) {
-        posArray[i * 3] = (Math.random() - 0.5) * (halfExtent * 0.9);
-        posArray[i * 3 + 1] = 6 + Math.random() * 4;
-        posArray[i * 3 + 2] = -halfExtent * 0.8 + Math.random() * 4;
-        velocities[i * 3] = (Math.random() - 0.5) * 0.05;
-        velocities[i * 3 + 1] = -0.1 - Math.random() * 0.08;
-        velocities[i * 3 + 2] = 0.08 + Math.random() * 0.12;
+        const n0 = (Math.sin((i + 1) * 12.9898 + z * 0.1) + 1) * 0.5;
+        const n1 = (Math.sin((i + 1) * 78.233 + x * 0.2) + 1) * 0.5;
+        const n2 = (Math.sin((i + 1) * 39.425 + z * 0.15) + 1) * 0.5;
+        posArray[i * 3] = (n0 - 0.5) * (halfExtent * 0.9);
+        posArray[i * 3 + 1] = 6 + n1 * 4;
+        posArray[i * 3 + 2] = -halfExtent * 0.8 + n2 * 4;
+        velocities[i * 3] = (n0 - 0.5) * 0.05;
+        velocities[i * 3 + 1] = -0.1 - n1 * 0.08;
+        velocities[i * 3 + 2] = 0.08 + n2 * 0.12;
       }
     }
 

@@ -4,9 +4,12 @@ import './index.css'
 import 'leaflet/dist/leaflet.css';
 import AppRoutes from './AppRoutes.tsx'
 import { BrowserRouter } from 'react-router-dom'
+import { ChakraProvider, defaultSystem } from '@chakra-ui/react'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <BrowserRouter><AppRoutes /></BrowserRouter>
+    <ChakraProvider value={defaultSystem}>
+      <BrowserRouter><AppRoutes /></BrowserRouter>
+    </ChakraProvider>
   </StrictMode>,
 )
