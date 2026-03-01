@@ -80,7 +80,12 @@ def alerts(request):
             if len(bbox_tuple) != 4:
                 raise ValueError('bbox deve ter 4 valores: minLon,minLat,maxLon,maxLat')
         except ValueError as exc:
-            return JsonResponse({'error': str(exc)}, status=400)
+            return JsonResponse(
+                {
+                    'error': "Parâmetro 'bbox' inválido. Use o formato minLon,minLat,maxLon,maxLat."
+                },
+                status=400,
+            )
 
     since = request.GET.get('since')
     try:
