@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
 type RouterContextValue = {
@@ -49,7 +50,9 @@ export function Navigate({ to, replace = false }: { to: string; replace?: boolea
   return null;
 }
 
-export function Route(_props: { path: string; element: ReactNode }) {
+export function Route({ path, element }: { path: string; element: ReactNode }) {
+  void path;
+  void element;
   return null;
 }
 
