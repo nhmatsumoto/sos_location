@@ -38,8 +38,11 @@ def weather_forecast(request):
         lat = _float_param(request, 'lat')
         lon = _float_param(request, 'lon')
         days = int(request.GET.get('days', 3))
-    except (ValueError, TypeError) as exc:
-        return JsonResponse({'error': str(exc)}, status=400)
+    except (ValueError, TypeError):
+        return JsonResponse(
+            {'error': 'Parâmetros inválidos: lat, lon e days devem ser numéricos.'},
+            status=400,
+        )
 
     try:
         data, cache_hit = fetch_forecast(lat=lat, lon=lon, days=days)
@@ -59,8 +62,11 @@ def weather_archive(request):
     try:
         lat = _float_param(request, 'lat')
         lon = _float_param(request, 'lon')
-    except (ValueError, TypeError) as exc:
-        return JsonResponse({'error': str(exc)}, status=400)
+    except (ValueError, TypeError):
+        return JsonResponse(
+            {'error': 'Parâmetros inválidos: lat e lon devem ser numéricos.'},
+            status=400,
+        )
 
     try:
         data, cache_hit = fetch_archive(lat=lat, lon=lon, start=start, end=end)
