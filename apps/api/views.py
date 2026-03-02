@@ -19,7 +19,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from werkzeug.utils import secure_filename
 
-from apps.api.models import AttentionAlert, CollapseReport, MissingPerson
+from apps.api.models import AttentionAlert, CollapseReport, MapAnnotation, MissingPerson, RescueGroup, SupplyLogistics
 from apps.api.serializers import CoordinateSerializer
 from apps.api.utils import Position
 
@@ -1260,58 +1260,237 @@ def missing_persons(request):
     return JsonResponse(_missing_person_to_dict(person), status=201)
 
 
-SUPPORT_POINTS = [
-    {
-        'id': 'SP-001',
-        'name': 'Escola Municipal Setor Norte',
-        'type': 'abrigo',
-        'lat': -21.1178,
-        'lng': -42.9363,
-        'capacity': 180,
-        'status': 'ativo',
-        'createdAtUtc': datetime.now(timezone.utc).isoformat(),
-    }
-]
 
-RISK_AREAS = [
-    {
-        'id': 'RA-001',
-        'name': 'Encosta Serra Azul',
-        'severity': 'critical',
-        'lat': -21.1215,
-        'lng': -42.9427,
-        'radiusMeters': 650,
-        'notes': 'Solo saturado e histórico de deslizamento.',
-        'createdAtUtc': datetime.now(timezone.utc).isoformat(),
-    }
-]
 
-RESCUE_GROUPS = [
-    {
-        'id': 'RG-001',
-        'name': 'Brigada Alpha',
-        'members': 8,
-        'specialty': 'Busca e salvamento',
-        'status': 'em_campo',
-        'lat': -21.1199,
-        'lng': -42.9404,
-        'createdAtUtc': datetime.now(timezone.utc).isoformat(),
+def _annotation_to_dict(annotation):
+    return {
+        'id': annotation.external_id,
+        'recordType': annotation.record_type,
+        'title': annotation.title,
+        'lat': annotation.lat,
+        'lng': annotation.lng,
+        'severity': annotation.severity,
+        'radiusMeters': annotation.radius_meters,
+        'status': annotation.status,
+        'metadata': annotation.metadata or {},
+        'createdAtUtc': annotation.created_at.isoformat(),
     }
-]
 
-SUPPLY_LOGISTICS = [
-    {
-        'id': 'LG-001',
-        'item': 'Água potável',
-        'quantity': 320,
-        'unit': 'kits',
-        'origin': 'CD Ubá',
-        'destination': 'Abrigo Setor Norte',
-        'status': 'em_transporte',
-        'priority': 'alta',
-        'createdAtUtc': datetime.now(timezone.utc).isoformat(),
+
+def _rescue_group_to_dict(group):
+    return {
+        'id': group.external_id,
+        'name': group.name,
+        'members': group.members,
+        'specialty': group.specialty,
+        'status': group.status,
+        'lat': group.lat,
+        'lng': group.lng,
+        'createdAtUtc': group.created_at.isoformat(),
     }
-]
+
+
+def _supply_to_dict(item):
+    return {
+        'id': item.external_id,
+        'item': item.item,
+        'quantity': item.quantity,
+        'unit': item.unit,
+        'origin': item.origin,
+        'destination': item.destination,
+        'status': item.status,
+        'priority': item.priority,
+        'createdAtUtc': item.created_at.isoformat(),
+    }
+
+
+@csrf_exempt
+def map_annotations(request):
+    if request.method == 'GET':
+        rows = [_annotation_to_dict(a) for a in MapAnnotation.objects.order_by('-created_at')[:1000]]
+        return JsonResponse(rows, safe=False)
+
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    payload = _request_payload(request)
+    record_type = (payload.get('recordType') or payload.get('type') or '').strip()
+    title = (payload.get('title') or '').strip()
+    lat = _parse_float(payload.get('lat'))
+    lng = _parse_float(payload.get('lng'))
+
+    if record_type not in [MapAnnotation.TYPE_SUPPORT_POINT, MapAnnotation.TYPE_RISK_AREA, MapAnnotation.TYPE_MISSING_PERSON]:
+        return _json_error('recordType inválido. Use support_point, risk_area ou missing_person.')
+
+    if lat is None or lng is None:
+        return _json_error('lat e lng são obrigatórios.')
+
+    if not title:
+        title = {
+            MapAnnotation.TYPE_SUPPORT_POINT: 'Ponto de apoio',
+            MapAnnotation.TYPE_RISK_AREA: 'Área de risco',
+            MapAnnotation.TYPE_MISSING_PERSON: 'Registro de desaparecido',
+        }[record_type]
+
+    metadata = payload.get('metadata') if isinstance(payload.get('metadata'), dict) else {}
+
+    if record_type == MapAnnotation.TYPE_MISSING_PERSON:
+        person_name = (payload.get('personName') or title).strip()
+        last_seen = (payload.get('lastSeenLocation') or payload.get('lastSeen') or 'Ponto selecionado no mapa').strip()
+        person = MissingPerson.objects.create(
+            external_id='MP-{}'.format(uuid.uuid4().hex[:8]),
+            person_name=person_name,
+            age=int(payload.get('age') or 0) or None,
+            city=(payload.get('city') or 'Não informado').strip(),
+            last_seen_location=last_seen,
+            lat=lat,
+            lng=lng,
+            physical_description=payload.get('physicalDescription') or '',
+            additional_info=payload.get('additionalInfo') or '',
+            contact_name=(payload.get('contactName') or 'Central MG Location').strip(),
+            contact_phone=(payload.get('contactPhone') or 'Não informado').strip(),
+            source='map-one-click',
+        )
+        metadata = {**metadata, 'missingPersonId': person.external_id}
+
+    annotation = MapAnnotation.objects.create(
+        external_id='MA-{}'.format(uuid.uuid4().hex[:8]),
+        record_type=record_type,
+        title=title,
+        lat=lat,
+        lng=lng,
+        severity=(payload.get('severity') or '').strip(),
+        radius_meters=int(payload.get('radiusMeters') or 0) or None,
+        status=(payload.get('status') or 'active').strip(),
+        metadata=metadata,
+    )
+
+    return JsonResponse(_annotation_to_dict(annotation), status=201)
+
+
+@csrf_exempt
+def support_points(request):
+    if request.method == 'GET':
+        rows = [_annotation_to_dict(a) for a in MapAnnotation.objects.filter(record_type=MapAnnotation.TYPE_SUPPORT_POINT).order_by('-created_at')[:500]]
+        return JsonResponse(rows, safe=False)
+
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    payload = _request_payload(request)
+    lat = _parse_float(payload.get('lat'))
+    lng = _parse_float(payload.get('lng'))
+    name = (payload.get('name') or 'Ponto de apoio').strip()
+    if lat is None or lng is None:
+        return _json_error('lat e lng são obrigatórios para ponto de apoio.')
+
+    annotation = MapAnnotation.objects.create(
+        external_id='MA-{}'.format(uuid.uuid4().hex[:8]),
+        record_type=MapAnnotation.TYPE_SUPPORT_POINT,
+        title=name,
+        lat=lat,
+        lng=lng,
+        status=payload.get('status') or 'active',
+        metadata={
+            'type': payload.get('type') or 'apoio',
+            'capacity': int(payload.get('capacity') or 0),
+        },
+    )
+    return JsonResponse(_annotation_to_dict(annotation), status=201)
+
+
+@csrf_exempt
+def risk_areas(request):
+    if request.method == 'GET':
+        rows = [_annotation_to_dict(a) for a in MapAnnotation.objects.filter(record_type=MapAnnotation.TYPE_RISK_AREA).order_by('-created_at')[:500]]
+        return JsonResponse(rows, safe=False)
+
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    payload = _request_payload(request)
+    lat = _parse_float(payload.get('lat'))
+    lng = _parse_float(payload.get('lng'))
+    name = (payload.get('name') or 'Área de risco').strip()
+    if lat is None or lng is None:
+        return _json_error('lat e lng são obrigatórios para área de risco.')
+
+    annotation = MapAnnotation.objects.create(
+        external_id='MA-{}'.format(uuid.uuid4().hex[:8]),
+        record_type=MapAnnotation.TYPE_RISK_AREA,
+        title=name,
+        lat=lat,
+        lng=lng,
+        severity=(payload.get('severity') or 'high').strip(),
+        radius_meters=int(payload.get('radiusMeters') or 500),
+        status=payload.get('status') or 'active',
+        metadata={'notes': payload.get('notes') or ''},
+    )
+    return JsonResponse(_annotation_to_dict(annotation), status=201)
+
+
+@csrf_exempt
+def rescue_groups(request):
+    if request.method == 'GET':
+        rows = [_rescue_group_to_dict(g) for g in RescueGroup.objects.order_by('-created_at')[:500]]
+        return JsonResponse(rows, safe=False)
+
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    payload = _request_payload(request)
+    name = (payload.get('name') or '').strip()
+    if not name:
+        return _json_error('name é obrigatório para grupo de resgate.')
+
+    try:
+        members = int(payload.get('members') or 0)
+    except (TypeError, ValueError):
+        return _json_error('members deve ser numérico.')
+
+    group = RescueGroup.objects.create(
+        external_id='RG-{}'.format(uuid.uuid4().hex[:8]),
+        name=name,
+        members=members,
+        specialty=payload.get('specialty') or 'generalista',
+        status=payload.get('status') or 'pronto',
+        lat=_parse_float(payload.get('lat')),
+        lng=_parse_float(payload.get('lng')),
+    )
+    return JsonResponse(_rescue_group_to_dict(group), status=201)
+
+
+@csrf_exempt
+def supply_logistics(request):
+    if request.method == 'GET':
+        rows = [_supply_to_dict(s) for s in SupplyLogistics.objects.order_by('-created_at')[:500]]
+        return JsonResponse(rows, safe=False)
+
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    payload = _request_payload(request)
+    item = (payload.get('item') or '').strip()
+    if not item:
+        return _json_error('item é obrigatório para logística de suprimento.')
+
+    try:
+        quantity = int(payload.get('quantity') or 0)
+    except (TypeError, ValueError):
+        return _json_error('quantity deve ser numérico.')
+
+    supply = SupplyLogistics.objects.create(
+        external_id='LG-{}'.format(uuid.uuid4().hex[:8]),
+        item=item,
+        quantity=quantity,
+        unit=payload.get('unit') or 'un',
+        origin=payload.get('origin') or 'Não informado',
+        destination=payload.get('destination') or 'Não informado',
+        status=payload.get('status') or 'planejado',
+        priority=payload.get('priority') or 'media',
+    )
+    return JsonResponse(_supply_to_dict(supply), status=201)
+
 
 FLOW_PATHS = [
     {
@@ -1328,156 +1507,30 @@ FLOW_PATHS = [
 
 
 @csrf_exempt
-def support_points(request):
-    if request.method == 'GET':
-        return JsonResponse(sorted(SUPPORT_POINTS, key=lambda r: r['createdAtUtc'], reverse=True), safe=False)
-
-    if request.method != 'POST':
-        return HttpResponse(status=405)
-
-    payload = _request_payload(request)
-    name = (payload.get('name') or '').strip()
-    point_type = (payload.get('type') or 'apoio').strip()
-    lat = _parse_float(payload.get('lat'))
-    lng = _parse_float(payload.get('lng'))
-
-    if not name or lat is None or lng is None:
-        return _json_error('name, lat e lng são obrigatórios para ponto de apoio.')
-
-    record = {
-        'id': 'SP-{}'.format(uuid.uuid4().hex[:8]),
-        'name': name,
-        'type': point_type,
-        'lat': lat,
-        'lng': lng,
-        'capacity': int(payload.get('capacity') or 0),
-        'status': payload.get('status') or 'ativo',
-        'createdAtUtc': datetime.now(timezone.utc).isoformat(),
-    }
-    SUPPORT_POINTS.append(record)
-    return JsonResponse(record, status=201)
-
-
-@csrf_exempt
-def risk_areas(request):
-    if request.method == 'GET':
-        return JsonResponse(sorted(RISK_AREAS, key=lambda r: r['createdAtUtc'], reverse=True), safe=False)
-
-    if request.method != 'POST':
-        return HttpResponse(status=405)
-
-    payload = _request_payload(request)
-    name = (payload.get('name') or '').strip()
-    severity = (payload.get('severity') or 'high').strip()
-    lat = _parse_float(payload.get('lat'))
-    lng = _parse_float(payload.get('lng'))
-
-    if not name or lat is None or lng is None:
-        return _json_error('name, severity, lat e lng são obrigatórios para área de risco.')
-
-    record = {
-        'id': 'RA-{}'.format(uuid.uuid4().hex[:8]),
-        'name': name,
-        'severity': severity,
-        'lat': lat,
-        'lng': lng,
-        'radiusMeters': int(payload.get('radiusMeters') or 500),
-        'notes': payload.get('notes') or '',
-        'createdAtUtc': datetime.now(timezone.utc).isoformat(),
-    }
-    RISK_AREAS.append(record)
-    return JsonResponse(record, status=201)
-
-
-@csrf_exempt
-def rescue_groups(request):
-    if request.method == 'GET':
-        return JsonResponse(sorted(RESCUE_GROUPS, key=lambda r: r['createdAtUtc'], reverse=True), safe=False)
-
-    if request.method != 'POST':
-        return HttpResponse(status=405)
-
-    payload = _request_payload(request)
-    name = (payload.get('name') or '').strip()
-    members = payload.get('members')
-    lat = _parse_float(payload.get('lat'))
-    lng = _parse_float(payload.get('lng'))
-
-    if not name:
-        return _json_error('name é obrigatório para grupo de resgate.')
-
-    try:
-        members = int(members or 0)
-    except (TypeError, ValueError):
-        return _json_error('members deve ser numérico.')
-
-    record = {
-        'id': 'RG-{}'.format(uuid.uuid4().hex[:8]),
-        'name': name,
-        'members': members,
-        'specialty': payload.get('specialty') or 'generalista',
-        'status': payload.get('status') or 'pronto',
-        'lat': lat,
-        'lng': lng,
-        'createdAtUtc': datetime.now(timezone.utc).isoformat(),
-    }
-    RESCUE_GROUPS.append(record)
-    return JsonResponse(record, status=201)
-
-
-@csrf_exempt
-def supply_logistics(request):
-    if request.method == 'GET':
-        return JsonResponse(sorted(SUPPLY_LOGISTICS, key=lambda r: r['createdAtUtc'], reverse=True), safe=False)
-
-    if request.method != 'POST':
-        return HttpResponse(status=405)
-
-    payload = _request_payload(request)
-    item = (payload.get('item') or '').strip()
-    if not item:
-        return _json_error('item é obrigatório para logística de suprimento.')
-
-    try:
-        quantity = int(payload.get('quantity') or 0)
-    except (TypeError, ValueError):
-        return _json_error('quantity deve ser numérico.')
-
-    record = {
-        'id': 'LG-{}'.format(uuid.uuid4().hex[:8]),
-        'item': item,
-        'quantity': quantity,
-        'unit': payload.get('unit') or 'un',
-        'origin': payload.get('origin') or 'Não informado',
-        'destination': payload.get('destination') or 'Não informado',
-        'status': payload.get('status') or 'planejado',
-        'priority': payload.get('priority') or 'media',
-        'createdAtUtc': datetime.now(timezone.utc).isoformat(),
-    }
-    SUPPLY_LOGISTICS.append(record)
-    return JsonResponse(record, status=201)
-
-
-@csrf_exempt
 def operations_snapshot(request):
     if request.method != 'GET':
         return HttpResponse(status=405)
 
+    support_points_rows = [_annotation_to_dict(a) for a in MapAnnotation.objects.filter(record_type=MapAnnotation.TYPE_SUPPORT_POINT).order_by('-created_at')[:500]]
+    risk_area_rows = [_annotation_to_dict(a) for a in MapAnnotation.objects.filter(record_type=MapAnnotation.TYPE_RISK_AREA).order_by('-created_at')[:500]]
+    rescue_group_rows = [_rescue_group_to_dict(g) for g in RescueGroup.objects.order_by('-created_at')[:500]]
+    supply_rows = [_supply_to_dict(s) for s in SupplyLogistics.objects.order_by('-created_at')[:500]]
+
     rain_mm_24h = 142
-    critical_risk = len([a for a in RISK_AREAS if a.get('severity') in ['critical', 'high']])
+    critical_risk = len([a for a in risk_area_rows if a.get('severity') in ['critical', 'high']])
 
     payload = {
         'generatedAtUtc': datetime.now(timezone.utc).isoformat(),
         'kpis': {
             'criticalAlerts': critical_risk,
-            'activeTeams': len([g for g in RESCUE_GROUPS if g.get('status') in ['em_campo', 'pronto']]),
+            'activeTeams': len([g for g in rescue_group_rows if g.get('status') in ['em_campo', 'pronto']]),
             'rain24hMm': rain_mm_24h,
-            'suppliesInTransit': len([s for s in SUPPLY_LOGISTICS if s.get('status') == 'em_transporte']),
+            'suppliesInTransit': len([s for s in supply_rows if s.get('status') == 'em_transporte']),
         },
         'layers': {
-            'supportPoints': SUPPORT_POINTS,
-            'riskAreas': RISK_AREAS,
-            'rescueGroups': RESCUE_GROUPS,
+            'supportPoints': support_points_rows,
+            'riskAreas': risk_area_rows,
+            'rescueGroups': rescue_group_rows,
             'flowPaths': FLOW_PATHS,
             'missingPersons': [_missing_person_to_dict(item) for item in MissingPerson.objects.order_by('-created_at')[:500]],
             'hotspots': sorted(HOTSPOTS, key=lambda h: h['score'], reverse=True),
@@ -1487,7 +1540,7 @@ def operations_snapshot(request):
             'rain24hMm': rain_mm_24h,
             'soilSaturation': 'Alta',
         },
-        'logistics': SUPPLY_LOGISTICS,
+        'logistics': supply_rows,
     }
 
     return JsonResponse(payload, safe=False)

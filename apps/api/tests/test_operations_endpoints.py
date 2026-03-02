@@ -25,7 +25,8 @@ class OperationsEndpointsTestCase(TestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         payload = response.json()
-        self.assertEqual(payload['name'], 'Posto provisório')
+        self.assertEqual(payload['title'], 'Posto provisório')
+        self.assertEqual(payload['recordType'], 'support_point')
 
     def test_create_risk_area(self):
         response = self.client.post(
@@ -36,6 +37,7 @@ class OperationsEndpointsTestCase(TestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         payload = response.json()
         self.assertEqual(payload['severity'], 'critical')
+        self.assertEqual(payload['recordType'], 'risk_area')
 
     def test_create_rescue_group(self):
         response = self.client.post(
@@ -54,3 +56,22 @@ class OperationsEndpointsTestCase(TestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.json()['item'], 'Cestas')
+
+    def test_one_click_map_annotation_creates_missing_person_and_annotation(self):
+        response = self.client.post(
+            reverse('api:map_annotations'),
+            {
+                'recordType': 'missing_person',
+                'title': 'Desaparecido - setor 3',
+                'lat': -21.101,
+                'lng': -42.901,
+                'personName': 'João Silva',
+                'lastSeenLocation': 'Rua A',
+                'contactPhone': '(32) 99999-0000',
+            },
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        payload = response.json()
+        self.assertEqual(payload['recordType'], 'missing_person')
+        self.assertIn('missingPersonId', payload['metadata'])

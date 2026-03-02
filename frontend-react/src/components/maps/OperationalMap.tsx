@@ -1,33 +1,66 @@
 import { Circle, CircleMarker, MapContainer, Marker, Polyline, Popup, TileLayer } from 'react-leaflet';
-import { useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import type { OperationsSnapshot } from '../../services/operationsApi';
 import { operationsApi } from '../../services/operationsApi';
 import { MapClickSelector } from '../map/MapClickSelector';
 
-type OneClickMode = 'none' | 'support' | 'risk' | 'missing';
+type RegisterType = 'support_point' | 'risk_area' | 'missing_person';
 
 interface OperationalMapProps {
   data: OperationsSnapshot | null;
   onRefresh: () => Promise<void>;
 }
 
-export function OperationalMap({ data, onRefresh }: OperationalMapProps) {
-  const [mode, setMode] = useState<OneClickMode>('none');
-  const [busy, setBusy] = useState(false);
+interface ClickDraft {
+  lat: number;
+  lng: number;
+  x: number;
+  y: number;
+}
 
-  const onSelectMap = async (lat: number, lng: number) => {
+export function OperationalMap({ data, onRefresh }: OperationalMapProps) {
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [draft, setDraft] = useState<ClickDraft | null>(null);
+  const [recordType, setRecordType] = useState<RegisterType>('support_point');
+  const [title, setTitle] = useState('');
+  const [severity, setSeverity] = useState('high');
+  const [radius, setRadius] = useState('450');
+  const [personName, setPersonName] = useState('');
+  const [lastSeen, setLastSeen] = useState('');
+
+  const menuStyle = useMemo(() => {
+    if (!draft || !wrapperRef.current) return undefined;
+    const bounds = wrapperRef.current.getBoundingClientRect();
+    const left = Math.min(Math.max(8, draft.x - bounds.left + 12), bounds.width - 280);
+    const top = Math.min(Math.max(8, draft.y - bounds.top + 12), bounds.height - 220);
+    return { left, top };
+  }, [draft]);
+
+  const onSelectMap = (lat: number, lng: number, clientX: number, clientY: number) => {
+    setDraft({ lat, lng, x: clientX, y: clientY });
+    setTitle('');
+    setPersonName('');
+    setLastSeen('');
+  };
+
+  const onSave = async () => {
+    if (!draft) return;
     setBusy(true);
     try {
-      if (mode === 'support') {
-        await operationsApi.createSupportPoint({ name: 'Ponto rápido no mapa', type: 'apoio', lat, lng });
-      }
-      if (mode === 'risk') {
-        await operationsApi.createRiskArea({ name: 'Área crítica registrada', severity: 'high', lat, lng, radiusMeters: 450 });
-      }
-      if (mode === 'missing') {
-        await operationsApi.createRiskArea({ name: 'Zona de busca prioritária', severity: 'medium', lat, lng, radiusMeters: 320 });
-      }
+      await operationsApi.createMapAnnotation({
+        recordType,
+        title: title || (recordType === 'support_point' ? 'Ponto de apoio' : recordType === 'risk_area' ? 'Área de risco' : 'Desaparecido'),
+        lat: draft.lat,
+        lng: draft.lng,
+        severity: recordType === 'risk_area' ? severity : undefined,
+        radiusMeters: recordType === 'risk_area' ? Number(radius) : undefined,
+        personName: recordType === 'missing_person' ? personName || 'Pessoa não identificada' : undefined,
+        lastSeenLocation: recordType === 'missing_person' ? lastSeen || `Coordenada ${draft.lat.toFixed(5)}, ${draft.lng.toFixed(5)}` : undefined,
+        city: 'Ubá',
+      });
       await onRefresh();
+      setDraft(null);
     } finally {
       setBusy(false);
     }
@@ -37,27 +70,15 @@ export function OperationalMap({ data, onRefresh }: OperationalMapProps) {
     <section className="rounded-2xl border border-slate-700/70 bg-slate-900/70 p-3 shadow-lg shadow-black/25">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-sm font-semibold text-slate-100">Mapa operacional tático (Leaflet)</h3>
-        <div className="flex flex-wrap gap-2 text-xs">
-          <button className={`rounded-md border px-2 py-1 ${mode === 'support' ? 'border-cyan-400 bg-cyan-500/20 text-cyan-100' : 'border-slate-700 bg-slate-900 text-slate-200'}`} onClick={() => setMode((m) => m === 'support' ? 'none' : 'support')}>1-click apoio</button>
-          <button className={`rounded-md border px-2 py-1 ${mode === 'risk' ? 'border-rose-400 bg-rose-500/20 text-rose-100' : 'border-slate-700 bg-slate-900 text-slate-200'}`} onClick={() => setMode((m) => m === 'risk' ? 'none' : 'risk')}>1-click risco</button>
-          <button className={`rounded-md border px-2 py-1 ${mode === 'missing' ? 'border-amber-400 bg-amber-500/20 text-amber-100' : 'border-slate-700 bg-slate-900 text-slate-200'}`} onClick={() => setMode((m) => m === 'missing' ? 'none' : 'missing')}>1-click desaparecido</button>
-          <button className="rounded-md border border-slate-700 bg-slate-900 px-2 py-1 text-slate-100" onClick={() => void onRefresh()} disabled={busy}>Atualizar</button>
-        </div>
+        <p className="text-xs text-slate-300">Clique no mapa para abrir menu de registro contextual (apoio, risco, desaparecido).</p>
       </div>
 
-      <div className="h-[520px] overflow-hidden rounded-xl border border-slate-700">
+      <div ref={wrapperRef} className="relative h-[520px] overflow-hidden rounded-xl border border-slate-700">
         <MapContainer center={[-21.1215, -42.9427]} zoom={13} style={{ height: '100%', width: '100%' }}>
-          <TileLayer
-            attribution='&copy; OpenStreetMap contributors'
-            url='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
-          />
-          <TileLayer
-            attribution='Topography by OpenTopoMap (SRTM)'
-            url='https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png'
-            opacity={0.42}
-          />
+          <TileLayer attribution='&copy; OpenStreetMap contributors' url='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png' />
+          <TileLayer attribution='Topography by OpenTopoMap (SRTM)' url='https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png' opacity={0.42} />
 
-          <MapClickSelector enabled={mode !== 'none'} onSelect={(lat, lng) => { void onSelectMap(lat, lng); }} />
+          <MapClickSelector enabled onSelect={onSelectMap} />
 
           {data?.layers.flowPaths.map((flow) => (
             <Polyline key={flow.id} positions={flow.coordinates.map((c) => [c.lat, c.lng])} pathOptions={{ color: '#38bdf8', weight: 4, opacity: 0.8 }} />
@@ -67,16 +88,16 @@ export function OperationalMap({ data, onRefresh }: OperationalMapProps) {
             <Circle
               key={area.id}
               center={[area.lat, area.lng]}
-              radius={area.radiusMeters}
+              radius={area.radiusMeters ?? 450}
               pathOptions={{ color: area.severity === 'critical' ? '#ef4444' : '#f97316', fillOpacity: 0.2 }}
             >
-              <Popup>{area.name} · {area.severity}</Popup>
+              <Popup>{area.title} · {area.severity}</Popup>
             </Circle>
           ))}
 
           {data?.layers.supportPoints.map((point) => (
             <Marker key={point.id} position={[point.lat, point.lng]}>
-              <Popup>{point.name} · cap {point.capacity}</Popup>
+              <Popup>{point.title}</Popup>
             </Marker>
           ))}
 
@@ -92,6 +113,39 @@ export function OperationalMap({ data, onRefresh }: OperationalMapProps) {
             </CircleMarker>
           ))}
         </MapContainer>
+
+        {draft && menuStyle && (
+          <div className="absolute z-[1000] w-[270px] rounded-lg border border-slate-700 bg-slate-950/95 p-3 text-xs text-slate-100 shadow-2xl" style={menuStyle}>
+            <p className="mb-2 font-semibold">Registrar ponto</p>
+            <p className="mb-2 text-slate-300">Lat {draft.lat.toFixed(5)} · Lng {draft.lng.toFixed(5)}</p>
+            <select value={recordType} onChange={(e) => setRecordType(e.target.value as RegisterType)} className="mb-2 w-full rounded border border-slate-700 bg-slate-900 px-2 py-1">
+              <option value="support_point">Ponto de apoio</option>
+              <option value="risk_area">Área de risco</option>
+              <option value="missing_person">Desaparecido</option>
+            </select>
+            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Título" className="mb-2 w-full rounded border border-slate-700 bg-slate-900 px-2 py-1" />
+            {recordType === 'risk_area' && (
+              <>
+                <select value={severity} onChange={(e) => setSeverity(e.target.value)} className="mb-2 w-full rounded border border-slate-700 bg-slate-900 px-2 py-1">
+                  <option value="critical">Crítica</option>
+                  <option value="high">Alta</option>
+                  <option value="medium">Média</option>
+                </select>
+                <input value={radius} onChange={(e) => setRadius(e.target.value)} placeholder="Raio (m)" className="mb-2 w-full rounded border border-slate-700 bg-slate-900 px-2 py-1" />
+              </>
+            )}
+            {recordType === 'missing_person' && (
+              <>
+                <input value={personName} onChange={(e) => setPersonName(e.target.value)} placeholder="Nome da pessoa" className="mb-2 w-full rounded border border-slate-700 bg-slate-900 px-2 py-1" />
+                <input value={lastSeen} onChange={(e) => setLastSeen(e.target.value)} placeholder="Última localização" className="mb-2 w-full rounded border border-slate-700 bg-slate-900 px-2 py-1" />
+              </>
+            )}
+            <div className="flex gap-2">
+              <button className="rounded border border-slate-700 bg-slate-900 px-2 py-1" onClick={() => setDraft(null)}>Cancelar</button>
+              <button className="rounded border border-cyan-500 bg-cyan-600 px-2 py-1 text-white" onClick={() => void onSave()} disabled={busy}>{busy ? 'Salvando...' : 'Salvar'}</button>
+            </div>
+          </div>
+        )}
       </div>
       <p className="mt-2 text-xs text-slate-300">Camadas: topografia/relevo, áreas de risco, escoamento, hotspots, pontos de apoio e desaparecidos.</p>
     </section>

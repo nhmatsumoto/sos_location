@@ -2,22 +2,24 @@ import { apiClient } from './apiClient';
 
 export interface SupportPoint {
   id: string;
-  name: string;
-  type: string;
+  recordType: string;
+  title: string;
   lat: number;
   lng: number;
-  capacity: number;
   status: string;
+  metadata?: { type?: string; capacity?: number };
 }
 
 export interface RiskArea {
   id: string;
-  name: string;
+  recordType: string;
+  title: string;
   severity: string;
   lat: number;
   lng: number;
-  radiusMeters: number;
-  notes: string;
+  radiusMeters?: number | null;
+  status: string;
+  metadata?: { notes?: string };
 }
 
 export interface RescueGroup {
@@ -73,12 +75,29 @@ export const operationsApi = {
     const response = await apiClient.get<OperationsSnapshot>('/api/operations/snapshot');
     return response.data;
   },
-  async createSupportPoint(payload: { name: string; type: string; lat: number; lng: number }) {
+  async createSupportPoint(payload: { name: string; type: string; lat: number; lng: number; capacity?: number }) {
     const response = await apiClient.post('/api/support-points', payload);
     return response.data;
   },
-  async createRiskArea(payload: { name: string; severity: string; lat: number; lng: number; radiusMeters?: number }) {
+  async createRiskArea(payload: { name: string; severity: string; lat: number; lng: number; radiusMeters?: number; notes?: string }) {
     const response = await apiClient.post('/api/risk-areas', payload);
+    return response.data;
+  },
+  async createMapAnnotation(payload: {
+    recordType: 'support_point' | 'risk_area' | 'missing_person';
+    title: string;
+    lat: number;
+    lng: number;
+    severity?: string;
+    radiusMeters?: number;
+    status?: string;
+    personName?: string;
+    lastSeenLocation?: string;
+    contactPhone?: string;
+    city?: string;
+    metadata?: Record<string, unknown>;
+  }) {
+    const response = await apiClient.post('/api/map-annotations', payload);
     return response.data;
   },
   async createRescueGroup(payload: { name: string; members: number; specialty: string; status: string; lat?: number; lng?: number }) {

@@ -24,6 +24,7 @@ from apps.api.views import (
     rescue_groups,
     supply_logistics,
     operations_snapshot,
+    map_annotations,
 )
 
 from apps.api.views_integrations import (
@@ -60,6 +61,7 @@ urlpatterns = [
     path('push/register', push_register, name='push_register'),
     path('attention-alerts', attention_alerts, name='attention_alerts'),
     path('operations/snapshot', operations_snapshot, name='operations_snapshot'),
+    path('map-annotations', map_annotations, name='map_annotations'),
     path('support-points', support_points, name='support_points'),
     path('risk-areas', risk_areas, name='risk_areas'),
     path('rescue-groups', rescue_groups, name='rescue_groups'),

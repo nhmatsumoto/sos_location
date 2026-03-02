@@ -64,3 +64,57 @@ class CollapseReport(TimestampedModel):
         indexes = [
             models.Index(fields=['-created_at']),
         ]
+
+
+class MapAnnotation(TimestampedModel):
+    TYPE_SUPPORT_POINT = 'support_point'
+    TYPE_RISK_AREA = 'risk_area'
+    TYPE_MISSING_PERSON = 'missing_person'
+    TYPE_CHOICES = [
+        (TYPE_SUPPORT_POINT, 'Support point'),
+        (TYPE_RISK_AREA, 'Risk area'),
+        (TYPE_MISSING_PERSON, 'Missing person marker'),
+    ]
+
+    external_id = models.CharField(max_length=24, unique=True)
+    record_type = models.CharField(max_length=20, choices=TYPE_CHOICES)
+    title = models.CharField(max_length=180)
+    lat = models.FloatField()
+    lng = models.FloatField()
+    severity = models.CharField(max_length=20, blank=True)
+    radius_meters = models.PositiveIntegerField(null=True, blank=True)
+    status = models.CharField(max_length=30, default='active')
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['record_type', '-created_at']),
+            models.Index(fields=['status', '-created_at']),
+        ]
+
+
+class RescueGroup(TimestampedModel):
+    external_id = models.CharField(max_length=24, unique=True)
+    name = models.CharField(max_length=160)
+    members = models.PositiveIntegerField(default=0)
+    specialty = models.CharField(max_length=120, default='generalista')
+    status = models.CharField(max_length=30, default='pronto')
+    lat = models.FloatField(null=True, blank=True)
+    lng = models.FloatField(null=True, blank=True)
+
+    class Meta:
+        indexes = [models.Index(fields=['status', '-created_at'])]
+
+
+class SupplyLogistics(TimestampedModel):
+    external_id = models.CharField(max_length=24, unique=True)
+    item = models.CharField(max_length=140)
+    quantity = models.PositiveIntegerField(default=0)
+    unit = models.CharField(max_length=40, default='un')
+    origin = models.CharField(max_length=160)
+    destination = models.CharField(max_length=160)
+    status = models.CharField(max_length=30, default='planejado')
+    priority = models.CharField(max_length=20, default='media')
+
+    class Meta:
+        indexes = [models.Index(fields=['status', '-created_at'])]
