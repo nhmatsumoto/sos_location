@@ -187,9 +187,16 @@ docker compose ps
 - `GET /api/integrations/transparency/summary`
 - `GET /api/integrations/satellite/layers`
 
+### Crawler global de desastres (24/7)
+- `GET /api/disasters/events`
+- `GET /api/disasters/stats/by-country`
+- `GET /api/disasters/stats/timeseries`
+- `POST /api/disasters/crawl-trigger`
+
 ## Documentação adicional
 
 - `docs/integrations.md`
+- `docs/disaster-crawler.md`
 
 ## Licença
 

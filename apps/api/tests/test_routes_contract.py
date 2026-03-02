@@ -37,6 +37,10 @@ class ApiRoutesContractTestCase(SimpleTestCase):
             'api:integrations_transparency_transfers',
             'api:integrations_transparency_summary',
             'api:integrations_satellite_layers',
+            'api:disasters_events',
+            'api:disasters_stats_by_country',
+            'api:disasters_stats_timeseries',
+            'api:disasters_crawl_trigger',
         ]
 
         for route_name in named_routes:
