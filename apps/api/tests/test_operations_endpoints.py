@@ -75,3 +75,60 @@ class OperationsEndpointsTestCase(TestCase):
         payload = response.json()
         self.assertEqual(payload['recordType'], 'missing_person')
         self.assertIn('missingPersonId', payload['metadata'])
+
+    def test_support_points_crud(self):
+        created = self.client.post(
+            reverse('api:support_points'),
+            {'name': 'Base Norte', 'lat': -21.2, 'lng': -42.8, 'capacity': 50},
+            format='json',
+        )
+        self.assertEqual(created.status_code, status.HTTP_201_CREATED)
+        row_id = created.json()['id']
+
+        updated = self.client.put(
+            f"{reverse('api:support_points')}?id={row_id}",
+            {'name': 'Base Norte Atualizada', 'lat': -21.21, 'lng': -42.81, 'capacity': 60},
+            format='json',
+        )
+        self.assertEqual(updated.status_code, status.HTTP_200_OK)
+        self.assertEqual(updated.json()['title'], 'Base Norte Atualizada')
+
+        deleted = self.client.delete(f"{reverse('api:support_points')}?id={row_id}")
+        self.assertEqual(deleted.status_code, status.HTTP_200_OK)
+        self.assertTrue(deleted.json()['deleted'])
+
+    def test_rescue_group_and_supply_validation_and_crud(self):
+        invalid_group = self.client.post(reverse('api:rescue_groups'), {'members': 'abc'}, format='json')
+        self.assertEqual(invalid_group.status_code, status.HTTP_400_BAD_REQUEST)
+
+        group = self.client.post(reverse('api:rescue_groups'), {'name': 'Equipe Alfa', 'members': 7}, format='json')
+        self.assertEqual(group.status_code, status.HTTP_201_CREATED)
+        gid = group.json()['id']
+
+        group_update = self.client.put(
+            f"{reverse('api:rescue_groups')}?id={gid}",
+            {'name': 'Equipe Alfa 2', 'members': 9, 'specialty': 'terrestre'},
+            format='json',
+        )
+        self.assertEqual(group_update.status_code, status.HTTP_200_OK)
+        self.assertEqual(group_update.json()['members'], 9)
+
+        supply = self.client.post(
+            reverse('api:supply_logistics'),
+            {'item': 'Água', 'quantity': 30, 'origin': 'CD1', 'destination': 'Abrigo 1'},
+            format='json',
+        )
+        self.assertEqual(supply.status_code, status.HTTP_201_CREATED)
+        sid = supply.json()['id']
+
+        supply_update = self.client.put(
+            f"{reverse('api:supply_logistics')}?id={sid}",
+            {'item': 'Água mineral', 'quantity': 45, 'origin': 'CD1', 'destination': 'Abrigo 2'},
+            format='json',
+        )
+        self.assertEqual(supply_update.status_code, status.HTTP_200_OK)
+        self.assertEqual(supply_update.json()['quantity'], 45)
+
+        supply_delete = self.client.delete(f"{reverse('api:supply_logistics')}?id={sid}")
+        self.assertEqual(supply_delete.status_code, status.HTTP_200_OK)
+

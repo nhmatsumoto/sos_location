@@ -60,4 +60,21 @@ class IntegrationsApiViewTestCase(TestCase):
         with patch.dict('os.environ', {'TRANSPARENCIA_API_KEY': ''}, clear=False):
             response = self.client.get(reverse('api:transparency_search'), {'query': 'auxilio'})
         self.assertEqual(response.status_code, 400)
-        self.assertIn('TRANSPARENCIA_API_KEY', response.json()['error'])
+        self.assertIn('chave de API', response.json()['error'])
+
+
+    @patch('apps.api.views_integrations.build_disaster_intelligence')
+    def test_disaster_intelligence_with_city_geocoding(self, mock_build):
+        mock_build.return_value = {
+            'summary': {'riskLevel': 'high', 'alertCount': 3, 'maxRainNextDaysMm': 65},
+            'cacheHit': {'geocoding': False, 'alerts': False, 'weatherForecast': False},
+        }
+        response = self.client.get(reverse('api:disaster_intelligence'), {'city': 'Juiz de Fora', 'state': 'MG'})
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload['summary']['riskLevel'], 'high')
+
+    def test_disaster_intelligence_requires_location(self):
+        response = self.client.get(reverse('api:disaster_intelligence'))
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('lat/lon', response.json()['error'])

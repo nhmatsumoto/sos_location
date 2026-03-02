@@ -20,7 +20,13 @@ from rest_framework.views import APIView
 from werkzeug.utils import secure_filename
 
 from apps.api.models import AttentionAlert, CollapseReport, MapAnnotation, MissingPerson, RescueGroup, SupplyLogistics
-from apps.api.serializers import CoordinateSerializer
+from apps.api.serializers import (
+    CoordinateSerializer,
+    RescueGroupSerializer,
+    RiskAreaSerializer,
+    SupplyLogisticsSerializer,
+    SupportPointSerializer,
+)
 from apps.api.utils import Position
 
 logger = logging.getLogger(__name__)
@@ -33,8 +39,10 @@ class CalculateCoordinate(APIView):
         return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
     def post(self, request):
-        serializer = CoordinateSerializer(request.data)
-        lat, lng = serializer.data['lat'], serializer.data['lng']
+        serializer = CoordinateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        lat = serializer.validated_data['lat']
+        lng = serializer.validated_data['lng']
         vector_position = Position(lat, lng).calc_vector()
         return Response(vector_position, status=status.HTTP_200_OK)
 
@@ -1262,6 +1270,20 @@ def missing_persons(request):
 
 
 
+
+
+def _payload_with_request_id(request):
+    payload = _request_payload(request)
+    requested_id = request.GET.get('id') or payload.get('id')
+    return payload, requested_id
+
+
+def _find_annotation_or_404(external_id, record_type):
+    try:
+        return MapAnnotation.objects.get(external_id=external_id, record_type=record_type)
+    except MapAnnotation.DoesNotExist:
+        return None
+
 def _annotation_to_dict(annotation):
     return {
         'id': annotation.external_id,
@@ -1371,125 +1393,251 @@ def map_annotations(request):
 @csrf_exempt
 def support_points(request):
     if request.method == 'GET':
+        requested_id = request.GET.get('id')
+        if requested_id:
+            annotation = _find_annotation_or_404(requested_id, MapAnnotation.TYPE_SUPPORT_POINT)
+            if not annotation:
+                return _json_error('Ponto de apoio não encontrado.', 404)
+            return JsonResponse(_annotation_to_dict(annotation))
         rows = [_annotation_to_dict(a) for a in MapAnnotation.objects.filter(record_type=MapAnnotation.TYPE_SUPPORT_POINT).order_by('-created_at')[:500]]
         return JsonResponse(rows, safe=False)
 
-    if request.method != 'POST':
-        return HttpResponse(status=405)
+    payload, requested_id = _payload_with_request_id(request)
 
-    payload = _request_payload(request)
-    lat = _parse_float(payload.get('lat'))
-    lng = _parse_float(payload.get('lng'))
-    name = (payload.get('name') or 'Ponto de apoio').strip()
-    if lat is None or lng is None:
-        return _json_error('lat e lng são obrigatórios para ponto de apoio.')
+    if request.method == 'POST':
+        serializer = SupportPointSerializer(data=payload)
+        if not serializer.is_valid():
+            return JsonResponse({'errors': serializer.errors}, status=400)
+        data = serializer.validated_data
+        annotation = MapAnnotation.objects.create(
+            external_id='MA-{}'.format(uuid.uuid4().hex[:8]),
+            record_type=MapAnnotation.TYPE_SUPPORT_POINT,
+            title=data.get('name') or 'Ponto de apoio',
+            lat=data['lat'],
+            lng=data['lng'],
+            status=data.get('status') or 'active',
+            metadata={'type': data.get('type') or 'apoio', 'capacity': data.get('capacity', 0)},
+        )
+        return JsonResponse(_annotation_to_dict(annotation), status=201)
 
-    annotation = MapAnnotation.objects.create(
-        external_id='MA-{}'.format(uuid.uuid4().hex[:8]),
-        record_type=MapAnnotation.TYPE_SUPPORT_POINT,
-        title=name,
-        lat=lat,
-        lng=lng,
-        status=payload.get('status') or 'active',
-        metadata={
-            'type': payload.get('type') or 'apoio',
-            'capacity': int(payload.get('capacity') or 0),
-        },
-    )
-    return JsonResponse(_annotation_to_dict(annotation), status=201)
+    if request.method == 'PUT':
+        if not requested_id:
+            return _json_error('id é obrigatório para atualização.', 400)
+        annotation = _find_annotation_or_404(requested_id, MapAnnotation.TYPE_SUPPORT_POINT)
+        if not annotation:
+            return _json_error('Ponto de apoio não encontrado.', 404)
+        serializer = SupportPointSerializer(data=payload)
+        if not serializer.is_valid():
+            return JsonResponse({'errors': serializer.errors}, status=400)
+        data = serializer.validated_data
+        annotation.title = data.get('name') or annotation.title
+        annotation.lat = data['lat']
+        annotation.lng = data['lng']
+        annotation.status = data.get('status') or annotation.status
+        annotation.metadata = {'type': data.get('type') or 'apoio', 'capacity': data.get('capacity', 0)}
+        annotation.save(update_fields=['title', 'lat', 'lng', 'status', 'metadata', 'updated_at'])
+        return JsonResponse(_annotation_to_dict(annotation))
+
+    if request.method == 'DELETE':
+        if not requested_id:
+            return _json_error('id é obrigatório para remoção.', 400)
+        annotation = _find_annotation_or_404(requested_id, MapAnnotation.TYPE_SUPPORT_POINT)
+        if not annotation:
+            return _json_error('Ponto de apoio não encontrado.', 404)
+        annotation.delete()
+        return JsonResponse({'deleted': True, 'id': requested_id})
+
+    return HttpResponse(status=405)
 
 
 @csrf_exempt
 def risk_areas(request):
     if request.method == 'GET':
+        requested_id = request.GET.get('id')
+        if requested_id:
+            annotation = _find_annotation_or_404(requested_id, MapAnnotation.TYPE_RISK_AREA)
+            if not annotation:
+                return _json_error('Área de risco não encontrada.', 404)
+            return JsonResponse(_annotation_to_dict(annotation))
         rows = [_annotation_to_dict(a) for a in MapAnnotation.objects.filter(record_type=MapAnnotation.TYPE_RISK_AREA).order_by('-created_at')[:500]]
         return JsonResponse(rows, safe=False)
 
-    if request.method != 'POST':
-        return HttpResponse(status=405)
+    payload, requested_id = _payload_with_request_id(request)
 
-    payload = _request_payload(request)
-    lat = _parse_float(payload.get('lat'))
-    lng = _parse_float(payload.get('lng'))
-    name = (payload.get('name') or 'Área de risco').strip()
-    if lat is None or lng is None:
-        return _json_error('lat e lng são obrigatórios para área de risco.')
+    if request.method == 'POST':
+        serializer = RiskAreaSerializer(data=payload)
+        if not serializer.is_valid():
+            return JsonResponse({'errors': serializer.errors}, status=400)
+        data = serializer.validated_data
+        annotation = MapAnnotation.objects.create(
+            external_id='MA-{}'.format(uuid.uuid4().hex[:8]),
+            record_type=MapAnnotation.TYPE_RISK_AREA,
+            title=data.get('name') or 'Área de risco',
+            lat=data['lat'],
+            lng=data['lng'],
+            severity=data.get('severity') or 'high',
+            radius_meters=data.get('radiusMeters') or 500,
+            status=data.get('status') or 'active',
+            metadata={'notes': data.get('notes') or ''},
+        )
+        return JsonResponse(_annotation_to_dict(annotation), status=201)
 
-    annotation = MapAnnotation.objects.create(
-        external_id='MA-{}'.format(uuid.uuid4().hex[:8]),
-        record_type=MapAnnotation.TYPE_RISK_AREA,
-        title=name,
-        lat=lat,
-        lng=lng,
-        severity=(payload.get('severity') or 'high').strip(),
-        radius_meters=int(payload.get('radiusMeters') or 500),
-        status=payload.get('status') or 'active',
-        metadata={'notes': payload.get('notes') or ''},
-    )
-    return JsonResponse(_annotation_to_dict(annotation), status=201)
+    if request.method == 'PUT':
+        if not requested_id:
+            return _json_error('id é obrigatório para atualização.', 400)
+        annotation = _find_annotation_or_404(requested_id, MapAnnotation.TYPE_RISK_AREA)
+        if not annotation:
+            return _json_error('Área de risco não encontrada.', 404)
+        serializer = RiskAreaSerializer(data=payload)
+        if not serializer.is_valid():
+            return JsonResponse({'errors': serializer.errors}, status=400)
+        data = serializer.validated_data
+        annotation.title = data.get('name') or annotation.title
+        annotation.lat = data['lat']
+        annotation.lng = data['lng']
+        annotation.severity = data.get('severity') or annotation.severity
+        annotation.radius_meters = data.get('radiusMeters') or annotation.radius_meters
+        annotation.status = data.get('status') or annotation.status
+        annotation.metadata = {'notes': data.get('notes') or ''}
+        annotation.save(update_fields=['title', 'lat', 'lng', 'severity', 'radius_meters', 'status', 'metadata', 'updated_at'])
+        return JsonResponse(_annotation_to_dict(annotation))
+
+    if request.method == 'DELETE':
+        if not requested_id:
+            return _json_error('id é obrigatório para remoção.', 400)
+        annotation = _find_annotation_or_404(requested_id, MapAnnotation.TYPE_RISK_AREA)
+        if not annotation:
+            return _json_error('Área de risco não encontrada.', 404)
+        annotation.delete()
+        return JsonResponse({'deleted': True, 'id': requested_id})
+
+    return HttpResponse(status=405)
 
 
 @csrf_exempt
 def rescue_groups(request):
     if request.method == 'GET':
+        requested_id = request.GET.get('id')
+        if requested_id:
+            try:
+                group = RescueGroup.objects.get(external_id=requested_id)
+            except RescueGroup.DoesNotExist:
+                return _json_error('Grupo de resgate não encontrado.', 404)
+            return JsonResponse(_rescue_group_to_dict(group))
         rows = [_rescue_group_to_dict(g) for g in RescueGroup.objects.order_by('-created_at')[:500]]
         return JsonResponse(rows, safe=False)
 
-    if request.method != 'POST':
-        return HttpResponse(status=405)
+    payload, requested_id = _payload_with_request_id(request)
 
-    payload = _request_payload(request)
-    name = (payload.get('name') or '').strip()
-    if not name:
-        return _json_error('name é obrigatório para grupo de resgate.')
+    if request.method == 'POST':
+        serializer = RescueGroupSerializer(data=payload)
+        if not serializer.is_valid():
+            return JsonResponse({'errors': serializer.errors}, status=400)
+        data = serializer.validated_data
+        group = RescueGroup.objects.create(
+            external_id='RG-{}'.format(uuid.uuid4().hex[:8]),
+            name=data['name'].strip(),
+            members=data.get('members', 0),
+            specialty=data.get('specialty') or 'generalista',
+            status=data.get('status') or 'pronto',
+            lat=data.get('lat'),
+            lng=data.get('lng'),
+        )
+        return JsonResponse(_rescue_group_to_dict(group), status=201)
 
-    try:
-        members = int(payload.get('members') or 0)
-    except (TypeError, ValueError):
-        return _json_error('members deve ser numérico.')
+    if request.method == 'PUT':
+        if not requested_id:
+            return _json_error('id é obrigatório para atualização.', 400)
+        try:
+            group = RescueGroup.objects.get(external_id=requested_id)
+        except RescueGroup.DoesNotExist:
+            return _json_error('Grupo de resgate não encontrado.', 404)
+        serializer = RescueGroupSerializer(data=payload)
+        if not serializer.is_valid():
+            return JsonResponse({'errors': serializer.errors}, status=400)
+        data = serializer.validated_data
+        group.name = data['name'].strip()
+        group.members = data.get('members', 0)
+        group.specialty = data.get('specialty') or 'generalista'
+        group.status = data.get('status') or 'pronto'
+        group.lat = data.get('lat')
+        group.lng = data.get('lng')
+        group.save(update_fields=['name', 'members', 'specialty', 'status', 'lat', 'lng', 'updated_at'])
+        return JsonResponse(_rescue_group_to_dict(group))
 
-    group = RescueGroup.objects.create(
-        external_id='RG-{}'.format(uuid.uuid4().hex[:8]),
-        name=name,
-        members=members,
-        specialty=payload.get('specialty') or 'generalista',
-        status=payload.get('status') or 'pronto',
-        lat=_parse_float(payload.get('lat')),
-        lng=_parse_float(payload.get('lng')),
-    )
-    return JsonResponse(_rescue_group_to_dict(group), status=201)
+    if request.method == 'DELETE':
+        if not requested_id:
+            return _json_error('id é obrigatório para remoção.', 400)
+        deleted, _ = RescueGroup.objects.filter(external_id=requested_id).delete()
+        if not deleted:
+            return _json_error('Grupo de resgate não encontrado.', 404)
+        return JsonResponse({'deleted': True, 'id': requested_id})
+
+    return HttpResponse(status=405)
 
 
 @csrf_exempt
 def supply_logistics(request):
     if request.method == 'GET':
+        requested_id = request.GET.get('id')
+        if requested_id:
+            try:
+                row = SupplyLogistics.objects.get(external_id=requested_id)
+            except SupplyLogistics.DoesNotExist:
+                return _json_error('Registro de logística não encontrado.', 404)
+            return JsonResponse(_supply_to_dict(row))
         rows = [_supply_to_dict(s) for s in SupplyLogistics.objects.order_by('-created_at')[:500]]
         return JsonResponse(rows, safe=False)
 
-    if request.method != 'POST':
-        return HttpResponse(status=405)
+    payload, requested_id = _payload_with_request_id(request)
 
-    payload = _request_payload(request)
-    item = (payload.get('item') or '').strip()
-    if not item:
-        return _json_error('item é obrigatório para logística de suprimento.')
+    if request.method == 'POST':
+        serializer = SupplyLogisticsSerializer(data=payload)
+        if not serializer.is_valid():
+            return JsonResponse({'errors': serializer.errors}, status=400)
+        data = serializer.validated_data
+        supply = SupplyLogistics.objects.create(
+            external_id='LG-{}'.format(uuid.uuid4().hex[:8]),
+            item=data['item'].strip(),
+            quantity=data['quantity'],
+            unit=data.get('unit') or 'un',
+            origin=data.get('origin') or 'Não informado',
+            destination=data.get('destination') or 'Não informado',
+            status=data.get('status') or 'planejado',
+            priority=data.get('priority') or 'media',
+        )
+        return JsonResponse(_supply_to_dict(supply), status=201)
 
-    try:
-        quantity = int(payload.get('quantity') or 0)
-    except (TypeError, ValueError):
-        return _json_error('quantity deve ser numérico.')
+    if request.method == 'PUT':
+        if not requested_id:
+            return _json_error('id é obrigatório para atualização.', 400)
+        try:
+            supply = SupplyLogistics.objects.get(external_id=requested_id)
+        except SupplyLogistics.DoesNotExist:
+            return _json_error('Registro de logística não encontrado.', 404)
+        serializer = SupplyLogisticsSerializer(data=payload)
+        if not serializer.is_valid():
+            return JsonResponse({'errors': serializer.errors}, status=400)
+        data = serializer.validated_data
+        supply.item = data['item'].strip()
+        supply.quantity = data['quantity']
+        supply.unit = data.get('unit') or 'un'
+        supply.origin = data.get('origin') or 'Não informado'
+        supply.destination = data.get('destination') or 'Não informado'
+        supply.status = data.get('status') or 'planejado'
+        supply.priority = data.get('priority') or 'media'
+        supply.save(update_fields=['item', 'quantity', 'unit', 'origin', 'destination', 'status', 'priority', 'updated_at'])
+        return JsonResponse(_supply_to_dict(supply))
 
-    supply = SupplyLogistics.objects.create(
-        external_id='LG-{}'.format(uuid.uuid4().hex[:8]),
-        item=item,
-        quantity=quantity,
-        unit=payload.get('unit') or 'un',
-        origin=payload.get('origin') or 'Não informado',
-        destination=payload.get('destination') or 'Não informado',
-        status=payload.get('status') or 'planejado',
-        priority=payload.get('priority') or 'media',
-    )
-    return JsonResponse(_supply_to_dict(supply), status=201)
+    if request.method == 'DELETE':
+        if not requested_id:
+            return _json_error('id é obrigatório para remoção.', 400)
+        deleted, _ = SupplyLogistics.objects.filter(external_id=requested_id).delete()
+        if not deleted:
+            return _json_error('Registro de logística não encontrado.', 404)
+        return JsonResponse({'deleted': True, 'id': requested_id})
+
+    return HttpResponse(status=405)
 
 
 FLOW_PATHS = [

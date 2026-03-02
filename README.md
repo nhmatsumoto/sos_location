@@ -153,6 +153,7 @@ docker compose ps
 - `GET /api/weather/forecast`
 - `GET /api/weather/archive`
 - `GET /api/alerts`
+- `GET /api/alerts/intelligence` (fusão: alertas externos + meteorologia + geocodificação)
 - `GET /api/transparency/transfers`
 - `GET /api/transparency/search`
 - `GET /api/satellite/layers`

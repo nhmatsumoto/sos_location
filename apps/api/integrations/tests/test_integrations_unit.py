@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import MagicMock, patch
 
-from apps.api.integrations.alerts.inmet_cap import _parse_feed_xml, AlertFeedRegistry
+from apps.api.integrations.alerts.inmet_cap import _extract_points, _parse_feed_xml, AlertFeedRegistry
 from apps.api.integrations.core.cache import TTLCache
 from apps.api.integrations.transparency.cgu import TransparencyApiKeyMissing, _build_url
 
@@ -64,3 +64,9 @@ class TransparencyUnitTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class CoordinatesNormalizationUnitTest(unittest.TestCase):
+    def test_extract_points_auto_fix_lon_lat_order(self):
+        points = _extract_points(['-43.9,-21.7 -43.8,-21.6'])
+        self.assertEqual(points[0], (-21.7, -43.9))

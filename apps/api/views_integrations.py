@@ -15,6 +15,7 @@ from apps.api.integrations.transparency.cgu import (
     search,
 )
 from apps.api.integrations.weather.open_meteo import fetch_archive, fetch_forecast
+from apps.api.services.disaster_intelligence import build_disaster_intelligence
 
 
 def _float_param(request, name, required=True, default=None):
@@ -181,3 +182,38 @@ def satellite_goes_recent(request):
         return _integration_error(exc)
     data['cacheHit'] = cache_hit
     return JsonResponse(data)
+
+
+@require_GET
+def disaster_intelligence(request):
+    city = request.GET.get('city')
+    state = request.GET.get('state')
+    since = request.GET.get('since')
+
+    bbox = request.GET.get('bbox')
+    bbox_tuple = None
+    if bbox:
+        try:
+            bbox_tuple = tuple(float(v) for v in bbox.split(','))
+            if len(bbox_tuple) != 4:
+                raise ValueError('bbox deve ter 4 valores: minLon,minLat,maxLon,maxLat')
+        except ValueError:
+            return JsonResponse({'error': "Parâmetro 'bbox' inválido. Use minLon,minLat,maxLon,maxLat."}, status=400)
+
+    try:
+        lat = _float_param(request, 'lat', required=False, default=None)
+        lon = _float_param(request, 'lon', required=False, default=None)
+        payload = build_disaster_intelligence(
+            city=city,
+            state=state,
+            lat=lat,
+            lon=lon,
+            bbox=bbox_tuple,
+            since=since,
+        )
+    except ValueError as exc:
+        return JsonResponse({'error': str(exc)}, status=400)
+    except Exception as exc:
+        return _integration_error(exc)
+
+    return JsonResponse(payload)

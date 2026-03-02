@@ -35,6 +35,14 @@ def _extract_points(polygons):
             try:
                 lat = float(chunks[i])
                 lon = float(chunks[i + 1])
+                # Alguns provedores publicam pares como lon/lat em vez de lat/lon.
+                # Corrigimos automaticamente quando detectamos coordenadas fora da faixa.
+                if abs(lat) > 90 and abs(lon) <= 90:
+                    lat, lon = lon, lat
+                # Heurística para Brasil: lon costuma estar entre -75 e -25,
+                # enquanto lat tende a ficar entre -35 e +10.
+                elif -75 <= lat <= -25 and -35 <= lon <= 10:
+                    lat, lon = lon, lat
                 points.append((lat, lon))
             except ValueError:
                 continue

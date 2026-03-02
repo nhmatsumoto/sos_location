@@ -36,6 +36,7 @@ from apps.api.views_integrations import (
     transparency_transfers,
     weather_archive,
     weather_forecast,
+    disaster_intelligence,
 )
 
 
@@ -69,6 +70,7 @@ urlpatterns = [
     path('weather/forecast', weather_forecast, name='weather_forecast'),
     path('weather/archive', weather_archive, name='weather_archive'),
     path('alerts', alerts_feed, name='alerts_feed'),
+    path('alerts/intelligence', disaster_intelligence, name='disaster_intelligence'),
     path('transparency/transfers', transparency_transfers, name='transparency_transfers'),
     path('transparency/search', transparency_search, name='transparency_search'),
     path('satellite/layers', satellite_layers, name='satellite_layers'),
