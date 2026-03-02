@@ -55,6 +55,19 @@ class IntegrationsApiViewTestCase(TestCase):
         self.assertEqual(payload['source'], 'open-meteo')
         self.assertIn('cacheHit', payload)
 
+
+    @patch('apps.api.views_integrations.fetch_transfers')
+    def test_transparency_summary_endpoint(self, mock_fetch):
+        mock_fetch.return_value = ({'source': 'cgu', 'totals': {'count': 2, 'amount': 1000}}, True)
+        response = self.client.get(reverse('api:integrations_transparency_summary'), {'start': '2025-01-01', 'end': '2025-01-31'})
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload['summary']['count'], 2)
+
+    def test_weather_forecast_rejects_out_of_range_lat_lon(self):
+        response = self.client.get(reverse('api:integrations_weather_forecast'), {'lat': -121, 'lon': -42.93, 'days': 2})
+        self.assertEqual(response.status_code, 400)
+
     @override_settings(DEBUG=True)
     def test_transparency_requires_api_key(self):
         with patch.dict('os.environ', {'TRANSPARENCIA_API_KEY': ''}, clear=False):

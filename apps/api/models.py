@@ -118,3 +118,31 @@ class SupplyLogistics(TimestampedModel):
 
     class Meta:
         indexes = [models.Index(fields=['status', '-created_at'])]
+
+
+class DisasterEvent(TimestampedModel):
+    provider = models.CharField(max_length=32)
+    provider_event_id = models.CharField(max_length=120)
+    event_type = models.CharField(max_length=32, default='Other')
+    severity = models.PositiveSmallIntegerField(default=1)
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    start_at = models.DateTimeField()
+    end_at = models.DateTimeField(null=True, blank=True)
+    provider_updated_at = models.DateTimeField(null=True, blank=True)
+    lat = models.FloatField(null=True, blank=True)
+    lon = models.FloatField(null=True, blank=True)
+    country_code = models.CharField(max_length=2, default='XX')
+    country_name = models.CharField(max_length=120, default='Unknown')
+    geometry = models.JSONField(null=True, blank=True)
+    source_url = models.URLField(blank=True)
+    raw_payload = models.TextField(blank=True)
+    ingested_at = models.DateTimeField()
+
+    class Meta:
+        unique_together = [('provider', 'provider_event_id')]
+        indexes = [
+            models.Index(fields=['country_code', '-start_at']),
+            models.Index(fields=['event_type', '-start_at']),
+            models.Index(fields=['severity', '-start_at']),
+        ]

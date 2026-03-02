@@ -17,6 +17,21 @@ class OperationsEndpointsTestCase(TestCase):
         self.assertIn('riskAreas', data['layers'])
         self.assertIn('supportPoints', data['layers'])
 
+
+    def test_snapshot_hotspots_are_backed_by_risk_areas(self):
+        self.client.post(
+            reverse('api:risk_areas'),
+            {'name': 'Setor Crítico', 'severity': 'critical', 'lat': -21.15, 'lng': -42.95, 'radiusMeters': 600},
+            format='json',
+        )
+
+        response = self.client.get(reverse('api:operations_snapshot'))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        hotspots = response.json()['layers']['hotspots']
+        self.assertGreaterEqual(len(hotspots), 1)
+        risk_ids = {item['id'] for item in response.json()['layers']['riskAreas']}
+        self.assertIn(hotspots[0]['id'], risk_ids)
+
     def test_create_support_point(self):
         response = self.client.post(
             reverse('api:support_points'),

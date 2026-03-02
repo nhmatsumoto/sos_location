@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { LayerControl } from '../components/maps/LayerControl';
 import { MapPanel } from '../components/maps/MapPanel';
-import { mapLayersMock } from '../mocks/dashboard';
 import { dataHubApi } from '../services/dataHubApi';
+import { operationsApi, type OperationsSnapshot } from '../services/operationsApi';
+import { useNotifications } from '../context/NotificationsContext';
+import { buildLayersFromSnapshot } from '../utils/mapLayers';
 
 const tabs = ['Clima', 'Alertas', 'Transparência', 'Satélite'] as const;
 type Tab = typeof tabs[number];
@@ -10,6 +12,21 @@ type Tab = typeof tabs[number];
 export function DataHubPage() {
   const [tab, setTab] = useState<Tab>('Clima');
   const [preview, setPreview] = useState('');
+  const [snapshot, setSnapshot] = useState<OperationsSnapshot | null>(null);
+  const { pushNotice } = useNotifications();
+
+  useEffect(() => {
+    const loadLayers = async () => {
+      try {
+        setSnapshot(await operationsApi.snapshot());
+      } catch {
+        setSnapshot(null);
+        pushNotice({ type: 'warning', title: 'Backend indisponível', message: 'Camadas serão exibidas no modo mínimo.' });
+      }
+    };
+
+    void loadLayers();
+  }, []);
 
   useEffect(() => {
     const run = async () => {
@@ -20,15 +37,18 @@ export function DataHubPage() {
         }
         if (tab === 'Alertas') {
           const { data } = await dataHubApi.alerts();
-          setPreview(`Alertas carregados (${Array.isArray(data) ? data.length : 0}).`);
+          const total = Array.isArray(data) ? data.length : Array.isArray((data as { items?: unknown[] })?.items) ? ((data as { items: unknown[] }).items.length) : 0;
+          setPreview(`Alertas carregados (${total}).`);
         }
         if (tab === 'Transparência') {
           const { data } = await dataHubApi.transparencyTransfers();
-          setPreview(`Transferências carregadas (${Array.isArray(data) ? data.length : 0}).`);
+          const total = Array.isArray(data) ? data.length : Array.isArray((data as { items?: unknown[] })?.items) ? ((data as { items: unknown[] }).items.length) : 0;
+          setPreview(`Transferências carregadas (${total}).`);
         }
         if (tab === 'Satélite') {
           const { data } = await dataHubApi.satelliteLayers();
-          setPreview(`Layers satélite carregadas (${Array.isArray(data) ? data.length : 0}).`);
+          const total = Array.isArray(data) ? data.length : Array.isArray((data as { items?: unknown[] })?.items) ? ((data as { items: unknown[] }).items.length) : 0;
+          setPreview(`Layers satélite carregadas (${total}).`);
         }
       } catch {
         setPreview('Falha ao consultar integrações externas.');
@@ -58,7 +78,7 @@ export function DataHubPage() {
           <MapPanel title={`Mapa Data Hub · ${tab}`} />
         </section>
 
-        <LayerControl layers={mapLayersMock} />
+        <LayerControl layers={buildLayersFromSnapshot(snapshot)} />
       </div>
     </div>
   );

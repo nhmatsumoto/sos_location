@@ -28,6 +28,12 @@ from apps.api.views import (
 )
 
 from apps.api.views_risk import risk_assessment, risk_pipeline_sync
+from apps.api.views_disasters import (
+    disasters_events,
+    disasters_stats_by_country,
+    disasters_stats_timeseries,
+    disasters_crawl_trigger,
+)
 
 from apps.api.views_integrations import (
     alerts as alerts_feed,
@@ -36,6 +42,7 @@ from apps.api.views_integrations import (
     satellite_stac_search,
     transparency_search,
     transparency_transfers,
+    transparency_summary,
     weather_archive,
     weather_forecast,
     disaster_intelligence,
@@ -80,4 +87,15 @@ urlpatterns = [
     path('satellite/layers', satellite_layers, name='satellite_layers'),
     path('satellite/stac/search', satellite_stac_search, name='satellite_stac_search'),
     path('satellite/goes/recent', satellite_goes_recent, name='satellite_goes_recent'),
+
+    path('integrations/weather/forecast', weather_forecast, name='integrations_weather_forecast'),
+    path('integrations/weather/history', weather_archive, name='integrations_weather_history'),
+    path('integrations/alerts', alerts_feed, name='integrations_alerts'),
+    path('integrations/transparency/transfers', transparency_transfers, name='integrations_transparency_transfers'),
+    path('integrations/transparency/summary', transparency_summary, name='integrations_transparency_summary'),
+    path('integrations/satellite/layers', satellite_layers, name='integrations_satellite_layers'),
+    path('disasters/events', disasters_events, name='disasters_events'),
+    path('disasters/stats/by-country', disasters_stats_by_country, name='disasters_stats_by_country'),
+    path('disasters/stats/timeseries', disasters_stats_timeseries, name='disasters_stats_timeseries'),
+    path('disasters/crawl-trigger', disasters_crawl_trigger, name='disasters_crawl_trigger'),
 ]

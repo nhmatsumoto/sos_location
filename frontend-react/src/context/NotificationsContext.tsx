@@ -1,4 +1,5 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
+import { generateUuid } from '../lib/uuid';
 
 export type NoticeType = 'info' | 'success' | 'error' | 'warning';
 
@@ -24,7 +25,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   const pushNotice = (notice: Omit<NoticeItem, 'id' | 'createdAt'>) => {
     const item: NoticeItem = {
       ...notice,
-      id: crypto.randomUUID(),
+      id: generateUuid(),
       createdAt: new Date().toISOString(),
     };
     setNotices((prev) => [item, ...prev].slice(0, 40));
