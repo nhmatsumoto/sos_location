@@ -61,8 +61,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      risk-agent:
-        condition: service_started
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import socket; s=socket.create_connection(('127.0.0.1', 8000), 5); s.close()\""]
       interval: 15s
