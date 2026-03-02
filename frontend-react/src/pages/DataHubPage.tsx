@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { LayerControl } from '../components/maps/LayerControl';
 import { MapPanel } from '../components/maps/MapPanel';
-import { mapLayersMock } from '../mocks/dashboard';
 import { dataHubApi } from '../services/dataHubApi';
+import { operationsApi, type OperationsSnapshot } from '../services/operationsApi';
+import { buildLayersFromSnapshot } from '../utils/mapLayers';
 
 const tabs = ['Clima', 'Alertas', 'Transparência', 'Satélite'] as const;
 type Tab = typeof tabs[number];
@@ -10,6 +11,19 @@ type Tab = typeof tabs[number];
 export function DataHubPage() {
   const [tab, setTab] = useState<Tab>('Clima');
   const [preview, setPreview] = useState('');
+  const [snapshot, setSnapshot] = useState<OperationsSnapshot | null>(null);
+
+  useEffect(() => {
+    const loadLayers = async () => {
+      try {
+        setSnapshot(await operationsApi.snapshot());
+      } catch {
+        setSnapshot(null);
+      }
+    };
+
+    void loadLayers();
+  }, []);
 
   useEffect(() => {
     const run = async () => {
@@ -58,7 +72,7 @@ export function DataHubPage() {
           <MapPanel title={`Mapa Data Hub · ${tab}`} />
         </section>
 
-        <LayerControl layers={mapLayersMock} />
+        <LayerControl layers={buildLayersFromSnapshot(snapshot)} />
       </div>
     </div>
   );

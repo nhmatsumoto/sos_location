@@ -95,6 +95,12 @@ Portas padrão:
 - Backend/API: `http://localhost:8001`
 - Agente de risco (ML): `http://localhost:8091`
 
+Containers (nomes objetivos):
+- `mg-location-web-frontend`
+- `mg-location-api-backend`
+- `mg-location-db-postgres`
+- `mg-location-ml-risk-agent`
+
 As portas são configuráveis por ambiente no `docker-compose`:
 
 - `FRONTEND_PORT` (default `8088`)

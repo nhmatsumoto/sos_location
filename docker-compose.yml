@@ -4,14 +4,31 @@ services:
   postgres:
     image: postgres:15-alpine
     pull_policy: always
-    container_name: mg-location-postgres
+    container_name: mg-location-db-postgres
     restart: unless-stopped
     environment:
       POSTGRES_DB: mg_location
       POSTGRES_USER: mg_location_user
       POSTGRES_PASSWORD: mg_location_password
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256 --auth-local=scram-sha-256
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    command:
+      - postgres
+      - -c
+      - max_connections=200
+      - -c
+      - shared_buffers=256MB
+      - -c
+      - work_mem=8MB
+      - -c
+      - maintenance_work_mem=64MB
+      - -c
+      - effective_cache_size=1GB
+      - -c
+      - idle_in_transaction_session_timeout=60000
+      - -c
+      - statement_timeout=120000
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U mg_location_user -d mg_location"]
       interval: 10s
@@ -24,12 +41,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.backend
-    container_name: mg-location-backend
+    container_name: mg-location-api-backend
     restart: unless-stopped
     environment:
       SECRET_KEY: ${SECRET_KEY:-troque-isto}
       DEBUG: ${DEBUG:-False}
-      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-*}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1,backend}
       DB_ENGINE: ${DB_ENGINE:-django.db.backends.postgresql}
       DB_NAME: ${DB_NAME:-mg_location}
       DB_USER: ${DB_USER:-mg_location_user}
@@ -61,7 +78,7 @@ services:
     build:
       context: ./risk_agent
       dockerfile: Dockerfile
-    container_name: mg-location-risk-agent
+    container_name: mg-location-ml-risk-agent
     restart: unless-stopped
     environment:
       ALPHAGEO_API_URL: ${ALPHAGEO_API_URL:-}
@@ -84,7 +101,7 @@ services:
       dockerfile: Dockerfile
       args:
         VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://backend:8000}
-    container_name: simulador-mg-location
+    container_name: mg-location-web-frontend
     environment:
       VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://backend:8000}
     ports:
