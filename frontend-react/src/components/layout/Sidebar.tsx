@@ -1,4 +1,4 @@
-import { Activity, AlertTriangle, BarChart3, FileWarning, Layers3, LifeBuoy, Radar, Search, Settings, Users } from 'lucide-react';
+import { Activity, AlertTriangle, BarChart3, FileWarning, Layers3, LifeBuoy, Radar, Search, Settings, Users, PlugZap } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 
 const navItems = [
@@ -11,6 +11,7 @@ const navItems = [
   { to: '/incidents', label: 'Ocorrências / Evidências', icon: Activity },
   { to: '/simulations', label: 'Simulações', icon: BarChart3 },
   { to: '/data-hub', label: 'Data Hub', icon: Layers3 },
+  { to: '/integrations', label: 'Integrações', icon: PlugZap },
   { to: '/settings', label: 'Configurações', icon: Settings },
 ];
 

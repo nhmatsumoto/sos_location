@@ -5,8 +5,9 @@ import { OperationalMap } from '../components/maps/OperationalMap';
 import { KpiCard } from '../components/ui/KpiCard';
 import { QuickActions } from '../components/ui/QuickActions';
 import { SeverityBadge } from '../components/ui/SeverityBadge';
-import { mapLayersMock } from '../mocks/dashboard';
 import { operationsApi, type OperationsSnapshot } from '../services/operationsApi';
+import { useNotifications } from '../context/NotificationsContext';
+import { buildLayersFromSnapshot } from '../utils/mapLayers';
 
 const severityFromScore = (score: number) => {
   if (score >= 95) return 'emergencia' as const;
@@ -18,11 +19,14 @@ const severityFromScore = (score: number) => {
 export function CommandCenterPage() {
   const [snapshot, setSnapshot] = useState<OperationsSnapshot | null>(null);
   const [loading, setLoading] = useState(false);
+  const { pushNotice } = useNotifications();
 
   const load = async () => {
     setLoading(true);
     try {
       setSnapshot(await operationsApi.snapshot());
+    } catch {
+      pushNotice({ type: 'warning', title: 'Modo resiliente', message: 'Sem conexão com backend. Exibindo dados mínimos.' });
     } finally {
       setLoading(false);
     }
@@ -72,7 +76,7 @@ export function CommandCenterPage() {
           <p className="text-xs text-slate-300">{snapshot?.weather.summary ?? 'Carregando informações climáticas operacionais...'}</p>
         </section>
 
-        <LayerControl layers={mapLayersMock} />
+        <LayerControl layers={buildLayersFromSnapshot(snapshot)} />
       </div>
     </div>
   );

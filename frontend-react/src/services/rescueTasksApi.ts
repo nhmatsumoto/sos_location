@@ -1,4 +1,5 @@
 import { apiClient } from './apiClient';
+import { generateUuid } from '../lib/uuid';
 import type { RescueTask, RescueTaskId, RescueTaskInput } from '../types/rescue';
 
 const STORAGE_KEY = 'rescue_tasks_local_v1';
@@ -19,7 +20,7 @@ const setLocalTasks = (tasks: RescueTask[]) => {
 };
 
 const withIdAndDate = (payload: RescueTaskInput): RescueTask => ({
-  id: crypto.randomUUID(),
+  id: generateUuid(),
   createdAtUtc: new Date().toISOString(),
   ...payload,
 });

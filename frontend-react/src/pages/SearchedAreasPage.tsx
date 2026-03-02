@@ -3,10 +3,12 @@ import { MapPanel } from '../components/maps/MapPanel';
 import { Button } from '../components/ui/Button';
 import { SelectInput, TextInput } from '../components/ui/Field';
 import { searchedAreasApi, type SearchedAreaApi } from '../services/searchedAreasApi';
+import { useNotifications } from '../context/NotificationsContext';
 
 export function SearchedAreasPage() {
   const [rows, setRows] = useState<SearchedAreaApi[]>([]);
   const [form, setForm] = useState({ areaName: 'Setor A', team: 'Equipe 01', lat: '-21.1215', lng: '-42.9427', result: 'Sem vítimas' });
+  const { pushNotice } = useNotifications();
 
   const load = async () => setRows(await searchedAreasApi.list());
 
@@ -22,14 +24,18 @@ export function SearchedAreasPage() {
   }, []);
 
   const save = async () => {
-    await searchedAreasApi.create({
+    try {
+      await searchedAreasApi.create({
       areaName: form.areaName,
       team: form.team,
       lat: Number(form.lat),
       lng: Number(form.lng),
       notes: form.result,
     });
-    await load();
+      await load();
+    } catch {
+      pushNotice({ type: 'error', title: 'Falha ao registrar', message: 'Não foi possível salvar área buscada sem backend ativo.' });
+    }
   };
 
   return (

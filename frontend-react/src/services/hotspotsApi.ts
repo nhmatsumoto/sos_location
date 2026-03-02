@@ -10,7 +10,11 @@ export interface HotspotApi {
 
 export const hotspotsApi = {
   async list() {
-    const response = await apiClient.get<HotspotApi[]>('/api/hotspots');
-    return response.data;
+    try {
+      const response = await apiClient.get<HotspotApi[]>('/api/hotspots', { __skipGlobalNotify: true } as any);
+      return response.data;
+    } catch {
+      return [];
+    }
   },
 };

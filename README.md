@@ -95,6 +95,12 @@ Portas padrão:
 - Backend/API: `http://localhost:8001`
 - Agente de risco (ML): `http://localhost:8091`
 
+Containers (nomes objetivos):
+- `mg-location-web-frontend`
+- `mg-location-api-backend`
+- `mg-location-db-postgres`
+- `mg-location-ml-risk-agent`
+
 As portas são configuráveis por ambiente no `docker-compose`:
 
 - `FRONTEND_PORT` (default `8088`)
@@ -172,6 +178,18 @@ docker compose ps
 - `GET /api/satellite/layers`
 - `GET /api/satellite/stac/search`
 - `GET /api/satellite/goes/recent`
+
+### Módulo unificado de integrações
+- `GET /api/integrations/weather/forecast`
+- `GET /api/integrations/weather/history`
+- `GET /api/integrations/alerts`
+- `GET /api/integrations/transparency/transfers`
+- `GET /api/integrations/transparency/summary`
+- `GET /api/integrations/satellite/layers`
+
+## Documentação adicional
+
+- `docs/integrations.md`
 
 ## Licença
 

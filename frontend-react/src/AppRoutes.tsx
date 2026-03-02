@@ -11,6 +11,7 @@ import { IncidentsPage } from './pages/IncidentsPage';
 import { SimulationsPage } from './pages/SimulationsPage';
 import { DataHubPage } from './pages/DataHubPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { IntegrationsPage } from './pages/IntegrationsPage';
 
 export default function AppRoutes() {
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
@@ -31,6 +32,7 @@ export default function AppRoutes() {
         <Route path="/incidents" element={<IncidentsPage />} />
         <Route path="/simulations" element={<SimulationsPage />} />
         <Route path="/data-hub" element={<DataHubPage />} />
+        <Route path="/integrations" element={<IntegrationsPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/" element={<Navigate to="/command-center" replace />} />
         <Route path="*" element={<Navigate to="/command-center" replace />} />

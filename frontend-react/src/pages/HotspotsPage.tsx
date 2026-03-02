@@ -6,6 +6,7 @@ import { Button } from '../components/ui/Button';
 import { SelectInput } from '../components/ui/Field';
 import { hotspotsApi, type HotspotApi } from '../services/hotspotsApi';
 import type { Severity } from '../types/app';
+import { useNotifications } from '../context/NotificationsContext';
 
 interface HotspotRow {
   id: string;
@@ -33,11 +34,15 @@ const toRow = (item: HotspotApi): HotspotRow => ({
 export function HotspotsPage() {
   const [raw, setRaw] = useState<HotspotApi[]>([]);
   const [loading, setLoading] = useState(false);
+  const { pushNotice } = useNotifications();
 
   const load = async () => {
     setLoading(true);
     try {
       setRaw(await hotspotsApi.list());
+    } catch {
+      setRaw([]);
+      pushNotice({ type: 'warning', title: 'Hotspots indisponíveis', message: 'Sem backend no momento. Tente novamente em instantes.' });
     } finally {
       setLoading(false);
     }

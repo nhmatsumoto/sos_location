@@ -31,6 +31,12 @@ class ApiRoutesContractTestCase(SimpleTestCase):
             'api:satellite_layers',
             'api:satellite_stac_search',
             'api:satellite_goes_recent',
+            'api:integrations_weather_forecast',
+            'api:integrations_weather_history',
+            'api:integrations_alerts',
+            'api:integrations_transparency_transfers',
+            'api:integrations_transparency_summary',
+            'api:integrations_satellite_layers',
         ]
 
         for route_name in named_routes:

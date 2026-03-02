@@ -55,42 +55,15 @@ def get_elevation(lat, lng):
 
 calculatecoordinate = CalculateCoordinate.as_view()
 
-HOTSPOTS = [
+DEFAULT_HOTSPOTS = [
     {
-        "id": "HS-001",
-        "lat": -21.1215,
-        "lng": -42.9427,
-        "score": 98.5,
-        "confidence": 0.95,
-        "type": "Landslide",
-        "riskFactors": ["Alta declividade (35°)", "Solo encharcado (>200mm/72h)", "Histórico de deslizamento"],
-        "humanExposure": "Alta",
-        "estimatedAffected": 45,
-        "urgency": "Imediata (Tier 1)",
-    },
-    {
-        "id": "HS-002",
-        "lat": -21.1198,
-        "lng": -42.9372,
-        "score": 92.1,
-        "confidence": 0.88,
-        "type": "Flood",
-        "riskFactors": ["Rio transbordou (+2.5m)", "Área de planície", "Corte de energia relatado"],
-        "humanExposure": "Extrema",
-        "estimatedAffected": 120,
-        "urgency": "Imediata (Tier 1)",
-    },
-    {
-        "id": "HS-003",
-        "lat": -21.1350,
-        "lng": -42.9510,
-        "score": 85.3,
-        "confidence": 0.75,
-        "type": "Landslide",
-        "riskFactors": ["Cicatriz antiga detectada via SAR", "Chuva moderada continuada"],
-        "humanExposure": "Média",
-        "estimatedAffected": 15,
-        "urgency": "Alta (Tier 2)",
+        'id': 'HS-BOOT-001',
+        'lat': -21.1215,
+        'lng': -42.9427,
+        'score': 86.0,
+        'type': 'Landslide',
+        'confidence': 0.8,
+        'estimatedAffected': 30,
     },
 ]
 
@@ -582,13 +555,14 @@ _seed_initial_collapse_report()
 
 def _build_rescue_support(area_m2):
     bounded_area = max(area_m2, 3000.0)
-    total_people_at_risk = sum(h["estimatedAffected"] for h in HOTSPOTS)
-    severity_factor = sum(h["score"] / 100.0 for h in HOTSPOTS) / max(len(HOTSPOTS), 1)
+    hotspots = _load_hotspots_from_risk_areas()
+    total_people_at_risk = sum(h.get("estimatedAffected", 0) for h in hotspots)
+    severity_factor = sum(h.get("score", 0) / 100.0 for h in hotspots) / max(len(hotspots), 1)
     reports_bonus = max(0.15, len(COLLAPSE_REPORTS) * 0.05)
     estimated_trapped = round(total_people_at_risk * (0.38 + severity_factor * 0.22 + reports_bonus))
     density = round(estimated_trapped / bounded_area, 4)
 
-    top_hotspots = sorted(HOTSPOTS, key=lambda h: h["score"], reverse=True)[:3]
+    top_hotspots = sorted(hotspots, key=lambda h: h.get("score", 0), reverse=True)[:3]
     probable_locations = []
 
     for index, hotspot in enumerate(top_hotspots):
@@ -728,7 +702,7 @@ def hotspots(request):
     if request.method != 'GET':
         return HttpResponse(status=405)
 
-    ordered = sorted(HOTSPOTS, key=lambda h: h["score"], reverse=True)
+    ordered = sorted(_load_hotspots_from_risk_areas(), key=lambda h: h.get("score", 0), reverse=True)
     return JsonResponse(ordered, safe=False)
 
 
@@ -1654,6 +1628,40 @@ FLOW_PATHS = [
 ]
 
 
+def _risk_area_severity_to_score(severity):
+    normalized = (severity or '').lower().strip()
+    if normalized == 'critical':
+        return 97.0
+    if normalized == 'high':
+        return 90.0
+    if normalized == 'medium':
+        return 78.0
+    if normalized == 'low':
+        return 64.0
+    return 70.0
+
+
+def _load_hotspots_from_risk_areas():
+    hotspots_rows = []
+    risk_areas = MapAnnotation.objects.filter(record_type=MapAnnotation.TYPE_RISK_AREA).order_by('-created_at')[:500]
+    for row in risk_areas:
+        hotspots_rows.append(
+            {
+                'id': row.external_id,
+                'lat': row.lat,
+                'lng': row.lng,
+                'score': _risk_area_severity_to_score(row.severity),
+                'type': 'Risk Area',
+                'confidence': 0.82,
+                'estimatedAffected': int((row.radius_meters or 300) / 6),
+            }
+        )
+
+    if hotspots_rows:
+        return sorted(hotspots_rows, key=lambda h: h['score'], reverse=True)
+    return DEFAULT_HOTSPOTS
+
+
 @csrf_exempt
 def operations_snapshot(request):
     if request.method != 'GET':
@@ -1664,7 +1672,8 @@ def operations_snapshot(request):
     rescue_group_rows = [_rescue_group_to_dict(g) for g in RescueGroup.objects.order_by('-created_at')[:500]]
     supply_rows = [_supply_to_dict(s) for s in SupplyLogistics.objects.order_by('-created_at')[:500]]
 
-    rain_mm_24h = 142
+    weather = _open_meteo_weather_snapshot(-21.1207, -42.9359) or {}
+    rain_mm_24h = weather.get('rainfallMm24h') if isinstance(weather.get('rainfallMm24h'), (int, float)) else 0
     critical_risk = len([a for a in risk_area_rows if a.get('severity') in ['critical', 'high']])
 
     payload = {
@@ -1681,12 +1690,12 @@ def operations_snapshot(request):
             'rescueGroups': rescue_group_rows,
             'flowPaths': FLOW_PATHS,
             'missingPersons': [_missing_person_to_dict(item) for item in MissingPerson.objects.order_by('-created_at')[:500]],
-            'hotspots': sorted(HOTSPOTS, key=lambda h: h['score'], reverse=True),
+            'hotspots': sorted(_load_hotspots_from_risk_areas(), key=lambda h: h.get('score', 0), reverse=True),
         },
         'weather': {
-            'summary': 'Chuva forte intermitente com risco de enxurrada nas próximas 6h.',
+            'summary': 'Resumo climático baseado em integração Open-Meteo.',
             'rain24hMm': rain_mm_24h,
-            'soilSaturation': 'Alta',
+            'soilSaturation': 'N/D',
         },
         'logistics': supply_rows,
     }

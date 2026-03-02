@@ -4,11 +4,13 @@ import { Button } from '../components/ui/Button';
 import { TextInput } from '../components/ui/Field';
 import { missingPersonsApi, type MissingPersonApi } from '../services/missingPersonsApi';
 import { resolveApiUrl } from '../lib/apiBaseUrl';
+import { useNotifications } from '../context/NotificationsContext';
 
 export function MissingPersonsPage() {
   const [rows, setRows] = useState<MissingPersonApi[]>([]);
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({ personName: '', age: '', city: 'Ubá', lastSeenLocation: '', contactPhone: '', additionalInfo: '' });
+  const { pushNotice } = useNotifications();
 
   const load = async () => {
     setLoading(true);
@@ -25,7 +27,8 @@ export function MissingPersonsPage() {
 
   const save = async () => {
     if (!form.personName || !form.lastSeenLocation) return;
-    await missingPersonsApi.create({
+    try {
+      await missingPersonsApi.create({
       personName: form.personName,
       age: form.age ? Number(form.age) : undefined,
       city: form.city,
@@ -34,8 +37,11 @@ export function MissingPersonsPage() {
       additionalInfo: form.additionalInfo,
       contactName: 'Central MG Location',
     });
-    setForm({ personName: '', age: '', city: 'Ubá', lastSeenLocation: '', contactPhone: '', additionalInfo: '' });
-    await load();
+      setForm({ personName: '', age: '', city: 'Ubá', lastSeenLocation: '', contactPhone: '', additionalInfo: '' });
+      await load();
+    } catch {
+      pushNotice({ type: 'error', title: 'Falha ao salvar', message: 'Não foi possível cadastrar desaparecido sem backend ativo.' });
+    }
   };
 
   return (

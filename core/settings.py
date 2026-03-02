@@ -13,7 +13,7 @@ SECRET_KEY = config('SECRET_KEY', default='django-insecure-local-dev-key-change-
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=True, cast=bool)
 
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='*', cast=Csv())
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=Csv())
 
 # Application definition
 
@@ -67,18 +67,28 @@ WSGI_APPLICATION = 'core.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/2.1/ref/settings/#databases
 
+DB_ENGINE = config('DB_ENGINE', default='django.db.backends.sqlite3')
+
 DATABASES = {
     'default': {
-        'ENGINE': config('DB_ENGINE', default='django.db.backends.sqlite3'),
+        'ENGINE': DB_ENGINE,
         'NAME': config('DB_NAME', default=os.path.join(BASE_DIR, 'db.sqlite3')),
         'USER': config('DB_USER', default=''),
         'PASSWORD': config('DB_PASSWORD', default=''),
         'HOST': config('DB_HOST', default=''),
         'PORT': config('DB_PORT', default=''),
-        'CONN_MAX_AGE': config('DB_CONN_MAX_AGE', default=60, cast=int),
+        'CONN_MAX_AGE': config('DB_CONN_MAX_AGE', default=120, cast=int),
+        'CONN_HEALTH_CHECKS': config('DB_CONN_HEALTH_CHECKS', default=True, cast=bool),
         'OPTIONS': {
             'sslmode': config('DB_SSLMODE', default='prefer'),
-        } if config('DB_ENGINE', default='django.db.backends.sqlite3').endswith('postgresql') else {},
+            'connect_timeout': config('DB_CONNECT_TIMEOUT', default=10, cast=int),
+            'application_name': config('DB_APPLICATION_NAME', default='mg-location-backend'),
+            'options': '-c statement_timeout={0} -c lock_timeout={1} -c idle_in_transaction_session_timeout={2}'.format(
+                config('DB_STATEMENT_TIMEOUT_MS', default=120000, cast=int),
+                config('DB_LOCK_TIMEOUT_MS', default=15000, cast=int),
+                config('DB_IDLE_IN_TX_TIMEOUT_MS', default=60000, cast=int),
+            ),
+        } if DB_ENGINE.endswith('postgresql') else {},
     }
 }
 

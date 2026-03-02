@@ -74,17 +74,21 @@ export function RescueSupportPage() {
       status: supportForm.status,
     };
 
-    if (supportForm.id) {
-      await operationsApi.updateSupportPoint(supportForm.id, payload);
-      pushNotice({ type: 'success', title: 'Atualizado', message: 'Ponto de apoio atualizado com sucesso.' });
-    } else {
-      await operationsApi.createSupportPoint(payload);
-      pushNotice({ type: 'success', title: 'Criado', message: 'Ponto de apoio criado com sucesso.' });
-    }
+    try {
+      if (supportForm.id) {
+        await operationsApi.updateSupportPoint(supportForm.id, payload);
+        pushNotice({ type: 'success', title: 'Atualizado', message: 'Ponto de apoio atualizado com sucesso.' });
+      } else {
+        await operationsApi.createSupportPoint(payload);
+        pushNotice({ type: 'success', title: 'Criado', message: 'Ponto de apoio criado com sucesso.' });
+      }
 
-    setSupportModalOpen(false);
-    setSupportForm(defaultSupport);
-    await load();
+      setSupportModalOpen(false);
+      setSupportForm(defaultSupport);
+      await load();
+    } catch {
+      pushNotice({ type: 'error', title: 'Falha na operação', message: 'Não foi possível salvar ponto de apoio sem backend ativo.' });
+    }
   };
 
   const saveRisk = async () => {
@@ -104,17 +108,21 @@ export function RescueSupportPage() {
       status: riskForm.status,
     };
 
-    if (riskForm.id) {
-      await operationsApi.updateRiskArea(riskForm.id, payload);
-      pushNotice({ type: 'success', title: 'Atualizado', message: 'Área de risco atualizada com sucesso.' });
-    } else {
-      await operationsApi.createRiskArea(payload);
-      pushNotice({ type: 'success', title: 'Criado', message: 'Área de risco criada com sucesso.' });
-    }
+    try {
+      if (riskForm.id) {
+        await operationsApi.updateRiskArea(riskForm.id, payload);
+        pushNotice({ type: 'success', title: 'Atualizado', message: 'Área de risco atualizada com sucesso.' });
+      } else {
+        await operationsApi.createRiskArea(payload);
+        pushNotice({ type: 'success', title: 'Criado', message: 'Área de risco criada com sucesso.' });
+      }
 
-    setRiskModalOpen(false);
-    setRiskForm(defaultRisk);
-    await load();
+      setRiskModalOpen(false);
+      setRiskForm(defaultRisk);
+      await load();
+    } catch {
+      pushNotice({ type: 'error', title: 'Falha na operação', message: 'Não foi possível salvar área de risco sem backend ativo.' });
+    }
   };
 
   return (
@@ -157,7 +165,7 @@ export function RescueSupportPage() {
                     <td>{item.status}</td>
                     <td className="space-x-2">
                       <button onClick={() => { setSupportForm({ id: item.id, name: item.title, type: item.metadata?.type ?? 'Abrigo', lat: String(item.lat), lng: String(item.lng), capacity: String(item.metadata?.capacity ?? 0), status: item.status }); setSupportModalOpen(true); }} className="text-cyan-300"><Pencil size={14} /></button>
-                      <button onClick={async () => { await operationsApi.deleteSupportPoint(item.id); pushNotice({ type: 'success', title: 'Removido', message: 'Ponto de apoio removido.' }); await load(); }} className="text-rose-300"><Trash2 size={14} /></button>
+                      <button onClick={async () => { try { await operationsApi.deleteSupportPoint(item.id); pushNotice({ type: 'success', title: 'Removido', message: 'Ponto de apoio removido.' }); await load(); } catch { pushNotice({ type: 'error', title: 'Falha ao remover', message: 'Não foi possível remover ponto de apoio sem backend ativo.' }); } }} className="text-rose-300"><Trash2 size={14} /></button>
                     </td>
                   </tr>
                 ))}
@@ -184,7 +192,7 @@ export function RescueSupportPage() {
                     <td>{item.status}</td>
                     <td className="space-x-2">
                       <button onClick={() => { setRiskForm({ id: item.id, name: item.title, severity: item.severity, lat: String(item.lat), lng: String(item.lng), radiusMeters: String(item.radiusMeters ?? 350), notes: item.metadata?.notes ?? '', status: item.status }); setRiskModalOpen(true); }} className="text-cyan-300"><Pencil size={14} /></button>
-                      <button onClick={async () => { await operationsApi.deleteRiskArea(item.id); pushNotice({ type: 'success', title: 'Removido', message: 'Área de risco removida.' }); await load(); }} className="text-rose-300"><Trash2 size={14} /></button>
+                      <button onClick={async () => { try { await operationsApi.deleteRiskArea(item.id); pushNotice({ type: 'success', title: 'Removido', message: 'Área de risco removida.' }); await load(); } catch { pushNotice({ type: 'error', title: 'Falha ao remover', message: 'Não foi possível remover área de risco sem backend ativo.' }); } }} className="text-rose-300"><Trash2 size={14} /></button>
                     </td>
                   </tr>
                 ))}
