@@ -20,8 +20,12 @@ export interface ReportCreateInput {
 
 export const reportsApi = {
   async list() {
-    const response = await apiClient.get<ReportItemApi[]>('/api/report-info');
-    return response.data;
+    try {
+      const response = await apiClient.get<ReportItemApi[]>('/api/report-info', { __skipGlobalNotify: true } as any);
+      return response.data;
+    } catch {
+      return [];
+    }
   },
   async create(payload: ReportCreateInput) {
     const response = await apiClient.post<ReportItemApi>('/api/report-info', payload);

@@ -3,6 +3,7 @@ import { LayerControl } from '../components/maps/LayerControl';
 import { MapPanel } from '../components/maps/MapPanel';
 import { dataHubApi } from '../services/dataHubApi';
 import { operationsApi, type OperationsSnapshot } from '../services/operationsApi';
+import { useNotifications } from '../context/NotificationsContext';
 import { buildLayersFromSnapshot } from '../utils/mapLayers';
 
 const tabs = ['Clima', 'Alertas', 'Transparência', 'Satélite'] as const;
@@ -12,6 +13,7 @@ export function DataHubPage() {
   const [tab, setTab] = useState<Tab>('Clima');
   const [preview, setPreview] = useState('');
   const [snapshot, setSnapshot] = useState<OperationsSnapshot | null>(null);
+  const { pushNotice } = useNotifications();
 
   useEffect(() => {
     const loadLayers = async () => {
@@ -19,6 +21,7 @@ export function DataHubPage() {
         setSnapshot(await operationsApi.snapshot());
       } catch {
         setSnapshot(null);
+        pushNotice({ type: 'warning', title: 'Backend indisponível', message: 'Camadas serão exibidas no modo mínimo.' });
       }
     };
 

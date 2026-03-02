@@ -1,8 +1,68 @@
-import axios from 'axios';
+import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import { inferApiBaseUrl } from '../lib/apiBaseUrl';
 import { frontendLogger } from '../lib/logger';
 
 let notifyError: ((title: string, message: string) => void) | null = null;
+let lastNotification = { key: '', ts: 0 };
+
+const RETRYABLE_METHODS = new Set(['get', 'head', 'options']);
+const MAX_NETWORK_RETRIES = 2;
+const NOTIFICATION_COOLDOWN_MS = 4000;
+
+type RetryableConfig = InternalAxiosRequestConfig & {
+  __retryCount?: number;
+  __skipGlobalNotify?: boolean;
+};
+
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const isNetworkFailure = (error: AxiosError) => {
+  if (error.response) return false;
+  if (error.code === 'ECONNABORTED' || error.code === 'ERR_NETWORK') return true;
+  const message = (error.message || '').toLowerCase();
+  return message.includes('network error') || message.includes('failed to fetch') || message.includes('timeout');
+};
+
+const shouldRetry = (error: AxiosError) => {
+  const config = error.config as RetryableConfig | undefined;
+  if (!config) return false;
+
+  const method = (config.method || 'get').toLowerCase();
+  if (!RETRYABLE_METHODS.has(method)) return false;
+  if (!isNetworkFailure(error)) return false;
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return false;
+
+  const currentRetries = config.__retryCount ?? 0;
+  return currentRetries < MAX_NETWORK_RETRIES;
+};
+
+const normalizeErrorMessage = (error: AxiosError) => {
+  if (error.response?.data && typeof error.response.data === 'object') {
+    const payload = error.response.data as Record<string, unknown>;
+    if (typeof payload.error === 'string' && payload.error.trim()) return payload.error;
+  }
+
+  if (isNetworkFailure(error)) {
+    const base = inferApiBaseUrl();
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      return 'Sem conexão com a internet. Verifique a rede e tente novamente.';
+    }
+    return `Não foi possível conectar ao backend (${base || 'URL não definida'}). Verifique se a API está no ar.`;
+  }
+
+  return error.message || 'Erro inesperado na API.';
+};
+
+const notifyWithCooldown = (title: string, message: string) => {
+  if (!notifyError) return;
+
+  const key = `${title}::${message}`;
+  const now = Date.now();
+  if (lastNotification.key === key && now - lastNotification.ts < NOTIFICATION_COOLDOWN_MS) return;
+
+  lastNotification = { key, ts: now };
+  notifyError(title, message);
+};
 
 export const setApiNotifier = (handler: (title: string, message: string) => void) => {
   notifyError = handler;
@@ -32,16 +92,28 @@ apiClient.interceptors.response.use(
 
     return response;
   },
-  (error) => {
+  async (error: AxiosError) => {
+    const config = (error.config || {}) as RetryableConfig;
+
+    if (shouldRetry(error)) {
+      config.__retryCount = (config.__retryCount ?? 0) + 1;
+      const backoffMs = config.__retryCount * 400;
+      await wait(backoffMs);
+      return apiClient(config);
+    }
+
+    const message = normalizeErrorMessage(error);
     frontendLogger.error('API request failed', {
-      method: error.config?.method,
-      url: `${error.config?.baseURL ?? ''}${error.config?.url ?? ''}`,
+      method: config.method,
+      url: `${config.baseURL ?? ''}${config.url ?? ''}`,
       status: error.response?.status,
-      message: error.message,
+      message,
+      code: error.code,
+      retries: config.__retryCount ?? 0,
     });
 
-    if (notifyError) {
-      notifyError('Falha na integração com backend', error.response?.data?.error ?? error.message ?? 'Erro inesperado na API.');
+    if (!config.__skipGlobalNotify) {
+      notifyWithCooldown('Falha na integração com backend', message);
     }
 
     return Promise.reject(error);
