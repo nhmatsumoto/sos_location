@@ -5,8 +5,8 @@ import { OperationalMap } from '../components/maps/OperationalMap';
 import { KpiCard } from '../components/ui/KpiCard';
 import { QuickActions } from '../components/ui/QuickActions';
 import { SeverityBadge } from '../components/ui/SeverityBadge';
-import { mapLayersMock } from '../mocks/dashboard';
 import { operationsApi, type OperationsSnapshot } from '../services/operationsApi';
+import { buildLayersFromSnapshot } from '../utils/mapLayers';
 
 const severityFromScore = (score: number) => {
   if (score >= 95) return 'emergencia' as const;
@@ -72,7 +72,7 @@ export function CommandCenterPage() {
           <p className="text-xs text-slate-300">{snapshot?.weather.summary ?? 'Carregando informações climáticas operacionais...'}</p>
         </section>
 
-        <LayerControl layers={mapLayersMock} />
+        <LayerControl layers={buildLayersFromSnapshot(snapshot)} />
       </div>
     </div>
   );
