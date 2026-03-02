@@ -4,9 +4,30 @@ Plataforma open-source para apoio operacional em desastres (enchentes, deslizame
 
 **Produção:** EM BREVE
 
+## DEMO
+
+> Assim que você adicionar a imagem, coloque em `docs/assets/demo.png`.
+
+![DEMO MG Location](docs/assets/demo.png)
+
+---
+
 ## Comunidade
 
 - **Grupo no Telegram:** https://t.me/+zVye-1dWSdFiMWZl
+
+## Convite para novos colaboradores
+
+Estamos construindo o MG Location como uma plataforma colaborativa para resposta a desastres.
+
+Se você é:
+- Desenvolvedor(a) backend/frontend;
+- Arquiteto(a) de software;
+- Geólogo(a);
+- Cientista de dados / pesquisador(a);
+- Voluntário(a) de campo e operações;
+
+você está convidado(a) a colaborar com o projeto. Toda contribuição técnica, científica e operacional é bem-vinda.
 
 ## Tecnologias do projeto (referências oficiais)
 
@@ -16,10 +37,20 @@ Plataforma open-source para apoio operacional em desastres (enchentes, deslizame
 - PostgreSQL: https://www.postgresql.org/
 - Docker: https://www.docker.com/
 - OpenStreetMap: https://www.openstreetmap.org/
+- Leaflet: https://leafletjs.com/
 
-## Rodando localmente
+---
 
-### Backend (Django)
+## Clonar e instalar o MG Location (localhost)
+
+### 1) Clonar o repositório
+
+```bash
+git clone https://github.com/nhmatsumoto/mg_location.git
+cd mg_location
+```
+
+### 2) Backend (Django)
 
 ```bash
 python -m venv .venv
@@ -29,9 +60,46 @@ python manage.py migrate
 python manage.py runserver 0.0.0.0:8000
 ```
 
-### Frontend (assets servidos pelo Django)
+Backend local: `http://localhost:8000`
 
-Acesse: `http://localhost:8000`
+### 3) Frontend React (Vite)
+
+Em outro terminal:
+
+```bash
+cd frontend-react
+npm install
+npm run dev -- --host 0.0.0.0 --port 8088
+```
+
+Frontend local: `http://localhost:8088`
+
+> Se preferir, você pode usar Bun (`bun install`, `bun run dev --host 0.0.0.0 --port 8088`).
+
+---
+
+## Rodando com Docker Compose (alternativa rápida)
+
+```bash
+docker compose up --build
+```
+
+Portas padrão:
+- Frontend: `http://localhost:8088`
+- Backend/API: `http://localhost:8001`
+
+As portas são configuráveis por ambiente no `docker-compose`:
+
+- `FRONTEND_PORT` (default `8088`)
+- `BACKEND_PORT` (default `8001`)
+
+Exemplo para evitar conflito de porta já ocupada:
+
+```bash
+FRONTEND_PORT=8090 BACKEND_PORT=8002 docker compose up --build
+```
+
+---
 
 ## Deploy no Coolify (produção)
 
@@ -68,6 +136,12 @@ docker compose ps
 - `GET /api/hotspots`
 - `GET /api/rescue-support`
 - `GET /api/terrain/context`
+- `GET /api/operations/snapshot`
+- `GET,POST /api/map-annotations`
+- `GET,POST /api/support-points`
+- `GET,POST /api/risk-areas`
+- `GET,POST /api/rescue-groups`
+- `GET,POST /api/supply-logistics`
 
 ### Data Hub
 - `GET /api/weather/forecast`
@@ -78,22 +152,6 @@ docker compose ps
 - `GET /api/satellite/layers`
 - `GET /api/satellite/stac/search`
 - `GET /api/satellite/goes/recent`
-
-## Portas oficiais locais (sem legado)
-
-- Frontend atualizado (default): `http://localhost:8088`
-- API backend (default): `http://localhost:8001`
-
-As portas são configuráveis por ambiente no `docker-compose`:
-
-- `FRONTEND_PORT` (default `8088`)
-- `BACKEND_PORT` (default `8001`)
-
-Exemplo para evitar conflito de porta já ocupada:
-
-```bash
-FRONTEND_PORT=8090 BACKEND_PORT=8002 docker compose up --build
-```
 
 ## Licença
 
