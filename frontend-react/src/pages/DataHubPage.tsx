@@ -37,15 +37,18 @@ export function DataHubPage() {
         }
         if (tab === 'Alertas') {
           const { data } = await dataHubApi.alerts();
-          setPreview(`Alertas carregados (${Array.isArray(data) ? data.length : 0}).`);
+          const total = Array.isArray(data) ? data.length : Array.isArray((data as { items?: unknown[] })?.items) ? ((data as { items: unknown[] }).items.length) : 0;
+          setPreview(`Alertas carregados (${total}).`);
         }
         if (tab === 'Transparência') {
           const { data } = await dataHubApi.transparencyTransfers();
-          setPreview(`Transferências carregadas (${Array.isArray(data) ? data.length : 0}).`);
+          const total = Array.isArray(data) ? data.length : Array.isArray((data as { items?: unknown[] })?.items) ? ((data as { items: unknown[] }).items.length) : 0;
+          setPreview(`Transferências carregadas (${total}).`);
         }
         if (tab === 'Satélite') {
           const { data } = await dataHubApi.satelliteLayers();
-          setPreview(`Layers satélite carregadas (${Array.isArray(data) ? data.length : 0}).`);
+          const total = Array.isArray(data) ? data.length : Array.isArray((data as { items?: unknown[] })?.items) ? ((data as { items: unknown[] }).items.length) : 0;
+          setPreview(`Layers satélite carregadas (${total}).`);
         }
       } catch {
         setPreview('Falha ao consultar integrações externas.');
