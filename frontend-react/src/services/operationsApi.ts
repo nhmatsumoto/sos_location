@@ -86,7 +86,11 @@ export interface OperationsSnapshot {
   weather: {
     summary: string;
     rain24hMm: number;
+    rainNext24hMm?: number;
+    stormRisk?: string;
+    windGustKmh?: number | null;
     soilSaturation: string;
+    providers?: Array<Record<string, unknown>>;
   };
   logistics: Array<{ id: string; item: string; quantity: number; status: string; priority: string }>;
 }

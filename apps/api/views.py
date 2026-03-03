@@ -384,22 +384,62 @@ def _metno_weather_snapshot(lat, lng):
 def _open_meteo_weather_snapshot(lat, lng):
     query = (
         'https://api.open-meteo.com/v1/forecast?latitude={}&longitude={}'
-        '&current=temperature_2m,relative_humidity_2m,wind_speed_10m,precipitation'
-        '&hourly=precipitation&past_days=1&forecast_days=1'
+        '&current=temperature_2m,relative_humidity_2m,wind_speed_10m,wind_gusts_10m,precipitation,weather_code'
+        '&hourly=precipitation,precipitation_probability,weather_code&past_days=1&forecast_days=2&timezone=auto'
     ).format(lat, lng)
-    payload = _safe_fetch_json(query, timeout=5)
+    payload = _safe_fetch_json(query, timeout=6)
     if not payload:
         return None
 
     current = payload.get('current') or {}
-    rainfall_mm = _open_meteo_rainfall_mm(lat, lng)
+    hourly = payload.get('hourly') or {}
+    times = hourly.get('time') or []
+    rains = hourly.get('precipitation') or []
+    probs = hourly.get('precipitation_probability') or []
+    weather_codes = hourly.get('weather_code') or []
+
+    # Separação temporal baseada em current.time para estimar chuva histórica/próximas 24h.
+    current_time = current.get('time')
+    current_index = 0
+    if current_time and times:
+        for idx, ts in enumerate(times):
+            if ts >= current_time:
+                current_index = idx
+                break
+
+    past_window = rains[max(0, current_index - 24):current_index]
+    next_window = rains[current_index:current_index + 24]
+    next_probs = probs[current_index:current_index + 24]
+    next_codes = weather_codes[current_index:current_index + 24]
+
+    rainfall_mm = round(sum(v for v in past_window if isinstance(v, (int, float))), 2) if past_window else _open_meteo_rainfall_mm(lat, lng)
+    rainfall_next_24h = round(sum(v for v in next_window if isinstance(v, (int, float))), 2) if next_window else 0
+    max_probability = max((v for v in next_probs if isinstance(v, (int, float))), default=0)
+    thunderstorm_codes = {95, 96, 99}
+    has_thunderstorm_code = any(int(c) in thunderstorm_codes for c in next_codes if isinstance(c, (int, float)))
+
+    gust = current.get('wind_gusts_10m')
+    if has_thunderstorm_code or (isinstance(gust, (int, float)) and gust >= 70) or (max_probability >= 85 and rainfall_next_24h >= 25):
+        storm_risk = 'high'
+    elif (isinstance(gust, (int, float)) and gust >= 45) or (max_probability >= 65 and rainfall_next_24h >= 12):
+        storm_risk = 'moderate'
+    else:
+        storm_risk = 'low'
 
     return {
         'provider': 'Open-Meteo',
         'temperatureC': current.get('temperature_2m'),
         'relativeHumidityPercent': current.get('relative_humidity_2m'),
         'windSpeedMs': current.get('wind_speed_10m'),
+        'windGustKmh': gust,
+        'weatherCode': current.get('weather_code'),
         'rainfallMm24h': rainfall_mm,
+        'rainfallNext24hMm': rainfall_next_24h,
+        'stormRisk': storm_risk,
+        'stormSignals': {
+            'maxPrecipitationProbabilityPercent': max_probability,
+            'thunderstormCodeDetected': has_thunderstorm_code,
+        },
     }
 
 
@@ -419,13 +459,19 @@ def _climate_integrations_context(lat, lng):
         'relativeHumidityPercent': None,
         'windSpeedMs': None,
         'rainfallMm24h': None,
+        'rainfallNext24hMm': 0,
+        'stormRisk': 'unknown',
+        'windGustKmh': None,
     }
 
     if providers:
         summary['temperatureC'] = next((p.get('temperatureC') for p in providers if isinstance(p.get('temperatureC'), (int, float))), None)
         summary['relativeHumidityPercent'] = next((p.get('relativeHumidityPercent') for p in providers if isinstance(p.get('relativeHumidityPercent'), (int, float))), None)
         summary['windSpeedMs'] = next((p.get('windSpeedMs') for p in providers if isinstance(p.get('windSpeedMs'), (int, float))), None)
+        summary['windGustKmh'] = next((p.get('windGustKmh') for p in providers if isinstance(p.get('windGustKmh'), (int, float))), None)
         summary['rainfallMm24h'] = next((p.get('rainfallMm24h') for p in providers if isinstance(p.get('rainfallMm24h'), (int, float))), None)
+        summary['rainfallNext24hMm'] = next((p.get('rainfallNext24hMm') for p in providers if isinstance(p.get('rainfallNext24hMm'), (int, float))), 0)
+        summary['stormRisk'] = next((p.get('stormRisk') for p in providers if p.get('stormRisk')), 'unknown')
 
     return {
         'lat': lat,
@@ -1726,7 +1772,8 @@ def operations_snapshot(request):
     rescue_group_rows = [_rescue_group_to_dict(g) for g in RescueGroup.objects.order_by('-created_at')[:500]]
     supply_rows = [_supply_to_dict(s) for s in SupplyLogistics.objects.order_by('-created_at')[:500]]
 
-    weather = _open_meteo_weather_snapshot(-21.1207, -42.9359) or {}
+    climate = _climate_integrations_context(-21.1207, -42.9359)
+    weather = climate.get('summary') or {}
     rain_mm_24h = weather.get('rainfallMm24h') if isinstance(weather.get('rainfallMm24h'), (int, float)) else 0
     critical_risk = len([a for a in risk_area_rows if a.get('severity') in ['critical', 'high']])
 
@@ -1748,9 +1795,13 @@ def operations_snapshot(request):
             'timeline': _build_rain_timeline(),
         },
         'weather': {
-            'summary': 'Resumo climático baseado em integração Open-Meteo.',
+            'summary': 'Clima integrado (Open-Meteo + MET Norway): chuva acumulada, previsão e risco de tempestade.',
             'rain24hMm': rain_mm_24h,
+            'rainNext24hMm': weather.get('rainfallNext24hMm') or 0,
+            'stormRisk': weather.get('stormRisk') or 'unknown',
+            'windGustKmh': weather.get('windGustKmh'),
             'soilSaturation': 'N/D',
+            'providers': climate.get('providers', []),
         },
         'logistics': supply_rows,
     }

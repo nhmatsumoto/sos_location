@@ -63,6 +63,7 @@ services:
       RISK_AGENT_INTERNAL_TOKEN: ${RISK_AGENT_INTERNAL_TOKEN:-mg-location-internal-token}
       GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:-}
       SEED_ON_STARTUP: ${SEED_ON_STARTUP:-true}
+      RUN_INTEGRATIONS_ON_STARTUP: ${RUN_INTEGRATIONS_ON_STARTUP:-true}
     depends_on:
       postgres:
         condition: service_healthy
