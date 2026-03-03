@@ -1,40 +1,30 @@
-const configuredApiBase = ((import.meta.env.VITE_API_BASE_URL as string | undefined) ?? '').replace(/\/$/, '');
-
-const inferFromWindow = () => {
-  if (typeof window === 'undefined') return '';
-
-  const { protocol, hostname, port } = window.location;
-  if (port === '5173' || port === '4173') return `${protocol}//${hostname}:8000`;
-  if (port === '8000') return `${protocol}//${hostname}:8001`;
-  if (port === '8088') return `${protocol}//${hostname}:8001`;
-
-  return `${protocol}//${hostname}:8001`;
-};
-
-const normalizeConfiguredBase = (baseUrl: string) => {
-  if (!baseUrl || typeof window === 'undefined') return baseUrl;
+const sanitizeBaseUrl = (baseUrl: string) => {
+  const trimmed = (baseUrl || '').trim();
+  if (!trimmed) return '';
 
   try {
-    const parsed = new URL(baseUrl);
-    const windowHost = window.location.hostname;
-
-    if ((parsed.hostname === 'backend' || parsed.hostname === 'api') && windowHost !== parsed.hostname) {
-      parsed.hostname = windowHost;
-      return parsed.toString().replace(/\/$/, '');
+    const parsed = new URL(trimmed);
+    if (parsed.hostname === '0.0.0.0') {
+      parsed.hostname = 'localhost';
     }
-
-    return baseUrl;
+    return parsed.toString().replace(/\/$/, '');
   } catch {
-    return baseUrl;
+    return trimmed.replace(/\/$/, '');
   }
 };
 
 export const inferApiBaseUrl = () => {
-  if (configuredApiBase) {
-    return normalizeConfiguredBase(configuredApiBase);
+  const configuredApiBase = sanitizeBaseUrl((import.meta.env.VITE_API_BASE_URL as string | undefined) ?? '');
+
+  if (import.meta.env.DEV) {
+    return '';
   }
 
-  return inferFromWindow();
+  if (configuredApiBase) {
+    return configuredApiBase;
+  }
+
+  return '';
 };
 
 export const resolveApiUrl = (path: string) => {

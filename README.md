@@ -82,6 +82,37 @@ Frontend local: `http://localhost:8088`
 
 > Se preferir, você pode usar Bun (`bun install`, `bun run dev --host 0.0.0.0 --port 8088`).
 
+### Configuração de API no frontend (ambientes)
+
+O frontend centraliza o `baseURL` no cliente Axios e evita host inválido como `0.0.0.0`.
+
+- **Desenvolvimento com Vite (`npm run dev`)**
+  - Use chamadas relativas (`/api/...`).
+  - O Vite faz proxy automático para `http://localhost:8001`.
+  - Para sobrescrever o alvo do proxy, defina `VITE_DEV_API_TARGET`.
+  - Em dev, deixe `VITE_API_BASE_URL` vazio para evitar chamadas cross-origin desnecessárias.
+- **Build estático / produção**
+  - Defina `VITE_API_BASE_URL` para a URL pública da API (ex.: `http://localhost:8001` ou `https://api.seudominio.com`).
+  - Se `VITE_API_BASE_URL` vier como `http://0.0.0.0:...`, o frontend normaliza para `localhost`.
+
+### CORS no backend (fallback quando não usar proxy)
+
+O backend Django aplica CORS para rotas `/api/*` com origens explícitas (sem `*`):
+
+- `http://localhost:8088`
+- `http://127.0.0.1:8088`
+
+Variáveis:
+- `CORS_ALLOWED_ORIGINS` (csv)
+- `CORS_ALLOW_CREDENTIALS` (`True`/`False`)
+
+Métodos liberados: `GET, POST, PUT, PATCH, DELETE, OPTIONS`.
+Headers liberados: `Authorization, Content-Type, Accept, Origin, X-Requested-With`.
+
+Healthchecks úteis:
+- Backend: `GET /api/health`
+- Risk agent: `GET /health`
+
 ---
 
 ## Rodando com Docker Compose (alternativa rápida)
@@ -111,6 +142,11 @@ Exemplo para evitar conflito de porta já ocupada:
 ```bash
 FRONTEND_PORT=8090 BACKEND_PORT=8002 docker compose up --build
 ```
+
+Variáveis de ambiente recomendadas no Docker Compose:
+- `VITE_API_BASE_URL` (default: `http://localhost:8001`)
+- `BACKEND_PORT` (default: `8001`)
+- `FRONTEND_PORT` (default: `8088`)
 
 ### Agente de avaliação de risco (novo)
 
@@ -153,6 +189,7 @@ docker compose ps
 ## Endpoints principais
 
 ### Operacionais
+- `GET /api/health`
 - `POST /api/calculate`
 - `GET,POST /api/missing-persons`
 - `GET /api/missing-people.csv`

@@ -23,6 +23,20 @@ const isNetworkFailure = (error: AxiosError) => {
   return message.includes('network error') || message.includes('failed to fetch') || message.includes('timeout');
 };
 
+const isLikelyCorsFailure = (error: AxiosError) => {
+  if (!isNetworkFailure(error) || typeof window === 'undefined') return false;
+
+  const baseURL = (error.config?.baseURL || apiClient.defaults.baseURL || '').trim();
+  if (!baseURL) return false;
+
+  try {
+    const requestOrigin = new URL(baseURL, window.location.origin).origin;
+    return requestOrigin !== window.location.origin;
+  } catch {
+    return false;
+  }
+};
+
 const shouldRetry = (error: AxiosError) => {
   const config = error.config as RetryableConfig | undefined;
   if (!config) return false;
@@ -30,6 +44,7 @@ const shouldRetry = (error: AxiosError) => {
   const method = (config.method || 'get').toLowerCase();
   if (!RETRYABLE_METHODS.has(method)) return false;
   if (!isNetworkFailure(error)) return false;
+  if (isLikelyCorsFailure(error)) return false;
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return false;
 
   const currentRetries = config.__retryCount ?? 0;
@@ -43,10 +58,13 @@ const normalizeErrorMessage = (error: AxiosError) => {
   }
 
   if (isNetworkFailure(error)) {
-    const base = inferApiBaseUrl();
     if (typeof navigator !== 'undefined' && navigator.onLine === false) {
       return 'Sem conexão com a internet. Verifique a rede e tente novamente.';
     }
+    if (isLikelyCorsFailure(error)) {
+      return 'Requisição bloqueada por CORS. Verifique configuração do backend/proxy.';
+    }
+    const base = inferApiBaseUrl();
     return `Não foi possível conectar ao backend (${base || 'URL não definida'}). Verifique se a API está no ar.`;
   }
 
@@ -72,6 +90,17 @@ export const apiClient = axios.create({
   baseURL: inferApiBaseUrl(),
   timeout: 10000,
 });
+
+if (import.meta.env.DEV) {
+  frontendLogger.info('API client configured', {
+    baseURL: apiClient.defaults.baseURL || '(relative /api via Vite proxy)',
+  });
+}
+
+export const checkBackendHealth = async () => {
+  const response = await apiClient.get('/api/health', { __skipGlobalNotify: true } as any);
+  return response.data as { status: string; service: string; timestamp: string };
+};
 
 apiClient.interceptors.request.use((config) => {
   frontendLogger.debug('API request started', {

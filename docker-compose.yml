@@ -47,6 +47,8 @@ services:
       SECRET_KEY: ${SECRET_KEY:-troque-isto}
       DEBUG: ${DEBUG:-False}
       ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1,backend}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:8088,http://127.0.0.1:8088}
+      CORS_ALLOW_CREDENTIALS: ${CORS_ALLOW_CREDENTIALS:-False}
       DB_ENGINE: ${DB_ENGINE:-django.db.backends.postgresql}
       DB_NAME: ${DB_NAME:-mg_location}
       DB_USER: ${DB_USER:-mg_location_user}
@@ -98,10 +100,10 @@ services:
       context: ./frontend-react
       dockerfile: Dockerfile
       args:
-        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://backend:8000}
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8001}
     container_name: mg-location-web-frontend
     environment:
-      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://backend:8000}
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8001}
     ports:
       - "${FRONTEND_PORT:-8088}:8000"
     restart: unless-stopped
