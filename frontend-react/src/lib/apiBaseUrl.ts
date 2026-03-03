@@ -16,12 +16,12 @@ const sanitizeBaseUrl = (baseUrl: string) => {
 export const inferApiBaseUrl = () => {
   const configuredApiBase = sanitizeBaseUrl((import.meta.env.VITE_API_BASE_URL as string | undefined) ?? '');
 
-  if (configuredApiBase) {
-    return configuredApiBase;
-  }
-
   if (import.meta.env.DEV) {
     return '';
+  }
+
+  if (configuredApiBase) {
+    return configuredApiBase;
   }
 
   return '';

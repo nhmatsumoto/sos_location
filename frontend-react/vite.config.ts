@@ -5,7 +5,7 @@ import tailwindcss from '@tailwindcss/vite'
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
-  const devApiTarget = env.VITE_DEV_API_TARGET || 'http://localhost:8000'
+  const devApiTarget = env.VITE_DEV_API_TARGET || 'http://localhost:8001'
 
   return {
     resolve: {
