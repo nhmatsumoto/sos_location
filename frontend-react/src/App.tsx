@@ -7,7 +7,6 @@ import {
   AlertTriangle,
   MapPin,
   Waves,
-  ShieldAlert,
   Activity,
   CheckCircle2,
   X,
@@ -29,6 +28,8 @@ const PostDisasterSplat = lazy(() => import('./PostDisasterSplat'));
 import { DraggablePanel, type FloatingPanelId, type FloatingPanelPosition } from './components/map/DraggablePanel';
 import { MapClickSelector } from './components/map/MapClickSelector';
 import { MapFocusController } from './components/map/MapFocusController';
+import { MapToolsPanel } from './components/map/MapToolsPanel';
+import { LocalConditionsPanel } from './components/map/LocalConditionsPanel';
 import { resolveApiUrl } from './lib/apiBaseUrl';
 import { frontendLogger } from './lib/logger';
 
@@ -200,6 +201,7 @@ const LOCAL_WEEKLY_RAIN_NEWS: NewsUpdate[] = [
 interface ClimakiSnapshot {
   fetchedAtIso: string;
   locationLabel: string;
+  temperatureC: number;
   rainLast24hMm: number;
   rainLast72hMm: number;
   soilMoisturePercent: number;
@@ -556,6 +558,7 @@ export default function App() {
         const rainLast24hMm = Number(summary?.rainfallMm24h) || 0;
         const rainLast72hMm = Math.round(rainLast24hMm * 1.8 * 10) / 10;
         const soilMoisturePercent = Number(summary?.relativeHumidityPercent) || 35;
+        const temperatureC = Number(summary?.temperatureCelsius ?? summary?.temperatureC ?? 24);
 
         let saturationLevel: ClimakiSnapshot['saturationLevel'] = 'Baixa';
         let saturationRisk = 'Solo com capacidade de infiltração ainda relevante.';
@@ -574,6 +577,7 @@ export default function App() {
         setClimakiSnapshot({
           fetchedAtIso: data?.fetchedAtUtc ?? new Date().toISOString(),
           locationLabel: 'Ubá (MG) • integrações climáticas externas',
+          temperatureC,
           rainLast24hMm,
           rainLast72hMm,
           soilMoisturePercent,
@@ -966,15 +970,7 @@ export default function App() {
   return (
     <>
       <div className="flex flex-col h-screen w-full bg-slate-900 text-slate-200 font-sans overflow-hidden">
-        <div className="w-full max-h-[42vh] border-b border-slate-700 bg-slate-800 flex flex-col z-20 shadow-2xl overflow-y-auto custom-scrollbar">
-          <div className="px-4 py-3 border-b border-slate-700 bg-slate-800/95 backdrop-blur-md sticky top-0 z-40">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <ShieldAlert className="text-red-500 w-5 h-5" />
-                <h1 className="text-base font-bold tracking-tight text-white">Centro de comando</h1>
-              </div>
-            </div>
-          </div>
+        <MapToolsPanel title="Painel de ferramentas">
 
           <div className={`px-4 py-3 border-b border-slate-700 bg-slate-800/50 transition-all duration-300 ${sidebarTab === 'hotspots' ? 'opacity-100 translate-y-0' : 'hidden opacity-0 -translate-y-1'}`}>
             <h2 className="text-xs uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-2">
@@ -1213,7 +1209,7 @@ export default function App() {
               </div>
             ))}
           </div>
-        </div>
+        </MapToolsPanel>
 
         <div ref={mapOverlayRef} className="w-full flex-1 relative z-10">
           <MapContainer key={`map-${tacticalMapEnabled ? 'tactical' : 'default'}`} center={[-21.1215, -42.9427]} zoom={14} className="h-full w-full" zoomControl={false}>
@@ -1417,6 +1413,16 @@ export default function App() {
               <button onClick={() => setMapQuickMenu(null)} className="w-full text-left flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-slate-800"><X className="w-4 h-4 text-slate-400" /> Fechar menu</button>
             </div>
           )}
+
+
+          <LocalConditionsPanel
+            missingPeople={missingPeople}
+            attentionAlertsCount={attentionAlerts.length}
+            loadingMissing={loadingMissing}
+            loadingClimaki={loadingClimaki}
+            climakiError={climakiError}
+            climakiSnapshot={climakiSnapshot}
+          />
 
           {dockedPanels.global || dockedPanels.terrain ? (
             <aside className="absolute right-4 top-1/2 -translate-y-1/2 z-[420] bg-slate-950/90 border border-slate-700 rounded-2xl px-2 py-2 shadow-2xl backdrop-blur-sm flex flex-col gap-2 min-w-[180px]">
