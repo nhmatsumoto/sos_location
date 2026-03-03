@@ -260,6 +260,26 @@ async function fetchTopographyGrid(
 
   const batchSize = 80;
   const elevations: number[] = [];
+  let usedFallbackSource = false;
+
+  const fetchOpenTopoDataBatch = async (latBatch: number[], lngBatch: number[]) => {
+    const locations = latBatch.map((lat, index) => `${lat},${lngBatch[index]}`).join('|');
+    const params = new URLSearchParams({ locations });
+
+    const response = await fetch(`https://api.opentopodata.org/v1/mapzen?${params.toString()}`, { signal });
+    if (!response.ok) {
+      throw new Error('OpenTopoData indisponível para este lote.');
+    }
+
+    const data = await response.json();
+    const results = data?.results as Array<{ elevation?: number }> | undefined;
+
+    if (!Array.isArray(results) || results.length === 0) {
+      throw new Error('OpenTopoData sem dados para este lote.');
+    }
+
+    return results.map((item) => Number(item?.elevation) || 0);
+  };
 
   for (let start = 0; start < allLat.length; start += batchSize) {
     const latBatch = allLat.slice(start, start + batchSize).join(',');
@@ -273,10 +293,9 @@ async function fetchTopographyGrid(
       throw new DOMException('Topography request cancelled.', 'AbortError');
     }
 
-    const response = await fetch(`https://api.open-meteo.com/v1/elevation?${params.toString()}`, { signal });
-
+    let batch: number[];
     try {
-      const response = await fetch(`https://api.open-meteo.com/v1/elevation?${params.toString()}`);
+      const response = await fetch(`https://api.open-meteo.com/v1/elevation?${params.toString()}`, { signal });
 
       if (!response.ok) {
         throw new Error('Open-Meteo indisponível para este lote.');
@@ -291,6 +310,7 @@ async function fetchTopographyGrid(
 
       batch = openMeteoBatch.map((value) => Number(value) || 0);
     } catch {
+      usedFallbackSource = true;
       batch = await fetchOpenTopoDataBatch(allLat.slice(start, start + batchSize), allLng.slice(start, start + batchSize));
     }
 
@@ -306,7 +326,7 @@ async function fetchTopographyGrid(
     heights: elevations,
     minElevation: Math.min(...elevations),
     maxElevation: Math.max(...elevations),
-    source: 'open-meteo',
+    source: usedFallbackSource ? 'fallback' : 'open-meteo',
   };
 }
 
