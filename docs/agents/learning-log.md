@@ -30,3 +30,13 @@ Centralizar aprendizados operacionais e arquiteturais para reduzir retrabalho, a
 - Aprendizado reutilizável: Sempre exigir card estruturado antes de implementação reduz ambiguidade e retrabalho.
 - Tipo: melhoria arquitetural
 - Próximo passo: ajustar checklist
+
+## [2026-03-03] mg-location-orchestration-agent
+- Contexto da tarefa: Revisar consolidação para torná-la acionável em execução por múltiplos agentes especialistas.
+- Sintoma/erro observado: Documento consolidado anterior estava correto, porém descritivo e sem template operacional reutilizável.
+- Causa raiz: Ausência de artefato padrão para Requirement Card e falta de amarração explícita com validação/rollback.
+- Ação aplicada: Evolução da skill de orquestração com referência de template e reforço de guardrails; atualização da consolidação com seção de artefatos operacionais.
+- Validação executada: Verificação de consistência Markdown e ausência de problemas de diff.
+- Aprendizado reutilizável: Consolidação documental deve sempre incluir template operacional + checklist de validação para reduzir ambiguidade de execução.
+- Tipo: novo padrão de skill
+- Próximo passo: monitorar
