@@ -13,6 +13,7 @@ const navItems = [
   { to: '/data-hub', label: 'Data Hub', icon: Layers3 },
   { to: '/integrations', label: 'Integrações', icon: PlugZap },
   { to: '/global-disasters', label: 'Eventos Globais', icon: Globe },
+  { to: '/public', label: 'Transparência Pública', icon: Globe },
   { to: '/settings', label: 'Configurações', icon: Settings },
 ];
 
