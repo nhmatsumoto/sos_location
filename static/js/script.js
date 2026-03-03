@@ -265,22 +265,21 @@ async function registerMissingPerson() {
 }
 
 function createMissingMarker(item) {
-    const escapedName = escapeHtml(item.name);
-    const escapedLastSeen = escapeHtml(item.lastSeen);
+    const safeName = escapeHtml(item.name);
+    const safeLastSeen = escapeHtml(item.lastSeen);
     const marker = L.marker([item.lat, item.lng], {
         title: app.t.markerLabels.missing
     }).bindPopup(
         '<b>' + app.t.markerLabels.missing + '</b>' +
-        '<br/>' + escapedName +
-        '<br/>' + escapedLastSeen +
+        '<br/>' + safeName +
+        '<br/>' + safeLastSeen +
         '<br/>Lat: ' + item.lat + ' / Lng: ' + item.lng
     );
     marker.addTo(window.missingGroup);
 }
 
 function escapeHtml(value) {
-    if (value === null || value === undefined) return '';
-    return String(value)
+    return String(value ?? '')
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
