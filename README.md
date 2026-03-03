@@ -333,3 +333,29 @@ Ainda assim, este relatório já entrega:
 - diffs exemplares para documentação.
 
 Quando o repositório estiver identificado, a próxima iteração transforma cada linha da matriz em evidência concreta (paths, endpoints, componentes, modelos, testes) e atualiza “Indeterminado” para “Completo / Parcial / Ausente” com riscos e prioridades baseadas no código.
+
+## Backlog & Crise
+
+Para subir o ambiente local, validar smoke test e sincronizar backlog de crise com GitHub Projects v2, use:
+
+```bash
+./scripts/bootstrap_backlog.sh
+```
+
+Variáveis úteis (CI-friendly e sem prompts interativos):
+
+- `DRY_RUN=1` → simula ações no GitHub/Docker sem criar/alterar recursos remotos.
+- `FRONTEND_PORT` → porta local do frontend (default: `8088`).
+- `BACKEND_PORT` → porta local da API (default: `8001`).
+- `GITHUB_TOKEN` (ou `GH_TOKEN`) → token com permissões `repo` + `project`.
+
+Exemplo:
+
+```bash
+DRY_RUN=1 FRONTEND_PORT=8088 BACKEND_PORT=8001 ./scripts/bootstrap_backlog.sh
+```
+
+Saídas principais:
+
+- `artifacts/smoke-test.json` (resultado de smoke test dos endpoints críticos)
+- `BACKLOG.md` (TODO list + Kanban priorizado por impacto de crise)

@@ -1,0 +1,54 @@
+{
+  "generated_at": "2026-03-03T11:50:27Z",
+  "backend_port": "8001",
+  "results": [
+    {
+      "endpoint": "/api/missing-persons",
+      "url": "http://localhost:8001/api/missing-persons",
+      "http_status": "200",
+      "ok": true
+    },
+    {
+      "endpoint": "/api/hotspots",
+      "url": "http://localhost:8001/api/hotspots",
+      "http_status": "200",
+      "ok": true
+    },
+    {
+      "endpoint": "/api/rescue-support",
+      "url": "http://localhost:8001/api/rescue-support",
+      "http_status": "200",
+      "ok": true
+    },
+    {
+      "endpoint": "/api/terrain/context",
+      "url": "http://localhost:8001/api/terrain/context",
+      "http_status": "200",
+      "ok": true
+    },
+    {
+      "endpoint": "/api/weather/forecast",
+      "url": "http://localhost:8001/api/weather/forecast",
+      "http_status": "200",
+      "ok": true
+    },
+    {
+      "endpoint": "/api/alerts",
+      "url": "http://localhost:8001/api/alerts",
+      "http_status": "200",
+      "ok": true
+    },
+    {
+      "endpoint": "/api/transparency/search",
+      "url": "http://localhost:8001/api/transparency/search",
+      "http_status": "200",
+      "ok": true
+    },
+    {
+      "endpoint": "/api/satellite/layers",
+      "url": "http://localhost:8001/api/satellite/layers",
+      "http_status": "200",
+      "ok": true
+    }
+  ]
+}
