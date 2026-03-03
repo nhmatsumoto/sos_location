@@ -26,6 +26,13 @@ from apps.api.views import (
     supply_logistics,
     operations_snapshot,
     map_annotations,
+    health_check,
+)
+from apps.api.views_auth import (
+    login_view,
+    logout_view,
+    session_view,
+    google_oauth2_login_view,
 )
 
 from apps.api.views_risk import risk_assessment, risk_pipeline_sync
@@ -38,6 +45,7 @@ from apps.api.views_integrations import (
     satellite_stac_search,
     transparency_search,
     transparency_transfers,
+    transparency_summary,
     weather_archive,
     weather_forecast,
     disaster_intelligence,
@@ -47,6 +55,27 @@ from apps.api.views_integrations import (
 app_name = 'api'
 
 urlpatterns = [
+    path('incidents', incidents_collection, name='incidents_collection'),
+    path('incidents/<int:incident_id>', incident_detail, name='incident_detail'),
+    path('incidents/<int:incident_id>/support/campaigns', support_campaigns, name='support_campaigns'),
+    path('incidents/<int:incident_id>/support/donations/money', support_donations, name='support_donations'),
+    path('incidents/<int:incident_id>/support/expenses', support_expenses, name='support_expenses'),
+    path('incidents/<int:incident_id>/rescue/search-areas', rescue_search_areas, name='rescue_search_areas'),
+    path('incidents/<int:incident_id>/rescue/search-areas/<int:area_id>', rescue_search_area_update, name='rescue_search_area_update'),
+    path('incidents/<int:incident_id>/rescue/assignments', rescue_assignments, name='rescue_assignments'),
+    path('public/incidents', public_incidents, name='public_incidents'),
+    path('public/incidents/<int:incident_id>/snapshot/latest', public_latest_snapshot, name='public_latest_snapshot'),
+    path('public/incidents/<int:incident_id>/support/summary', public_support_summary, name='public_support_summary'),
+    path('public/incidents/<int:incident_id>/rescue/search-areas', public_search_areas, name='public_search_areas'),
+
+    path('auth/login', login_view, name='auth_login'),
+    path('auth/logout', logout_view, name='auth_logout'),
+    path('auth/session', session_view, name='auth_session'),
+    path('auth/google', google_oauth2_login_view, name='auth_google'),
+    path('health', health_check, name='health_check'),
+    path('disasters/events', disasters_events, name='disasters_events'),
+    path('disasters/stats/by-country', disasters_by_country, name='disasters_by_country'),
+    path('disasters/stats/timeseries', disasters_timeseries, name='disasters_timeseries'),
     path('calculate', calculatecoordinate, name='coordinate_calculate'),
     path('hotspots', hotspots, name='hotspots'),
     path('collapse-reports', collapse_reports, name='collapse_reports'),

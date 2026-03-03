@@ -7,6 +7,7 @@ def normalize_weather(payload, lat, lon, source='open-meteo'):
         'lat': lat,
         'lon': lon,
         'timezone': payload.get('timezone'),
+        'current': payload.get('current', {}),
         'hourly': payload.get('hourly', {}),
         'daily': payload.get('daily', {}),
     }

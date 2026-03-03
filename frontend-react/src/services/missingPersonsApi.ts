@@ -21,8 +21,12 @@ export interface MissingPersonCreateInput {
 
 export const missingPersonsApi = {
   async list() {
-    const response = await apiClient.get<MissingPersonApi[]>('/api/missing-persons');
-    return response.data;
+    try {
+      const response = await apiClient.get<MissingPersonApi[]>('/api/missing-persons', { __skipGlobalNotify: true } as any);
+      return response.data;
+    } catch {
+      return [];
+    }
   },
   async create(payload: MissingPersonCreateInput) {
     const response = await apiClient.post<MissingPersonApi>('/api/missing-persons', payload);

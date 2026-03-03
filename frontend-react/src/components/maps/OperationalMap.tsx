@@ -1,5 +1,5 @@
 import { Circle, CircleMarker, MapContainer, Marker, Polyline, Popup, TileLayer } from 'react-leaflet';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { OperationsSnapshot } from '../../services/operationsApi';
 import { operationsApi } from '../../services/operationsApi';
 import { MapClickSelector } from '../map/MapClickSelector';
@@ -21,6 +21,7 @@ interface ClickDraft {
 export function OperationalMap({ data, onRefresh }: OperationalMapProps) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const [busy, setBusy] = useState(false);
+  const [timelineCursor, setTimelineCursor] = useState(0);
   const [draft, setDraft] = useState<ClickDraft | null>(null);
   const [recordType, setRecordType] = useState<RegisterType>('support_point');
   const [title, setTitle] = useState('');
@@ -28,6 +29,18 @@ export function OperationalMap({ data, onRefresh }: OperationalMapProps) {
   const [radius, setRadius] = useState('450');
   const [personName, setPersonName] = useState('');
   const [lastSeen, setLastSeen] = useState('');
+
+  const timeline = data?.layers.timeline ?? [];
+
+  useEffect(() => {
+    if (!timeline.length) return;
+    const timer = window.setInterval(() => {
+      setTimelineCursor((current) => (current + 1) % timeline.length);
+    }, 1800);
+    return () => window.clearInterval(timer);
+  }, [timeline.length]);
+
+  const activeTimelineEvent = timeline.length ? timeline[timelineCursor % timeline.length] : null;
 
   const menuStyle = useMemo(() => {
     if (!draft || !wrapperRef.current) return undefined;
@@ -107,6 +120,20 @@ export function OperationalMap({ data, onRefresh }: OperationalMapProps) {
             </CircleMarker>
           ))}
 
+          {timeline.map((event) => {
+            const isActive = activeTimelineEvent?.id === event.id;
+            return (
+              <CircleMarker
+                key={event.id}
+                center={[event.lat, event.lng]}
+                radius={isActive ? 10 : 4}
+                pathOptions={{ color: isActive ? '#22d3ee' : '#60a5fa', fillOpacity: isActive ? 0.85 : 0.35 }}
+              >
+                <Popup>{event.title}</Popup>
+              </CircleMarker>
+            );
+          })}
+
           {data?.layers.missingPersons.filter((p) => p.lat && p.lng).map((person) => (
             <CircleMarker key={person.id} center={[person.lat as number, person.lng as number]} radius={6} pathOptions={{ color: '#f59e0b', fillOpacity: 0.8 }}>
               <Popup>{person.personName}</Popup>
@@ -147,7 +174,10 @@ export function OperationalMap({ data, onRefresh }: OperationalMapProps) {
           </div>
         )}
       </div>
-      <p className="mt-2 text-xs text-slate-300">Camadas: topografia/relevo, áreas de risco, escoamento, hotspots, pontos de apoio e desaparecidos.</p>
+      <p className="mt-2 text-xs text-slate-300">Camadas: topografia/relevo, áreas de risco, escoamento, hotspots, pontos de apoio, desaparecidos e animação temporal de alertas.</p>
+      {activeTimelineEvent && (
+        <p className="mt-1 text-xs text-cyan-300">Timeline ativa: {activeTimelineEvent.title} · {new Date(activeTimelineEvent.at).toLocaleString('pt-BR')}</p>
+      )}
     </section>
   );
 }

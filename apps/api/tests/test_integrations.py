@@ -17,10 +17,11 @@ class CacheAndNormalizeTestCase(TestCase):
         self.assertEqual(value, {'v': 1})
 
     def test_normalize_weather_schema(self):
-        payload = {'timezone': 'UTC', 'hourly': {'time': []}, 'daily': {'time': []}}
+        payload = {'timezone': 'UTC', 'current': {'temperature_2m': 70}, 'hourly': {'time': []}, 'daily': {'time': []}}
         data = normalize_weather(payload, lat=-21.1, lon=-42.9)
         self.assertEqual(data['source'], 'open-meteo')
         self.assertEqual(data['timezone'], 'UTC')
+        self.assertIn('current', data)
         self.assertIn('hourly', data)
         self.assertIn('daily', data)
 
@@ -53,7 +54,54 @@ class IntegrationsApiViewTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         payload = response.json()
         self.assertEqual(payload['source'], 'open-meteo')
+        self.assertIn('current', payload)
         self.assertIn('cacheHit', payload)
+
+
+    @patch('apps.api.views_integrations.fetch_transfers')
+    def test_transparency_summary_endpoint(self, mock_fetch):
+        mock_fetch.return_value = ({'source': 'cgu', 'totals': {'count': 2, 'amount': 1000}}, True)
+        response = self.client.get(reverse('api:integrations_transparency_summary'), {'start': '2025-01-01', 'end': '2025-01-31'})
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload['summary']['count'], 2)
+
+
+
+    @patch('apps.api.integrations.weather.open_meteo.http_client.get_json')
+    def test_weather_forecast_uses_open_meteo_contract_fields(self, mock_get_json):
+        mock_get_json.return_value = {'timezone': 'UTC', 'current': {}, 'hourly': {}, 'daily': {}}
+        response = self.client.get(
+            reverse('api:weather_forecast'),
+            {
+                'lat': -23.5505,
+                'lon': -46.6333,
+                'days': 16,
+                'temperature_unit': 'fahrenheit',
+                'wind_speed_unit': 'mph',
+                'precipitation_unit': 'inch',
+                'timezone': 'auto',
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        _, kwargs = mock_get_json.call_args
+        params = kwargs['params']
+        self.assertEqual(params['forecast_days'], 16)
+        self.assertIn('current', params)
+        self.assertIn('hourly', params)
+        self.assertIn('daily', params)
+        self.assertEqual(params['temperature_unit'], 'fahrenheit')
+        self.assertEqual(params['wind_speed_unit'], 'mph')
+        self.assertEqual(params['precipitation_unit'], 'inch')
+
+    def test_weather_forecast_rejects_days_outside_open_meteo_limit(self):
+        response = self.client.get(reverse('api:weather_forecast'), {'lat': -21.11, 'lon': -42.93, 'days': 17})
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('days fora do intervalo', response.json()['error'])
+    def test_weather_forecast_rejects_out_of_range_lat_lon(self):
+        response = self.client.get(reverse('api:integrations_weather_forecast'), {'lat': -121, 'lon': -42.93, 'days': 2})
+        self.assertEqual(response.status_code, 400)
 
     @override_settings(DEBUG=True)
     def test_transparency_requires_api_key(self):

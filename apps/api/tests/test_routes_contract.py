@@ -31,6 +31,16 @@ class ApiRoutesContractTestCase(SimpleTestCase):
             'api:satellite_layers',
             'api:satellite_stac_search',
             'api:satellite_goes_recent',
+            'api:integrations_weather_forecast',
+            'api:integrations_weather_history',
+            'api:integrations_alerts',
+            'api:integrations_transparency_transfers',
+            'api:integrations_transparency_summary',
+            'api:integrations_satellite_layers',
+            'api:disasters_events',
+            'api:disasters_stats_by_country',
+            'api:disasters_stats_timeseries',
+            'api:disasters_crawl_trigger',
         ]
 
         for route_name in named_routes:

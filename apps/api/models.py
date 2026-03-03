@@ -118,3 +118,146 @@ class SupplyLogistics(TimestampedModel):
 
     class Meta:
         indexes = [models.Index(fields=['status', '-created_at'])]
+
+
+class DisasterEvent(models.Model):
+    EVENT_TYPE_CHOICES = [
+        ('Flood', 'Flood'),
+        ('Earthquake', 'Earthquake'),
+        ('Cyclone', 'Cyclone'),
+        ('Volcano', 'Volcano'),
+        ('Wildfire', 'Wildfire'),
+        ('Storm', 'Storm'),
+        ('Tsunami', 'Tsunami'),
+        ('Landslide', 'Landslide'),
+        ('Other', 'Other'),
+    ]
+
+    provider = models.CharField(max_length=20)
+    provider_event_id = models.CharField(max_length=120)
+    event_type = models.CharField(max_length=20, choices=EVENT_TYPE_CHOICES, default='Other')
+    severity = models.PositiveSmallIntegerField(default=1)
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    start_at = models.DateTimeField()
+    end_at = models.DateTimeField(null=True, blank=True)
+    provider_updated_at = models.DateTimeField(null=True, blank=True)
+    lat = models.FloatField()
+    lon = models.FloatField()
+    country_code = models.CharField(max_length=2, blank=True)
+    country_name = models.CharField(max_length=120, blank=True)
+    geometry = models.JSONField(default=dict, blank=True)
+    source_url = models.URLField(max_length=500, blank=True)
+    raw_payload = models.JSONField(default=dict, blank=True)
+    ingested_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('provider', 'provider_event_id')
+        indexes = [
+            models.Index(fields=['country_code', 'event_type', 'start_at']),
+            models.Index(fields=['start_at']),
+        ]
+
+
+class Incident(TimestampedModel):
+    STATUS_CHOICES = [
+        ('active', 'Active'),
+        ('resolved', 'Resolved'),
+        ('archived', 'Archived'),
+    ]
+
+    name = models.CharField(max_length=180)
+    type = models.CharField(max_length=80)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
+    country = models.CharField(max_length=120)
+    region = models.CharField(max_length=120)
+    starts_at = models.DateTimeField()
+    ends_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        indexes = [models.Index(fields=['status', '-starts_at'])]
+
+
+class AuditLog(models.Model):
+    entity_type = models.CharField(max_length=80)
+    entity_id = models.CharField(max_length=64)
+    action = models.CharField(max_length=40)
+    actor_user_id = models.CharField(max_length=128)
+    actor_email = models.CharField(max_length=255, blank=True)
+    incident = models.ForeignKey(Incident, on_delete=models.SET_NULL, null=True, blank=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
+    diff_json = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        indexes = [models.Index(fields=['entity_type', 'entity_id']), models.Index(fields=['-timestamp'])]
+
+
+class Campaign(TimestampedModel):
+    STATUS_CHOICES = [('draft', 'Draft'), ('active', 'Active'), ('closed', 'Closed')]
+
+    incident = models.ForeignKey(Incident, on_delete=models.CASCADE)
+    title = models.CharField(max_length=180)
+    description = models.TextField(blank=True)
+    goal_amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    currency = models.CharField(max_length=10)
+    starts_at = models.DateTimeField()
+    ends_at = models.DateTimeField(null=True, blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
+
+
+class DonationMoney(TimestampedModel):
+    STATUS_CHOICES = [('received', 'Received'), ('pending', 'Pending'), ('canceled', 'Canceled')]
+
+    incident = models.ForeignKey(Incident, on_delete=models.CASCADE)
+    campaign = models.ForeignKey(Campaign, on_delete=models.SET_NULL, null=True, blank=True)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    currency = models.CharField(max_length=10)
+    donor_name = models.CharField(max_length=180, blank=True)
+    donor_contact = models.CharField(max_length=180, blank=True)
+    payment_ref = models.CharField(max_length=120, blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='received')
+    received_at = models.DateTimeField()
+
+
+class Expense(TimestampedModel):
+    incident = models.ForeignKey(Incident, on_delete=models.CASCADE)
+    campaign = models.ForeignKey(Campaign, on_delete=models.SET_NULL, null=True, blank=True)
+    title = models.CharField(max_length=180)
+    description = models.TextField(blank=True)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    currency = models.CharField(max_length=10)
+    vendor_name = models.CharField(max_length=180, blank=True)
+    invoice_number = models.CharField(max_length=120, blank=True)
+    occurred_at = models.DateTimeField()
+
+
+class SearchArea(TimestampedModel):
+    STATUS_CHOICES = [('Pending', 'Pending'), ('InProgress', 'InProgress'), ('Completed', 'Completed')]
+
+    incident = models.ForeignKey(Incident, on_delete=models.CASCADE)
+    name = models.CharField(max_length=180, blank=True)
+    geometry_json = models.JSONField(default=dict)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Pending')
+
+
+class Assignment(TimestampedModel):
+    STATUS_CHOICES = [('Assigned', 'Assigned'), ('InProgress', 'InProgress'), ('Completed', 'Completed')]
+
+    incident = models.ForeignKey(Incident, on_delete=models.CASCADE)
+    search_area = models.ForeignKey(SearchArea, on_delete=models.CASCADE)
+    assigned_to_user_id = models.CharField(max_length=128)
+    assigned_to_team_id = models.CharField(max_length=128, blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Assigned')
+    assigned_at = models.DateTimeField(auto_now_add=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+
+class PublicSnapshot(models.Model):
+    incident = models.ForeignKey(Incident, on_delete=models.CASCADE)
+    generated_at = models.DateTimeField(auto_now_add=True)
+    data_json = models.JSONField(default=dict)
+    version = models.CharField(max_length=20, default='v1')
+
+    class Meta:
+        indexes = [models.Index(fields=['incident', '-generated_at'])]

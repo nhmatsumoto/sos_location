@@ -12,8 +12,12 @@ export interface SearchedAreaApi {
 
 export const searchedAreasApi = {
   async list() {
-    const response = await apiClient.get<SearchedAreaApi[]>('/api/searched-areas');
-    return response.data;
+    try {
+      const response = await apiClient.get<SearchedAreaApi[]>('/api/searched-areas', { __skipGlobalNotify: true } as any);
+      return response.data;
+    } catch {
+      return [];
+    }
   },
   async create(payload: { areaName: string; team: string; lat: number; lng: number; notes?: string }) {
     const form = new FormData();

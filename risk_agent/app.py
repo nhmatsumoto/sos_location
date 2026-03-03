@@ -4,7 +4,7 @@ from typing import Any
 
 import httpx
 import numpy as np
-from fastapi import FastAPI
+from fastapi import FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
 from sklearn.ensemble import RandomForestRegressor
 
@@ -75,7 +75,10 @@ def health() -> dict[str, str]:
 
 
 @app.post('/risk-assessment')
-def risk_assessment(payload: RiskRequest) -> dict[str, Any]:
+def risk_assessment(payload: RiskRequest, x_internal_token: str | None = Header(default=None)) -> dict[str, Any]:
+    expected_token = os.getenv('RISK_AGENT_INTERNAL_TOKEN', '').strip()
+    if expected_token and x_internal_token != expected_token:
+        raise HTTPException(status_code=401, detail='Unauthorized caller')
     source_payloads = _collect_sources(payload.lat, payload.lon)
     features, labels = _feature_engineering(payload.lat, payload.lon, payload.grid_size)
     model = _train_model(features, labels)

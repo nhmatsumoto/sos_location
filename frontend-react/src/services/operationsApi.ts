@@ -72,24 +72,55 @@ export interface OperationsSnapshot {
     flowPaths: FlowPath[];
     missingPersons: MissingPersonLite[];
     hotspots: Array<{ id: string; lat: number; lng: number; score: number; type: string }>;
+    timeline?: Array<{
+      id: string;
+      at: string;
+      title: string;
+      eventType: string;
+      severity: number | string;
+      lat: number;
+      lng: number;
+      sourceUrl?: string;
+    }>;
   };
   weather: {
     summary: string;
     rain24hMm: number;
+    rainNext24hMm?: number;
+    stormRisk?: string;
+    windGustKmh?: number | null;
     soilSaturation: string;
+    providers?: Array<Record<string, unknown>>;
   };
   logistics: Array<{ id: string; item: string; quantity: number; status: string; priority: string }>;
 }
 
+
+const fallbackSnapshot: OperationsSnapshot = {
+  generatedAtUtc: new Date().toISOString(),
+  kpis: { criticalAlerts: 0, activeTeams: 0, rain24hMm: 0, suppliesInTransit: 0 },
+  layers: { supportPoints: [], riskAreas: [], rescueGroups: [], flowPaths: [], missingPersons: [], hotspots: [], timeline: [] },
+  weather: { summary: 'Backend indisponível no momento. Exibindo modo resiliente.', rain24hMm: 0, soilSaturation: 'N/D' },
+  logistics: [],
+};
+
 export const operationsApi = {
   async snapshot() {
-    const response = await apiClient.get<OperationsSnapshot>('/api/operations/snapshot');
-    return response.data;
+    try {
+      const response = await apiClient.get<OperationsSnapshot>('/api/operations/snapshot', { __skipGlobalNotify: true } as any);
+      return response.data;
+    } catch {
+      return fallbackSnapshot;
+    }
   },
 
   async listSupportPoints() {
-    const response = await apiClient.get<SupportPoint[]>('/api/support-points');
-    return response.data;
+    try {
+      const response = await apiClient.get<SupportPoint[]>('/api/support-points', { __skipGlobalNotify: true } as any);
+      return response.data;
+    } catch {
+      return [];
+    }
   },
   async createSupportPoint(payload: { name: string; type: string; lat: number; lng: number; capacity?: number; status?: string }) {
     const response = await apiClient.post('/api/support-points', payload);
@@ -105,8 +136,12 @@ export const operationsApi = {
   },
 
   async listRiskAreas() {
-    const response = await apiClient.get<RiskArea[]>('/api/risk-areas');
-    return response.data;
+    try {
+      const response = await apiClient.get<RiskArea[]>('/api/risk-areas', { __skipGlobalNotify: true } as any);
+      return response.data;
+    } catch {
+      return [];
+    }
   },
   async createRiskArea(payload: { name: string; severity: string; lat: number; lng: number; radiusMeters?: number; notes?: string; status?: string }) {
     const response = await apiClient.post('/api/risk-areas', payload);
@@ -141,8 +176,12 @@ export const operationsApi = {
   },
 
   async listRescueGroups() {
-    const response = await apiClient.get<RescueGroup[]>('/api/rescue-groups');
-    return response.data;
+    try {
+      const response = await apiClient.get<RescueGroup[]>('/api/rescue-groups', { __skipGlobalNotify: true } as any);
+      return response.data;
+    } catch {
+      return [];
+    }
   },
   async createRescueGroup(payload: { name: string; members: number; specialty: string; status: string; lat?: number; lng?: number }) {
     const response = await apiClient.post('/api/rescue-groups', payload);
@@ -158,8 +197,12 @@ export const operationsApi = {
   },
 
   async listSupplies() {
-    const response = await apiClient.get<SupplyItem[]>('/api/supply-logistics');
-    return response.data;
+    try {
+      const response = await apiClient.get<SupplyItem[]>('/api/supply-logistics', { __skipGlobalNotify: true } as any);
+      return response.data;
+    } catch {
+      return [];
+    }
   },
   async createSupply(payload: { item: string; quantity: number; unit?: string; origin?: string; destination?: string; status?: string; priority?: string }) {
     const response = await apiClient.post('/api/supply-logistics', payload);

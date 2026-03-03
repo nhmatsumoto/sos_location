@@ -5,8 +5,13 @@ Este diretório centraliza a documentação funcional e técnica do projeto.
 ## Índice
 
 - [Visão geral e objetivo](./VISION_AND_GOALS.md)
+- [Arquitetura de orquestração de engenharia](./AI_ENGINEERING_ORCHESTRATION.md)
+- [Learning log dos agentes](./agents/learning-log.md)
+- [Agente de orquestração MG Location](./agents/mg-location-orchestration-agent.md)
+- [Template de Requirement Card (skill)](../skills/mg-location-orchestration/references/requirement-card-template.md)
 - [Regras de domínio](./DOMAIN_RULES.md)
 - [Funcionalidades](./FEATURES.md)
+- [Consolidado funcional do projeto](./PROJECT_CONSOLIDATION_MG_LOCATION.md)
 - [Implementações e integrações](./IMPLEMENTATIONS.md)
 - [Ideias e roadmap](./IDEAS.md)
 - [Política de uso](./USAGE_POLICY.md)

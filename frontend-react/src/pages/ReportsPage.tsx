@@ -3,10 +3,12 @@ import { MapPanel } from '../components/maps/MapPanel';
 import { Button } from '../components/ui/Button';
 import { SelectInput, TextAreaInput, TextInput } from '../components/ui/Field';
 import { reportsApi, type ReportItemApi } from '../services/reportsApi';
+import { useNotifications } from '../context/NotificationsContext';
 
 export function ReportsPage() {
   const [reports, setReports] = useState<ReportItemApi[]>([]);
   const [form, setForm] = useState({ kind: 'person' as 'person' | 'animal', name: '', lastSeen: '', details: '', contact: '' });
+  const { pushNotice } = useNotifications();
 
   const load = async () => setReports(await reportsApi.list());
 
@@ -23,9 +25,13 @@ export function ReportsPage() {
 
   const submit = async () => {
     if (!form.name || !form.lastSeen) return;
-    await reportsApi.create(form);
-    setForm({ kind: 'person', name: '', lastSeen: '', details: '', contact: '' });
-    await load();
+    try {
+      await reportsApi.create(form);
+      setForm({ kind: 'person', name: '', lastSeen: '', details: '', contact: '' });
+      await load();
+    } catch {
+      pushNotice({ type: 'error', title: 'Falha ao publicar', message: 'Não foi possível enviar relato sem backend ativo.' });
+    }
   };
 
   return (

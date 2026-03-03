@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET
@@ -27,6 +28,31 @@ def _float_param(request, name, required=True, default=None):
     return float(raw)
 
 
+
+
+def _validate_lat_lon(lat, lon):
+    if lat < -90 or lat > 90:
+        raise ValueError('lat fora do intervalo [-90, 90]')
+    if lon < -180 or lon > 180:
+        raise ValueError('lon fora do intervalo [-180, 180]')
+
+
+def _validate_date(value, name):
+    try:
+        datetime.strptime(value, '%Y-%m-%d')
+    except ValueError as exc:
+        raise ValueError(f"{name} inválido, use YYYY-MM-DD") from exc
+
+
+def _validate_bbox_tuple(bbox_tuple):
+    if len(bbox_tuple) != 4:
+        raise ValueError('bbox deve ter 4 valores: minLon,minLat,maxLon,maxLat')
+    min_lon, min_lat, max_lon, max_lat = bbox_tuple
+    if min_lon >= max_lon or min_lat >= max_lat:
+        raise ValueError('bbox inválido: min deve ser menor que max')
+    if min_lon < -180 or max_lon > 180 or min_lat < -90 or max_lat > 90:
+        raise ValueError('bbox fora dos limites geográficos válidos')
+
 def _integration_error(exc):
     if isinstance(exc, CircuitOpenError):
         return JsonResponse({'error': 'Fonte temporariamente indisponível (circuit breaker ativo).'}, status=503)
@@ -38,15 +64,31 @@ def weather_forecast(request):
     try:
         lat = _float_param(request, 'lat')
         lon = _float_param(request, 'lon')
+        _validate_lat_lon(lat, lon)
         days = int(request.GET.get('days', 3))
-    except (ValueError, TypeError):
+        if days < 1 or days > 16:
+            raise ValueError('days fora do intervalo [1, 16]')
+    except (ValueError, TypeError) as exc:
         return JsonResponse(
-            {'error': 'Parâmetros inválidos: lat, lon e days devem ser numéricos.'},
+            {'error': 'Parâmetros inválidos.'},
             status=400,
         )
 
+    temperature_unit = request.GET.get('temperature_unit', 'fahrenheit')
+    wind_speed_unit = request.GET.get('wind_speed_unit', 'mph')
+    precipitation_unit = request.GET.get('precipitation_unit', 'inch')
+    tz = request.GET.get('timezone', 'auto')
+
     try:
-        data, cache_hit = fetch_forecast(lat=lat, lon=lon, days=days)
+        data, cache_hit = fetch_forecast(
+            lat=lat,
+            lon=lon,
+            days=days,
+            temperature_unit=temperature_unit,
+            wind_speed_unit=wind_speed_unit,
+            precipitation_unit=precipitation_unit,
+            timezone=tz,
+        )
     except Exception as exc:
         return _integration_error(exc)
     data['cacheHit'] = cache_hit
@@ -61,8 +103,15 @@ def weather_archive(request):
         return JsonResponse({'error': 'Parâmetros obrigatórios: start, end'}, status=400)
 
     try:
+        _validate_date(start, 'start')
+        _validate_date(end, 'end')
+    except ValueError as exc:
+        return JsonResponse({'error': str(exc)}, status=400)
+
+    try:
         lat = _float_param(request, 'lat')
         lon = _float_param(request, 'lon')
+        _validate_lat_lon(lat, lon)
     except (ValueError, TypeError):
         return JsonResponse(
             {'error': 'Parâmetros inválidos: lat e lon devem ser numéricos.'},
@@ -84,8 +133,7 @@ def alerts(request):
     if bbox:
         try:
             bbox_tuple = tuple(float(v) for v in bbox.split(','))
-            if len(bbox_tuple) != 4:
-                raise ValueError('bbox deve ter 4 valores: minLon,minLat,maxLon,maxLat')
+            _validate_bbox_tuple(bbox_tuple)
         except ValueError as exc:
             return JsonResponse(
                 {
@@ -143,6 +191,38 @@ def transparency_search(request):
 
 
 @require_GET
+def transparency_summary(request):
+    start = request.GET.get('start')
+    end = request.GET.get('end')
+
+    if start:
+        try:
+            _validate_date(start, 'start')
+        except ValueError as exc:
+            return JsonResponse({'error': str(exc)}, status=400)
+    if end:
+        try:
+            _validate_date(end, 'end')
+        except ValueError as exc:
+            return JsonResponse({'error': str(exc)}, status=400)
+
+    try:
+        data, cache_hit = fetch_transfers(
+            uf=request.GET.get('uf'),
+            municipio=request.GET.get('municipio'),
+            start=start,
+            end=end,
+        )
+    except TransparencyApiKeyMissing:
+        return JsonResponse({'error': 'Configuração de chave de API de transparência ausente.'}, status=400)
+    except Exception as exc:
+        return _integration_error(exc)
+
+    totals = data.get('totals', {}) if isinstance(data, dict) else {}
+    return JsonResponse({'source': data.get('source', 'cgu'), 'summary': totals, 'cacheHit': cache_hit})
+
+
+@require_GET
 def satellite_layers(request):
     layers, cache_hit = get_layers_manifest()
     return JsonResponse({'source': 'nasa-gibs', 'items': layers, 'cacheHit': cache_hit})
@@ -195,8 +275,7 @@ def disaster_intelligence(request):
     if bbox:
         try:
             bbox_tuple = tuple(float(v) for v in bbox.split(','))
-            if len(bbox_tuple) != 4:
-                raise ValueError('bbox deve ter 4 valores: minLon,minLat,maxLon,maxLat')
+            _validate_bbox_tuple(bbox_tuple)
         except ValueError:
             return JsonResponse({'error': "Parâmetro 'bbox' inválido. Use minLon,minLat,maxLon,maxLat."}, status=400)
 
