@@ -1,16 +1,6 @@
 # Análise e levantamento de requisitos do projeto mg_location
 
-Para ainda entregar valor imediato, este relatório fornece:
-
-- um **framework completo** para inventariar funcionalidades existentes (técnicas e não técnicas) por leitura de código/README,  
-- um **documento de requisitos de software (SRS)** pronto para ser colocado no repositório (com texto exato do link no README e instruções de commit/PR),  
-- uma **tabela comparativa por funcionalidade** no formato solicitado, com status **“indeterminado”** por falta de acesso ao repositório, mas com campos e checklist de evidência para você preencher rapidamente após apontar o URL,  
-- um conjunto de **riscos e lacunas muito comuns em projetos de “location + mapa”** (tiles, geocoding, conformidade, privacidade, performance) fundamentados em políticas e padrões oficiais (ex.: uso de tiles do OpenStreetMap e limites do Nominatim),  
-- **diferenças exemplares (diffs)** para PRs típicos (documentação e guardrails de produção).
-
-## Visão geral recomendada para mg_location
-
-Projetos com nome “mg_location” geralmente se enquadram em um destes dois perfis:
+## Visão geral
 
 1) **Módulo/serviço de localização** (ex.: CRUD de “locais”, geocoding, reverse geocoding, camadas/categorias, exportação GeoJSON) acoplado a um mapa.  
 2) **Aplicação de mapa** (ex.: visualização, pesquisa, filtros e markers) com backend mínimo.
