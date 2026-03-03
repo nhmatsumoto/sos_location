@@ -68,8 +68,8 @@ def weather_forecast(request):
         days = int(request.GET.get('days', 3))
         if days < 1 or days > 16:
             raise ValueError('days fora do intervalo [1, 16]')
-    except (ValueError, TypeError) as exc:
-        return JsonResponse({'error': str(exc)}, status=400)
+    except (ValueError, TypeError):
+        return JsonResponse({'error': 'Parâmetros de entrada inválidos.'}, status=400)
 
     temperature_unit = request.GET.get('temperature_unit', 'fahrenheit')
     wind_speed_unit = request.GET.get('wind_speed_unit', 'mph')
