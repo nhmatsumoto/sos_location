@@ -238,26 +238,13 @@ const RunoutParticles = ({ radiusMeters, postSlideIntensity, terrainGrid }: Runo
   );
 };
 
-
-async function fetchOpenTopoDataBatch(latValues: number[], lngValues: number[]): Promise<number[]> {
-  const locations = latValues.map((lat, index) => `${lat},${lngValues[index]}`).join('|');
-  const response = await fetch(`https://api.opentopodata.org/v1/mapzen?locations=${encodeURIComponent(locations)}`);
-
-  if (!response.ok) {
-    throw new Error('Falha no provedor secundário de elevação.');
-  }
-
-  const data = await response.json();
-  const results = data?.results as Array<{ elevation?: number }> | undefined;
-
-  if (!Array.isArray(results) || results.length === 0) {
-    throw new Error('Sem dados no provedor secundário de elevação.');
-  }
-
-  return results.map((item) => Number(item?.elevation) || 0);
-}
-
-async function fetchTopographyGrid(sourceLat: number, sourceLng: number, radiusMeters: number, gridSize: number): Promise<TerrainGrid> {
+async function fetchTopographyGrid(
+  sourceLat: number,
+  sourceLng: number,
+  radiusMeters: number,
+  gridSize: number,
+  signal?: AbortSignal,
+): Promise<TerrainGrid> {
   const { latStep, lngStep } = computeDegreesStep(sourceLat, radiusMeters, gridSize);
 
   const allLat: number[] = [];
@@ -282,7 +269,11 @@ async function fetchTopographyGrid(sourceLat: number, sourceLng: number, radiusM
       longitude: lngBatch,
     });
 
-    let batch: number[] = [];
+    if (signal?.aborted) {
+      throw new DOMException('Topography request cancelled.', 'AbortError');
+    }
+
+    const response = await fetch(`https://api.open-meteo.com/v1/elevation?${params.toString()}`, { signal });
 
     try {
       const response = await fetch(`https://api.open-meteo.com/v1/elevation?${params.toString()}`);
@@ -336,26 +327,28 @@ export default function LandslideSimulation({
   }, [radiusMeters]);
 
   useEffect(() => {
-    let active = true;
-    setLoadingTopography(true);
-    setTopographyError('');
+    const controller = new AbortController();
+    const loadDelay = window.setTimeout(() => {
+      setLoadingTopography(true);
+      setTopographyError('');
 
-    fetchTopographyGrid(sourceLat, sourceLng, localRadiusMeters, 33)
-      .then((grid) => {
-        if (!active) return;
-        setTerrainGrid(grid);
-      })
-      .catch((error) => {
-        if (!active) return;
-        setTerrainGrid(buildTerrainFallback(33));
-        setTopographyError(error instanceof Error ? error.message : 'Erro ao carregar topografia.');
-      })
-      .finally(() => {
-        if (active) setLoadingTopography(false);
-      });
+      fetchTopographyGrid(sourceLat, sourceLng, localRadiusMeters, 33, controller.signal)
+        .then((grid) => {
+          setTerrainGrid(grid);
+        })
+        .catch((error) => {
+          if (controller.signal.aborted) return;
+          setTerrainGrid(buildTerrainFallback(33));
+          setTopographyError(error instanceof Error ? error.message : 'Erro ao carregar topografia.');
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) setLoadingTopography(false);
+        });
+    }, 250);
 
     return () => {
-      active = false;
+      controller.abort();
+      window.clearTimeout(loadDelay);
     };
   }, [localRadiusMeters, sourceLat, sourceLng]);
 
