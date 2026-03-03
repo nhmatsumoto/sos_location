@@ -1,23 +1,15 @@
-import json
-import logging
-
-from django.conf import settings
-from django.contrib.auth import authenticate, get_user_model, login, logout
-from django.http import JsonResponse
+from django.contrib.auth import authenticate, get_user_model
 from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_GET, require_POST
-from google.auth.transport import requests as google_requests
-from google.oauth2 import id_token
+from rest_framework.authtoken.models import Token
+from django.http import JsonResponse
 
-logger = logging.getLogger(__name__)
+from apps.api.views import _request_payload
+
 User = get_user_model()
 
 
-def _parse_json_body(request):
-    try:
-        return json.loads(request.body.decode('utf-8') or '{}')
-    except (UnicodeDecodeError, json.JSONDecodeError):
-        return None
+def _auth_error(message, status=400):
+    return JsonResponse({'error': message}, status=status)
 
 
 def _serialize_user(user):
@@ -31,91 +23,82 @@ def _serialize_user(user):
 
 
 @csrf_exempt
-@require_POST
-def login_view(request):
-    payload = _parse_json_body(request)
-    if payload is None:
-        return JsonResponse({'error': 'JSON inválido.'}, status=400)
+def auth_register(request):
+    if request.method != 'POST':
+        return JsonResponse({}, status=405)
 
-    username = payload.get('username')
-    password = payload.get('password')
+    payload = _request_payload(request)
+    username = (payload.get('username') or '').strip()
+    password = payload.get('password') or ''
+    email = (payload.get('email') or '').strip()
 
-    if not username or not password:
-        return JsonResponse({'error': 'username e password são obrigatórios.'}, status=400)
+    if len(username) < 3:
+        return _auth_error('username deve ter ao menos 3 caracteres.')
+    if len(password) < 8:
+        return _auth_error('password deve ter ao menos 8 caracteres.')
+    if User.objects.filter(username=username).exists():
+        return _auth_error('username já está em uso.', status=409)
 
-    user = authenticate(request=request, username=username, password=password)
-    if user is None:
-        return JsonResponse({'error': 'Credenciais inválidas.'}, status=401)
-
-    login(request, user)
-    return JsonResponse({'user': _serialize_user(user)})
-
-
-@csrf_exempt
-@require_POST
-def logout_view(request):
-    logout(request)
-    return JsonResponse({'ok': True})
-
-
-@require_GET
-def session_view(request):
-    if not request.user.is_authenticated:
-        return JsonResponse({'authenticated': False, 'user': None})
-    return JsonResponse({'authenticated': True, 'user': _serialize_user(request.user)})
+    user = User.objects.create_user(
+        username=username,
+        password=password,
+        email=email,
+        first_name=(payload.get('firstName') or '').strip(),
+        last_name=(payload.get('lastName') or '').strip(),
+    )
+    token, _ = Token.objects.get_or_create(user=user)
+    return JsonResponse({'token': token.key, 'user': _serialize_user(user)}, status=201)
 
 
 @csrf_exempt
-@require_POST
-def google_oauth2_login_view(request):
-    payload = _parse_json_body(request)
-    if payload is None:
-        return JsonResponse({'error': 'JSON inválido.'}, status=400)
+def auth_login(request):
+    if request.method != 'POST':
+        return JsonResponse({}, status=405)
 
-    credential = payload.get('credential')
-    if not credential:
-        return JsonResponse({'error': 'credential é obrigatório.'}, status=400)
+    payload = _request_payload(request)
+    user = authenticate(username=payload.get('username') or '', password=payload.get('password') or '')
+    if not user:
+        return _auth_error('Credenciais inválidas.', status=401)
 
-    client_id = getattr(settings, 'GOOGLE_OAUTH_CLIENT_ID', '')
-    if not client_id:
-        return JsonResponse({'error': 'GOOGLE_OAUTH_CLIENT_ID não configurado.'}, status=500)
+    token, _ = Token.objects.get_or_create(user=user)
+    return JsonResponse({'token': token.key, 'user': _serialize_user(user)})
+
+
+def _token_from_request(request):
+    auth_header = request.headers.get('Authorization') or ''
+    if not auth_header.lower().startswith('token '):
+        return None
+    return auth_header.split(' ', 1)[1].strip()
+
+
+@csrf_exempt
+def auth_me(request):
+    if request.method != 'GET':
+        return JsonResponse({}, status=405)
+
+    token_value = _token_from_request(request)
+    if not token_value:
+        return _auth_error('Token ausente.', status=401)
 
     try:
-        token_data = id_token.verify_oauth2_token(
-            credential,
-            google_requests.Request(),
-            client_id,
-        )
-    except ValueError:
-        return JsonResponse({'error': 'Token Google inválido.'}, status=401)
+        token = Token.objects.select_related('user').get(key=token_value)
+    except Token.DoesNotExist:
+        return _auth_error('Token inválido.', status=401)
 
-    email = token_data.get('email')
-    if not email:
-        return JsonResponse({'error': 'Token sem e-mail.'}, status=400)
+    return JsonResponse({'user': _serialize_user(token.user)})
 
-    user, _ = User.objects.get_or_create(
-        username=email,
-        defaults={
-            'email': email,
-            'first_name': token_data.get('given_name', ''),
-            'last_name': token_data.get('family_name', ''),
-        },
-    )
 
-    updated = False
-    if not user.email:
-        user.email = email
-        updated = True
-    if token_data.get('given_name') and user.first_name != token_data.get('given_name'):
-        user.first_name = token_data.get('given_name')
-        updated = True
-    if token_data.get('family_name') and user.last_name != token_data.get('family_name'):
-        user.last_name = token_data.get('family_name')
-        updated = True
+@csrf_exempt
+def auth_logout(request):
+    if request.method != 'POST':
+        return JsonResponse({}, status=405)
 
-    if updated:
-        user.save(update_fields=['email', 'first_name', 'last_name'])
+    token_value = _token_from_request(request)
+    if not token_value:
+        return _auth_error('Token ausente.', status=401)
 
-    login(request, user)
-    logger.info('User authenticated with Google OAuth2: %s', email)
-    return JsonResponse({'user': _serialize_user(user)})
+    deleted, _ = Token.objects.filter(key=token_value).delete()
+    if deleted == 0:
+        return _auth_error('Token inválido.', status=401)
+
+    return JsonResponse({'ok': True})

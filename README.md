@@ -342,28 +342,40 @@ Para subir o ambiente local, validar smoke test e sincronizar backlog de crise c
 ./scripts/bootstrap_backlog.sh
 ```
 
-Variáveis úteis (CI-friendly e sem prompts interativos):
+## Endpoints principais
 
-- `DRY_RUN=1` → simula ações no GitHub/Docker sem criar/alterar recursos remotos.
-- `FRONTEND_PORT` → porta local do frontend (default: `8088`).
-- `BACKEND_PORT` → porta local da API (default: `8001`).
-- `GITHUB_TOKEN` (ou `GH_TOKEN`) → token com permissões `repo` + `project`.
+### Operacionais
+- `POST /api/calculate`
+- `GET,POST /api/missing-persons`
+- `GET /api/missing-people.csv`
+- `GET /api/hotspots`
+- `GET /api/rescue-support`
+- `GET /api/terrain/context`
+- `GET /api/operations/snapshot`
+- `GET,POST /api/map-annotations`
+- `GET,POST /api/support-points`
+- `GET,POST /api/risk-areas`
+- `GET /api/risk/assessment`
+- `POST /api/risk/pipeline-sync`
+- `GET /api/location/flow-simulation/stream` (SSE de passos em tempo real)
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+- `GET /api/auth/me`
+- `POST /api/auth/logout`
+- `GET,POST /api/rescue-groups`
+- `GET,POST /api/supply-logistics`
 
-Exemplo:
+### Data Hub
+- `GET /api/weather/forecast`
+- `GET /api/weather/archive`
+- `GET /api/alerts`
+- `GET /api/alerts/intelligence` (fusão: alertas externos + meteorologia + geocodificação)
+- `GET /api/transparency/transfers`
+- `GET /api/transparency/search`
+- `GET /api/satellite/layers`
+- `GET /api/satellite/stac/search`
+- `GET /api/satellite/goes/recent`
 
-```bash
-DRY_RUN=1 FRONTEND_PORT=8088 BACKEND_PORT=8001 ./scripts/bootstrap_backlog.sh
-```
+## Licença
 
-Saídas principais:
-
-- `artifacts/smoke-test.json` (resultado de smoke test dos endpoints críticos)
-- `BACKLOG.md` (TODO list + Kanban priorizado por impacto de crise)
-
-
-## Documentação técnica
-- [Arquitetura Atual](docs/ARCHITECTURE_CURRENT.md)
-- [RBAC e Roles](docs/AUTHZ_ROLES.md)
-- [Visão dos Módulos](docs/MODULES_OVERVIEW.md)
-- [Política Privacidade/Transparência](docs/PRIVACY_TRANSPARENCY_POLICY.md)
-- [Relatório de Implementação](docs/IMPLEMENTATION_REPORT.md)
+MIT.

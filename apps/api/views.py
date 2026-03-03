@@ -12,7 +12,7 @@ from urllib.request import Request, urlopen
 import googlemaps
 from django.conf import settings
 from django.db import transaction
-from django.http import HttpResponse, JsonResponse
+from django.http import HttpResponse, JsonResponse, StreamingHttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework import status
 from rest_framework.response import Response
@@ -886,6 +886,43 @@ def location_flow_simulation(request):
         },
         safe=False,
     )
+
+
+@csrf_exempt
+def location_flow_simulation_stream(request):
+    if request.method != 'GET':
+        return HttpResponse(status=405)
+
+    lat = _parse_float(request.GET.get('lat'))
+    lng = _parse_float(request.GET.get('lng'))
+    if lat is None or lng is None:
+        return _json_error('lat/lng são obrigatórios para stream de simulação.')
+
+    slope_factor = _parse_float(request.GET.get('slopeFactor')) or 35.0
+    steps = int(request.GET.get('steps') or 8)
+    rainfall_override = _parse_float(request.GET.get('rainfallMm'))
+
+    terrain_context = _terrain_open_data_context(lat, lng, rainfall_override)
+    legacy = _simulate_tailing_flow(lat, lng, slope_factor, steps, terrain_context)
+    path = legacy.get('flowPath') or []
+
+    def event_stream():
+        for index, point in enumerate(path):
+            payload = {
+                'type': 'flow-step',
+                'step': index,
+                'lat': point.get('lat'),
+                'lng': point.get('lng'),
+                'depth': round(float(point.get('relativeDepthM') or 0), 3),
+                'terrain': point.get('terrain', {}).get('elevationM', 0),
+                'risk': point.get('terrain', {}).get('riskLevel', 'unknown'),
+            }
+            yield f"data: {json.dumps(payload)}\n\n"
+        yield f"data: {json.dumps({'type': 'done', 'totalSteps': len(path)})}\n\n"
+
+    response = StreamingHttpResponse(event_stream(), content_type='text/event-stream')
+    response['Cache-Control'] = 'no-cache'
+    return response
 
 
 @csrf_exempt

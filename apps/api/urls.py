@@ -9,6 +9,7 @@ from apps.api.views import (
     hotspots,
     identify_victim,
     location_flow_simulation,
+    location_flow_simulation_stream,
     unified_easy_simulation,
     missing_people_csv,
     news_updates,
@@ -35,27 +36,7 @@ from apps.api.views_auth import (
 )
 
 from apps.api.views_risk import risk_assessment, risk_pipeline_sync
-from apps.api.views_disasters import (
-    disasters_events,
-    disasters_by_country,
-    disasters_timeseries,
-    disasters_crawl_trigger,
-)
-
-from apps.api.views_modules import (
-    incidents_collection,
-    incident_detail,
-    support_campaigns,
-    support_donations,
-    support_expenses,
-    rescue_search_areas,
-    rescue_search_area_update,
-    rescue_assignments,
-    public_incidents,
-    public_latest_snapshot,
-    public_support_summary,
-    public_search_areas,
-)
+from apps.api.views_auth import auth_login, auth_logout, auth_me, auth_register
 
 from apps.api.views_integrations import (
     alerts as alerts_feed,
@@ -101,6 +82,7 @@ urlpatterns = [
     path('rescue-support', rescue_support, name='rescue_support'),
     path('climate/integrations', climate_integrations, name='climate_integrations'),
     path('location/flow-simulation', location_flow_simulation, name='location_flow_simulation'),
+    path('location/flow-simulation/stream', location_flow_simulation_stream, name='location_flow_simulation_stream'),
     path('simulation/easy', unified_easy_simulation, name='unified_easy_simulation'),
     path('terrain/context', terrain_context, name='terrain_context'),
     path('searched-areas', searched_areas, name='searched_areas'),
@@ -130,15 +112,8 @@ urlpatterns = [
     path('satellite/layers', satellite_layers, name='satellite_layers'),
     path('satellite/stac/search', satellite_stac_search, name='satellite_stac_search'),
     path('satellite/goes/recent', satellite_goes_recent, name='satellite_goes_recent'),
-
-    path('integrations/weather/forecast', weather_forecast, name='integrations_weather_forecast'),
-    path('integrations/weather/history', weather_archive, name='integrations_weather_history'),
-    path('integrations/alerts', alerts_feed, name='integrations_alerts'),
-    path('integrations/transparency/transfers', transparency_transfers, name='integrations_transparency_transfers'),
-    path('integrations/transparency/summary', transparency_summary, name='integrations_transparency_summary'),
-    path('integrations/satellite/layers', satellite_layers, name='integrations_satellite_layers'),
-    path('disasters/events', disasters_events, name='disasters_events_alias'),
-    path('disasters/stats/by-country', disasters_by_country, name='disasters_stats_by_country'),
-    path('disasters/stats/timeseries', disasters_timeseries, name='disasters_stats_timeseries'),
-    path('disasters/crawl-trigger', disasters_crawl_trigger, name='disasters_crawl_trigger'),
+    path('auth/register', auth_register, name='auth_register'),
+    path('auth/login', auth_login, name='auth_login'),
+    path('auth/me', auth_me, name='auth_me'),
+    path('auth/logout', auth_logout, name='auth_logout'),
 ]
