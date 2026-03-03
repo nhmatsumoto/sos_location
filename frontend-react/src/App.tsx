@@ -200,6 +200,7 @@ const LOCAL_WEEKLY_RAIN_NEWS: NewsUpdate[] = [
 interface ClimakiSnapshot {
   fetchedAtIso: string;
   locationLabel: string;
+  temperatureC: number;
   rainLast24hMm: number;
   rainLast72hMm: number;
   soilMoisturePercent: number;
@@ -556,6 +557,7 @@ export default function App() {
         const rainLast24hMm = Number(summary?.rainfallMm24h) || 0;
         const rainLast72hMm = Math.round(rainLast24hMm * 1.8 * 10) / 10;
         const soilMoisturePercent = Number(summary?.relativeHumidityPercent) || 35;
+        const temperatureC = Number(summary?.temperatureCelsius ?? summary?.temperatureC ?? 24);
 
         let saturationLevel: ClimakiSnapshot['saturationLevel'] = 'Baixa';
         let saturationRisk = 'Solo com capacidade de infiltração ainda relevante.';
@@ -574,6 +576,7 @@ export default function App() {
         setClimakiSnapshot({
           fetchedAtIso: data?.fetchedAtUtc ?? new Date().toISOString(),
           locationLabel: 'Ubá (MG) • integrações climáticas externas',
+          temperatureC,
           rainLast24hMm,
           rainLast72hMm,
           soilMoisturePercent,
@@ -966,12 +969,12 @@ export default function App() {
   return (
     <>
       <div className="flex flex-col h-screen w-full bg-slate-900 text-slate-200 font-sans overflow-hidden">
-        <div className="w-full max-h-[42vh] border-b border-slate-700 bg-slate-800 flex flex-col z-20 shadow-2xl overflow-y-auto custom-scrollbar">
+        <div className="fixed right-4 top-4 z-[460] w-[24rem] max-h-[calc(100vh-2rem)] border border-slate-700 bg-slate-800/95 backdrop-blur-md rounded-2xl flex flex-col shadow-2xl overflow-y-auto custom-scrollbar">
           <div className="px-4 py-3 border-b border-slate-700 bg-slate-800/95 backdrop-blur-md sticky top-0 z-40">
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <ShieldAlert className="text-red-500 w-5 h-5" />
-                <h1 className="text-base font-bold tracking-tight text-white">Centro de comando</h1>
+                <h1 className="text-base font-bold tracking-tight text-white">Painel de ferramentas</h1>
               </div>
             </div>
           </div>
@@ -1417,6 +1420,69 @@ export default function App() {
               <button onClick={() => setMapQuickMenu(null)} className="w-full text-left flex items-center gap-2 px-2 py-1.5 rounded text-sm hover:bg-slate-800"><X className="w-4 h-4 text-slate-400" /> Fechar menu</button>
             </div>
           )}
+
+
+          <aside className="absolute left-4 top-4 z-[425] w-80 max-w-[calc(100%-2rem)] rounded-2xl border border-slate-700 bg-slate-950/90 shadow-2xl backdrop-blur-sm">
+            <div className="px-3 py-2 border-b border-slate-700">
+              <h2 className="text-xs uppercase tracking-[0.14em] text-slate-300 font-semibold">Condições locais</h2>
+              <p className="text-[11px] text-slate-400 mt-1">Desaparecidos, chuva, temperatura e status climático da região.</p>
+            </div>
+            <div className="p-3 space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                <div className="rounded-lg border border-slate-700 bg-slate-900/70 px-2.5 py-2">
+                  <p className="text-[10px] text-slate-400">Desaparecidos</p>
+                  <p className="text-sm font-semibold text-amber-300">{missingPeople.length}</p>
+                </div>
+                <div className="rounded-lg border border-slate-700 bg-slate-900/70 px-2.5 py-2">
+                  <p className="text-[10px] text-slate-400">Alertas de atenção</p>
+                  <p className="text-sm font-semibold text-rose-300">{attentionAlerts.length}</p>
+                </div>
+              </div>
+
+              {loadingMissing ? (
+                <p className="text-xs text-slate-400">Carregando pessoas desaparecidas...</p>
+              ) : (
+                <div className="rounded-lg border border-slate-700 bg-slate-900/60 p-2">
+                  <p className="text-[10px] text-slate-400 mb-1">Últimos registros</p>
+                  <ul className="space-y-1 max-h-20 overflow-y-auto">
+                    {missingPeople.slice(0, 3).map((person) => (
+                      <li key={person.id} className="text-xs text-slate-200">
+                        <span className="font-semibold">{person.personName}</span> · {person.lastSeenLocation}
+                      </li>
+                    ))}
+                    {!missingPeople.length && <li className="text-xs text-slate-500">Sem registros recentes.</li>}
+                  </ul>
+                </div>
+              )}
+
+              {loadingClimaki ? (
+                <p className="text-xs text-slate-400">Atualizando clima local...</p>
+              ) : climakiError ? (
+                <p className="text-xs text-amber-300">{climakiError}</p>
+              ) : climakiSnapshot ? (
+                <div className="space-y-2">
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="rounded-lg border border-slate-700 bg-slate-900/70 px-2 py-1.5">
+                      <p className="text-[10px] text-slate-400">Temp.</p>
+                      <p className="text-xs font-semibold text-cyan-200">{climakiSnapshot.temperatureC.toFixed(1)}°C</p>
+                    </div>
+                    <div className="rounded-lg border border-slate-700 bg-slate-900/70 px-2 py-1.5">
+                      <p className="text-[10px] text-slate-400">Chuva 24h</p>
+                      <p className="text-xs font-semibold text-cyan-200">{climakiSnapshot.rainLast24hMm.toFixed(1)} mm</p>
+                    </div>
+                    <div className="rounded-lg border border-slate-700 bg-slate-900/70 px-2 py-1.5">
+                      <p className="text-[10px] text-slate-400">Chuva 72h</p>
+                      <p className="text-xs font-semibold text-cyan-200">{climakiSnapshot.rainLast72hMm.toFixed(1)} mm</p>
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-slate-700 bg-slate-900/70 px-2.5 py-2">
+                    <p className="text-xs font-semibold text-white">Condição: <span className="text-cyan-200">{climakiSnapshot.saturationLevel}</span></p>
+                    <p className="text-[11px] text-slate-300 mt-1">{climakiSnapshot.saturationRisk}</p>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </aside>
 
           {dockedPanels.global || dockedPanels.terrain ? (
             <aside className="absolute right-4 top-1/2 -translate-y-1/2 z-[420] bg-slate-950/90 border border-slate-700 rounded-2xl px-2 py-2 shadow-2xl backdrop-blur-sm flex flex-col gap-2 min-w-[180px]">
