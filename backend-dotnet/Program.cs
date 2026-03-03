@@ -326,9 +326,33 @@ sealed class MissingPersonStore
 
     public MissingPerson Add(MissingPersonCreateRequest payload)
     {
-        var id = $"MP-{DateTimeOffset.UtcNow:yyyyMMddHHmmss}-{Random.Shared.Next(100, 999)}";
-        var item = new MissingPerson(
-            Id: id,
+        for (var attempt = 0; attempt < 5; attempt++)
+        {
+            var reportedAtUtc = DateTimeOffset.UtcNow;
+            var id = $"MP-{reportedAtUtc:yyyyMMddHHmmssfff}-{Random.Shared.Next(1000, 10000)}";
+            var item = new MissingPerson(
+                Id: id,
+                PersonName: payload.PersonName,
+                Age: payload.Age,
+                City: payload.City,
+                LastSeenLocation: payload.LastSeenLocation,
+                PhysicalDescription: payload.PhysicalDescription,
+                AdditionalInfo: payload.AdditionalInfo,
+                ContactName: payload.ContactName,
+                ContactPhone: payload.ContactPhone,
+                ReportedAtUtc: reportedAtUtc
+            );
+
+            if (_entries.TryAdd(id, item))
+            {
+                return item;
+            }
+        }
+
+        var fallbackReportedAtUtc = DateTimeOffset.UtcNow;
+        var fallbackId = $"MP-{fallbackReportedAtUtc:yyyyMMddHHmmssfff}-{Guid.NewGuid():N}";
+        var fallbackItem = new MissingPerson(
+            Id: fallbackId,
             PersonName: payload.PersonName,
             Age: payload.Age,
             City: payload.City,
@@ -337,11 +361,11 @@ sealed class MissingPersonStore
             AdditionalInfo: payload.AdditionalInfo,
             ContactName: payload.ContactName,
             ContactPhone: payload.ContactPhone,
-            ReportedAtUtc: DateTimeOffset.UtcNow
+            ReportedAtUtc: fallbackReportedAtUtc
         );
 
-        _entries[id] = item;
-        return item;
+        _entries[fallbackId] = fallbackItem;
+        return fallbackItem;
     }
 
     public IReadOnlyList<MissingPerson> GetAll()
