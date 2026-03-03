@@ -148,6 +148,16 @@ NEWS_UPDATES_CACHE = {
 }
 
 
+def health_check(request):
+    return JsonResponse(
+        {
+            "status": "ok",
+            "service": "mg_location_backend",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+    )
+
+
 def _strip_html(text):
     return re.sub(r'\s+', ' ', re.sub(r'<[^>]*>', ' ', text or '')).strip()
 

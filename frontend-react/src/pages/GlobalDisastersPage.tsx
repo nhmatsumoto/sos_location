@@ -4,6 +4,7 @@ import { Modal } from '../components/ui/Modal';
 import { createEvent, getEvents } from '../services/disastersApi';
 import { missingPersonsApi } from '../services/missingPersonsApi';
 import { operationsApi } from '../services/operationsApi';
+import { useNotifications } from '../context/NotificationsContext';
 
 type ToolMode = 'inspect' | 'point' | 'area';
 
@@ -71,17 +72,24 @@ export function GlobalDisastersPage() {
     sourceUrl: '',
   });
   const [opsForm, setOpsForm] = useState({ personName: '', lastSeenLocation: '', incidentTitle: '', severity: 'high' });
+  const { pushNotice } = useNotifications();
 
   const loadEvents = async () => {
     setLoading(true);
-    const all: any[] = [];
-    for (let page = 1; page <= MAX_PAGES; page += 1) {
-      const resp = await getEvents({ country: country || undefined, minSeverity, page, pageSize: 500 });
-      all.push(...resp.items);
-      if (all.length >= resp.total || resp.items.length === 0) break;
+    try {
+      const all: any[] = [];
+      for (let page = 1; page <= MAX_PAGES; page += 1) {
+        const resp = await getEvents({ country: country || undefined, minSeverity, page, pageSize: 500 });
+        all.push(...resp.items);
+        if (all.length >= resp.total || resp.items.length === 0) break;
+      }
+      setEvents(all);
+    } catch {
+      setEvents([]);
+      pushNotice({ type: 'warning', title: 'Eventos indisponíveis', message: 'Não foi possível consultar eventos globais no backend.' });
+    } finally {
+      setLoading(false);
     }
-    setEvents(all);
-    setLoading(false);
   };
 
   useEffect(() => {
@@ -106,45 +114,53 @@ export function GlobalDisastersPage() {
   };
 
   const saveEvent = async () => {
-    await createEvent({
-      provider: form.provider,
-      eventType: form.eventType,
-      severity: Number(form.severity),
-      title: form.title,
-      description: form.description,
-      lat: Number(form.lat),
-      lon: Number(form.lon),
-      countryCode: form.countryCode,
-      countryName: form.countryName,
-      sourceUrl: form.sourceUrl,
-      geometry: areaDraft.length > 2 ? { type: 'Polygon', coordinates: [areaDraft.map(([lat, lon]) => [lon, lat])] } : undefined,
-    });
-    setOpenEventModal(false);
-    setAreaDraft([]);
-    await loadEvents();
+    try {
+      await createEvent({
+        provider: form.provider,
+        eventType: form.eventType,
+        severity: Number(form.severity),
+        title: form.title,
+        description: form.description,
+        lat: Number(form.lat),
+        lon: Number(form.lon),
+        countryCode: form.countryCode,
+        countryName: form.countryName,
+        sourceUrl: form.sourceUrl,
+        geometry: areaDraft.length > 2 ? { type: 'Polygon', coordinates: [areaDraft.map(([lat, lon]) => [lon, lat])] } : undefined,
+      });
+      setOpenEventModal(false);
+      setAreaDraft([]);
+      await loadEvents();
+    } catch {
+      pushNotice({ type: 'error', title: 'Falha ao salvar evento', message: 'Não foi possível registrar o evento global sem backend ativo.' });
+    }
   };
 
   const saveOps = async () => {
-    if (form.lat && form.lon && opsForm.incidentTitle) {
-      await operationsApi.createMapAnnotation({
-        recordType: 'risk_area',
-        title: opsForm.incidentTitle,
-        lat: Number(form.lat),
-        lng: Number(form.lon),
-        severity: opsForm.severity,
-        radiusMeters: 300,
-      });
+    try {
+      if (form.lat && form.lon && opsForm.incidentTitle) {
+        await operationsApi.createMapAnnotation({
+          recordType: 'risk_area',
+          title: opsForm.incidentTitle,
+          lat: Number(form.lat),
+          lng: Number(form.lon),
+          severity: opsForm.severity,
+          radiusMeters: 300,
+        });
+      }
+      if (opsForm.personName) {
+        await missingPersonsApi.create({
+          personName: opsForm.personName,
+          city: 'Ubá',
+          lastSeenLocation: opsForm.lastSeenLocation || `${form.lat}, ${form.lon}`,
+          contactPhone: 'Não informado',
+          contactName: 'Central MG Location',
+        });
+      }
+      setOpenOpsModal(false);
+    } catch {
+      pushNotice({ type: 'error', title: 'Falha no cadastro operacional', message: 'Não foi possível concluir o cadastro operacional sem backend ativo.' });
     }
-    if (opsForm.personName) {
-      await missingPersonsApi.create({
-        personName: opsForm.personName,
-        city: 'Ubá',
-        lastSeenLocation: opsForm.lastSeenLocation || `${form.lat}, ${form.lon}`,
-        contactPhone: 'Não informado',
-        contactName: 'Central MG Location',
-      });
-    }
-    setOpenOpsModal(false);
   };
 
   return (

@@ -73,6 +73,17 @@ export const apiClient = axios.create({
   timeout: 10000,
 });
 
+if (import.meta.env.DEV) {
+  frontendLogger.info('API client configured', {
+    baseURL: apiClient.defaults.baseURL || '(relative /api via Vite proxy)',
+  });
+}
+
+export const checkBackendHealth = async () => {
+  const response = await apiClient.get('/api/health', { __skipGlobalNotify: true } as any);
+  return response.data as { status: string; service: string; timestamp: string };
+};
+
 apiClient.interceptors.request.use((config) => {
   frontendLogger.debug('API request started', {
     method: config.method,
