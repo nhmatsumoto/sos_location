@@ -24,11 +24,24 @@ class SimpleCorsMiddleware:
         )
         self.allow_localhost_any_port = config('CORS_ALLOW_LOCALHOST_ANY_PORT', default=True, cast=bool)
         self.allow_credentials = config('CORS_ALLOW_CREDENTIALS', default=False, cast=bool)
-        self.allowed_methods = 'GET, POST, PUT, PATCH, DELETE, OPTIONS'
-        self.allowed_headers = (
-            'Authorization, Content-Type, Accept, Origin, X-Requested-With, '
-            'X-CSRFToken, X-Csrftoken'
+        self.allowed_methods = ', '.join(
+            config(
+                'CORS_ALLOWED_METHODS',
+                default='GET,POST,PUT,PATCH,DELETE,OPTIONS',
+                cast=Csv(),
+            )
         )
+        self.allowed_headers = ', '.join(
+            config(
+                'CORS_ALLOWED_HEADERS',
+                default=(
+                    'Authorization,Content-Type,Accept,Origin,X-Requested-With,'
+                    'X-CSRFToken,X-Csrftoken'
+                ),
+                cast=Csv(),
+            )
+        )
+        self.max_age = config('CORS_PREFLIGHT_MAX_AGE', default=600, cast=int)
 
     def __call__(self, request):
         if request.path.startswith('/api/') and request.method == 'OPTIONS':
@@ -60,9 +73,12 @@ class SimpleCorsMiddleware:
             return response
 
         response['Access-Control-Allow-Origin'] = origin
-        response['Vary'] = 'Origin'
+        vary = response.get('Vary')
+        response['Vary'] = f'{vary}, Origin' if vary else 'Origin'
         response['Access-Control-Allow-Methods'] = self.allowed_methods
-        response['Access-Control-Allow-Headers'] = self.allowed_headers
+        requested_headers = request.headers.get('Access-Control-Request-Headers', '').strip()
+        response['Access-Control-Allow-Headers'] = requested_headers or self.allowed_headers
+        response['Access-Control-Max-Age'] = str(self.max_age)
         if self.allow_credentials:
             response['Access-Control-Allow-Credentials'] = 'true'
 
