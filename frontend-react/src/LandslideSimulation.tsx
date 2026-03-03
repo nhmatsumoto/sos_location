@@ -100,13 +100,15 @@ const toSceneHeight = (terrainGrid: TerrainGrid, elevation: number) => {
 };
 
 const TerrainPatch = ({ radiusMeters, terrainGrid }: TerrainPatchProps) => {
-  const geometry = useMemo(() => {
+  const { geometry, contourGeometry } = useMemo(() => {
     const halfExtent = Math.max(12, radiusMeters / 50);
     const segments = terrainGrid.gridSize - 1;
     const geo = new THREE.PlaneGeometry(halfExtent * 2, halfExtent * 2, segments, segments);
     geo.rotateX(-Math.PI / 2);
 
     const positions = geo.attributes.position;
+    const colors = new Float32Array(positions.count * 3);
+    const color = new THREE.Color();
 
     for (let i = 0; i < positions.count; i += 1) {
       const x = positions.getX(i);
@@ -114,17 +116,40 @@ const TerrainPatch = ({ radiusMeters, terrainGrid }: TerrainPatchProps) => {
       const xNorm = (x + halfExtent) / (halfExtent * 2);
       const zNorm = (z + halfExtent) / (halfExtent * 2);
       const elevation = sampleGridHeight(terrainGrid, xNorm, zNorm);
-      positions.setY(i, toSceneHeight(terrainGrid, elevation));
+      const normalizedElevation = (elevation - terrainGrid.minElevation) / Math.max(1, terrainGrid.maxElevation - terrainGrid.minElevation);
+      const reliefNoise = Math.sin(xNorm * 18) * 0.04 + Math.cos(zNorm * 16) * 0.04;
+      positions.setY(i, toSceneHeight(terrainGrid, elevation) + reliefNoise);
+
+      const rockyBlend = Math.min(1, normalizedElevation * 1.2);
+      color.setRGB(
+        0.14 + rockyBlend * 0.24,
+        0.21 + rockyBlend * 0.21,
+        0.13 + rockyBlend * 0.16,
+      );
+      color.toArray(colors, i * 3);
     }
 
+    geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     geo.computeVertexNormals();
-    return geo;
+
+    const contour = geo.clone();
+    const contourPos = contour.attributes.position;
+    for (let i = 0; i < contourPos.count; i += 1) {
+      contourPos.setY(i, contourPos.getY(i) + 0.05);
+    }
+
+    return { geometry: geo, contourGeometry: contour };
   }, [radiusMeters, terrainGrid]);
 
   return (
-    <mesh geometry={geometry} receiveShadow>
-      <meshStandardMaterial color="#263246" roughness={0.92} metalness={0.08} />
-    </mesh>
+    <group>
+      <mesh geometry={geometry} receiveShadow>
+        <meshStandardMaterial vertexColors roughness={0.94} metalness={0.05} />
+      </mesh>
+      <mesh geometry={contourGeometry} receiveShadow>
+        <meshBasicMaterial color="#9ca3af" wireframe transparent opacity={0.12} />
+      </mesh>
+    </group>
   );
 };
 
@@ -135,21 +160,28 @@ const RunoutParticles = ({ radiusMeters, postSlideIntensity, terrainGrid }: Runo
   const positions = useMemo(() => {
     const data = new Float32Array(count * 3);
     for (let i = 0; i < count; i += 1) {
-      data[i * 3] = (Math.random() - 0.5) * (halfExtent * 0.9);
-      data[i * 3 + 1] = 6 + Math.random() * 4;
-      data[i * 3 + 2] = -halfExtent * 0.8 + Math.random() * 4;
+      const n0 = (Math.sin((i + 1) * 12.9898) + 1) * 0.5;
+      const n1 = (Math.sin((i + 1) * 78.233) + 1) * 0.5;
+      const n2 = (Math.sin((i + 1) * 39.425) + 1) * 0.5;
+      data[i * 3] = (n0 - 0.5) * (halfExtent * 0.9);
+      data[i * 3 + 1] = 6 + n1 * 4;
+      data[i * 3 + 2] = -halfExtent * 0.8 + n2 * 4;
     }
     return data;
   }, [count, halfExtent]);
 
-  const velocities = useMemo(() => {
-    const data = new Float32Array(count * 3);
+  const velocitiesRef = useRef<Float32Array>(new Float32Array(count * 3));
+
+  useEffect(() => {
+    const velocities = velocitiesRef.current;
     for (let i = 0; i < count; i += 1) {
-      data[i * 3] = (Math.random() - 0.5) * 0.05;
-      data[i * 3 + 1] = -0.1 - Math.random() * 0.08;
-      data[i * 3 + 2] = 0.08 + Math.random() * 0.12;
+      const n0 = (Math.sin((i + 1) * 22.111) + 1) * 0.5;
+      const n1 = (Math.sin((i + 1) * 54.317) + 1) * 0.5;
+      const n2 = (Math.sin((i + 1) * 93.733) + 1) * 0.5;
+      velocities[i * 3] = (n0 - 0.5) * 0.05;
+      velocities[i * 3 + 1] = -0.1 - n1 * 0.08;
+      velocities[i * 3 + 2] = 0.08 + n2 * 0.12;
     }
-    return data;
   }, [count]);
 
   const geometryRef = useRef<THREE.BufferGeometry>(null);
@@ -162,6 +194,7 @@ const RunoutParticles = ({ radiusMeters, postSlideIntensity, terrainGrid }: Runo
     const videoPush = postSlideIntensity * 0.004;
 
     for (let i = 0; i < count; i += 1) {
+      const velocities = velocitiesRef.current;
       posArray[i * 3] += velocities[i * 3];
       posArray[i * 3 + 1] += velocities[i * 3 + 1];
       posArray[i * 3 + 2] += velocities[i * 3 + 2];
@@ -176,16 +209,19 @@ const RunoutParticles = ({ radiusMeters, postSlideIntensity, terrainGrid }: Runo
         posArray[i * 3 + 1] = terrainY + 0.2;
         velocities[i * 3 + 1] = -0.02;
         velocities[i * 3 + 2] += 0.004 + videoPush;
-        velocities[i * 3] += (Math.random() - 0.5) * (0.006 + videoPush * 0.5);
+        velocities[i * 3] += (Math.sin(i * 17.13) * 0.5) * (0.006 + videoPush * 0.5);
       }
 
       if (z > halfExtent || posArray[i * 3 + 1] < -10 || xNorm < -0.1 || xNorm > 1.1 || zNorm > 1.2) {
-        posArray[i * 3] = (Math.random() - 0.5) * (halfExtent * 0.9);
-        posArray[i * 3 + 1] = 6 + Math.random() * 4;
-        posArray[i * 3 + 2] = -halfExtent * 0.8 + Math.random() * 4;
-        velocities[i * 3] = (Math.random() - 0.5) * 0.05;
-        velocities[i * 3 + 1] = -0.1 - Math.random() * 0.08;
-        velocities[i * 3 + 2] = 0.08 + Math.random() * 0.12;
+        const n0 = (Math.sin((i + 1) * 12.9898 + z * 0.1) + 1) * 0.5;
+        const n1 = (Math.sin((i + 1) * 78.233 + x * 0.2) + 1) * 0.5;
+        const n2 = (Math.sin((i + 1) * 39.425 + z * 0.15) + 1) * 0.5;
+        posArray[i * 3] = (n0 - 0.5) * (halfExtent * 0.9);
+        posArray[i * 3 + 1] = 6 + n1 * 4;
+        posArray[i * 3 + 2] = -halfExtent * 0.8 + n2 * 4;
+        velocities[i * 3] = (n0 - 0.5) * 0.05;
+        velocities[i * 3 + 1] = -0.1 - n1 * 0.08;
+        velocities[i * 3 + 2] = 0.08 + n2 * 0.12;
       }
     }
 
@@ -239,18 +275,26 @@ async function fetchTopographyGrid(
 
     const response = await fetch(`https://api.open-meteo.com/v1/elevation?${params.toString()}`, { signal });
 
-    if (!response.ok) {
-      throw new Error('Falha ao consultar elevação para o ponto selecionado.');
+    try {
+      const response = await fetch(`https://api.open-meteo.com/v1/elevation?${params.toString()}`);
+
+      if (!response.ok) {
+        throw new Error('Open-Meteo indisponível para este lote.');
+      }
+
+      const data = await response.json();
+      const openMeteoBatch = data?.elevation as number[] | undefined;
+
+      if (!Array.isArray(openMeteoBatch) || openMeteoBatch.length === 0) {
+        throw new Error('Open-Meteo sem dados para este lote.');
+      }
+
+      batch = openMeteoBatch.map((value) => Number(value) || 0);
+    } catch {
+      batch = await fetchOpenTopoDataBatch(allLat.slice(start, start + batchSize), allLng.slice(start, start + batchSize));
     }
 
-    const data = await response.json();
-    const batch = data?.elevation as number[] | undefined;
-
-    if (!Array.isArray(batch) || batch.length === 0) {
-      throw new Error('Sem dados de elevação para essa região.');
-    }
-
-    elevations.push(...batch.map((value) => Number(value) || 0));
+    elevations.push(...batch);
   }
 
   if (elevations.length !== allLat.length) {
@@ -355,13 +399,15 @@ export default function LandslideSimulation({
 
       {!loadingTopography && topographyError && (
         <div className="absolute top-20 left-3 z-20 max-w-[380px] bg-amber-900/70 border border-amber-600 rounded px-3 py-2 text-[11px] text-amber-100">
-          {topographyError} Exibindo relevo local aproximado enquanto o serviço externo não responde.
+          {topographyError} Usando relevo aproximado para manter a visualização ativa.
         </div>
       )}
 
       <Canvas camera={{ position: [12, 10, 14], fov: 47 }} shadows>
         <ambientLight intensity={0.42} />
         <directionalLight position={[10, 20, 5]} intensity={1.15} castShadow />
+        <directionalLight position={[-8, 6, -4]} intensity={0.35} color="#93c5fd" />
+        <fog attach="fog" args={['#0f172a', 18, 45]} />
         <color attach="background" args={['#0f172a']} />
 
         <TerrainPatch radiusMeters={localRadiusMeters} terrainGrid={terrainGrid} />

@@ -1,27 +1,213 @@
-[v-cloak] {
-    display: none;
+[v-cloak] { display: none; }
+
+body {
+    margin: 0;
+    font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: #f3f6fb;
+    color: #1d2b3a;
 }
 
-#map {
-    width: 100%;
-    height: 100%;
-}
-
-.container-fluid {
+.app-shell {
     min-height: 100vh;
+    padding: 0.75rem;
 }
 
-.repo {
-    position: fixed;
-    left: 10px;
-    bottom: 10px;
-    background: rgba(255, 255, 255, 0.9);
-    border: 1px solid #CCC;
-    border-radius: 3px;
-    z-index: 1000;
-    padding: 4px 8px;
+.app-header {
+    background: #fff;
+    border: 1px solid #dbe4f0;
+    border-radius: 10px;
+    padding: 0.65rem 0.9rem;
+    margin-bottom: 0.75rem;
 }
 
-#map {
-    min-height: 80vh;
+.header-kicker {
+    text-transform: uppercase;
+    font-weight: 700;
+    letter-spacing: .08em;
+    color: #2f6dba;
+    font-size: .75rem;
+}
+
+.locale-switcher { display: flex; gap: .4rem; }
+.gap-sm { gap: .5rem; }
+
+.map-layout {
+    position: relative;
+    height: calc(100vh - 105px);
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid #cfdceb;
+}
+
+.map-panel {
+    position: absolute;
+    z-index: 900;
+    background: rgba(255, 255, 255, 0.96);
+    border: 1px solid #d1deee;
+    border-radius: 10px;
+    box-shadow: 0 6px 18px rgba(17, 35, 58, .12);
+    padding: .75rem;
+}
+
+.map-panel .form-control {
+    border-color: #c8d7ea;
+}
+
+.map-panel .form-control:focus {
+    border-color: #2f6dba;
+    box-shadow: 0 0 0 0.1rem rgba(47, 109, 186, .2);
+}
+
+.panel-main {
+    left: 12px;
+    top: 12px;
+    width: 320px;
+    max-height: calc(100% - 24px);
+    overflow-y: auto;
+}
+
+.panel-missing {
+    right: 12px;
+    top: 12px;
+    width: 320px;
+}
+
+.panel-location-info {
+    right: 12px;
+    top: 330px;
+    width: 320px;
+}
+
+.panel-notifications {
+    left: 12px;
+    bottom: 62px;
+    width: 350px;
+    max-height: 320px;
+    display: flex;
+    flex-direction: column;
+    gap: .55rem;
+}
+
+.tool-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .4rem;
+}
+
+.notification-list {
+    list-style: none;
+    padding-left: 0;
+}
+
+.notification-list li {
+    display: flex;
+    flex-direction: column;
+    border-left: 3px solid #2f6dba;
+    padding-left: .5rem;
+    margin-bottom: .45rem;
+    font-size: .82rem;
+}
+
+.notification-list li small {
+    color: #6b7e92;
+}
+
+.sidebar-tabs {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: .35rem;
+}
+
+.sidebar-title-row {
+    display: flex;
+    align-items: center;
+    gap: .45rem;
+}
+
+.sidebar-title-icon {
+    width: 1.6rem;
+    height: 1.6rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: #e6f0ff;
+    font-size: .95rem;
+}
+
+.sidebar-tabs-sticky {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: rgba(255, 255, 255, 0.98);
+    padding-bottom: .3rem;
+    border-bottom: 1px solid #d7e3f1;
+}
+
+.sidebar-scroll-area {
+    overflow-y: auto;
+    max-height: 210px;
+    padding-right: .2rem;
+}
+
+.sidebar-scroll-area::-webkit-scrollbar {
+    width: 7px;
+}
+
+.sidebar-scroll-area::-webkit-scrollbar-thumb {
+    background: #b9cbe2;
+    border-radius: 8px;
+}
+
+.sidebar-tabs .btn {
+    font-size: .75rem;
+    padding: .25rem .3rem;
+}
+
+.muted-item {
+    color: #6b7e92;
+    border-left: none !important;
+    padding-left: 0 !important;
+}
+
+.helper-muted {
+    color: #4f657d;
+}
+
+.panel-services {
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: 12px;
+    width: auto;
+    max-width: calc(100% - 32px);
+}
+
+.status-box {
+    background: #f1f8ff;
+    border: 1px solid #cfe5ff;
+    border-radius: 8px;
+    padding: .45rem .6rem;
+    font-size: .88rem;
+}
+
+@media (max-width: 992px) {
+    .map-layout {
+        height: auto;
+        min-height: 78vh;
+        padding: 10px;
+    }
+
+    #map {
+        min-height: 62vh;
+        border-radius: 10px;
+    }
+
+    .map-panel {
+        position: static;
+        transform: none;
+        width: 100%;
+        margin-bottom: 0.55rem;
+        max-height: none;
+        overflow: visible;
+    }
 }

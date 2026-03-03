@@ -1,19 +1,35 @@
 import csv
 import io
+import json
+import logging
 import os
+import re
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from urllib.parse import quote
+from urllib.request import Request, urlopen
 
 import googlemaps
 from django.conf import settings
-from django.http import HttpResponse, JsonResponse
+from django.db import transaction
+from django.http import HttpResponse, JsonResponse, StreamingHttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from werkzeug.utils import secure_filename
 
-from apps.api.serializers import CoordinateSerializer
+from apps.api.models import AttentionAlert, CollapseReport, DisasterEvent, MapAnnotation, MissingPerson, RescueGroup, SupplyLogistics
+from apps.api.serializers import (
+    CoordinateSerializer,
+    RescueGroupSerializer,
+    RiskAreaSerializer,
+    SupplyLogisticsSerializer,
+    SupportPointSerializer,
+)
 from apps.api.utils import Position
+
+logger = logging.getLogger(__name__)
 
 
 class CalculateCoordinate(APIView):
@@ -23,8 +39,10 @@ class CalculateCoordinate(APIView):
         return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
     def post(self, request):
-        serializer = CoordinateSerializer(request.data)
-        lat, lng = serializer.data['lat'], serializer.data['lng']
+        serializer = CoordinateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        lat = serializer.validated_data['lat']
+        lng = serializer.validated_data['lng']
         vector_position = Position(lat, lng).calc_vector()
         return Response(vector_position, status=status.HTTP_200_OK)
 
@@ -37,42 +55,15 @@ def get_elevation(lat, lng):
 
 calculatecoordinate = CalculateCoordinate.as_view()
 
-HOTSPOTS = [
+DEFAULT_HOTSPOTS = [
     {
-        "id": "HS-001",
-        "lat": -21.1215,
-        "lng": -42.9427,
-        "score": 98.5,
-        "confidence": 0.95,
-        "type": "Landslide",
-        "riskFactors": ["Alta declividade (35°)", "Solo encharcado (>200mm/72h)", "Histórico de deslizamento"],
-        "humanExposure": "Alta",
-        "estimatedAffected": 45,
-        "urgency": "Imediata (Tier 1)",
-    },
-    {
-        "id": "HS-002",
-        "lat": -21.1198,
-        "lng": -42.9372,
-        "score": 92.1,
-        "confidence": 0.88,
-        "type": "Flood",
-        "riskFactors": ["Rio transbordou (+2.5m)", "Área de planície", "Corte de energia relatado"],
-        "humanExposure": "Extrema",
-        "estimatedAffected": 120,
-        "urgency": "Imediata (Tier 1)",
-    },
-    {
-        "id": "HS-003",
-        "lat": -21.1350,
-        "lng": -42.9510,
-        "score": 85.3,
-        "confidence": 0.75,
-        "type": "Landslide",
-        "riskFactors": ["Cicatriz antiga detectada via SAR", "Chuva moderada continuada"],
-        "humanExposure": "Média",
-        "estimatedAffected": 15,
-        "urgency": "Alta (Tier 2)",
+        'id': 'HS-BOOT-001',
+        'lat': -21.1215,
+        'lng': -42.9427,
+        'score': 86.0,
+        'type': 'Landslide',
+        'confidence': 0.8,
+        'estimatedAffected': 30,
     },
 ]
 
@@ -131,7 +122,161 @@ CFD_REFERENCE = {
 }
 
 
+PUBLIC_ALERT_SOURCES = [
+    {
+        'id': 'defesa-civil-alerta',
+        'city': 'Brasil',
+        'label': 'Defesa Civil Alerta (MDR)',
+        'url': 'https://www.gov.br/mdr/pt-br/assuntos/protecao-e-defesa-civil/defesa-civil-alerta',
+        'thumbnailUrl': 'https://www.gov.br/mdr/++theme++padrao_govbr/img/logo.svg',
+        'kind': 'alert',
+    },
+    {
+        'id': 'portal-transparencia-acoes',
+        'city': 'Brasil',
+        'label': 'Portal da Transparência',
+        'url': 'https://portaldatransparencia.gov.br/busca?termo=defesa%20civil',
+        'thumbnailUrl': 'https://portaldatransparencia.gov.br/favicon.ico',
+        'kind': 'government_action',
+    },
+]
+
+NEWS_UPDATES_CACHE = {
+    'fetchedAtUtc': None,
+    'expiresAtUtc': None,
+    'items': [],
+}
+
+
+def health_check(request):
+    return JsonResponse(
+        {
+            "status": "ok",
+            "service": "mg_location_backend",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+    )
+
+
+def _strip_html(text):
+    return re.sub(r'\s+', ' ', re.sub(r'<[^>]*>', ' ', text or '')).strip()
+
+
+def _extract_public_alert_news(source):
+    logger.info('public_alert_fetch_started source=%s url=%s', source.get('id'), source.get('url'))
+    try:
+        with urlopen(source['url'], timeout=12) as response:
+            raw = response.read().decode('utf-8', errors='ignore')
+            logger.info('public_alert_fetch_succeeded source=%s status=%s', source.get('id'), getattr(response, 'status', 'n/a'))
+    except Exception as exc:
+        logger.exception('public_alert_fetch_failed source=%s error=%s', source.get('id'), exc)
+        return []
+
+    cleaned = _strip_html(raw)
+    snippets = re.findall(r'([^.]{40,220}(?:alerta|chuva|risco|desastre|emerg[eê]ncia)[^.]{0,180})', cleaned, flags=re.IGNORECASE)
+    unique = []
+    seen = set()
+    for chunk in snippets:
+        sentence = chunk.strip(' -:;')
+        if len(sentence) < 40:
+            continue
+        key = sentence.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append({
+            'id': f"{source['id']}-{len(unique)+1}",
+            'city': source['city'],
+            'title': sentence[:180],
+            'source': source['label'],
+            'url': source['url'],
+            'publishedAtUtc': datetime.now(timezone.utc).isoformat(),
+            'thumbnailUrl': source.get('thumbnailUrl'),
+            'kind': source.get('kind', 'alert'),
+        })
+        if len(unique) >= 8:
+            break
+
+    if unique:
+        return unique
+
+    title_match = re.search(r'<title>(.*?)</title>', raw, flags=re.IGNORECASE | re.DOTALL)
+    fallback_title = _strip_html(title_match.group(1)) if title_match else source['label']
+    return [{
+        'id': f"{source['id']}-fallback",
+        'city': source['city'],
+        'title': fallback_title[:180],
+        'source': source['label'],
+        'url': source['url'],
+        'publishedAtUtc': datetime.now(timezone.utc).isoformat(),
+        'thumbnailUrl': source.get('thumbnailUrl'),
+        'kind': source.get('kind', 'alert'),
+    }]
+
+
+def _load_public_news_updates(force_refresh=False):
+    now = datetime.now(timezone.utc)
+    logger.info('public_news_refresh_started force_refresh=%s', force_refresh)
+    expires_at = NEWS_UPDATES_CACHE.get('expiresAtUtc')
+    if not force_refresh and expires_at and now < expires_at and NEWS_UPDATES_CACHE.get('items'):
+        return NEWS_UPDATES_CACHE['items']
+
+    all_items = []
+    for source in PUBLIC_ALERT_SOURCES:
+        all_items.extend(_extract_public_alert_news(source))
+
+    if not all_items:
+        all_items = [{
+            'id': 'fallback-public-alert',
+            'city': 'Brasil',
+            'title': 'Monitoramento ativo de alertas públicos de defesa civil.',
+            'source': 'Fallback local',
+            'url': 'https://www.gov.br/mdr/pt-br/assuntos/protecao-e-defesa-civil/defesa-civil-alerta',
+            'publishedAtUtc': now.isoformat(),
+            'thumbnailUrl': 'https://portaldatransparencia.gov.br/favicon.ico',
+            'kind': 'government_action',
+        }]
+
+    dedup = []
+    seen = set()
+    for item in all_items:
+        key = (item.get('title', '').strip().lower(), item.get('source', '').strip().lower())
+        if key in seen:
+            continue
+        seen.add(key)
+        dedup.append(item)
+
+    dedup.sort(key=lambda i: i.get('publishedAtUtc', ''), reverse=True)
+
+    logger.info('public_news_refresh_completed count=%s', len(dedup))
+    NEWS_UPDATES_CACHE['items'] = dedup
+    NEWS_UPDATES_CACHE['fetchedAtUtc'] = now
+    NEWS_UPDATES_CACHE['expiresAtUtc'] = now + timedelta(minutes=30)
+    return dedup
+
+
+# Camadas simplificadas de terreno (fallback local) inspiradas em fontes abertas
+# de cobertura vegetal (Copernicus/ESA), textura de solo (SoilGrids),
+# e umidade antecedente por precipitação (Open-Meteo).
+OPEN_TERRAIN_FALLBACK = {
+    "soilTexture": "clay_loam",
+    "soilDensityKgM3": 1430,
+    "vegetationCoverPercent": 62,
+    "landUse": "Mosaico agroflorestal",
+    "baseSoilSaturation": 0.52,
+}
+
+SOIL_TYPE_FACTORS = {
+    "sand": {"infiltration": 0.82, "stability": 0.55, "roughness": 0.45},
+    "sandy_loam": {"infiltration": 0.70, "stability": 0.62, "roughness": 0.52},
+    "loam": {"infiltration": 0.64, "stability": 0.70, "roughness": 0.58},
+    "clay_loam": {"infiltration": 0.47, "stability": 0.66, "roughness": 0.64},
+    "clay": {"infiltration": 0.31, "stability": 0.59, "roughness": 0.73},
+}
+
+
 def _json_error(message, status_code=400):
+    logger.warning("api_json_error status=%s message=%s", status_code, message)
     return JsonResponse({"error": message}, status=status_code)
 
 
@@ -142,6 +287,279 @@ def _parse_float(value):
         return None
 
 
+def _attention_alert_to_dict(alert):
+    return {
+        'id': alert.external_id,
+        'title': alert.title,
+        'message': alert.message,
+        'severity': alert.severity,
+        'lat': alert.lat,
+        'lng': alert.lng,
+        'radiusMeters': alert.radius_meters,
+        'createdAtUtc': alert.created_at.isoformat(),
+    }
+
+
+def _missing_person_to_dict(person):
+    return {
+        'id': person.external_id,
+        'personName': person.person_name,
+        'age': person.age,
+        'city': person.city,
+        'lastSeenLocation': person.last_seen_location,
+        'lat': person.lat,
+        'lng': person.lng,
+        'physicalDescription': person.physical_description,
+        'additionalInfo': person.additional_info,
+        'contactName': person.contact_name,
+        'contactPhone': person.contact_phone,
+        'reportedAtUtc': person.created_at.isoformat(),
+    }
+
+
+def _collapse_report_to_dict(report):
+    return {
+        'id': report.external_id,
+        'locationName': report.location_name,
+        'latitude': report.latitude,
+        'longitude': report.longitude,
+        'description': report.description,
+        'reporterName': report.reporter_name,
+        'reporterPhone': report.reporter_phone,
+        'videoFileName': report.video_file_name,
+        'storedVideoPath': report.stored_video_path,
+        'videoSizeBytes': report.video_size_bytes,
+        'uploadedAtUtc': report.created_at.isoformat(),
+        'processingStatus': report.processing_status,
+        'splatPipelineHint': report.splat_pipeline_hint,
+    }
+
+
+def _safe_fetch_json(url, timeout=3):
+    try:
+        with urlopen(url, timeout=timeout) as response:
+            return json.loads(response.read().decode('utf-8'))
+    except Exception:
+        return None
+
+
+
+
+def _safe_fetch_json_with_headers(url, headers=None, timeout=4):
+    try:
+        request = Request(url, headers=headers or {})
+        with urlopen(request, timeout=timeout) as response:
+            return json.loads(response.read().decode('utf-8'))
+    except Exception:
+        return None
+
+
+def _metno_weather_snapshot(lat, lng):
+    query = 'https://api.met.no/weatherapi/locationforecast/2.0/compact?lat={}&lon={}'.format(lat, lng)
+    payload = _safe_fetch_json_with_headers(
+        query,
+        headers={'User-Agent': 'mg-location/1.0 (contact: open-source-demo)'},
+        timeout=5,
+    )
+    if not payload:
+        return None
+
+    timeseries = payload.get('properties', {}).get('timeseries') or []
+    if not timeseries:
+        return None
+
+    details = timeseries[0].get('data', {}).get('instant', {}).get('details', {})
+    temp = details.get('air_temperature')
+    humidity = details.get('relative_humidity')
+    wind = details.get('wind_speed')
+
+    return {
+        'provider': 'MET Norway',
+        'temperatureC': temp,
+        'relativeHumidityPercent': humidity,
+        'windSpeedMs': wind,
+    }
+
+
+def _open_meteo_weather_snapshot(lat, lng):
+    query = (
+        'https://api.open-meteo.com/v1/forecast?latitude={}&longitude={}'
+        '&current=temperature_2m,relative_humidity_2m,wind_speed_10m,wind_gusts_10m,precipitation,weather_code'
+        '&hourly=precipitation,precipitation_probability,weather_code&past_days=1&forecast_days=2&timezone=auto'
+    ).format(lat, lng)
+    payload = _safe_fetch_json(query, timeout=6)
+    if not payload:
+        return None
+
+    current = payload.get('current') or {}
+    hourly = payload.get('hourly') or {}
+    times = hourly.get('time') or []
+    rains = hourly.get('precipitation') or []
+    probs = hourly.get('precipitation_probability') or []
+    weather_codes = hourly.get('weather_code') or []
+
+    # Separação temporal baseada em current.time para estimar chuva histórica/próximas 24h.
+    current_time = current.get('time')
+    current_index = 0
+    if current_time and times:
+        for idx, ts in enumerate(times):
+            if ts >= current_time:
+                current_index = idx
+                break
+
+    past_window = rains[max(0, current_index - 24):current_index]
+    next_window = rains[current_index:current_index + 24]
+    next_probs = probs[current_index:current_index + 24]
+    next_codes = weather_codes[current_index:current_index + 24]
+
+    rainfall_mm = round(sum(v for v in past_window if isinstance(v, (int, float))), 2) if past_window else _open_meteo_rainfall_mm(lat, lng)
+    rainfall_next_24h = round(sum(v for v in next_window if isinstance(v, (int, float))), 2) if next_window else 0
+    max_probability = max((v for v in next_probs if isinstance(v, (int, float))), default=0)
+    thunderstorm_codes = {95, 96, 99}
+    has_thunderstorm_code = any(int(c) in thunderstorm_codes for c in next_codes if isinstance(c, (int, float)))
+
+    gust = current.get('wind_gusts_10m')
+    if has_thunderstorm_code or (isinstance(gust, (int, float)) and gust >= 70) or (max_probability >= 85 and rainfall_next_24h >= 25):
+        storm_risk = 'high'
+    elif (isinstance(gust, (int, float)) and gust >= 45) or (max_probability >= 65 and rainfall_next_24h >= 12):
+        storm_risk = 'moderate'
+    else:
+        storm_risk = 'low'
+
+    return {
+        'provider': 'Open-Meteo',
+        'temperatureC': current.get('temperature_2m'),
+        'relativeHumidityPercent': current.get('relative_humidity_2m'),
+        'windSpeedMs': current.get('wind_speed_10m'),
+        'windGustKmh': gust,
+        'weatherCode': current.get('weather_code'),
+        'rainfallMm24h': rainfall_mm,
+        'rainfallNext24hMm': rainfall_next_24h,
+        'stormRisk': storm_risk,
+        'stormSignals': {
+            'maxPrecipitationProbabilityPercent': max_probability,
+            'thunderstormCodeDetected': has_thunderstorm_code,
+        },
+    }
+
+
+def _climate_integrations_context(lat, lng):
+    providers = []
+
+    open_meteo = _open_meteo_weather_snapshot(lat, lng)
+    if open_meteo:
+        providers.append(open_meteo)
+
+    met_no = _metno_weather_snapshot(lat, lng)
+    if met_no:
+        providers.append(met_no)
+
+    summary = {
+        'temperatureC': None,
+        'relativeHumidityPercent': None,
+        'windSpeedMs': None,
+        'rainfallMm24h': None,
+        'rainfallNext24hMm': 0,
+        'stormRisk': 'unknown',
+        'windGustKmh': None,
+    }
+
+    if providers:
+        summary['temperatureC'] = next((p.get('temperatureC') for p in providers if isinstance(p.get('temperatureC'), (int, float))), None)
+        summary['relativeHumidityPercent'] = next((p.get('relativeHumidityPercent') for p in providers if isinstance(p.get('relativeHumidityPercent'), (int, float))), None)
+        summary['windSpeedMs'] = next((p.get('windSpeedMs') for p in providers if isinstance(p.get('windSpeedMs'), (int, float))), None)
+        summary['windGustKmh'] = next((p.get('windGustKmh') for p in providers if isinstance(p.get('windGustKmh'), (int, float))), None)
+        summary['rainfallMm24h'] = next((p.get('rainfallMm24h') for p in providers if isinstance(p.get('rainfallMm24h'), (int, float))), None)
+        summary['rainfallNext24hMm'] = next((p.get('rainfallNext24hMm') for p in providers if isinstance(p.get('rainfallNext24hMm'), (int, float))), 0)
+        summary['stormRisk'] = next((p.get('stormRisk') for p in providers if p.get('stormRisk')), 'unknown')
+
+    return {
+        'lat': lat,
+        'lng': lng,
+        'providers': providers,
+        'summary': summary,
+        'fetchedAtUtc': datetime.now(timezone.utc).isoformat(),
+    }
+
+def _open_meteo_rainfall_mm(lat, lng):
+    query = (
+        'https://api.open-meteo.com/v1/forecast?latitude={}&longitude={}'
+        '&hourly=precipitation&past_days=1&forecast_days=1'
+    ).format(lat, lng)
+    payload = _safe_fetch_json(query)
+    if not payload:
+        return None
+    hourly = payload.get('hourly', {})
+    values = hourly.get('precipitation') or []
+    if not values:
+        return None
+    return round(sum(v for v in values if isinstance(v, (int, float))), 2)
+
+
+def _open_elevation_m(lat, lng):
+    # Open-Meteo elevation endpoint (fonte aberta)
+    query = 'https://api.open-meteo.com/v1/elevation?latitude={}&longitude={}'.format(lat, lng)
+    payload = _safe_fetch_json(query)
+    if not payload:
+        return None
+    elevation = payload.get('elevation') or []
+    if not elevation:
+        return None
+    return round(float(elevation[0]), 2)
+
+
+def _terrain_open_data_context(lat, lng, rainfall_override=None):
+    rainfall_mm = rainfall_override if rainfall_override is not None else _open_meteo_rainfall_mm(lat, lng)
+    elevation_m = _open_elevation_m(lat, lng)
+
+    # Mantém fallback local para reduzir dependência de rede e garantir resposta.
+    vegetation = OPEN_TERRAIN_FALLBACK['vegetationCoverPercent']
+    soil_density = OPEN_TERRAIN_FALLBACK['soilDensityKgM3']
+    soil_type = OPEN_TERRAIN_FALLBACK['soilTexture']
+    land_use = OPEN_TERRAIN_FALLBACK['landUse']
+    base_saturation = OPEN_TERRAIN_FALLBACK['baseSoilSaturation']
+
+    # Se não houver chuva da API aberta, estima valor conservador por fallback.
+    if rainfall_mm is None:
+        rainfall_mm = 48.0
+
+    soil_factor = SOIL_TYPE_FACTORS.get(soil_type, SOIL_TYPE_FACTORS['loam'])
+    climate_saturation = min(0.98, base_saturation + (rainfall_mm / 220.0))
+
+    # Cruzamento simples entre terreno + clima + cobertura vegetal.
+    friction = (
+        (0.35 * soil_factor['roughness'])
+        + (0.30 * (vegetation / 100.0))
+        + (0.35 * (1.0 - climate_saturation))
+    )
+
+    flow_mobility_index = max(
+        0.1,
+        min(
+            1.25,
+            (1.05 - friction) + (1.0 - soil_factor['stability']) * 0.42 + climate_saturation * 0.28,
+        ),
+    )
+
+    source_flags = {
+        'rainfall': 'Open-Meteo' if rainfall_override is None else 'request-override',
+        'elevation': 'Open-Meteo' if elevation_m is not None else 'fallback-local',
+        'vegetation': 'fallback-local (referência Copernicus/ESA)',
+        'soil': 'fallback-local (referência SoilGrids)',
+    }
+
+    return {
+        'rainfallMm24h': round(rainfall_mm, 2),
+        'elevationM': elevation_m if elevation_m is not None else 780.0,
+        'soilType': soil_type,
+        'soilDensityKgM3': soil_density,
+        'soilSaturation': round(climate_saturation, 3),
+        'vegetationCoverPercent': vegetation,
+        'landUse': land_use,
+        'soilInfiltrationFactor': soil_factor['infiltration'],
+        'flowMobilityIndex': round(flow_mobility_index, 3),
+        'dataSources': source_flags,
+    }
 
 
 def _request_payload(request):
@@ -193,13 +611,14 @@ _seed_initial_collapse_report()
 
 def _build_rescue_support(area_m2):
     bounded_area = max(area_m2, 3000.0)
-    total_people_at_risk = sum(h["estimatedAffected"] for h in HOTSPOTS)
-    severity_factor = sum(h["score"] / 100.0 for h in HOTSPOTS) / max(len(HOTSPOTS), 1)
+    hotspots = _load_hotspots_from_risk_areas()
+    total_people_at_risk = sum(h.get("estimatedAffected", 0) for h in hotspots)
+    severity_factor = sum(h.get("score", 0) / 100.0 for h in hotspots) / max(len(hotspots), 1)
     reports_bonus = max(0.15, len(COLLAPSE_REPORTS) * 0.05)
     estimated_trapped = round(total_people_at_risk * (0.38 + severity_factor * 0.22 + reports_bonus))
     density = round(estimated_trapped / bounded_area, 4)
 
-    top_hotspots = sorted(HOTSPOTS, key=lambda h: h["score"], reverse=True)[:3]
+    top_hotspots = sorted(hotspots, key=lambda h: h.get("score", 0), reverse=True)[:3]
     probable_locations = []
 
     for index, hotspot in enumerate(top_hotspots):
@@ -265,22 +684,51 @@ def _build_rescue_support(area_m2):
     }
 
 
-def _simulate_tailing_flow(lat, lng, rainfall_mm, slope_factor, steps):
+def _simulate_tailing_flow(lat, lng, slope_factor, steps, terrain_context):
     path = []
     cur_lat = lat
     cur_lng = lng
-    velocity = 0.00028 + (rainfall_mm / 400000.0) + (slope_factor / 100000.0)
+
+    rainfall_mm = terrain_context['rainfallMm24h']
+    saturation = terrain_context['soilSaturation']
+    vegetation_factor = terrain_context['vegetationCoverPercent'] / 100.0
+    soil_density_factor = min(1.15, terrain_context['soilDensityKgM3'] / 1500.0)
+    mobility_index = terrain_context['flowMobilityIndex']
+
+    velocity = (
+        0.00024
+        + (rainfall_mm / 420000.0)
+        + (slope_factor / 120000.0)
+        + (mobility_index / 9000.0)
+        - (vegetation_factor / 16000.0)
+        + (soil_density_factor / 50000.0)
+    )
 
     for step in range(steps):
-        cur_lat -= velocity * (1 + (step * 0.08))
-        cur_lng += velocity * 0.4
-        spread_radius = 10 + step * 12 + (rainfall_mm * 0.05)
+        step_multiplier = 1 + (step * 0.08)
+        cur_lat -= velocity * step_multiplier
+        cur_lng += velocity * (0.35 + saturation * 0.1)
+
+        spread_radius = (
+            10
+            + step * 12
+            + (rainfall_mm * 0.05)
+            + (saturation * 12)
+            + (mobility_index * 5)
+            - (vegetation_factor * 4)
+        )
+
         path.append(
             {
                 "step": step + 1,
                 "lat": round(cur_lat, 6),
                 "lng": round(cur_lng, 6),
-                "spreadRadiusMeters": round(spread_radius, 2),
+                "spreadRadiusMeters": round(max(8.0, spread_radius), 2),
+                "terrainCrossFactor": {
+                    "soilType": terrain_context['soilType'],
+                    "soilSaturation": saturation,
+                    "vegetationCoverPercent": terrain_context['vegetationCoverPercent'],
+                },
             }
         )
 
@@ -292,8 +740,9 @@ def _simulate_tailing_flow(lat, lng, rainfall_mm, slope_factor, steps):
             "slopeFactor": slope_factor,
             "steps": steps,
         },
+        "terrainContext": terrain_context,
         "flowPath": path,
-        "notes": "Simulação simplificada inspirada em métodos CFD/Navier-Stokes para triagem rápida.",
+        "notes": "Simulação simplificada inspirada em métodos CFD/Navier-Stokes com cruzamento terreno+clima para triagem rápida.",
         "references": CFD_REFERENCE,
     }
 
@@ -309,15 +758,15 @@ def hotspots(request):
     if request.method != 'GET':
         return HttpResponse(status=405)
 
-    ordered = sorted(HOTSPOTS, key=lambda h: h["score"], reverse=True)
+    ordered = sorted(_load_hotspots_from_risk_areas(), key=lambda h: h.get("score", 0), reverse=True)
     return JsonResponse(ordered, safe=False)
 
 
 @csrf_exempt
 def collapse_reports(request):
     if request.method == 'GET':
-        ordered = sorted(COLLAPSE_REPORTS, key=lambda r: r["uploadedAtUtc"], reverse=True)
-        return JsonResponse(ordered, safe=False)
+        reports = [_collapse_report_to_dict(item) for item in CollapseReport.objects.order_by('-created_at')[:500]]
+        return JsonResponse(reports, safe=False)
 
     if request.method != 'POST':
         return HttpResponse(status=405)
@@ -332,41 +781,41 @@ def collapse_reports(request):
         return _json_error('Latitude e longitude são obrigatórias.')
 
     report_id = "RP-{}-{}".format(datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S'), uuid.uuid4().hex[:6])
-    safe_name = "{}-{}".format(report_id, os.path.basename(video.name))
+    sanitized_video_name = secure_filename(video.name)
+    safe_name = "{}-{}".format(report_id, sanitized_video_name)
     file_path = os.path.join(_uploads_directory(), safe_name)
 
     with open(file_path, 'wb+') as destination:
         for chunk in video.chunks():
             destination.write(chunk)
 
-    report = {
-        "id": report_id,
-        "locationName": request.POST.get('locationName') or 'Sem nome',
-        "latitude": latitude,
-        "longitude": longitude,
-        "description": request.POST.get('description') or '',
-        "reporterName": request.POST.get('reporterName') or '',
-        "reporterPhone": request.POST.get('reporterPhone') or '',
-        "videoFileName": video.name,
-        "storedVideoPath": file_path,
-        "videoSizeBytes": video.size,
-        "uploadedAtUtc": datetime.now(timezone.utc).isoformat(),
-        "processingStatus": 'Pending',
-        "splatPipelineHint": 'Pronto para ingestão em gaussian-splatting/convert.py e train.py',
-    }
+    with transaction.atomic():
+        report = CollapseReport.objects.create(
+            external_id=report_id,
+            location_name=request.POST.get('locationName') or 'Sem nome',
+            latitude=latitude,
+            longitude=longitude,
+            description=request.POST.get('description') or '',
+            reporter_name=request.POST.get('reporterName') or '',
+            reporter_phone=request.POST.get('reporterPhone') or '',
+            video_file_name=video.name,
+            stored_video_path=file_path,
+            video_size_bytes=video.size,
+            processing_status='Pending',
+            splat_pipeline_hint='Pronto para ingestão em gaussian-splatting/convert.py e train.py',
+        )
 
-    COLLAPSE_REPORTS.append(report)
-    ATTENTION_ALERTS.append({
-        "id": "AL-{}".format(uuid.uuid4().hex[:8]),
-        "title": "Novo vídeo de deslizamento",
-        "message": "Relato enviado de {}. Priorizar revisão de campo e drone.".format(report["locationName"]),
-        "severity": "critical",
-        "lat": latitude,
-        "lng": longitude,
-        "radiusMeters": 500,
-        "createdAtUtc": datetime.now(timezone.utc).isoformat(),
-    })
-    return JsonResponse(report, status=201)
+        AttentionAlert.objects.create(
+            external_id='AL-{}'.format(uuid.uuid4().hex[:8]),
+            title='Novo vídeo de deslizamento',
+            message='Relato enviado de {}. Priorizar revisão de campo e drone.'.format(report.location_name),
+            severity='critical',
+            lat=latitude,
+            lng=longitude,
+            radius_meters=500,
+        )
+
+    return JsonResponse(_collapse_report_to_dict(report), status=201)
 
 
 @csrf_exempt
@@ -386,16 +835,170 @@ def location_flow_simulation(request):
     if request.method != 'POST':
         return HttpResponse(status=405)
 
-    lat = _parse_float(request.POST.get('lat'))
-    lng = _parse_float(request.POST.get('lng'))
-    rainfall_mm = _parse_float(request.POST.get('rainfallMm')) or 60.0
-    slope_factor = _parse_float(request.POST.get('slopeFactor')) or 35.0
-    steps = int(request.POST.get('steps') or 8)
+    payload = _request_payload(request)
+    lat = _parse_float(payload.get('lat', payload.get('sourceLat')))
+    lng = _parse_float(payload.get('lng', payload.get('sourceLng')))
+    rainfall_override = _parse_float(payload.get('rainfallMm', payload.get('rainfallMmPerHour')))
+    slope_factor = _parse_float(payload.get('slopeFactor')) or 35.0
+    steps = int(payload.get('steps') or 8)
 
     if lat is None or lng is None:
-        return _json_error('lat e lng são obrigatórios para simulação de fluxo.')
+        return _json_error('lat/lng ou sourceLat/sourceLng são obrigatórios para simulação de fluxo.')
 
-    return JsonResponse(_simulate_tailing_flow(lat, lng, rainfall_mm, slope_factor, steps), safe=False)
+    terrain_context = _terrain_open_data_context(lat, lng, rainfall_override)
+    legacy = _simulate_tailing_flow(lat, lng, slope_factor, steps, terrain_context)
+
+    path = legacy.get('flowPath') or []
+    flooded_cells = []
+    max_depth = 0.0
+    for point in path:
+        depth = float(point.get('relativeDepthM') or 0.0)
+        max_depth = max(max_depth, depth)
+        flooded_cells.append({
+            'lat': point.get('lat'),
+            'lng': point.get('lng'),
+            'depth': round(depth, 3),
+            'terrain': point.get('terrain', {}).get('elevationM', 0),
+            'velocity': round(0.8 + depth * 2.4, 3),
+        })
+
+    cell_size = _parse_float(payload.get('cellSizeMeters')) or 25
+    estimated_area = len(flooded_cells) * (cell_size ** 2)
+
+    return JsonResponse(
+        {
+            'generatedAtUtc': datetime.now(timezone.utc).isoformat(),
+            'floodedCells': flooded_cells,
+            'mainPath': [
+                {
+                    'lat': p.get('lat'),
+                    'lng': p.get('lng'),
+                    'step': p.get('step'),
+                    'depth': round(float(p.get('relativeDepthM') or 0), 3),
+                }
+                for p in path
+            ],
+            'maxDepth': round(max_depth, 3),
+            'estimatedAffectedAreaM2': round(estimated_area, 1),
+            'disclaimer': legacy.get('notes'),
+            'references': legacy.get('references'),
+            'terrainContext': legacy.get('terrainContext'),
+        },
+        safe=False,
+    )
+
+
+@csrf_exempt
+def location_flow_simulation_stream(request):
+    if request.method != 'GET':
+        return HttpResponse(status=405)
+
+    lat = _parse_float(request.GET.get('lat'))
+    lng = _parse_float(request.GET.get('lng'))
+    if lat is None or lng is None:
+        return _json_error('lat/lng são obrigatórios para stream de simulação.')
+
+    slope_factor = _parse_float(request.GET.get('slopeFactor')) or 35.0
+    steps = int(request.GET.get('steps') or 8)
+    rainfall_override = _parse_float(request.GET.get('rainfallMm'))
+
+    terrain_context = _terrain_open_data_context(lat, lng, rainfall_override)
+    legacy = _simulate_tailing_flow(lat, lng, slope_factor, steps, terrain_context)
+    path = legacy.get('flowPath') or []
+
+    def event_stream():
+        for index, point in enumerate(path):
+            payload = {
+                'type': 'flow-step',
+                'step': index,
+                'lat': point.get('lat'),
+                'lng': point.get('lng'),
+                'depth': round(float(point.get('relativeDepthM') or 0), 3),
+                'terrain': point.get('terrain', {}).get('elevationM', 0),
+                'risk': point.get('terrain', {}).get('riskLevel', 'unknown'),
+            }
+            yield f"data: {json.dumps(payload)}\n\n"
+        yield f"data: {json.dumps({'type': 'done', 'totalSteps': len(path)})}\n\n"
+
+    response = StreamingHttpResponse(event_stream(), content_type='text/event-stream')
+    response['Cache-Control'] = 'no-cache'
+    return response
+
+
+@csrf_exempt
+def unified_easy_simulation(request):
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    payload = _request_payload(request)
+    lat = _parse_float(payload.get('lat', payload.get('sourceLat')))
+    lng = _parse_float(payload.get('lng', payload.get('sourceLng')))
+    area_m2 = _parse_float(payload.get('areaM2')) or 15000
+
+    if lat is None or lng is None:
+        return _json_error('lat/lng ou sourceLat/sourceLng são obrigatórios para simulação unificada.')
+
+    flow_response = location_flow_simulation(request)
+    if flow_response.status_code >= 400:
+        return flow_response
+
+    flow_payload = json.loads(flow_response.content.decode('utf-8'))
+
+    terrain = _terrain_open_data_context(
+        lat,
+        lng,
+        _parse_float(payload.get('rainfallMm', payload.get('rainfallMmPerHour'))),
+    )
+
+    return JsonResponse(
+        {
+            'generatedAtUtc': datetime.now(timezone.utc).isoformat(),
+            'input': {
+                'lat': lat,
+                'lng': lng,
+                'scenario': payload.get('scenario') or 'encosta',
+            },
+            'flowSimulation': flow_payload,
+            'terrainContext': terrain,
+            'rescueSupport': _build_rescue_support(area_m2),
+            'notes': 'Endpoint unificado para o modo fácil: fluxo + terreno + suporte tático.',
+        },
+        safe=False,
+    )
+
+
+@csrf_exempt
+def climate_integrations(request):
+    if request.method != 'GET':
+        return HttpResponse(status=405)
+
+    lat = _parse_float(request.GET.get('lat'))
+    lng = _parse_float(request.GET.get('lng'))
+    if lat is None or lng is None:
+        return _json_error('lat e lng são obrigatórios para integrações climáticas.')
+
+    return JsonResponse(_climate_integrations_context(lat, lng), safe=False)
+
+
+@csrf_exempt
+def terrain_context(request):
+    if request.method != 'GET':
+        return HttpResponse(status=405)
+
+    lat = _parse_float(request.GET.get('lat'))
+    lng = _parse_float(request.GET.get('lng'))
+    if lat is None or lng is None:
+        return _json_error('lat e lng são obrigatórios para contexto de terreno.')
+
+    return JsonResponse(
+        {
+            'lat': lat,
+            'lng': lng,
+            'context': _terrain_open_data_context(lat, lng),
+            'notes': 'Contexto híbrido com dados abertos (Open-Meteo) e fallback local para operação contínua.',
+        },
+        safe=False,
+    )
 
 
 @csrf_exempt
@@ -435,9 +1038,12 @@ def report_info(request):
     if request.method != 'POST':
         return HttpResponse(status=405)
 
-    kind = (request.POST.get('kind') or 'person').lower()
-    name = request.POST.get('name')
-    last_seen = request.POST.get('lastSeen')
+    data = _request_payload(request)
+    kind = (data.get('kind') or 'person').lower()
+    name = data.get('name')
+    last_seen = data.get('lastSeen')
+    lat = _parse_float(data.get('lat'))
+    lng = _parse_float(data.get('lng'))
 
     if kind not in ['person', 'animal']:
         return _json_error('kind deve ser person ou animal.')
@@ -449,8 +1055,10 @@ def report_info(request):
         'kind': kind,
         'name': name,
         'lastSeen': last_seen,
-        'contact': request.POST.get('contact') or '',
-        'details': request.POST.get('details') or '',
+        'lat': lat,
+        'lng': lng,
+        'contact': data.get('contact') or '',
+        'details': data.get('details') or '',
         'reportedAtUtc': datetime.now(timezone.utc).isoformat(),
     }
     MISSING_REPORTS.append(payload)
@@ -458,7 +1066,7 @@ def report_info(request):
     MISSING_PEOPLE.append(
         {
             'name': name,
-            'age': int(request.POST.get('age') or 0),
+            'age': int(data.get('age') or 0),
             'category': kind,
             'lastSeen': last_seen,
             'status': 'missing',
@@ -475,9 +1083,19 @@ def missing_people_csv(request):
 
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(['name', 'age', 'category', 'lastSeen', 'status'])
-    for person in MISSING_PEOPLE:
-        writer.writerow([person['name'], person.get('age', ''), person['category'], person['lastSeen'], person['status']])
+    writer.writerow(['personName', 'age', 'city', 'lastSeenLocation', 'lat', 'lng', 'contactName', 'reportedAtUtc'])
+    queryset = MissingPerson.objects.order_by('-created_at')[:5000]
+    for person in queryset:
+      writer.writerow([
+          person.person_name,
+          person.age if person.age is not None else '',
+          person.city,
+          person.last_seen_location,
+          person.lat if person.lat is not None else '',
+          person.lng if person.lng is not None else '',
+          person.contact_name,
+          person.created_at.isoformat(),
+      ])
 
     response = HttpResponse(output.getvalue(), content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="missing_people.csv"'
@@ -525,12 +1143,29 @@ def identify_victim(request):
     )
 
 
+
+@csrf_exempt
+def news_updates(request):
+    if request.method != 'GET':
+        return HttpResponse(status=405)
+
+    force_refresh = request.GET.get('refresh') == '1'
+    items = _load_public_news_updates(force_refresh=force_refresh)
+    return JsonResponse(items, safe=False)
+
+
 @csrf_exempt
 def cfd_ideas(request):
     if request.method != 'GET':
         return HttpResponse(status=405)
 
-    return JsonResponse(CFD_REFERENCE, safe=False)
+    payload = dict(CFD_REFERENCE)
+    payload['openDataTerrain'] = {
+        'climate': 'https://open-meteo.com/',
+        'soil_reference': 'https://soilgrids.org/',
+        'vegetation_reference': 'https://land.copernicus.eu/',
+    }
+    return JsonResponse(payload, safe=False)
 
 
 @csrf_exempt
@@ -553,7 +1188,7 @@ def splat_convert(request):
         return _json_error('latitude e longitude são obrigatórios para converter em .splat.')
 
     job_id = 'SPLAT-{}'.format(uuid.uuid4().hex[:8])
-    safe_name = '{}-{}'.format(job_id, os.path.basename(video.name))
+    safe_name = '{}-{}'.format(job_id, secure_filename(video.name))
     file_path = os.path.join(_uploads_directory(), safe_name)
 
     with open(file_path, 'wb+') as destination:
@@ -618,8 +1253,11 @@ def push_register(request):
 @csrf_exempt
 def attention_alerts(request):
     if request.method == 'GET':
-        ordered = sorted(ATTENTION_ALERTS, key=lambda alert: alert['createdAtUtc'], reverse=True)
-        return JsonResponse(ordered, safe=False)
+        alerts = [_attention_alert_to_dict(item) for item in AttentionAlert.objects.order_by('-created_at')[:500]]
+        if not alerts:
+            for seed in ATTENTION_ALERTS:
+                alerts.append(seed)
+        return JsonResponse(alerts, safe=False)
 
     if request.method != 'POST':
         return HttpResponse(status=405)
@@ -633,21 +1271,576 @@ def attention_alerts(request):
     if not title or not message or lat is None or lng is None:
         return _json_error('title, message, lat e lng são obrigatórios.')
 
-    alert = {
-        'id': 'AL-{}'.format(uuid.uuid4().hex[:8]),
-        'title': title,
-        'message': message,
-        'severity': payload.get('severity') or 'medium',
-        'lat': lat,
-        'lng': lng,
-        'radiusMeters': int(payload.get('radiusMeters') or 500),
-        'createdAtUtc': datetime.now(timezone.utc).isoformat(),
-    }
-
-    ATTENTION_ALERTS.append(alert)
+    alert = AttentionAlert.objects.create(
+        external_id='AL-{}'.format(uuid.uuid4().hex[:8]),
+        title=title,
+        message=message,
+        severity=payload.get('severity') or 'medium',
+        lat=lat,
+        lng=lng,
+        radius_meters=int(payload.get('radiusMeters') or 500),
+    )
 
     return JsonResponse({
-        'alert': alert,
+        'alert': _attention_alert_to_dict(alert),
         'registeredDevices': len(DEVICE_SUBSCRIPTIONS),
         'delivery': 'Simulação local: envio via provedor push externo (FCM/APNs).',
     }, status=201)
+
+
+@csrf_exempt
+def missing_persons(request):
+    if request.method == 'GET':
+        people = [_missing_person_to_dict(item) for item in MissingPerson.objects.order_by('-created_at')[:1000]]
+        return JsonResponse(people, safe=False)
+
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    payload = _request_payload(request)
+    person_name = (payload.get('personName') or payload.get('name') or '').strip()
+    city = (payload.get('city') or 'Não informado').strip()
+    last_seen = (payload.get('lastSeenLocation') or payload.get('lastSeen') or '').strip()
+    contact_name = (payload.get('contactName') or 'Central MG Location').strip()
+    contact_phone = (payload.get('contactPhone') or 'Não informado').strip()
+    lat = _parse_float(payload.get('lat'))
+    lng = _parse_float(payload.get('lng'))
+
+    if not person_name or not last_seen:
+        return _json_error('personName (ou name) e lastSeenLocation (ou lastSeen) são obrigatórios.')
+
+    age_raw = payload.get('age')
+    age = None
+    if age_raw not in (None, ''):
+        try:
+            age = int(age_raw)
+        except (TypeError, ValueError):
+            return _json_error('age deve ser numérico quando informado.')
+
+    person = MissingPerson.objects.create(
+        external_id='MP-{}'.format(uuid.uuid4().hex[:8]),
+        person_name=person_name,
+        age=age,
+        city=city,
+        last_seen_location=last_seen,
+        lat=lat,
+        lng=lng,
+        physical_description=payload.get('physicalDescription') or '',
+        additional_info=payload.get('additionalInfo') or '',
+        contact_name=contact_name,
+        contact_phone=contact_phone,
+        source=payload.get('source') or 'manual-platform',
+    )
+
+    return JsonResponse(_missing_person_to_dict(person), status=201)
+
+
+
+
+
+
+def _payload_with_request_id(request):
+    payload = _request_payload(request)
+    requested_id = request.GET.get('id') or payload.get('id')
+    return payload, requested_id
+
+
+def _find_annotation_or_404(external_id, record_type):
+    try:
+        return MapAnnotation.objects.get(external_id=external_id, record_type=record_type)
+    except MapAnnotation.DoesNotExist:
+        return None
+
+def _annotation_to_dict(annotation):
+    return {
+        'id': annotation.external_id,
+        'recordType': annotation.record_type,
+        'title': annotation.title,
+        'lat': annotation.lat,
+        'lng': annotation.lng,
+        'severity': annotation.severity,
+        'radiusMeters': annotation.radius_meters,
+        'status': annotation.status,
+        'metadata': annotation.metadata or {},
+        'createdAtUtc': annotation.created_at.isoformat(),
+    }
+
+
+def _rescue_group_to_dict(group):
+    return {
+        'id': group.external_id,
+        'name': group.name,
+        'members': group.members,
+        'specialty': group.specialty,
+        'status': group.status,
+        'lat': group.lat,
+        'lng': group.lng,
+        'createdAtUtc': group.created_at.isoformat(),
+    }
+
+
+def _supply_to_dict(item):
+    return {
+        'id': item.external_id,
+        'item': item.item,
+        'quantity': item.quantity,
+        'unit': item.unit,
+        'origin': item.origin,
+        'destination': item.destination,
+        'status': item.status,
+        'priority': item.priority,
+        'createdAtUtc': item.created_at.isoformat(),
+    }
+
+
+@csrf_exempt
+def map_annotations(request):
+    if request.method == 'GET':
+        rows = [_annotation_to_dict(a) for a in MapAnnotation.objects.order_by('-created_at')[:1000]]
+        return JsonResponse(rows, safe=False)
+
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    payload = _request_payload(request)
+    record_type = (payload.get('recordType') or payload.get('type') or '').strip()
+    title = (payload.get('title') or '').strip()
+    lat = _parse_float(payload.get('lat'))
+    lng = _parse_float(payload.get('lng'))
+
+    if record_type not in [MapAnnotation.TYPE_SUPPORT_POINT, MapAnnotation.TYPE_RISK_AREA, MapAnnotation.TYPE_MISSING_PERSON]:
+        return _json_error('recordType inválido. Use support_point, risk_area ou missing_person.')
+
+    if lat is None or lng is None:
+        return _json_error('lat e lng são obrigatórios.')
+
+    if not title:
+        title = {
+            MapAnnotation.TYPE_SUPPORT_POINT: 'Ponto de apoio',
+            MapAnnotation.TYPE_RISK_AREA: 'Área de risco',
+            MapAnnotation.TYPE_MISSING_PERSON: 'Registro de desaparecido',
+        }[record_type]
+
+    metadata = payload.get('metadata') if isinstance(payload.get('metadata'), dict) else {}
+
+    if record_type == MapAnnotation.TYPE_MISSING_PERSON:
+        person_name = (payload.get('personName') or title).strip()
+        last_seen = (payload.get('lastSeenLocation') or payload.get('lastSeen') or 'Ponto selecionado no mapa').strip()
+        person = MissingPerson.objects.create(
+            external_id='MP-{}'.format(uuid.uuid4().hex[:8]),
+            person_name=person_name,
+            age=int(payload.get('age') or 0) or None,
+            city=(payload.get('city') or 'Não informado').strip(),
+            last_seen_location=last_seen,
+            lat=lat,
+            lng=lng,
+            physical_description=payload.get('physicalDescription') or '',
+            additional_info=payload.get('additionalInfo') or '',
+            contact_name=(payload.get('contactName') or 'Central MG Location').strip(),
+            contact_phone=(payload.get('contactPhone') or 'Não informado').strip(),
+            source='map-one-click',
+        )
+        metadata = {**metadata, 'missingPersonId': person.external_id}
+
+    annotation = MapAnnotation.objects.create(
+        external_id='MA-{}'.format(uuid.uuid4().hex[:8]),
+        record_type=record_type,
+        title=title,
+        lat=lat,
+        lng=lng,
+        severity=(payload.get('severity') or '').strip(),
+        radius_meters=int(payload.get('radiusMeters') or 0) or None,
+        status=(payload.get('status') or 'active').strip(),
+        metadata=metadata,
+    )
+
+    return JsonResponse(_annotation_to_dict(annotation), status=201)
+
+
+@csrf_exempt
+def support_points(request):
+    if request.method == 'GET':
+        requested_id = request.GET.get('id')
+        if requested_id:
+            annotation = _find_annotation_or_404(requested_id, MapAnnotation.TYPE_SUPPORT_POINT)
+            if not annotation:
+                return _json_error('Ponto de apoio não encontrado.', 404)
+            return JsonResponse(_annotation_to_dict(annotation))
+        rows = [_annotation_to_dict(a) for a in MapAnnotation.objects.filter(record_type=MapAnnotation.TYPE_SUPPORT_POINT).order_by('-created_at')[:500]]
+        return JsonResponse(rows, safe=False)
+
+    payload, requested_id = _payload_with_request_id(request)
+
+    if request.method == 'POST':
+        serializer = SupportPointSerializer(data=payload)
+        if not serializer.is_valid():
+            return JsonResponse({'errors': serializer.errors}, status=400)
+        data = serializer.validated_data
+        annotation = MapAnnotation.objects.create(
+            external_id='MA-{}'.format(uuid.uuid4().hex[:8]),
+            record_type=MapAnnotation.TYPE_SUPPORT_POINT,
+            title=data.get('name') or 'Ponto de apoio',
+            lat=data['lat'],
+            lng=data['lng'],
+            status=data.get('status') or 'active',
+            metadata={'type': data.get('type') or 'apoio', 'capacity': data.get('capacity', 0)},
+        )
+        return JsonResponse(_annotation_to_dict(annotation), status=201)
+
+    if request.method == 'PUT':
+        if not requested_id:
+            return _json_error('id é obrigatório para atualização.', 400)
+        annotation = _find_annotation_or_404(requested_id, MapAnnotation.TYPE_SUPPORT_POINT)
+        if not annotation:
+            return _json_error('Ponto de apoio não encontrado.', 404)
+        serializer = SupportPointSerializer(data=payload)
+        if not serializer.is_valid():
+            return JsonResponse({'errors': serializer.errors}, status=400)
+        data = serializer.validated_data
+        annotation.title = data.get('name') or annotation.title
+        annotation.lat = data['lat']
+        annotation.lng = data['lng']
+        annotation.status = data.get('status') or annotation.status
+        annotation.metadata = {'type': data.get('type') or 'apoio', 'capacity': data.get('capacity', 0)}
+        annotation.save(update_fields=['title', 'lat', 'lng', 'status', 'metadata', 'updated_at'])
+        return JsonResponse(_annotation_to_dict(annotation))
+
+    if request.method == 'DELETE':
+        if not requested_id:
+            return _json_error('id é obrigatório para remoção.', 400)
+        annotation = _find_annotation_or_404(requested_id, MapAnnotation.TYPE_SUPPORT_POINT)
+        if not annotation:
+            return _json_error('Ponto de apoio não encontrado.', 404)
+        annotation.delete()
+        return JsonResponse({'deleted': True, 'id': requested_id})
+
+    return HttpResponse(status=405)
+
+
+@csrf_exempt
+def risk_areas(request):
+    if request.method == 'GET':
+        requested_id = request.GET.get('id')
+        if requested_id:
+            annotation = _find_annotation_or_404(requested_id, MapAnnotation.TYPE_RISK_AREA)
+            if not annotation:
+                return _json_error('Área de risco não encontrada.', 404)
+            return JsonResponse(_annotation_to_dict(annotation))
+        rows = [_annotation_to_dict(a) for a in MapAnnotation.objects.filter(record_type=MapAnnotation.TYPE_RISK_AREA).order_by('-created_at')[:500]]
+        return JsonResponse(rows, safe=False)
+
+    payload, requested_id = _payload_with_request_id(request)
+
+    if request.method == 'POST':
+        serializer = RiskAreaSerializer(data=payload)
+        if not serializer.is_valid():
+            return JsonResponse({'errors': serializer.errors}, status=400)
+        data = serializer.validated_data
+        annotation = MapAnnotation.objects.create(
+            external_id='MA-{}'.format(uuid.uuid4().hex[:8]),
+            record_type=MapAnnotation.TYPE_RISK_AREA,
+            title=data.get('name') or 'Área de risco',
+            lat=data['lat'],
+            lng=data['lng'],
+            severity=data.get('severity') or 'high',
+            radius_meters=data.get('radiusMeters') or 500,
+            status=data.get('status') or 'active',
+            metadata={'notes': data.get('notes') or ''},
+        )
+        return JsonResponse(_annotation_to_dict(annotation), status=201)
+
+    if request.method == 'PUT':
+        if not requested_id:
+            return _json_error('id é obrigatório para atualização.', 400)
+        annotation = _find_annotation_or_404(requested_id, MapAnnotation.TYPE_RISK_AREA)
+        if not annotation:
+            return _json_error('Área de risco não encontrada.', 404)
+        serializer = RiskAreaSerializer(data=payload)
+        if not serializer.is_valid():
+            return JsonResponse({'errors': serializer.errors}, status=400)
+        data = serializer.validated_data
+        annotation.title = data.get('name') or annotation.title
+        annotation.lat = data['lat']
+        annotation.lng = data['lng']
+        annotation.severity = data.get('severity') or annotation.severity
+        annotation.radius_meters = data.get('radiusMeters') or annotation.radius_meters
+        annotation.status = data.get('status') or annotation.status
+        annotation.metadata = {'notes': data.get('notes') or ''}
+        annotation.save(update_fields=['title', 'lat', 'lng', 'severity', 'radius_meters', 'status', 'metadata', 'updated_at'])
+        return JsonResponse(_annotation_to_dict(annotation))
+
+    if request.method == 'DELETE':
+        if not requested_id:
+            return _json_error('id é obrigatório para remoção.', 400)
+        annotation = _find_annotation_or_404(requested_id, MapAnnotation.TYPE_RISK_AREA)
+        if not annotation:
+            return _json_error('Área de risco não encontrada.', 404)
+        annotation.delete()
+        return JsonResponse({'deleted': True, 'id': requested_id})
+
+    return HttpResponse(status=405)
+
+
+@csrf_exempt
+def rescue_groups(request):
+    if request.method == 'GET':
+        requested_id = request.GET.get('id')
+        if requested_id:
+            try:
+                group = RescueGroup.objects.get(external_id=requested_id)
+            except RescueGroup.DoesNotExist:
+                return _json_error('Grupo de resgate não encontrado.', 404)
+            return JsonResponse(_rescue_group_to_dict(group))
+        rows = [_rescue_group_to_dict(g) for g in RescueGroup.objects.order_by('-created_at')[:500]]
+        return JsonResponse(rows, safe=False)
+
+    payload, requested_id = _payload_with_request_id(request)
+
+    if request.method == 'POST':
+        serializer = RescueGroupSerializer(data=payload)
+        if not serializer.is_valid():
+            return JsonResponse({'errors': serializer.errors}, status=400)
+        data = serializer.validated_data
+        group = RescueGroup.objects.create(
+            external_id='RG-{}'.format(uuid.uuid4().hex[:8]),
+            name=data['name'].strip(),
+            members=data.get('members', 0),
+            specialty=data.get('specialty') or 'generalista',
+            status=data.get('status') or 'pronto',
+            lat=data.get('lat'),
+            lng=data.get('lng'),
+        )
+        return JsonResponse(_rescue_group_to_dict(group), status=201)
+
+    if request.method == 'PUT':
+        if not requested_id:
+            return _json_error('id é obrigatório para atualização.', 400)
+        try:
+            group = RescueGroup.objects.get(external_id=requested_id)
+        except RescueGroup.DoesNotExist:
+            return _json_error('Grupo de resgate não encontrado.', 404)
+        serializer = RescueGroupSerializer(data=payload)
+        if not serializer.is_valid():
+            return JsonResponse({'errors': serializer.errors}, status=400)
+        data = serializer.validated_data
+        group.name = data['name'].strip()
+        group.members = data.get('members', 0)
+        group.specialty = data.get('specialty') or 'generalista'
+        group.status = data.get('status') or 'pronto'
+        group.lat = data.get('lat')
+        group.lng = data.get('lng')
+        group.save(update_fields=['name', 'members', 'specialty', 'status', 'lat', 'lng', 'updated_at'])
+        return JsonResponse(_rescue_group_to_dict(group))
+
+    if request.method == 'DELETE':
+        if not requested_id:
+            return _json_error('id é obrigatório para remoção.', 400)
+        deleted, _ = RescueGroup.objects.filter(external_id=requested_id).delete()
+        if not deleted:
+            return _json_error('Grupo de resgate não encontrado.', 404)
+        return JsonResponse({'deleted': True, 'id': requested_id})
+
+    return HttpResponse(status=405)
+
+
+@csrf_exempt
+def supply_logistics(request):
+    if request.method == 'GET':
+        requested_id = request.GET.get('id')
+        if requested_id:
+            try:
+                row = SupplyLogistics.objects.get(external_id=requested_id)
+            except SupplyLogistics.DoesNotExist:
+                return _json_error('Registro de logística não encontrado.', 404)
+            return JsonResponse(_supply_to_dict(row))
+        rows = [_supply_to_dict(s) for s in SupplyLogistics.objects.order_by('-created_at')[:500]]
+        return JsonResponse(rows, safe=False)
+
+    payload, requested_id = _payload_with_request_id(request)
+
+    if request.method == 'POST':
+        serializer = SupplyLogisticsSerializer(data=payload)
+        if not serializer.is_valid():
+            return JsonResponse({'errors': serializer.errors}, status=400)
+        data = serializer.validated_data
+        supply = SupplyLogistics.objects.create(
+            external_id='LG-{}'.format(uuid.uuid4().hex[:8]),
+            item=data['item'].strip(),
+            quantity=data['quantity'],
+            unit=data.get('unit') or 'un',
+            origin=data.get('origin') or 'Não informado',
+            destination=data.get('destination') or 'Não informado',
+            status=data.get('status') or 'planejado',
+            priority=data.get('priority') or 'media',
+        )
+        return JsonResponse(_supply_to_dict(supply), status=201)
+
+    if request.method == 'PUT':
+        if not requested_id:
+            return _json_error('id é obrigatório para atualização.', 400)
+        try:
+            supply = SupplyLogistics.objects.get(external_id=requested_id)
+        except SupplyLogistics.DoesNotExist:
+            return _json_error('Registro de logística não encontrado.', 404)
+        serializer = SupplyLogisticsSerializer(data=payload)
+        if not serializer.is_valid():
+            return JsonResponse({'errors': serializer.errors}, status=400)
+        data = serializer.validated_data
+        supply.item = data['item'].strip()
+        supply.quantity = data['quantity']
+        supply.unit = data.get('unit') or 'un'
+        supply.origin = data.get('origin') or 'Não informado'
+        supply.destination = data.get('destination') or 'Não informado'
+        supply.status = data.get('status') or 'planejado'
+        supply.priority = data.get('priority') or 'media'
+        supply.save(update_fields=['item', 'quantity', 'unit', 'origin', 'destination', 'status', 'priority', 'updated_at'])
+        return JsonResponse(_supply_to_dict(supply))
+
+    if request.method == 'DELETE':
+        if not requested_id:
+            return _json_error('id é obrigatório para remoção.', 400)
+        deleted, _ = SupplyLogistics.objects.filter(external_id=requested_id).delete()
+        if not deleted:
+            return _json_error('Registro de logística não encontrado.', 404)
+        return JsonResponse({'deleted': True, 'id': requested_id})
+
+    return HttpResponse(status=405)
+
+
+FLOW_PATHS = [
+    {
+        'id': 'FP-001',
+        'name': 'Escoamento principal setor leste',
+        'coordinates': [
+            {'lat': -21.1215, 'lng': -42.9427},
+            {'lat': -21.1202, 'lng': -42.9409},
+            {'lat': -21.1187, 'lng': -42.9388},
+            {'lat': -21.1171, 'lng': -42.9365},
+        ],
+    }
+]
+
+
+def _risk_area_severity_to_score(severity):
+    normalized = (severity or '').lower().strip()
+    if normalized == 'critical':
+        return 97.0
+    if normalized == 'high':
+        return 90.0
+    if normalized == 'medium':
+        return 78.0
+    if normalized == 'low':
+        return 64.0
+    return 70.0
+
+
+def _load_hotspots_from_risk_areas():
+    hotspots_rows = []
+    risk_areas = MapAnnotation.objects.filter(record_type=MapAnnotation.TYPE_RISK_AREA).order_by('-created_at')[:500]
+    for row in risk_areas:
+        hotspots_rows.append(
+            {
+                'id': row.external_id,
+                'lat': row.lat,
+                'lng': row.lng,
+                'score': _risk_area_severity_to_score(row.severity),
+                'type': 'Risk Area',
+                'confidence': 0.82,
+                'estimatedAffected': int((row.radius_meters or 300) / 6),
+            }
+        )
+
+    if hotspots_rows:
+        return sorted(hotspots_rows, key=lambda h: h['score'], reverse=True)
+    return DEFAULT_HOTSPOTS
+
+
+def _build_rain_timeline(limit=80):
+    rain_events = DisasterEvent.objects.filter(event_type__in=['Flood', 'Storm', 'Landslide']).order_by('-start_at')[:limit]
+    timeline = []
+    for event in rain_events:
+        timeline.append({
+            'id': f"{event.provider}-{event.provider_event_id}",
+            'at': event.start_at.isoformat(),
+            'title': event.title,
+            'eventType': event.event_type,
+            'severity': event.severity,
+            'lat': event.lat,
+            'lng': event.lon,
+            'countryCode': event.country_code,
+            'countryName': event.country_name,
+            'sourceUrl': event.source_url,
+        })
+    return timeline
+
+
+def _event_to_map_risk_area(event):
+    severity = 'critical' if event.severity >= 4 else 'high' if event.severity >= 3 else 'medium'
+    radius = 1400 if event.event_type == 'Flood' else 900
+    return {
+        'id': f"EV-{event.provider}-{event.provider_event_id}",
+        'recordType': 'risk_area',
+        'title': event.title[:180],
+        'lat': event.lat,
+        'lng': event.lon,
+        'severity': severity,
+        'radiusMeters': radius,
+        'status': 'active',
+        'metadata': {
+            'source': event.provider,
+            'eventType': event.event_type,
+            'sourceUrl': event.source_url,
+            'createdFromCrawler': True,
+        },
+        'createdAtUtc': event.start_at.isoformat(),
+    }
+
+
+@csrf_exempt
+def operations_snapshot(request):
+    if request.method != 'GET':
+        return HttpResponse(status=405)
+
+    support_points_rows = [_annotation_to_dict(a) for a in MapAnnotation.objects.filter(record_type=MapAnnotation.TYPE_SUPPORT_POINT).order_by('-created_at')[:500]]
+    risk_area_rows = [_annotation_to_dict(a) for a in MapAnnotation.objects.filter(record_type=MapAnnotation.TYPE_RISK_AREA).order_by('-created_at')[:500]]
+    crawler_rain_events = DisasterEvent.objects.filter(event_type__in=['Flood', 'Storm', 'Landslide']).order_by('-start_at')[:200]
+    crawler_risk_areas = [_event_to_map_risk_area(event) for event in crawler_rain_events]
+    combined_risk_areas = (risk_area_rows + crawler_risk_areas)[:700]
+    rescue_group_rows = [_rescue_group_to_dict(g) for g in RescueGroup.objects.order_by('-created_at')[:500]]
+    supply_rows = [_supply_to_dict(s) for s in SupplyLogistics.objects.order_by('-created_at')[:500]]
+
+    climate = _climate_integrations_context(-21.1207, -42.9359)
+    weather = climate.get('summary') or {}
+    rain_mm_24h = weather.get('rainfallMm24h') if isinstance(weather.get('rainfallMm24h'), (int, float)) else 0
+    critical_risk = len([a for a in risk_area_rows if a.get('severity') in ['critical', 'high']])
+
+    payload = {
+        'generatedAtUtc': datetime.now(timezone.utc).isoformat(),
+        'kpis': {
+            'criticalAlerts': critical_risk + len([e for e in crawler_rain_events if e.severity >= 4]),
+            'activeTeams': len([g for g in rescue_group_rows if g.get('status') in ['em_campo', 'pronto']]),
+            'rain24hMm': rain_mm_24h,
+            'suppliesInTransit': len([s for s in supply_rows if s.get('status') == 'em_transporte']),
+        },
+        'layers': {
+            'supportPoints': support_points_rows,
+            'riskAreas': combined_risk_areas,
+            'rescueGroups': rescue_group_rows,
+            'flowPaths': FLOW_PATHS,
+            'missingPersons': [_missing_person_to_dict(item) for item in MissingPerson.objects.order_by('-created_at')[:500]],
+            'hotspots': sorted(_load_hotspots_from_risk_areas(), key=lambda h: h.get('score', 0), reverse=True),
+            'timeline': _build_rain_timeline(),
+        },
+        'weather': {
+            'summary': 'Clima integrado (Open-Meteo + MET Norway): chuva acumulada, previsão e risco de tempestade.',
+            'rain24hMm': rain_mm_24h,
+            'rainNext24hMm': weather.get('rainfallNext24hMm') or 0,
+            'stormRisk': weather.get('stormRisk') or 'unknown',
+            'windGustKmh': weather.get('windGustKmh'),
+            'soilSaturation': 'N/D',
+            'providers': climate.get('providers', []),
+        },
+        'logistics': supply_rows,
+    }
+
+    return JsonResponse(payload, safe=False)

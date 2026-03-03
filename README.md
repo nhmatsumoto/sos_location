@@ -1,147 +1,381 @@
-# MG Location
+# Análise e levantamento de requisitos do projeto mg_location
 
+## Visão geral
 
-## Interface atual (Centro de Comando)
+1) **Módulo/serviço de localização** (ex.: CRUD de “locais”, geocoding, reverse geocoding, camadas/categorias, exportação GeoJSON) acoplado a um mapa.  
+2) **Aplicação de mapa** (ex.: visualização, pesquisa, filtros e markers) com backend mínimo.
 
-![Centro de Comando com mapa em relevo](browser:/tmp/codex_browser_invocations/3619128cf054b41e/artifacts/docs/images/centro-comando.png)
+Como há requisitos explícitos de “frontend + backend + renderização no mapa”, a arquitetura alvo recomendada é:
 
-## Stack atual
+- **Frontend Web**: SPA/MPA com página de mapa e UI de cadastro/edição, consumindo API.  
+- **Backend API**: endpoints REST para entidades de localização, com autenticação/autorização e validações.  
+- **Persistência**: banco relacional com suporte a geometria (se houver geofencing/consultas espaciais), e/ou armazenamento simples de lat/lng.  
+- **Mapa**: renderização com tiles raster (p.ex. Leaflet) ou vector tiles (p.ex. MapLibre), com markers, popups e camadas. A escolha impacta performance, CSP e estratégia de tiles. citeturn23search3turn25search0
 
-* Backend principal mantido em **Python (Django)**.
-* Projeto **.NET removido** deste repositório para simplificar operação e manutenção.
-* Frontend web em React + Leaflet + render 3D e app mobile em Flutter para captura em campo.
+image_group{"layout":"carousel","aspect_ratio":"16:9","query":["MapLibre GL JS map example vector tiles marker popup","Leaflet map marker popup OpenStreetMap attribution","OpenStreetMap tile attribution example web map"],"num_per_query":1}
 
-## Important
+### Regras críticas e não óbvias que afetam “produção” em mapas
 
-* If you're looking for the project to predict victims' location of
-  disasters like Dam Collapse go to the project [Victims Location
-  Prediction](https://github.com/sosmg-location/victims_location_prediction)
+Há duas dependências externas muito comuns e frequentemente “esquecidas” como requisitos formais:
 
-* If you want to contribute crawling data related with [MG LOCATION dam
-  disaster](https://en.wikipedia.org/wiki/MG LOCATION_dam_disaster) go to
-  the project [MG LOCATION
-  Crawlers](https://github.com/sosmg-location/mg-location_crawlers)
+- **Tiles do OpenStreetMap (tile.openstreetmap.org)** têm **política de uso**: exigem atribuição visível, caching conforme headers (ou ao menos 7 dias), headers Referer em páginas web, e proíbem scraping/prefetch; a disponibilidade é “best-effort” e **sem SLA**. citeturn23search1  
+- **Nominatim público** (nominatim.openstreetmap.org) tem limite “hard” de **1 req/s** por aplicação, exige User-Agent/Referer identificável, proíbe auto-complete via API e recomenda caching/proxy; uso comercial deve considerar que a política pode mudar e o acesso pode ser bloqueado. citeturn24search0  
 
-## English
-The aim of this project is to build and maintain a repository of tools to support emergency response, search, rescue, and recovery operations in disaster scenarios. This repository is inspired by MG LOCATION, but the current project is called MG Location and is currently focused on supporting response efforts for the ongoing disaster context in Brazil, including events such as dam failures, floods, wildfires, earthquakes, tsunamis, hurricanes, and related critical incidents.
+Essas regras viram requisitos técnicos e não técnicos simultaneamente (performance, custo, confiabilidade, conformidade/licença, UX).
 
-### How to colaborate:
-* Please see the list of [Projects](https://github.com/dieegom/mg_location/projects) that are being worked on and their respective issues. Project details are also listed below.
-* If you can help with any issue, please add a comment to the issue to indicate that you will work on it. 
-* If you are the first to work on any given project, you can choose the language or technology that you are more familiar with.
-* If other volunteers are already helping with the project then please contact them to discuss what still needs to be implemented.
-* Once your change is complete please submit your Pull Request tagging the associated issue.
-* If you would like to suggest other tools for development then please create an issue and tag it with the #suggestion label.
+## Matriz comparativa por funcionalidade
 
-We also have a Telegram discussion group. You can access it in [this link](https://t.me/joinchat/K2pTZk1Xjo0UEzmCzkJvXQ). Anyway, let's keep the discussion here on GitHub and let Telegram only for suggestions and/or others things not related to the code. 
+A tabela abaixo está no formato solicitado. Como **não houve acesso verificável ao mg_location**, o campo “status ponta a ponta” está marcado como **Indeterminado** e as colunas descrevem **o que deve existir** (e como confirmar).
 
-You can fork the project at will. We will continue to improve the code throughout the week.
+> Como usar: após apontar o repositório, a validação vira mecânica — para cada linha, cole o(s) path(s) de arquivo, nome(s) de componente(s)/endpoint(s), e evidências (prints/links internos) no documento final.
 
-Join us in this project! This may be useful in the future as well.
-Thank you!
+| funcionalidade | status ponta a ponta | frontend: componentes/validações/UX | backend: endpoints/modelos/regras | mapa: renderização/tiles/markers | lacunas típicas | risco | prioridade |
+|---|---|---|---|---|---|---|---|
+| Carregar mapa base | Indeterminado | `MapPage`, loading skeleton, fallback offline; toggle de provedor de tiles | (opcional) endpoint de config: `/config/map` | TileLayer (raster) ou estilo (vector); atribuição visível | tiles hard-coded; sem atribuição | bloqueio do provedor/violação política | P0 |
+| Atribuição/licenças no mapa | Indeterminado | Rodapé no canvas + link “copyright” | n/a | Control de attribution; não esconder em menus | ausência de “© OpenStreetMap contributors” | risco legal + bloqueio tiles | P0 |
+| Buscar endereço (geocoding) | Indeterminado | campo search com debounce “humano”; UX sem autocomplete abusivo | proxy/cache server-side; rate-limit; fallback | centralizar mapa no resultado; marker temporário | usar Nominatim direto do client; autocomplete | ban por política; instabilidade | P0 |
+| Reverse geocoding (clique no mapa) | Indeterminado | ao clicar: modal/sidepanel com endereço e ação “salvar local” | `/geocode/reverse` com cache; validações | marker “draft” | alta frequência de chamadas | ban + custo/latência | P1 |
+| CRUD de “Locais” | Indeterminado | `LocationForm` (nome, categoria, lat/lng); validações; toasts | `GET/POST/PUT/DELETE /locations`; modelo `Location`; regras de ownership | markers persistentes + popup | falta de validação (lat/lng); sem paginação | corrupção dados + performance | P0 |
+| Filtros por categoria/camada | Indeterminado | chips, multi-select; persistência no URL | `/locations?categoryId=&bbox=` | camada por estilo/cluster | sem bbox; filtra no client | payload grande; mapa lento | P1 |
+| Clusterização de markers | Indeterminado | toggle cluster; animações suaves | endpoint com bbox/zoom; ou tiles vetoriais | marker clustering (client) | cluster só no front sem bbox | travamento em datasets grandes | P1 |
+| Importar/Exportar GeoJSON | Indeterminado | upload com validação; export button | `/locations/import`, `/locations/export` | fitBounds do dataset | ordem coordenadas invertida | dados no lugar errado; bugs | P1 |
+| Autenticação/Autorização | Indeterminado | login flow; expiração; UX erro 401/403 | JWT/OIDC; RBAC; BOLA/BFLA mitigação | markers só do usuário/tenant | endpoints sem checagem de objeto | vazamento de dados | P0 |
+| Auditoria e histórico | Indeterminado | timeline/histórico por local | tabela audit + trilha alteração | n/a | ausência de trilha | baixa rastreabilidade | P2 |
+| Observabilidade | Indeterminado | n/a | logs estruturados; métricas; tracing | n/a | sem correlação logs/traces | MTTR alto | P1 |
 
-### - Location 
-This tool calculates the probable location of missing individuals' bodies by taking into consideration their last known location coordinates (i.e. latitude and longitude) and the tailing flows.
+As políticas do serviço de tiles do OpenStreetMap deixam explícito que o uso é “best-effort” e sem SLA, e listam obrigações técnicas (User-Agent/Referer/caching) e de atribuição. citeturn23search1turn23search13  
+A política do Nominatim define o teto de 1 req/s e proíbe autocomplete via API pública, o que afeta diretamente design de UX e arquitetura (proxy/cache). citeturn24search0  
+Para renderização e UI em mapas, bibliotecas típicas incluem Leaflet (pan/zoom, fitBounds, animações) e/ou MapLibre (vector tiles, control de markers e requisitos de CSP). citeturn25search0turn23search3  
 
-The algorithm still needs improvement and to improve it, we will need tailings physical-chemical data, location topographic map (.csv), simulations of the tailing spreading, and, of course, the latitude and longitude coordinates from the victims' cell phones.
+## Requisitos técnicos e não técnicos por funcionalidade
 
-The production enviromment is currently live at: https://mg-location.osei.ong.br
+Esta seção é um “catálogo de requisitos” para você colar no SRS. Onde aplicável, os requisitos já incorporam políticas oficiais e padrões.
 
-We ask that those contributing to the project submit their Pull Requests as soon as possible to help improve the algorithm and make it available to those responsible for the search and rescue operations.
+### Requisitos técnicos fundamentais
 
-#### Ideas to be implemented:
-*  http://fluidityproject.github.io/
-*  http://lorenabarba.com/blog/cfd-python-12-steps-to-navier-stokes/
-*  https://pt.wikipedia.org/wiki/Equa%C3%A7%C3%B5es_de_Navier-Stokes
-*  http://rlguy.com/gridfluidsim/
-  
-### Support material
-* Using Python to Solve the Navier-Stokes Equations
-  http://www.journalrepository.org/media/journals/JSRR_22/2015/May/Liu732015JSRR17346.pdf
-* Grid Fluid Sim 3D Exemples
-  https://github.com/rlguy/GridFluidSim3D/tree/master/src/examples/python
+**Representação e validação de coordenadas**
+- O sistema deve padronizar **ordem e formato de coordenadas**. Se GeoJSON for utilizado, **Point.coordinates deve ser [longitude, latitude]** (e opcionalmente altitude). citeturn26search18  
+- Validações mínimas: longitude ∈ [-180, 180], latitude ∈ [-90, 90], e rejeitar `NaN/null/strings`. (Derivado do uso correto de coordenadas e interoperabilidade GeoJSON.) citeturn26search18  
+- O frontend deve validar antes do request e o backend deve validar novamente (controle de integridade em fronteira).
 
-### API MVP implemented (rescue suite)
-* `GET /api/hotspots` - ranking de áreas críticas.
-* `GET,POST /api/collapse-reports` - upload de vídeos e fila de ingestão.
-* `GET /api/rescue-support` - snapshot tático com agentes especialistas e locais prováveis.
-* `POST /api/location/flow-simulation` - simulação simplificada de fluxo de rejeitos (base CFD).
-* `GET,POST /api/searched-areas` - registro de áreas já buscadas por equipes.
-* `GET,POST /api/report-info` - relatos de pessoas e animais desaparecidos.
-* `GET /api/missing-people.csv` - exportação CSV de desaparecidos.
-* `POST /api/identify-victim` - matching inicial de identificação (triagem).
-* `GET /api/cfd/ideas` - referências e materiais técnicos de fluidodinâmica.
+**Mapa base, tiles e caching**
+- Se usar tiles do `tile.openstreetmap.org`, respeitar URL correta, atribuição e **caching conforme headers** (ou mínimo de 7 dias quando não suportado), e não usar “prefetch/scrape”. citeturn23search1  
+- O sistema deve permitir **troca de provedor de tiles sem precisar release do frontend**, reduzindo risco de bloqueio e mitigando indisponibilidade (recomendação explícita na política). citeturn23search1  
 
+**Geocoding e reverse geocoding**
+- Se usar Nominatim público: impor **rate limit global por app** (não por usuário) e cache local/server-side; **não implementar autocomplete client-side** em cima do Nominatim público. citeturn24search0  
+- Recomenda-se um endpoint de backend (proxy) para centralizar: rate limit, cache, headers identificáveis e fallback para provedores alternativos, evitando que cada browser do usuário “vire um scraper”. citeturn24search0turn23search1  
 
-### - Where we had searched
-This tool provides information regarding  areas that have already been inspected by the search and rescue teams. 
+**Segurança de API**
+- Aplicar controles contra riscos típicos de API como: autorização por objeto e por função, autenticação forte, limitação de recursos, inventário de endpoints e segurança de configuração, conforme taxonomia do OWASP API Security Top 10 (2023). citeturn26search5turn26search0  
+- Para login federado: padronizar OAuth 2.0/OIDC (ID Token, scopes, fluxo de autorização) conforme especificações oficiais. citeturn28search6turn28search2  
 
-### - Report info
-App to report missing people and missing animals.
+**CSP e segurança no mapa (se usar MapLibre)**
+- MapLibre GL JS pode exigir diretivas de CSP específicas (ex.: `worker-src blob:` e similares) para funcionar em ambientes com CSP estrita. citeturn23search3  
 
-### - Missing people list
-This tool returns an updated .csv with all the names of missing people.
+**Observabilidade**
+- Emitir logs/métricas/traces com correlação coerente (por requestId/traceId). A especificação de logs do OpenTelemetry descreve a motivação de correlação uniforme entre sinais via Collector e atributos comuns. citeturn26search8  
 
-### - Identify the victim body
-Through a set of photos provided by victims relatives in [this project](https://github.com/dieegom/mg_location/projects/3) and based on the picture of the body found, identify who is the possible victim.
+### Requisitos não técnicos fundamentais
 
-## Português
-Este projeto tem como foco ser um repositório de ferramentas para apoiar ações de resposta a emergências, busca, resgate e recuperação em diferentes tipos de desastres. O repositório é inspirado no MG LOCATION, mas este projeto se chama MG Location e, por enquanto, está focado no desastre atual em curso no Brasil, incluindo cenários como rompimentos de barragem, enchentes, incêndios, terremotos, tsunamis, furacões e outros eventos críticos. 
+**Licenciamento e atribuição**
+- A aplicação deve exibir atribuição legível e “sem interação” para quem vê o mapa, seguindo diretrizes de atribuição do OpenStreetMap. citeturn23search13turn23search1  
 
->No início da tarde do dia 25 de janeiro de 2019 rompeu-se uma barragem de rejeitos de mineração controlada pela Vale S.A.,construída no ribeirão Ferro-Carvão, na localidade de Córrego do Feijão.
->
-> — https://pt.wikipedia.org/wiki/Rompimento_de_barragem_em_MG LOCATION
+**SLA, confiabilidade e continuidade**
+- Se depender de tiles oficiais do OpenStreetMap Foundation, assumir explicitamente **sem SLA** (“best-effort”) e projetar fallback/alternativas. citeturn23search1  
+- Se depender de Nominatim público, declarar limites e regras de uso no SRS e tratar bloqueios como cenário de operação normal (com fallback e cache). citeturn24search0turn24search8  
 
-### Como colaborar
+**Acessibilidade**
+- As telas do sistema (principalmente mapa + filtros + formulários) devem ser conformes a WCAG 2.2 como referência de requisitos de acessibilidade. citeturn26search13turn26search1  
 
-* Acesse [Projetos](https://github.com/dieegom/mg_location/projects) e veja a lista de ferramentas que estamos desenvolvendo e suas respectivas issues. Você também pode ver essa lista logo abaixo. 
-* Se você puder ajudar com alguma issue, escreva um comentário dizendo que você irá trabalhar nela.
-* Se você for o primeiro a trabalhar no projeto, você pode escolher a linguagem ou tecnologia que se sinta mais confortável.
-* Se mais voluntários estiverem ajudando, contate-os antes para saber o que ainda precisa ser implementado.
-* Quando acabar, façam seu Pull Request informando a issue associada.
-* Se tiver sugestão de alguma outra ferramenta, cadastre uma issue usando o label #suggestion
+**Privacidade e conformidade (LGPD)**
+- Se o sistema tratar dados pessoais (usuários, e-mail, IP, e possivelmente geolocalização vinculada a pessoa), deve aderir à Lei nº 13.709/2018 (LGPD), incluindo base legal, finalidade, minimização e controles de segurança. citeturn27search8  
 
+## Diagramas mermaid sugeridos
 
-Nós também temos um grupo de discussão no Telegram que pode ser acessado [neste link](https://t.me/joinchat/K2pTZk1Xjo0UEzmCzkJvXQ). De qualquer maneira, vamos manter a discussão aqui no GitHub e usar o Telegram apenas para sugestões e/ou dúvidas não relacionadas ao código. 
+Os diagramas abaixo podem entrar no documento de requisitos e são compatíveis com README/docs.
 
+### Fluxo ponta a ponta de cadastro de local
 
-"Forkem" à vontade. Continuaremos melhorando o código ao longo da semana. <br/><br/>
-Vamos todos fazer a nossa parte! Isto pode ser útil no futuro também.<br/>
-Obrigado.
+```mermaid
+sequenceDiagram
+  autonumber
+  actor U as Usuário
+  participant UI as Frontend (Mapa + Form)
+  participant API as Backend API
+  participant DB as Banco de Dados
+  participant GEO as Geocoding (Proxy/Cache)
 
-### - Location 
+  U->>UI: Abre tela do mapa
+  UI->>API: GET /config/map (opcional)
+  UI->>UI: Renderiza mapa base + attribution
 
-Essa ferramenta requer as coordenadas de latitude e longitude dos desaparecidos para calcular a estimativa baseando-se no fluxo de rejeitos <br/>
-O algoritmo precisa ser melhorado (e muito) ainda. Além disso, fizemos apenas com os poucos dados que obtivemos. Ideal seria termos dados físico-químicos do rejeito, mapa topográfico (em .csv) do local, simulações do rejeito se espalhando e, claro, latitude e longitude dos celulares.<br/>
+  U->>UI: Busca endereço / seleciona no mapa
+  UI->>GEO: GET /geocode?query=...
+  GEO-->>UI: Resultado (lat,lng + metadados)
 
-Vamos deixar o sistema atualizado rodando em: https://mg-location.osei.ong.br  <br/>
-Pedimos aos Devs que façam seus Pull Requests para que possamos deixar este algoritmo mais robusto e disponível para os responsáveis pelo resgate. "Forkem" à vontade. Continuaremos melhorando o código ao longo da semana. <br/><br/>
+  U->>UI: Confirma e preenche dados (nome/categoria)
+  UI->>API: POST /locations {name, categoryId, geom}
+  API->>API: Valida payload + autorização (ownership/tenant)
+  API->>DB: INSERT Location
+  DB-->>API: id
+  API-->>UI: 201 Created (LocationDTO)
+  UI->>UI: Adiciona marker no mapa + popup + feedback
+```
 
-####  Ideias a serem implementadas: <br/>
-*  http://fluidityproject.github.io/ <br/>
-*  http://lorenabarba.com/blog/cfd-python-12-steps-to-navier-stokes/ <br/>
-*  https://pt.wikipedia.org/wiki/Equa%C3%A7%C3%B5es_de_Navier-Stokes <br/>
-*  http://rlguy.com/gridfluidsim/<br/><br/>
+Este fluxo assume **proxy/cache** para geocoding para respeitar limites públicos do Nominatim e não expor usuários finais a bloqueio por volume. citeturn24search0  
 
+### Modelo ER mínimo para “locais” com auditoria
 
-### Materiais de apoio: 
-* Using Python to Solve the Navier-Stokes Equations
-  http://www.journalrepository.org/media/journals/JSRR_22/2015/May/Liu732015JSRR17346.pdf
-* Grid Fluid Sim 3D Exemplos
-  https://github.com/rlguy/GridFluidSim3D/tree/master/src/examples/python
+```mermaid
+erDiagram
+  USER ||--o{ LOCATION : owns
+  LOCATION }o--|| LOCATION_CATEGORY : categorized_as
+  LOCATION ||--o{ LOCATION_EVENT : has_history
 
+  USER {
+    uuid id
+    string email
+    string display_name
+    string role
+    datetime created_at
+  }
 
+  LOCATION {
+    uuid id
+    uuid user_id
+    uuid category_id
+    string name
+    string description
+    decimal lat
+    decimal lng
+    string source
+    datetime created_at
+    datetime updated_at
+  }
 
-### - Onde já foi buscado
-Nesta ferramenta locais e equipes de resgatem podem fornecer informações de geolocalização sobre as áreas onde as buscas já foram realizadas.
+  LOCATION_CATEGORY {
+    uuid id
+    string name
+    string color
+    int sort_order
+  }
 
-### - Report info
-App para relatar informações de pessoas e animais desaparecidos
+  LOCATION_EVENT {
+    uuid id
+    uuid location_id
+    uuid actor_user_id
+    string action
+    json diff
+    datetime created_at
+  }
+```
 
+Se houver exportação GeoJSON, recomenda-se armazenar também a geometria como GeoJSON padronizado e lembrar que a ordem é `[lon, lat]`. citeturn26search18  
 
-### - Missing people list
-Essa ferramenta retorna um arquivo .csv atualizado com todos os nomes das pessoas desaparecidas.
+## Checklist de testes e QA
 
+Este checklist é orientado a “mapa + dados de localização + API” e reflete riscos reais (rate limit, autorização, performance e acessibilidade).
 
-### - Identificar o corpo da vítima
-Utilizando um conjunto de fotos fornecidos por parentes e amigos da vítimas [neste projeto] (https://github.com/dieegom/mg_location/projects/3) e baseado na foto do corpo, identificar quem possivelmente é a vítima.
+### Testes funcionais e de integração
+- CRUD de locais: criar/editar/excluir/listar, incluindo validações (lat/lng fora do intervalo; campos obrigatórios).
+- Renderização no mapa: marker aparece após POST; popup exibe campos; fitBounds funciona para lista filtrada. (Leaflet: fitBounds/flyToBounds existem e são padrão para enquadrar bounds.) citeturn25search0  
+- Busca de endereço: comportamento sem autocomplete agressivo se Nominatim público for usado; cache de respostas; fallback quando provider falhar. citeturn24search0  
+- Filtros: categoria/bbox/zoom; consistência com querystring (deep link).
+- Exportação GeoJSON: validar ordem de coordenadas e roundtrip (export→import mantém posição). citeturn26search18  
+
+### Segurança (API + web)
+- Autorização por objeto (BOLA): usuário A não acessa/edita/deleta Location do usuário B. (Risco #1 do OWASP API Top 10 2023 é Broken Object Level Authorization.) citeturn26search5  
+- Rate limiting e proteção de recursos (API4:2023): endpoints de busca/importação devem ter limites para proteger CPU/memória. citeturn26search5  
+- Inventário e documentação de endpoints (API9:2023): endpoints debug e versões antigas não devem ficar expostos. citeturn26search5  
+- Se OIDC/OAuth: testar expiração de token, refresh/reauth e validação de assinatura/issuer conforme specs. citeturn28search2turn28search6  
+
+### Performance e resiliência
+- Marker stress test: 1k/10k markers (sem cluster o mapa tende a degradar); medir FPS/TTI.
+- Tiles: cache habilitado; headers corretos; não usar “no-cache” por padrão (proibido na política de tiles). citeturn23search1  
+- Geocoding: garantir média abaixo de 1 req/s por app se Nominatim público; detecção de bloqueio e fallback. citeturn24search0turn24search8  
+
+### Acessibilidade
+- Navegação por teclado (incluindo foco visível e não obstruído) e tamanhos mínimos de alvo em UI de mapa (WCAG 2.2 adiciona critérios e reforça foco/entrada). citeturn26search13turn26search2  
+- Alternativas textuais: lista de resultados deve existir além do canvas do mapa (usuários de leitores de tela). (Referência via WCAG como norma.) citeturn26search13  
+
+## Documento de requisitos pronto para linkar no README
+
+A seguir vai a proposta de arquivo **pronto** para ser criado no repositório:
+
+- caminho sugerido: `docs/REQUISITOS.md`  
+- título sugerido: “Requisitos de Software — mg_location”  
+- objetivo: ser linkado no sumário do README principal.
+
+### Texto exato do link para o sumário do README
+
+```md
+- [Requisitos de Software](docs/REQUISITOS.md)
+```
+
+### Instruções de commit/PR
+
+1) Criar branch:
+- `git checkout -b docs/requisitos-mg-location`
+
+2) Adicionar arquivo:
+- criar `docs/REQUISITOS.md` com o conteúdo (template) abaixo.
+
+3) Atualizar `README.md`:
+- inserir o link no sumário (Table of Contents) exatamente como acima.
+
+4) Commit:
+- `git add README.md docs/REQUISITOS.md`
+- `git commit -m "docs: adiciona requisitos de software do mg_location"`
+
+5) Push e PR:
+- `git push -u origin docs/requisitos-mg-location`
+- abrir Pull Request no GitHub com descrição: objetivo, escopo, e checklist.
+
+### Diff exemplar do PR de documentação
+
+```diff
+diff --git a/README.md b/README.md
+index 1111111..2222222 100644
+--- a/README.md
++++ b/README.md
+@@ -10,6 +10,7 @@
+ ## Sumário
+ - [Visão geral](#visão-geral)
+ - [Como rodar](#como-rodar)
++- [Requisitos de Software](docs/REQUISITOS.md)
+
+diff --git a/docs/REQUISITOS.md b/docs/REQUISITOS.md
+new file mode 100644
+index 0000000..3333333
+--- /dev/null
++++ b/docs/REQUISITOS.md
+@@ -0,0 +1,120 @@
++# Requisitos de Software — mg_location
++
++## Objetivo
++Este documento descreve requisitos técnicos e não técnicos do mg_location, cobrindo fluxos ponta a ponta (frontend, backend e renderização no mapa), segurança, performance, observabilidade, deploy e conformidade.
++
++## Escopo funcional
++### Funcionalidades
++1. Mapa base com atribuição e troca de provedor (tiles)
++2. CRUD de Locais (markers persistentes)
++3. Busca de endereço (geocoding) com cache e rate limit
++4. Reverse geocoding (clique no mapa)
++5. Filtros e camadas
++6. Exportação/Importação GeoJSON
++7. Autenticação e autorização (RBAC/ownership)
++
++## Requisitos técnicos
++(preencher: endpoints, modelos, validações, regras, dependências, performance, segurança, testes)
++
++## Requisitos não técnicos
++(preencher: usuários, SLA, acessibilidade, i18n, conformidade LGPD, manutenção, deploy, observabilidade)
++
++## Diagramas
++```mermaid
++sequenceDiagram
++  autonumber
++  actor U as Usuário
++  participant UI as Frontend
++  participant API as Backend
++  participant DB as Banco
++  U->>UI: Interage com mapa/form
++  UI->>API: POST /locations
++  API->>DB: INSERT
++  DB-->>API: ok
++  API-->>UI: 201
++```
+```
+
+## Sugestões de correções/PRs técnicas com foco em riscos reais
+
+Como não foi possível inspecionar o mg_location, estas sugestões são **priorizadas por risco** e altamente prováveis em qualquer app de mapa em produção.
+
+### PR sugerido: guardrails para tiles e geocoding
+
+**Motivação**: evitar bloqueio e instabilidade por violar políticas de tiles/geocoding do OpenStreetMap. citeturn23search1turn24search0  
+
+- Tornar provider de tiles configurável (env/config endpoint) e garantir atribuição sempre visível. citeturn23search1turn23search13  
+- Implementar backend proxy/cache para geocoding, impondo 1 req/s agregado (se Nominatim público) e proibindo autocomplete “client-side”. citeturn24search0  
+
+### PR sugerido: endurecimento de segurança de API seguindo OWASP API Top 10
+
+**Motivação**: o OWASP destaca autorização como maior desafio em APIs modernas e lista BOLA como risco #1. citeturn26search0turn26search5  
+
+- Garantir checagem de ownership/tenant em endpoints com `/{id}`.  
+- Adicionar rate limit em endpoints “caros” (import/export, geocoding, buscas sem bbox) para mitigar “Unrestricted Resource Consumption”. citeturn26search5  
+
+### PR sugerido: contrato de dados (GeoJSON) e validação de coordenadas
+
+**Motivação**: erros de ordem `[lat, lon]` vs `[lon, lat]` são comuns e causam bugs silenciosos. O RFC do GeoJSON é explícito na ordem. citeturn26search18  
+
+- Fixar DTOs/serialização para GeoJSON com `[lon, lat]`.  
+- Teste automatizado “roundtrip” (export/import) e teste de regressão visual do mapa.
+
+### PR sugerido: acessibilidade (mapa é canvas, mas produto não pode ser “só canvas”)
+
+**Motivação**: WCAG 2.2 é recomendação W3C e adiciona critérios; mapa precisa ter alternativa navegável. citeturn26search13turn26search1  
+
+- Adicionar “lista de resultados” sincronizada com markers (keyboard e screen reader).  
+- Garantir foco visível e navegação sem mouse nos filtros e formulários.
+
+## O que falta para fechar o inventário real do mg_location
+
+Para cumprir literalmente os itens (1) e (2) do seu pedido — “listar todas as funcionalidades existentes” e “avaliar implementação ponta a ponta (frontend/backend/mapa) com lacunas e riscos por funcionalidade” — é necessário **acesso inequívoco ao repositório mg_location** (URL completo do repo ou owner certo). Sem isso, qualquer lista de funcionalidades “existentes” seria especulativa e não auditável.
+
+Ainda assim, este relatório já entrega:
+
+- estrutura de requisitos pronta,  
+- tabela comparativa no formato solicitado,  
+- requisitos técnicos/não técnicos com base em políticas e padrões oficiais,  
+- checklist de QA e PRs prioritários,  
+- diffs exemplares para documentação.
+
+Quando o repositório estiver identificado, a próxima iteração transforma cada linha da matriz em evidência concreta (paths, endpoints, componentes, modelos, testes) e atualiza “Indeterminado” para “Completo / Parcial / Ausente” com riscos e prioridades baseadas no código.
+
+## Backlog & Crise
+
+Para subir o ambiente local, validar smoke test e sincronizar backlog de crise com GitHub Projects v2, use:
+
+```bash
+./scripts/bootstrap_backlog.sh
+```
+
+## Endpoints principais
+
+### Operacionais
+- `POST /api/calculate`
+- `GET,POST /api/missing-persons`
+- `GET /api/missing-people.csv`
+- `GET /api/hotspots`
+- `GET /api/rescue-support`
+- `GET /api/terrain/context`
+- `GET /api/operations/snapshot`
+- `GET,POST /api/map-annotations`
+- `GET,POST /api/support-points`
+- `GET,POST /api/risk-areas`
+- `GET /api/risk/assessment`
+- `POST /api/risk/pipeline-sync`
+- `GET /api/location/flow-simulation/stream` (SSE de passos em tempo real)
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+- `GET /api/auth/me`
+- `POST /api/auth/logout`
+- `GET,POST /api/rescue-groups`
+- `GET,POST /api/supply-logistics`
+
+### Data Hub
+- `GET /api/weather/forecast`
+- `GET /api/weather/archive`
+- `GET /api/alerts`
+- `GET /api/alerts/intelligence` (fusão: alertas externos + meteorologia + geocodificação)
+- `GET /api/transparency/transfers`
+- `GET /api/transparency/search`
+- `GET /api/satellite/layers`
+- `GET /api/satellite/stac/search`
+- `GET /api/satellite/goes/recent`
+
+## Licença
+
+MIT.

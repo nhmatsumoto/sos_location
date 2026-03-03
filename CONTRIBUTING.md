@@ -74,3 +74,38 @@ available at https://www.contributor-covenant.org/version/1/4/code-of-conduct.ht
 
 For answers to common questions about this code of conduct, see
 https://www.contributor-covenant.org/faq
+
+---
+
+## Guia rápido para novos contribuidores (MG Location)
+
+### 1. Suba o ambiente local
+- Backend Django:
+  - `python -m venv .venv && source .venv/bin/activate`
+  - `pip install -r requirements.txt`
+  - `python manage.py migrate`
+  - `python manage.py runserver 0.0.0.0:8000`
+- Frontend React:
+  - `cd frontend-react`
+  - `npm install`
+  - `npm run dev -- --host 0.0.0.0 --port 8088`
+
+### 2. Funcionalidades novas para validar
+- Simulação de deslizamento em tempo real (SSE):
+  - `GET /api/location/flow-simulation/stream?lat=-21.1215&lng=-42.9427`
+- Integrações de clima (Open-Meteo):
+  - `GET /api/weather/forecast?lat=-21.1215&lon=-42.9427&days=3`
+- Autenticação baseada em token:
+  - `POST /api/auth/register`
+  - `POST /api/auth/login`
+  - `GET /api/auth/me` com header `Authorization: Token <token>`
+  - `POST /api/auth/logout` com header `Authorization: Token <token>`
+
+### 3. Testes mínimos antes de abrir PR
+- Backend: `python manage.py test apps.api.tests`
+- Frontend: `cd frontend-react && npm run build`
+
+### 4. Boas práticas de contribuição
+- Abra PRs pequenos e focados (uma feature por PR).
+- Inclua evidências de teste no corpo do PR.
+- Se alterar contratos de API, atualize documentação em `README.md` e `docs/`.
