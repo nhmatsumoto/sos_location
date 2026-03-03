@@ -1,5 +1,7 @@
-from decouple import config, Csv
 from urllib.parse import urlparse
+
+from decouple import Csv, config
+from django.conf import settings
 
 
 class SimpleCorsMiddleware:
@@ -12,36 +14,56 @@ class SimpleCorsMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
         self.allowed_origins = set(
-            config(
+            getattr(
+                settings,
                 'CORS_ALLOWED_ORIGINS',
-                default=(
-                    'http://localhost:8088,http://127.0.0.1:8088,'
-                    'http://localhost:5173,http://127.0.0.1:5173,'
-                    'http://localhost:3000,http://127.0.0.1:3000'
+                config(
+                    'CORS_ALLOWED_ORIGINS',
+                    default='http://localhost:8088,http://127.0.0.1:8088',
+                    cast=Csv(),
                 ),
-                cast=Csv(),
             )
         )
-        self.allow_localhost_any_port = config('CORS_ALLOW_LOCALHOST_ANY_PORT', default=True, cast=bool)
-        self.allow_credentials = config('CORS_ALLOW_CREDENTIALS', default=False, cast=bool)
+        self.allow_localhost_any_port = getattr(
+            settings,
+            'CORS_ALLOW_LOCALHOST_ANY_PORT',
+            config('CORS_ALLOW_LOCALHOST_ANY_PORT', default=False, cast=bool),
+        )
+        self.allow_credentials = getattr(
+            settings,
+            'CORS_ALLOW_CREDENTIALS',
+            config('CORS_ALLOW_CREDENTIALS', default=True, cast=bool),
+        )
         self.allowed_methods = ', '.join(
-            config(
+            getattr(
+                settings,
                 'CORS_ALLOWED_METHODS',
-                default='GET,POST,PUT,PATCH,DELETE,OPTIONS',
-                cast=Csv(),
+                config(
+                    'CORS_ALLOWED_METHODS',
+                    default='GET,POST,PUT,PATCH,DELETE,OPTIONS',
+                    cast=Csv(),
+                ),
             )
         )
         self.allowed_headers = ', '.join(
-            config(
+            getattr(
+                settings,
                 'CORS_ALLOWED_HEADERS',
-                default=(
-                    'Authorization,Content-Type,Accept,Origin,X-Requested-With,'
-                    'X-CSRFToken,X-Csrftoken'
+                config(
+                    'CORS_ALLOWED_HEADERS',
+                    default=(
+                        'Authorization,Content-Type,Accept,Origin,X-Requested-With,'
+                        'X-CSRFToken,X-Csrftoken'
+                    ),
+                    cast=Csv(),
                 ),
-                cast=Csv(),
             )
         )
-        self.max_age = config('CORS_PREFLIGHT_MAX_AGE', default=600, cast=int)
+        self.max_age = getattr(
+            settings,
+            'CORS_PREFLIGHT_MAX_AGE',
+            config('CORS_PREFLIGHT_MAX_AGE', default=600, cast=int),
+        )
 
     def __call__(self, request):
         if request.path.startswith('/api/') and request.method == 'OPTIONS':
