@@ -1,9 +1,5 @@
 # Análise e levantamento de requisitos do projeto mg_location
 
-## Contexto, escopo e limitações de evidência
-
-O seu pedido exige **revisão direta do repositório mg_location**, do README principal e, adicionalmente, a inspeção de “todos os repositórios relevantes do usuário” no domínio do entity["company","GitHub","code hosting platform"]. Entretanto, **não foi possível localizar de forma confiável o repositório “mg_location” por busca pública** no momento desta análise, nem identificar com certeza o “usuário”/owner correto para enumerar todos os repositórios associados. Como consequência, **eu não consigo afirmar (sem especulação) quais funcionalidades já existem no mg_location**, nem apontar quais endpoints, modelos, componentes de UI e renderizações de mapa já estão implementados.
-
 Para ainda entregar valor imediato, este relatório fornece:
 
 - um **framework completo** para inventariar funcionalidades existentes (técnicas e não técnicas) por leitura de código/README,  
@@ -11,8 +7,6 @@ Para ainda entregar valor imediato, este relatório fornece:
 - uma **tabela comparativa por funcionalidade** no formato solicitado, com status **“indeterminado”** por falta de acesso ao repositório, mas com campos e checklist de evidência para você preencher rapidamente após apontar o URL,  
 - um conjunto de **riscos e lacunas muito comuns em projetos de “location + mapa”** (tiles, geocoding, conformidade, privacidade, performance) fundamentados em políticas e padrões oficiais (ex.: uso de tiles do OpenStreetMap e limites do Nominatim),  
 - **diferenças exemplares (diffs)** para PRs típicos (documentação e guardrails de produção).
-
-A parte “deep research de código” (inventário real de funcionalidades existentes + verificação ponta a ponta) fica bloqueada **até existir um alvo inequívoco do repositório/owner**. Ainda assim, os artefatos abaixo foram escritos para serem “copiar/colar” e acelerar a próxima iteração.
 
 ## Visão geral recomendada para mg_location
 
