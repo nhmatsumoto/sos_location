@@ -28,7 +28,12 @@ from apps.api.views import (
 )
 
 from apps.api.views_risk import risk_assessment, risk_pipeline_sync
-from apps.api.views_disasters import disasters_events, disasters_by_country, disasters_timeseries
+from apps.api.views_disasters import (
+    disasters_events,
+    disasters_by_country,
+    disasters_timeseries,
+    disasters_crawl_trigger,
+)
 
 from apps.api.views_integrations import (
     alerts as alerts_feed,
@@ -92,8 +97,8 @@ urlpatterns = [
     path('integrations/transparency/transfers', transparency_transfers, name='integrations_transparency_transfers'),
     path('integrations/transparency/summary', transparency_summary, name='integrations_transparency_summary'),
     path('integrations/satellite/layers', satellite_layers, name='integrations_satellite_layers'),
-    path('disasters/events', disasters_events, name='disasters_events'),
-    path('disasters/stats/by-country', disasters_stats_by_country, name='disasters_stats_by_country'),
-    path('disasters/stats/timeseries', disasters_stats_timeseries, name='disasters_stats_timeseries'),
+    path('disasters/events', disasters_events, name='disasters_events_alias'),
+    path('disasters/stats/by-country', disasters_by_country, name='disasters_stats_by_country'),
+    path('disasters/stats/timeseries', disasters_timeseries, name='disasters_stats_timeseries'),
     path('disasters/crawl-trigger', disasters_crawl_trigger, name='disasters_crawl_trigger'),
 ]

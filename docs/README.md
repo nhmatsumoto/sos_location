@@ -5,6 +5,8 @@ Este diretório centraliza a documentação funcional e técnica do projeto.
 ## Índice
 
 - [Visão geral e objetivo](./VISION_AND_GOALS.md)
+- [Arquitetura de orquestração de engenharia](./AI_ENGINEERING_ORCHESTRATION.md)
+- [Learning log dos agentes](./agents/learning-log.md)
 - [Regras de domínio](./DOMAIN_RULES.md)
 - [Funcionalidades](./FEATURES.md)
 - [Implementações e integrações](./IMPLEMENTATIONS.md)

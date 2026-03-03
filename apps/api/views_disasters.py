@@ -9,6 +9,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET
 from django.utils import timezone
 
+from apps.api.disaster_crawler import crawl_once
 from apps.api.models import DisasterEvent
 
 
@@ -143,3 +144,12 @@ def disasters_timeseries(request):
         .order_by('t')
     )
     return JsonResponse({'items': rows})
+
+
+@csrf_exempt
+def disasters_crawl_trigger(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Método não suportado.'}, status=405)
+
+    summary = crawl_once(window_hours=24)
+    return JsonResponse({'ok': True, **summary})
