@@ -9,6 +9,7 @@ from apps.api.views import (
     hotspots,
     identify_victim,
     location_flow_simulation,
+    location_flow_simulation_stream,
     unified_easy_simulation,
     missing_people_csv,
     news_updates,
@@ -28,6 +29,7 @@ from apps.api.views import (
 )
 
 from apps.api.views_risk import risk_assessment, risk_pipeline_sync
+from apps.api.views_auth import auth_login, auth_logout, auth_me, auth_register
 
 from apps.api.views_integrations import (
     alerts as alerts_feed,
@@ -51,6 +53,7 @@ urlpatterns = [
     path('rescue-support', rescue_support, name='rescue_support'),
     path('climate/integrations', climate_integrations, name='climate_integrations'),
     path('location/flow-simulation', location_flow_simulation, name='location_flow_simulation'),
+    path('location/flow-simulation/stream', location_flow_simulation_stream, name='location_flow_simulation_stream'),
     path('simulation/easy', unified_easy_simulation, name='unified_easy_simulation'),
     path('terrain/context', terrain_context, name='terrain_context'),
     path('searched-areas', searched_areas, name='searched_areas'),
@@ -80,4 +83,8 @@ urlpatterns = [
     path('satellite/layers', satellite_layers, name='satellite_layers'),
     path('satellite/stac/search', satellite_stac_search, name='satellite_stac_search'),
     path('satellite/goes/recent', satellite_goes_recent, name='satellite_goes_recent'),
+    path('auth/register', auth_register, name='auth_register'),
+    path('auth/login', auth_login, name='auth_login'),
+    path('auth/me', auth_me, name='auth_me'),
+    path('auth/logout', auth_logout, name='auth_logout'),
 ]

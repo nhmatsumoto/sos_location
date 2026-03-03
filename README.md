@@ -159,6 +159,11 @@ docker compose ps
 - `GET,POST /api/risk-areas`
 - `GET /api/risk/assessment`
 - `POST /api/risk/pipeline-sync`
+- `GET /api/location/flow-simulation/stream` (SSE de passos em tempo real)
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+- `GET /api/auth/me`
+- `POST /api/auth/logout`
 - `GET,POST /api/rescue-groups`
 - `GET,POST /api/supply-logistics`
 
