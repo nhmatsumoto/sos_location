@@ -186,27 +186,30 @@ async function calculate() {
 
     const srcPoint = new L.LatLng(lat, lng);
 
-    const result = await fetch('/api/calculate', {
-        method: 'POST',
-        headers: {
-            Accept: 'application/json',
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(srcPoint)
-    });
+    try {
+        const result = await fetch('/api/calculate', {
+            method: 'POST',
+            headers: {
+                Accept: 'application/json',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(srcPoint)
+        });
 
-    if (!result.ok) {
-        app.loading = false;
+        if (!result.ok) {
+            throw new Error('Calculation request failed with a non-OK status');
+        }
+
+        const data = await result.json();
+        const destPoint = new L.LatLng(data.lat, data.lng);
+        drawVector(srcPoint, destPoint);
+        window.map.panTo(destPoint);
+        app.statusMessage = app.t.status.success;
+    } catch (error) {
         app.errorMessage = app.t.errors.requestFailed;
-        return;
+    } finally {
+        app.loading = false;
     }
-
-    const data = await result.json();
-    const destPoint = new L.LatLng(data.lat, data.lng);
-    drawVector(srcPoint, destPoint);
-    window.map.panTo(destPoint);
-    app.statusMessage = app.t.status.success;
-    app.loading = false;
 }
 
 function clearMap() {
