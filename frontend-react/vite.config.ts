@@ -32,6 +32,7 @@ export default defineConfig(({ mode }) => {
           manualChunks: {
             leaflet: ['leaflet', 'react-leaflet'],
             icons: ['lucide-react'],
+            three: ['three'],
           },
         },
       },

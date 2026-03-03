@@ -379,3 +379,44 @@ Para subir o ambiente local, validar smoke test e sincronizar backlog de crise c
 ## Licença
 
 MIT.
+
+## Map & Weather Integration
+
+O frontend React/Vite agora usa uma arquitetura de **Map Core** para o mapa operacional:
+
+- `MapShell`: container principal do mapa.
+- `BaseLayers`: tiles base (OSM + OpenTopo).
+- `OverlayLayers`: camadas operacionais (hotspots, áreas de risco, pontos de apoio, desaparecidos).
+- `FloatingPanels`: painéis flutuantes com clima, desaparecidos e ferramentas.
+- `MapEvents`: sincroniza viewport e clique no mapa com a store.
+- `MapStore` (Zustand): controla viewport, layers habilitadas, estado de UI e timeline.
+
+### Open-Meteo
+
+A integração foi implementada em `frontend-react/src/services/openMeteo.ts` com:
+
+- endpoint `https://api.open-meteo.com/v1/forecast`;
+- `past_days=92`, `forecast_days=16`, `time_mode=time_interval`;
+- intervalo padrão `start_date=2026-01-24` e `end_date=2026-03-10`;
+- cache em memória + `localStorage` com TTL de 10 minutos;
+- retry com backoff leve e fallback para último cache.
+
+### Three.js + Leaflet
+
+A camada 3D foi acoplada ao Leaflet com adapter próprio:
+
+- `LeafletThreeLayer`: conecta ciclo de vida do Leaflet ao canvas WebGL;
+- `ThreeSceneManager`: gerencia cena/câmera/render;
+- exemplo em runtime: coluna 3D no ponto clicado com altura proporcional à precipitação.
+
+### Dev setup (localhost)
+
+- Frontend: `cd frontend-react && npm install && npm run dev`
+- API (proxy Vite): `/api` -> `http://localhost:8001` (configurado em `frontend-react/vite.config.ts`)
+- alvo customizável via `VITE_DEV_API_TARGET`
+
+### Limitações e próximos passos
+
+- Overlay climático usa modo padrão de ponto único por interação para evitar explosão de requisições.
+- Grade de amostragem (fila limitada de requisições) está planejada como extensão opcional.
+- Extrusão de polígonos 3D ainda depende da modelagem das geometrias de áreas no backend.
