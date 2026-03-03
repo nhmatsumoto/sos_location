@@ -70,7 +70,7 @@ def weather_forecast(request):
             raise ValueError('days fora do intervalo [1, 16]')
     except (ValueError, TypeError) as exc:
         return JsonResponse(
-            {'error': f'Parâmetros inválidos: {exc}'},
+            {'error': 'Parâmetros inválidos.'},
             status=400,
         )
 
