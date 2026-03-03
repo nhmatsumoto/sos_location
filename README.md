@@ -359,3 +359,11 @@ Saídas principais:
 
 - `artifacts/smoke-test.json` (resultado de smoke test dos endpoints críticos)
 - `BACKLOG.md` (TODO list + Kanban priorizado por impacto de crise)
+
+
+## Documentação técnica
+- [Arquitetura Atual](docs/ARCHITECTURE_CURRENT.md)
+- [RBAC e Roles](docs/AUTHZ_ROLES.md)
+- [Visão dos Módulos](docs/MODULES_OVERVIEW.md)
+- [Política Privacidade/Transparência](docs/PRIVACY_TRANSPARENCY_POLICY.md)
+- [Relatório de Implementação](docs/IMPLEMENTATION_REPORT.md)

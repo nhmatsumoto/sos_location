@@ -42,6 +42,21 @@ from apps.api.views_disasters import (
     disasters_crawl_trigger,
 )
 
+from apps.api.views_modules import (
+    incidents_collection,
+    incident_detail,
+    support_campaigns,
+    support_donations,
+    support_expenses,
+    rescue_search_areas,
+    rescue_search_area_update,
+    rescue_assignments,
+    public_incidents,
+    public_latest_snapshot,
+    public_support_summary,
+    public_search_areas,
+)
+
 from apps.api.views_integrations import (
     alerts as alerts_feed,
     satellite_goes_recent,
@@ -59,6 +74,18 @@ from apps.api.views_integrations import (
 app_name = 'api'
 
 urlpatterns = [
+    path('incidents', incidents_collection, name='incidents_collection'),
+    path('incidents/<int:incident_id>', incident_detail, name='incident_detail'),
+    path('incidents/<int:incident_id>/support/campaigns', support_campaigns, name='support_campaigns'),
+    path('incidents/<int:incident_id>/support/donations/money', support_donations, name='support_donations'),
+    path('incidents/<int:incident_id>/support/expenses', support_expenses, name='support_expenses'),
+    path('incidents/<int:incident_id>/rescue/search-areas', rescue_search_areas, name='rescue_search_areas'),
+    path('incidents/<int:incident_id>/rescue/search-areas/<int:area_id>', rescue_search_area_update, name='rescue_search_area_update'),
+    path('incidents/<int:incident_id>/rescue/assignments', rescue_assignments, name='rescue_assignments'),
+    path('public/incidents', public_incidents, name='public_incidents'),
+    path('public/incidents/<int:incident_id>/snapshot/latest', public_latest_snapshot, name='public_latest_snapshot'),
+    path('public/incidents/<int:incident_id>/support/summary', public_support_summary, name='public_support_summary'),
+    path('public/incidents/<int:incident_id>/rescue/search-areas', public_search_areas, name='public_search_areas'),
 
     path('auth/login', login_view, name='auth_login'),
     path('auth/logout', logout_view, name='auth_logout'),
