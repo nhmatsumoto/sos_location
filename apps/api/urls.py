@@ -27,6 +27,12 @@ from apps.api.views import (
     map_annotations,
     health_check,
 )
+from apps.api.views_auth import (
+    login_view,
+    logout_view,
+    session_view,
+    google_oauth2_login_view,
+)
 
 from apps.api.views_risk import risk_assessment, risk_pipeline_sync
 from apps.api.views_disasters import (
@@ -53,6 +59,11 @@ from apps.api.views_integrations import (
 app_name = 'api'
 
 urlpatterns = [
+
+    path('auth/login', login_view, name='auth_login'),
+    path('auth/logout', logout_view, name='auth_logout'),
+    path('auth/session', session_view, name='auth_session'),
+    path('auth/google', google_oauth2_login_view, name='auth_google'),
     path('health', health_check, name='health_check'),
     path('disasters/events', disasters_events, name='disasters_events'),
     path('disasters/stats/by-country', disasters_by_country, name='disasters_by_country'),

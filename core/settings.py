@@ -136,6 +136,7 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 # Google Maps Elevation API
 GMAPS_API_KEY = config('GMAPS_API_KEY', default='')
+GOOGLE_OAUTH_CLIENT_ID = config('GOOGLE_OAUTH_CLIENT_ID', default='')
 
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 SESSION_COOKIE_SECURE = config('SESSION_COOKIE_SECURE', default=not DEBUG, cast=bool)

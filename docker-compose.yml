@@ -60,6 +60,8 @@ services:
       GUNICORN_TIMEOUT: ${GUNICORN_TIMEOUT:-120}
       MIGRATE_MAX_ATTEMPTS: ${MIGRATE_MAX_ATTEMPTS:-24}
       RISK_AGENT_URL: ${RISK_AGENT_URL:-http://risk-agent:8091}
+      GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:-}
+      SEED_ON_STARTUP: ${SEED_ON_STARTUP:-true}
     depends_on:
       postgres:
         condition: service_healthy
