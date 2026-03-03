@@ -80,3 +80,13 @@ Centralizar aprendizados operacionais e arquiteturais para reduzir retrabalho, a
 - Aprendizado reutilizável: Itens de demonstração devem ser ativados por comando explícito, nunca no import-time da aplicação.
 - Tipo: melhoria arquitetural
 - Próximo passo: ajustar checklist
+
+## [2026-03-03] cors-integration-hardening-agent
+- Contexto da tarefa: Corrigir falhas de integração frontend↔backend relacionadas a CORS e contrato de rotas de integrações.
+- Sintoma/erro observado: Frontend consumia `/api/integrations/*`, mas backend nomeava rotas de integração sem o prefixo `/integrations`; além disso, preflight CORS aceitava apenas header fixo.
+- Causa raiz: Divergência entre contrato usado no cliente e mapeamento real em `apps/api/urls.py`, com middleware CORS mínimo e pouco parametrizável.
+- Ação aplicada: Reendereçamento das rotas para `/api/integrations/*`, evolução do middleware para refletir `Access-Control-Request-Headers`, inclusão de `Access-Control-Max-Age` e parametrização por env de métodos/headers.
+- Validação executada: Testes automatizados de preflight CORS e contrato de caminhos `integrations_*` com `reverse()`.
+- Aprendizado reutilizável: Em integrações cross-origin, validar sempre em conjunto URL contract + preflight contract (origem, methods, headers, vary, max-age).
+- Tipo: bug recorrente
+- Próximo passo: monitorar
