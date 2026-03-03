@@ -1,4 +1,5 @@
 from decouple import config, Csv
+from urllib.parse import urlparse
 
 
 class SimpleCorsMiddleware:
@@ -13,13 +14,21 @@ class SimpleCorsMiddleware:
         self.allowed_origins = set(
             config(
                 'CORS_ALLOWED_ORIGINS',
-                default='http://localhost:8088,http://127.0.0.1:8088',
+                default=(
+                    'http://localhost:8088,http://127.0.0.1:8088,'
+                    'http://localhost:5173,http://127.0.0.1:5173,'
+                    'http://localhost:3000,http://127.0.0.1:3000'
+                ),
                 cast=Csv(),
             )
         )
+        self.allow_localhost_any_port = config('CORS_ALLOW_LOCALHOST_ANY_PORT', default=True, cast=bool)
         self.allow_credentials = config('CORS_ALLOW_CREDENTIALS', default=False, cast=bool)
         self.allowed_methods = 'GET, POST, PUT, PATCH, DELETE, OPTIONS'
-        self.allowed_headers = 'Authorization, Content-Type, Accept, Origin, X-Requested-With'
+        self.allowed_headers = (
+            'Authorization, Content-Type, Accept, Origin, X-Requested-With, '
+            'X-CSRFToken, X-Csrftoken'
+        )
 
     def __call__(self, request):
         if request.path.startswith('/api/') and request.method == 'OPTIONS':
@@ -30,7 +39,18 @@ class SimpleCorsMiddleware:
         return self._apply_cors_headers(request, response)
 
     def _origin_is_allowed(self, origin):
-        return origin in self.allowed_origins
+        if origin in self.allowed_origins:
+            return True
+
+        if not self.allow_localhost_any_port:
+            return False
+
+        try:
+            parsed = urlparse(origin)
+        except Exception:
+            return False
+
+        return parsed.scheme in {'http', 'https'} and parsed.hostname in {'localhost', '127.0.0.1'}
 
     def _apply_cors_headers(self, request, response):
         origin = request.headers.get('Origin')
@@ -53,4 +73,3 @@ class SimpleCorsMiddleware:
 
         response = HttpResponse(status=204)
         return self._apply_cors_headers(request, response)
-

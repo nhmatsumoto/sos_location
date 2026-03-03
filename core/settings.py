@@ -161,9 +161,14 @@ CSRF_COOKIE_HTTPONLY = True
 CSRF_TRUSTED_ORIGINS = config('CSRF_TRUSTED_ORIGINS', default='', cast=Csv())
 CORS_ALLOWED_ORIGINS = config(
     'CORS_ALLOWED_ORIGINS',
-    default='http://localhost:8088,http://127.0.0.1:8088',
+    default=(
+        'http://localhost:8088,http://127.0.0.1:8088,'
+        'http://localhost:5173,http://127.0.0.1:5173,'
+        'http://localhost:3000,http://127.0.0.1:3000'
+    ),
     cast=Csv(),
 )
+CORS_ALLOW_LOCALHOST_ANY_PORT = config('CORS_ALLOW_LOCALHOST_ANY_PORT', default=True, cast=bool)
 CORS_ALLOW_CREDENTIALS = config('CORS_ALLOW_CREDENTIALS', default=False, cast=bool)
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
