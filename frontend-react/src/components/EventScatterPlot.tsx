@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback, useRef, useEffect } from 'react';
+import React, { useMemo, useState, useCallback, useRef } from 'react';
 import { format } from 'date-fns';
 import { ZoomIn, ZoomOut, RefreshCw, Layers, Info } from 'lucide-react';
 
