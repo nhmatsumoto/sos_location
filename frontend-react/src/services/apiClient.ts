@@ -2,6 +2,7 @@ import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import { decode, encode } from '@msgpack/msgpack';
 import { inferApiBaseUrl } from '../lib/apiBaseUrl';
 import { frontendLogger } from '../lib/logger';
+import { getSessionToken } from '../lib/authSession';
 
 let notifyError: ((title: string, message: string) => void) | null = null;
 let lastNotification = { key: '', ts: 0 };
@@ -111,6 +112,13 @@ apiClient.interceptors.request.use((config) => {
     method: config.method,
     url: `${config.baseURL ?? ''}${config.url ?? ''}`,
   });
+  
+  const token = getSessionToken();
+  if (token) {
+    config.headers = config.headers ?? {};
+    // Functional views/modules currently expect Bearer
+    config.headers.Authorization = `Bearer ${token}`;
+  }
 
   // Support for MessagePack requests
   if (config.headers?.['Content-Type'] === 'application/x-msgpack' && config.data) {

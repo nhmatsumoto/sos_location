@@ -1,4 +1,4 @@
-# MG Location: Plataforma Tática de Resposta a Desastres v1.1
+# MG Location: Mapa Tático Resiliente e Sala de Situação 3D v1.2
 
 ![MG Location Banner](https://img.shields.io/badge/MG--Location-Resilience--v1.1-blueviolet?style=for-the-badge)
 ![Status Build](https://img.shields.io/badge/Build-Passing-success?style=for-the-badge)
@@ -15,36 +15,67 @@ Transformar dados complexos em ações táticas imediatas. O MG Location não é
 
 ---
 
-## 🏗️ Arquitetura de Resiliência (v1.1)
+## 🏗️ Arquitetura de Resiliência (v1.2)
 
-A versão 1.1 introduziu o redesenho **Resilience-First**, focado em quatro pilares fundamentais:
+A versão 1.2 consolidou o redesenho **Resilience-First** e a nova camada de **Visualização Tática**, focada em quatro pilares fundamentais:
+
+```mermaid
+graph TD
+    subgraph "Interface Tática 2.0"
+        UI[PWA Frontend] --> T3D[Sala de Situação 3D]
+        UI --> SPT[Scatter Plot Tático]
+        UI --> MCP[Captura de Pontos de Precisão]
+        T3D -.->|Estado Compartilhado| SPT
+    end
+
+    subgraph "Campo / Offline"
+        UI --> DB[(IndexedDB)]
+        DB --> OB[Fila Outbox]
+    end
+
+    subgraph "Proxy Tático"
+        EH[Edge Hub / RPi] 
+        EH -->|Sincronia Local| OB
+    end
+
+    subgraph "Infraestrutura Global"
+        API[Django REST API]
+        MP[MessagePack + Zstd]
+        EV[Event Store / DDD]
+        API --> EV
+    end
+
+    OB -.->|Sincronia Binária| MP
+    MP -.-> API
+    EH -.->|Backhaul| API
+```
 
 1. **Local-first (Offline Outbox)**: O app PWA funciona sem internet usando IndexedDB. Ações são enfileiradas e sincronizadas automaticamente quando houver conectividade.
-2. **Protocolo Binário (MessagePack + Zstd)**: Substituímos o JSON pesado por MessagePack comprimido com Zstandard, reduzindo o tráfego de dados em até 80% — vital para links via rádio ou satélite.
-3. **Event-Souring (DDD)**: Todas as alterações no sistema são tratadas como eventos imutáveis. Isso permite reconciliação automática de conflitos (CRDT-lite) e auditoria completa.
-4. **Edge Hubs (Decentralized Command)**: Suporte a servidores locais (como Raspberry Pi) que servem como proxies táticos em áreas isoladas.
+2. **Protocolo Binário (MessagePack + Zstd)**: Substituímos o JSON pesado por MessagePack comprimido com Zstandard, reduzindo o tráfego de dados em até 80%.
+3. **Event-Souring (DDD)**: Todas as alterações no sistema são tratadas como eventos imutáveis com reconciliação automática de conflitos.
+4. **Visualização 3D Imersiva**: Nova camada de renderização espacial para consciência situacional profunda em tempo real.
 
 ---
 
 ## 🚀 Como Funciona
 
-### 1. Centro de Comando
-Visualização em tempo real de alertas de chuva, áreas de risco e status de equipes de resgate. Integra inteligência do **GDACS**, **USGS** e **INMET**.
+### 1. Sala de Situação 3D (v1.2)
+Ambiente tático imersivo usando **Three.js** para visualizar eventos como "beacons" 3D pulsantes. Oferece percepção de profundidade e clusterização espacial de desastres.
 
-### 2. Operações de Busca e Resgate
+### 2. Análise Tática (Scatter Plot 2.0)
+Análise temporal avançada integrada ao mapa. Permite identificar padrões e tendências de severidade ao longo do tempo.
+
+### 3. Captura de Pontos de Precisão
+Sistema de mira tática (crosshair) para marcação de coordenadas com alta precisão. Integrado a ícones semânticos (Lucide) para classificação instantânea de relatórios de campo.
+
+### 4. Operações de Busca e Resgate
 Módulo tático para atribuição de tarefas, demarcação de áreas de busca e acompanhamento de equipes em campo.
-
-### 3. Logística e Doações
-Gestão transparente de recursos, campanhas de arrecadação e controle de despesas operacionais.
-
-### 4. Análise Temporal (Scatter Plot)
-Um gráfico tático de dispersão que permite analisar a severidade dos eventos versus o tempo, integrando eventos locais e globais em uma única visão estratégica.
 
 ---
 
 ## 🛠️ Stack Tecnológica
 
-- **Frontend**: React 19, Vite, Tailwind CSS (Design tático moderno).
+- **Frontend**: React 19, Vite, Tailwind CSS, **@react-three/fiber** (Ambiente 3D).
 - **Backend**: Django 5.x, Django REST Framework (Core robusto).
 - **Dados**: Postgres + Redis (Central) | IndexedDB (Local/App).
 - **Protocolos**: MessagePack, Zstandard, RESTful Events.

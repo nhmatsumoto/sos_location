@@ -1,4 +1,4 @@
-# MG Location: 戦術的災害対応プラットフォーム v1.1
+# MG Location: レジリエント戦術マップ & 3Dシチュエーションルーム v1.2
 
 ![MG Location Banner](https://img.shields.io/badge/MG--Location-Resilience--v1.1-blueviolet?style=for-the-badge)
 ![Status Build](https://img.shields.io/badge/Build-Passing-success?style=for-the-badge)
@@ -15,36 +15,67 @@
 
 ---
 
-## 🏗️ レジリエンス・アーキテクチャ (v1.1)
+## 🏗️ レジリエンス・アーキテクチャ (v1.2)
 
-バージョン 1.1 では、4 つの基本柱に焦点を当てた **Resilience-First（レジリエンス優先）** 設計が導入されました：
+バージョン 1.2 では、**Resilience-First** 設計の強化と、新たな **戦術的視覚化レイヤー** が導入されました：
 
-1. **Local-first (Offline Outbox)**: PWA アプリは IndexedDB を使用してインターネットなしで動作します。アクションはキューに入れられ、接続が確立されると自動的に同期されます。
-2. **バイナリプロ토コル (MessagePack + Zstd)**: 重い JSON を Zstandard で圧縮された MessagePack に置き換え、データトラフィック。を最大 80% 削減しました。これは無線や衛星リンクにとって極めて重要です。
-3. **イベントソーシング (DDD)**: システム内のすべての変更は不変のイベントとして扱われます。これにより、衝突の自動解決（CRDT-lite）と完全な監査が可能になります。
-4. **エッジハブ (Decentralized Command)**: 隔離されたエリアで戦術的プロキシとして機能するローカルサーバー（Raspberry Pi など）をサポートします。
+```mermaid
+graph TD
+    subgraph "戦術的UI 2.0"
+        UI[PWA Frontend] --> T3D[3Dシチュエーションルーム]
+        UI --> SPT[戦術的散布図]
+        UI --> MCP[精密地点キャプチャ]
+        T3D -.->|共有状態| SPT
+    end
+
+    subgraph "現場 / オフライン"
+        UI --> DB[(IndexedDB)]
+        DB --> OB[アウトボックスキュー]
+    end
+
+    subgraph "戦術的プロキシ"
+        EH[Edge Hub / RPi] 
+        EH -->|ローカル同期| OB
+    end
+
+    subgraph "グローバルインフラ"
+        API[Django REST API]
+        MP[MessagePack + Zstd]
+        EV[Event Store / DDD]
+        API --> EV
+    end
+
+    OB -.->|バイナリ同期| MP
+    MP -.-> API
+    EH -.->|バックホール| API
+```
+
+1. **Local-first (Offline Outbox)**: PWA アプリは IndexedDB を使用してインターネットなしで動作します。アクションは同期待ちキューに入れられ、接続時に自動同期されます。
+2. **バイナリプロトコル (MessagePack + Zstd)**: 低帯域幅環境向けにデータトラフィックを最大 80% 削減。
+3. **イベントソーシング (DDD)**: 全てのシステム変更を不変のイベントとして扱い、自動的な競合解決を実現。
+4. **没入型3D視覚化**: リアルタイムで深い状況認識を可能にする新たな空間レンダリングレイヤー。
 
 ---
 
 ## 🚀 仕組み
 
-### 1. コマンドセンター
-降雨アラート、リスクエリア、救助チームのステータスをリアルタイムで可視化。**GDACS**、**USGS**、**INMET** のインテリジェンスを統合します。
+### 1. 3Dシチュエーションルーム (v1.2)
+**Three.js** を使用した没入型戦術環境。イベントを脈動する 3D ビーコンとして視覚化し、災害の空間的クラスター化と深度把握を可能にします。
 
-### 2. 捜索救助活動
+### 2. 戦術分析 (Scatter Plot 2.0)
+マップと統合された高度な時系列分析。GDACS、USGS、ローカルイベントを横断して、深刻度の傾向やパターンを特定できます。
+
+### 3. 精密地点キャプチャ
+高精度な座標マーキングのための戦術的クロスヘア（照準）システム。現場レポートを即座に視覚分類するためのセマンティックアイコン（Lucide）を統合。
+
+### 4. 捜索救助活動
 タスクの割り当て、捜索エリアの境界画定、現場チームの追跡のための戦術モジュール。
-
-### 3. ロジスティクスと寄付
-リソースの透明な管理、資金調達キャンペーン、運用経費の管理。
-
-### 4. 時系列分析 (Scatter Plot)
-イベントの深刻度と時間を分析し、ローカルイベントとグローバルイベントを単一の戦略的ビューに統合する戦術的分散グラフ。
 
 ---
 
 ## 🛠️ テクノロジースタック
 
-- **Frontend**: React 19, Vite, Tailwind CSS (現代的な戦術デザイン)。
+- **Frontend**: React 19, Vite, Tailwind CSS, **@react-three/fiber** (3D 環境)。
 - **Backend**: Django 5.x, Django REST Framework (堅牢なコア)。
 - **Data**: Postgres + Redis (中央) | IndexedDB (ローカル/アプリ)。
 - **Protocols**: MessagePack, Zstandard, RESTful Events。

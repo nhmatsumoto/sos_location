@@ -1,4 +1,4 @@
-# MG Location: Tactical Disaster Response Platform v1.1
+# MG Location: Resilient Tactical Map & 3D Situation Room v1.2
 
 ![MG Location Banner](https://img.shields.io/badge/MG--Location-Resilience--v1.1-blueviolet?style=for-the-badge)
 ![Status Build](https://img.shields.io/badge/Build-Passing-success?style=for-the-badge)
@@ -21,8 +21,15 @@ Version 1.1 introduced the **Resilience-First** redesign, focused on four fundam
 
 ```mermaid
 graph TD
+    subgraph "Tactical UI 2.0"
+        UI[PWA Frontend] --> T3D[3D Situation Room]
+        UI --> SPT[Tactical Scatter Plot]
+        UI --> MCP[Precision Point Capture]
+        T3D -.->|Shared State| SPT
+    end
+
     subgraph "Field / Offline"
-        UI[PWA Frontend] --> DB[(IndexedDB)]
+        UI --> DB[(IndexedDB)]
         DB --> OB[Outbox Queue]
     end
 
@@ -35,7 +42,6 @@ graph TD
         API[Django REST API]
         MP[MessagePack + Zstd]
         EV[Event Store / DDD]
-        
         API --> EV
     end
 
@@ -53,23 +59,23 @@ graph TD
 
 ## 🚀 How It Works
 
-### 1. Command Center
-Real-time visualization of rain alerts, risk areas, and rescue team status. Integrates intelligence from **GDACS**, **USGS**, and **INMET**.
+### 1. 3D Situation Room (v1.2)
+Immersive tactical environment using **Three.js** to visualize events as pulsing 3D beacons. Provides depth awareness and spatial clustering of disasters.
 
-### 2. Search & Rescue Operations
+### 2. Tactical Analysis (Scatter Plot 2.0)
+Advanced temporal analysis integrated with the map. Allows identifying patterns and severity trends over time across different providers (GDACS, USGS, local).
+
+### 3. Precision Point Capture
+Tactical crosshair system for high-accuracy coordinate marking. Integrated with custom semantic icons (Lucide) for immediate visual classification of field reports.
+
+### 4. Search & Rescue Operations
 Tactical module for task assignment, search area demarcation, and tracking teams in the field.
-
-### 3. Logistics & Donations
-Transparent resource management, fundraising campaigns, and operational expense control.
-
-### 4. Temporal Analysis (Scatter Plot)
-A tactical scatter plot that allows analyzing the severity of events versus time, integrating local and global events into a single strategic view.
 
 ---
 
 ## 🛠️ Technology Stack
 
-- **Frontend**: React 19, Vite, Tailwind CSS (Modern tactical design).
+- **Frontend**: React 19, Vite, Tailwind CSS, **@react-three/fiber** (3D Environment).
 - **Backend**: Django 5.x, Django REST Framework (Robust core).
 - **Data**: Postgres + Redis (Central) | IndexedDB (Local/App).
 - **Protocols**: MessagePack, Zstandard, RESTful Events.

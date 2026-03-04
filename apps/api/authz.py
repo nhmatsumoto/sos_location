@@ -3,8 +3,9 @@ import json
 from functools import wraps
 
 from django.conf import settings
-from django.contrib.auth.models import Group
+from django.contrib.auth.models import Group, User
 from django.http import JsonResponse
+from rest_framework.authtoken.models import Token
 
 ROLE_ADMIN_GLOBAL = 'AdminGlobal'
 
@@ -23,13 +24,35 @@ def _decode_jwt_payload(token: str):
 
 def get_auth_context(request):
     auth = request.META.get('HTTP_AUTHORIZATION', '')
-    token = auth[7:] if auth.lower().startswith('bearer ') else ''
-    claims = _decode_jwt_payload(token) if token else {}
+    token_str = ''
+    claims = {}
+    
+    if auth.lower().startswith('bearer '):
+        token_str = auth[7:]
+        claims = _decode_jwt_payload(token_str)
+    elif auth.lower().startswith('token '):
+        token_str = auth[6:].strip()
+        # DRF Token validation
+        try:
+            db_token = Token.objects.select_related('user').get(key=token_str)
+            user = db_token.user
+            # For DRF tokens, we don't have JWT claims, so we simulate a minimal context
+            # Or if it's a Keycloak token stored as a local Token, we could try to decode
+            # But usually DRF Token is a simple random string.
+            claims = {
+                'sub': str(user.id),
+                'email': user.email,
+                'roles': [g.name for g in user.groups.all()]
+            }
+        except Token.DoesNotExist:
+            claims = {}
+
     roles = set(claims.get('realm_access', {}).get('roles', []))
     roles.update(claims.get('roles', []))
     incident_roles = claims.get('incident_roles', {})
     user_id = str(claims.get('sub') or getattr(request.user, 'id', 'anonymous'))
     email = claims.get('email') or getattr(request.user, 'email', '')
+    
     return {'roles': roles, 'incident_roles': incident_roles, 'user_id': user_id, 'email': email, 'claims': claims}
 
 
