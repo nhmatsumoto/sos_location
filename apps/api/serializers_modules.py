@@ -60,3 +60,9 @@ class AssignmentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Assignment
         fields = '__all__'
+
+
+class DomainEventSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DomainEvent
+        fields = '__all__'

@@ -70,7 +70,7 @@ services:
       DEBUG: ${DEBUG:-False}
       ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1,backend}
       API_CORS_ORIGINS: ${API_CORS_ORIGINS:-http://localhost:8088,http://127.0.0.1:8088}
-      CORS_ALLOW_CREDENTIALS: ${CORS_ALLOW_CREDENTIALS:-False}
+      CORS_ALLOW_CREDENTIALS: ${CORS_ALLOW_CREDENTIALS:-True}
       DB_ENGINE: ${DB_ENGINE:-django.db.backends.postgresql}
       DB_NAME: ${DB_NAME:-mg_location}
       DB_USER: ${DB_USER:-mg_location_user}

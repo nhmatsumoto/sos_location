@@ -197,6 +197,7 @@ class Campaign(TimestampedModel):
     STATUS_CHOICES = [('draft', 'Draft'), ('active', 'Active'), ('closed', 'Closed')]
 
     incident = models.ForeignKey(Incident, on_delete=models.CASCADE)
+    external_id = models.UUIDField(default=None, null=True, blank=True, unique=True)
     title = models.CharField(max_length=180)
     description = models.TextField(blank=True)
     goal_amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
@@ -210,6 +211,7 @@ class DonationMoney(TimestampedModel):
     STATUS_CHOICES = [('received', 'Received'), ('pending', 'Pending'), ('canceled', 'Canceled')]
 
     incident = models.ForeignKey(Incident, on_delete=models.CASCADE)
+    external_id = models.UUIDField(default=None, null=True, blank=True, unique=True)
     campaign = models.ForeignKey(Campaign, on_delete=models.SET_NULL, null=True, blank=True)
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     currency = models.CharField(max_length=10)
@@ -222,6 +224,7 @@ class DonationMoney(TimestampedModel):
 
 class Expense(TimestampedModel):
     incident = models.ForeignKey(Incident, on_delete=models.CASCADE)
+    external_id = models.UUIDField(default=None, null=True, blank=True, unique=True)
     campaign = models.ForeignKey(Campaign, on_delete=models.SET_NULL, null=True, blank=True)
     title = models.CharField(max_length=180)
     description = models.TextField(blank=True)
@@ -236,6 +239,7 @@ class SearchArea(TimestampedModel):
     STATUS_CHOICES = [('Pending', 'Pending'), ('InProgress', 'InProgress'), ('Completed', 'Completed')]
 
     incident = models.ForeignKey(Incident, on_delete=models.CASCADE)
+    external_id = models.UUIDField(default=None, null=True, blank=True, unique=True)
     name = models.CharField(max_length=180, blank=True)
     geometry_json = models.JSONField(default=dict)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Pending')
@@ -245,6 +249,7 @@ class Assignment(TimestampedModel):
     STATUS_CHOICES = [('Assigned', 'Assigned'), ('InProgress', 'InProgress'), ('Completed', 'Completed')]
 
     incident = models.ForeignKey(Incident, on_delete=models.CASCADE)
+    external_id = models.UUIDField(default=None, null=True, blank=True, unique=True)
     search_area = models.ForeignKey(SearchArea, on_delete=models.CASCADE)
     assigned_to_user_id = models.CharField(max_length=128)
     assigned_to_team_id = models.CharField(max_length=128, blank=True)
@@ -261,3 +266,40 @@ class PublicSnapshot(models.Model):
 
     class Meta:
         indexes = [models.Index(fields=['incident', '-generated_at'])]
+
+
+class ProcessedCommand(models.Model):
+    command_id = models.UUIDField(unique=True)
+    processed_at = models.DateTimeField(auto_now_add=True)
+    response_payload = models.JSONField(null=True, blank=True)
+
+    class Meta:
+        indexes = [models.Index(fields=['command_id'])]
+
+
+class DomainEvent(models.Model):
+    event_id = models.UUIDField(unique=True)
+    aggregate_id = models.CharField(max_length=128)
+    aggregate_type = models.CharField(max_length=80)
+    event_type = models.CharField(max_length=80)
+    payload = models.JSONField()
+    timestamp = models.DateTimeField(auto_now_add=True)
+    actor_user_id = models.CharField(max_length=128, blank=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['aggregate_id', 'aggregate_type']),
+            models.Index(fields=['-timestamp']),
+        ]
+
+
+class EdgeHub(models.Model):
+    hub_id = models.CharField(max_length=64, unique=True)
+    name = models.CharField(max_length=120)
+    local_ip = models.GenericIPAddressField()
+    last_seen_at = models.DateTimeField(auto_now=True)
+    status = models.CharField(max_length=40, default='online')
+    incident = models.ForeignKey(Incident, on_delete=models.SET_NULL, null=True, blank=True)
+
+    class Meta:
+        indexes = [models.Index(fields=['hub_id']), models.Index(fields=['incident'])]

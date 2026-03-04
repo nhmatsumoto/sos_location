@@ -70,6 +70,8 @@ from apps.api.views_modules import (
     support_expenses,
 )
 from apps.api.views_risk import risk_assessment, risk_pipeline_sync
+from apps.api.views_sync import sync_events, list_domain_events
+from apps.api.views_hubs import hub_register, hub_list
 
 app_name = 'api'
 
@@ -151,4 +153,8 @@ urlpatterns = [
     path('integrations/satellite/landsat/catalog', satellite_landsat_catalog, name='integrations_satellite_landsat_catalog'),
     path('satellite/stac/search', satellite_stac_search, name='satellite_stac_search'),
     path('satellite/goes/recent', satellite_goes_recent, name='satellite_goes_recent'),
+    path('sync', sync_events, name='sync_events'),
+    path('events', list_domain_events, name='list_domain_events'),
+    path('hubs', hub_list, name='hub_list'),
+    path('hubs/register', hub_register, name='hub_register'),
 ]

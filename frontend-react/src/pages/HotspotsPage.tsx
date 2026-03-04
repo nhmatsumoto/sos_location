@@ -16,7 +16,8 @@ interface HotspotRow {
   score: number;
 }
 
-const urgencyToSeverity = (urgency: string): Severity => {
+const urgencyToSeverity = (urgency: string | undefined | null): Severity => {
+  if (!urgency) return 'alto';
   const value = urgency.toLowerCase();
   if (value.includes('tier 1') || value.includes('imediata')) return 'emergencia';
   if (value.includes('alta')) return 'alerta';

@@ -14,6 +14,7 @@ class RescueTask(models.Model):
     ]
 
     title = models.CharField(max_length=180)
+    external_id = models.UUIDField(default=None, null=True, blank=True, unique=True)
     team = models.CharField(max_length=140)
     location = models.CharField(max_length=180)
     description = models.TextField(blank=True)

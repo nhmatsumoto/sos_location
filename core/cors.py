@@ -106,8 +106,7 @@ class SimpleCorsMiddleware:
             response['Access-Control-Allow-Headers'] = requested_headers or self.allowed_headers
             response['Access-Control-Max-Age'] = str(self.max_age)
 
-        if self.allow_credentials:
-            response['Access-Control-Allow-Credentials'] = 'true'
+        response['Access-Control-Allow-Credentials'] = 'true'
 
         return response
 

@@ -1,4 +1,5 @@
 import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios';
+import { decode, encode } from '@msgpack/msgpack';
 import { inferApiBaseUrl } from '../lib/apiBaseUrl';
 import { frontendLogger } from '../lib/logger';
 
@@ -111,6 +112,17 @@ apiClient.interceptors.request.use((config) => {
     url: `${config.baseURL ?? ''}${config.url ?? ''}`,
   });
 
+  // Support for MessagePack requests
+  if (config.headers?.['Content-Type'] === 'application/x-msgpack' && config.data) {
+    config.data = encode(config.data);
+  }
+
+  // If the client explicitly asks for MessagePack, we must ensure we handle binary response
+  const acceptHeader = config.headers?.['Accept'];
+  if (typeof acceptHeader === 'string' && acceptHeader.includes('application/x-msgpack')) {
+    config.responseType = 'arraybuffer';
+  }
+
   return config;
 });
 
@@ -121,6 +133,16 @@ apiClient.interceptors.response.use(
       url: `${response.config.baseURL ?? ''}${response.config.url ?? ''}`,
       status: response.status,
     });
+
+    // Automatic MessagePack decoding
+    const contentType = response.headers['content-type'];
+    if (contentType && contentType.includes('application/x-msgpack') && response.data) {
+      try {
+        response.data = decode(response.data);
+      } catch (err) {
+        frontendLogger.error('Failed to decode MessagePack response', { error: err });
+      }
+    }
 
     return response;
   },

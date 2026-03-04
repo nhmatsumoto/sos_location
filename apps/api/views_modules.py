@@ -71,12 +71,24 @@ def incident_detail(request, incident_id):
 def support_campaigns(request, incident_id):
     if request.method == 'GET':
         return JsonResponse(CampaignSerializer(Campaign.objects.filter(incident_id=incident_id), many=True).data, safe=False)
+    import uuid
+    from apps.api.events import dispatch_event
     payload = _json_body(request)
     payload['incident'] = incident_id
+    if not payload.get('external_id'):
+        payload['external_id'] = str(uuid.uuid4())
+    
     serializer = CampaignSerializer(data=payload)
     if serializer.is_valid():
-        serializer.save()
-        _audit(request, 'Campaign', serializer.data['id'], 'create', incident_id, serializer.data)
+        instance = serializer.save()
+        _audit(request, 'Campaign', instance.id, 'create', incident_id, serializer.data)
+        dispatch_event(
+            aggregate_id=instance.external_id,
+            aggregate_type='Campaign',
+            event_type='CampaignCreated',
+            payload=serializer.data,
+            actor_user_id=str(request.user.id) if request.user.is_authenticated else 'anonymous'
+        )
         return JsonResponse(serializer.data, status=201)
     return JsonResponse(serializer.errors, status=400)
 
@@ -86,12 +98,24 @@ def support_campaigns(request, incident_id):
 def support_donations(request, incident_id):
     if request.method == 'GET':
         return JsonResponse(DonationMoneySerializer(DonationMoney.objects.filter(incident_id=incident_id), many=True).data, safe=False)
+    import uuid
+    from apps.api.events import dispatch_event
     payload = _json_body(request)
     payload['incident'] = incident_id
+    if not payload.get('external_id'):
+        payload['external_id'] = str(uuid.uuid4())
+
     serializer = DonationMoneySerializer(data=payload)
     if serializer.is_valid():
-        serializer.save()
-        _audit(request, 'DonationMoney', serializer.data['id'], 'create', incident_id, serializer.data)
+        instance = serializer.save()
+        _audit(request, 'DonationMoney', instance.id, 'create', incident_id, serializer.data)
+        dispatch_event(
+            aggregate_id=instance.external_id,
+            aggregate_type='DonationMoney',
+            event_type='DonationCreated',
+            payload=serializer.data,
+            actor_user_id=str(request.user.id) if request.user.is_authenticated else 'anonymous'
+        )
         return JsonResponse(serializer.data, status=201)
     return JsonResponse(serializer.errors, status=400)
 
@@ -101,12 +125,24 @@ def support_donations(request, incident_id):
 def support_expenses(request, incident_id):
     if request.method == 'GET':
         return JsonResponse(ExpenseSerializer(Expense.objects.filter(incident_id=incident_id), many=True).data, safe=False)
+    import uuid
+    from apps.api.events import dispatch_event
     payload = _json_body(request)
     payload['incident'] = incident_id
+    if not payload.get('external_id'):
+        payload['external_id'] = str(uuid.uuid4())
+
     serializer = ExpenseSerializer(data=payload)
     if serializer.is_valid():
-        serializer.save()
-        _audit(request, 'Expense', serializer.data['id'], 'create', incident_id, serializer.data)
+        instance = serializer.save()
+        _audit(request, 'Expense', instance.id, 'create', incident_id, serializer.data)
+        dispatch_event(
+            aggregate_id=instance.external_id,
+            aggregate_type='Expense',
+            event_type='ExpenseCreated',
+            payload=serializer.data,
+            actor_user_id=str(request.user.id) if request.user.is_authenticated else 'anonymous'
+        )
         return JsonResponse(serializer.data, status=201)
     return JsonResponse(serializer.errors, status=400)
 
@@ -116,12 +152,24 @@ def support_expenses(request, incident_id):
 def rescue_search_areas(request, incident_id):
     if request.method == 'GET':
         return JsonResponse(SearchAreaSerializer(SearchArea.objects.filter(incident_id=incident_id), many=True).data, safe=False)
+    import uuid
+    from apps.api.events import dispatch_event
     payload = _json_body(request)
     payload['incident'] = incident_id
+    if not payload.get('external_id'):
+        payload['external_id'] = str(uuid.uuid4())
+
     serializer = SearchAreaSerializer(data=payload)
     if serializer.is_valid():
-        serializer.save()
-        _audit(request, 'SearchArea', serializer.data['id'], 'create', incident_id, serializer.data)
+        instance = serializer.save()
+        _audit(request, 'SearchArea', instance.id, 'create', incident_id, serializer.data)
+        dispatch_event(
+            aggregate_id=instance.external_id,
+            aggregate_type='SearchArea',
+            event_type='SearchAreaCreated',
+            payload=serializer.data,
+            actor_user_id=str(request.user.id) if request.user.is_authenticated else 'anonymous'
+        )
         return JsonResponse(serializer.data, status=201)
     return JsonResponse(serializer.errors, status=400)
 
@@ -133,10 +181,18 @@ def rescue_search_area_update(request, incident_id, area_id):
     instance = SearchArea.objects.filter(pk=area_id, incident_id=incident_id).first()
     if not instance:
         return JsonResponse({'error': 'Not found'}, status=404)
+    from apps.api.events import dispatch_event
     serializer = SearchAreaSerializer(instance, data=_json_body(request), partial=True)
     if serializer.is_valid():
-        serializer.save()
+        instance = serializer.save()
         _audit(request, 'SearchArea', area_id, 'update', incident_id, serializer.data)
+        dispatch_event(
+            aggregate_id=instance.external_id or instance.id,
+            aggregate_type='SearchArea',
+            event_type='SearchAreaUpdated',
+            payload=serializer.data,
+            actor_user_id=str(request.user.id) if request.user.is_authenticated else 'anonymous'
+        )
         return JsonResponse(serializer.data)
     return JsonResponse(serializer.errors, status=400)
 
@@ -146,12 +202,24 @@ def rescue_search_area_update(request, incident_id, area_id):
 def rescue_assignments(request, incident_id):
     if request.method == 'GET':
         return JsonResponse(AssignmentSerializer(Assignment.objects.filter(incident_id=incident_id), many=True).data, safe=False)
+    import uuid
+    from apps.api.events import dispatch_event
     payload = _json_body(request)
     payload['incident'] = incident_id
+    if not payload.get('external_id'):
+        payload['external_id'] = str(uuid.uuid4())
+
     serializer = AssignmentSerializer(data=payload)
     if serializer.is_valid():
-        serializer.save()
-        _audit(request, 'Assignment', serializer.data['id'], 'create', incident_id, serializer.data)
+        instance = serializer.save()
+        _audit(request, 'Assignment', instance.id, 'create', incident_id, serializer.data)
+        dispatch_event(
+            aggregate_id=instance.external_id,
+            aggregate_type='Assignment',
+            event_type='AssignmentCreated',
+            payload=serializer.data,
+            actor_user_id=str(request.user.id) if request.user.is_authenticated else 'anonymous'
+        )
         return JsonResponse(serializer.data, status=201)
     return JsonResponse(serializer.errors, status=400)
 

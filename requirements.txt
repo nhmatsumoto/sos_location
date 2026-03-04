@@ -14,3 +14,5 @@ gunicorn==22.0.0
 google-auth==2.35.0
 
 PyJWT[crypto]==2.9.0
+msgpack==1.1.0
+zstandard==0.23.0

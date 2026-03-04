@@ -4,7 +4,10 @@ import { Modal } from '../components/ui/Modal';
 import { createEvent, getEvents } from '../services/disastersApi';
 import { missingPersonsApi } from '../services/missingPersonsApi';
 import { operationsApi } from '../services/operationsApi';
+import { eventsApi, type DomainEvent } from '../services/eventsApi';
+import { syncEngine, type OutboxCommand } from '../lib/SyncEngine';
 import { useNotifications } from '../context/NotificationsContext';
+import { EventScatterPlot, type ScatterPoint } from '../components/EventScatterPlot';
 
 type ToolMode = 'inspect' | 'point' | 'area';
 
@@ -50,6 +53,10 @@ function MapInteractions({
 
 export function GlobalDisastersPage() {
   const [events, setEvents] = useState<any[]>([]);
+  const [domainEvents, setDomainEvents] = useState<DomainEvent[]>([]);
+  const [outbox, setOutbox] = useState<OutboxCommand[]>([]);
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+
   const [country, setCountry] = useState('');
   const [minSeverity, setMinSeverity] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -74,9 +81,10 @@ export function GlobalDisastersPage() {
   const [opsForm, setOpsForm] = useState({ personName: '', lastSeenLocation: '', incidentTitle: '', severity: 'high' });
   const { pushNotice } = useNotifications();
 
-  const loadEvents = async () => {
+  const loadData = async () => {
     setLoading(true);
     try {
+      // 1. Global Disasters
       const all: any[] = [];
       for (let page = 1; page <= MAX_PAGES; page += 1) {
         const resp = await getEvents({ country: country || undefined, minSeverity, page, pageSize: 500 });
@@ -84,29 +92,88 @@ export function GlobalDisastersPage() {
         if (all.length >= resp.total || resp.items.length === 0) break;
       }
       setEvents(all);
-    } catch {
-      setEvents([]);
-      pushNotice({ type: 'warning', title: 'Eventos indisponíveis', message: 'Não foi possível consultar eventos globais no backend.' });
+
+      // 2. Operation Domain Events
+      const dEvents = await eventsApi.list();
+      setDomainEvents(dEvents);
+
+      // 3. Local Outbox
+      const pending = await syncEngine.getOutbox();
+      setOutbox(pending);
+
+    } catch (err) {
+      console.error(err);
+      pushNotice({ type: 'warning', title: 'Falha na sincronização', message: 'Alguns dados podem estar desatualizados.' });
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    void loadEvents();
+    void loadData();
+    const interval = setInterval(() => void loadData(), 10000);
+    return () => clearInterval(interval);
   }, [country, minSeverity]);
 
-  const points = useMemo(() => {
-    if (!events.length) return [];
-    const minTs = Math.min(...events.map((e) => new Date(e.start_at).getTime()));
-    const maxTs = Math.max(...events.map((e) => new Date(e.start_at).getTime()));
+  const scatterPoints = useMemo(() => {
+    const combined: ScatterPoint[] = [];
+
+    // Map Global Disasters
+    events.forEach((e) => {
+      combined.push({
+        id: `${e.provider}-${e.provider_event_id}`,
+        x: 0, 
+        y: 100 - ((e.severity - 1) / 4) * 100,
+        label: e.title,
+        type: e.event_type,
+        timestamp: e.start_at,
+        severity: e.severity
+      });
+    });
+
+    // Map Domain Events
+    domainEvents.forEach((e) => {
+      const data = e.payload || {};
+      const severity = data.priority || (data.severity === 'high' ? 4 : data.severity === 'critical' ? 5 : 2);
+      combined.push({
+        id: e.id,
+        x: 0,
+        y: 100 - ((severity - 1) / 4) * 100,
+        label: `${e.aggregate_type}: ${e.event_type}`,
+        type: e.aggregate_type,
+        timestamp: e.timestamp,
+        severity: severity
+      });
+    });
+
+    // Map Outbox (Pending)
+    outbox.forEach((o) => {
+      combined.push({
+        id: o.id,
+        x: 0,
+        y: 80, // Default for pending
+        label: `PENDENTE: ${o.method} ${o.url.split('/').pop()}`,
+        type: 'Outbox',
+        timestamp: new Date(o.timestamp).toISOString(),
+        severity: o.priority || 3,
+        isOffline: true
+      });
+    });
+
+    if (!combined.length) return [];
+
+    // Calculate X (Time)
+    const times = combined.map(p => new Date(p.timestamp).getTime());
+    const minTs = Math.min(...times);
+    const maxTs = Math.max(...times);
     const range = Math.max(1, maxTs - minTs);
-    return events.map((e) => ({
-      ...e,
-      x: ((new Date(e.start_at).getTime() - minTs) / range) * 100,
-      y: 100 - ((e.severity - 1) / 4) * 100,
+
+    return combined.map(p => ({
+      ...p,
+      x: ((new Date(p.timestamp).getTime() - minTs) / range) * 95 + 2.5 // Add some padding
     }));
-  }, [events]);
+
+  }, [events, domainEvents, outbox]);
 
   const pickCoordinates = (lat: number, lon: number) => {
     setForm((prev) => ({ ...prev, lat: lat.toFixed(6), lon: lon.toFixed(6) }));
@@ -130,9 +197,9 @@ export function GlobalDisastersPage() {
       });
       setOpenEventModal(false);
       setAreaDraft([]);
-      await loadEvents();
+      await loadData();
     } catch {
-      pushNotice({ type: 'error', title: 'Falha ao salvar evento', message: 'Não foi possível registrar o evento global sem backend ativo.' });
+      pushNotice({ type: 'error', title: 'Falha ao salvar evento', message: 'Erro de comunicação.' });
     }
   };
 
@@ -158,8 +225,9 @@ export function GlobalDisastersPage() {
         });
       }
       setOpenOpsModal(false);
+      await loadData();
     } catch {
-      pushNotice({ type: 'error', title: 'Falha no cadastro operacional', message: 'Não foi possível concluir o cadastro operacional sem backend ativo.' });
+      pushNotice({ type: 'error', title: 'Falha no cadastro operacional', message: 'Erro de comunicação.' });
     }
   };
 
@@ -179,49 +247,54 @@ export function GlobalDisastersPage() {
         <button className={`rounded px-2 py-1 ${tool === 'point' ? 'bg-cyan-700' : 'bg-slate-700'}`} onClick={() => setTool('point')}>Capturar ponto</button>
         <button className={`rounded px-2 py-1 ${tool === 'area' ? 'bg-cyan-700' : 'bg-slate-700'}`} onClick={() => setTool('area')}>Demarcar área</button>
         <button className="rounded bg-emerald-700 px-2 py-1" onClick={() => setOpenOpsModal(true)}>Cadastro rápido operacional</button>
-        {loading ? <span className="text-cyan-300">Carregando…</span> : <span className="text-slate-300">{events.length} pontos</span>}
+        {loading ? <span className="text-cyan-300">Carregando…</span> : <span className="text-slate-300">{scatterPoints.length} pontos</span>}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="rounded-xl border border-slate-700/60 bg-slate-950/60 p-3">
-          <h3 className="mb-2 text-sm font-semibold text-slate-100">Mapa interativo</h3>
+          <h3 className="mb-2 text-sm font-semibold text-slate-100">Mapa tático integrado</h3>
           <div className="relative h-[420px] overflow-hidden rounded-lg border border-slate-800">
             <MapContainer center={[-14.2, -51.9]} zoom={4} style={{ height: '100%', width: '100%', cursor: tool === 'inspect' ? 'grab' : 'crosshair' }}>
               <TileLayer attribution='&copy; OpenStreetMap contributors' url='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png' />
               <MapInteractions tool={tool} onPickPoint={pickCoordinates} onHover={(lat, lon) => setHover({ lat, lon })} areaDraft={areaDraft} setAreaDraft={setAreaDraft} />
               {hover && (
                 <CircleMarker center={[hover.lat, hover.lon]} radius={4} pathOptions={{ color: '#22d3ee', fillOpacity: 0.9 }}>
-                  <Popup>Cursor tático: {hover.lat.toFixed(5)}, {hover.lon.toFixed(5)}</Popup>
+                  <Popup>Cursor: {hover.lat.toFixed(5)}, {hover.lon.toFixed(5)}</Popup>
                 </CircleMarker>
               )}
-              {events.map((e) => (
-                <CircleMarker key={`${e.provider}-${e.provider_event_id}`} center={[e.lat, e.lon]} radius={Math.max(4, e.severity + 2)} pathOptions={{ color: '#f97316', fillOpacity: 0.5 }}>
-                  <Popup>{e.title}</Popup>
-                </CircleMarker>
-              ))}
+              {events.map((e) => {
+                const id = `${e.provider}-${e.provider_event_id}`;
+                const isHovered = hoveredId === id;
+                return (
+                  <CircleMarker 
+                    key={id} 
+                    center={[e.lat, e.lon]} 
+                    radius={isHovered ? 12 : Math.max(4, e.severity + 2)} 
+                    pathOptions={{ color: isHovered ? '#22d3ee' : '#f97316', fillOpacity: isHovered ? 0.9 : 0.5, weight: isHovered ? 3 : 1 }}
+                    eventHandlers={{
+                      mouseover: () => setHoveredId(id),
+                      mouseout: () => setHoveredId(null)
+                    }}
+                  >
+                    <Popup>{e.title}</Popup>
+                  </CircleMarker>
+                );
+              })}
               {areaDraft.length > 1 && <Polyline positions={areaDraft} pathOptions={{ color: '#06b6d4', dashArray: '4 4' }} />}
               {areaDraft.length > 2 && <Polygon positions={areaDraft} pathOptions={{ color: '#06b6d4', fillOpacity: 0.15 }} />}
             </MapContainer>
-            <div className="pointer-events-none absolute left-2 top-2 rounded bg-slate-950/80 px-2 py-1 text-xs text-slate-200">🖱️ Cursor preciso ativo: {tool}</div>
-            {hover && <div className="pointer-events-none absolute right-2 top-2 rounded bg-slate-950/80 px-2 py-1 text-xs text-slate-200">Lat {hover.lat.toFixed(5)} · Lon {hover.lon.toFixed(5)}</div>}
+            <div className="pointer-events-none absolute left-2 top-2 rounded bg-slate-950/80 px-2 py-1 text-xs text-slate-200">🖱️ Ferramenta: {tool}</div>
           </div>
-          <p className="mt-2 text-xs text-slate-300">Ferramentas: clique para capturar ponto, demarcação de área por múltiplos cliques e clique direito para concluir.</p>
         </div>
 
         <div className="rounded-xl border border-slate-700/60 bg-slate-950/60 p-3">
-          <h3 className="mb-2 text-sm font-semibold text-slate-100">Scatter de eventos</h3>
+          <h3 className="mb-2 text-sm font-semibold text-slate-100">Análise Temporal de Eventos (Scatter)</h3>
           <div className="relative h-[420px] w-full overflow-hidden rounded-lg border border-slate-800 bg-slate-950">
-            {points.map((p) => (
-              <a
-                key={`${p.provider}-${p.provider_event_id}`}
-                href={p.source_url || '#'}
-                target="_blank"
-                rel="noreferrer"
-                title={`${p.title}\n${p.event_type} | ${p.country_code || '--'} | sev ${p.severity} | ${p.provider}`}
-                className="absolute h-2 w-2 -translate-x-1 -translate-y-1 rounded-full bg-cyan-400/90"
-                style={{ left: `${p.x}%`, top: `${p.y}%` }}
-              />
-            ))}
+             <EventScatterPlot 
+               points={scatterPoints} 
+               hoveredId={hoveredId}
+               onHover={(p) => setHoveredId(p?.id || null)}
+             />
           </div>
         </div>
       </div>
