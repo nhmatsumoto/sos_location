@@ -51,3 +51,29 @@ python manage.py seed_auth
 - `SECURE_SSL_REDIRECT=True` atrás de proxy TLS
 - `ALLOWED_HOSTS` e `CSRF_TRUSTED_ORIGINS` estritos
 - `GOOGLE_OAUTH_CLIENT_ID` do projeto OAuth publicado
+
+
+## SSO com Keycloak (Google como broker OAuth2)
+
+### Subir stack com SSO
+```bash
+docker compose up --build
+```
+
+Serviço adicional:
+- Keycloak: `http://localhost:8080`
+
+### Realm bootstrap
+- Realm importado automaticamente: `infra/keycloak/realm-export.json`
+- Cliente OIDC público: `mg-location-web`
+- Roles: `mg_admin`, `mg_operator`, `mg_viewer`
+
+### Endpoint backend para troca de token Keycloak
+- `POST /api/auth/keycloak` `{ "accessToken": "<jwt_access_token>" }`
+
+O backend valida assinatura/issuer/audience via JWKS do Keycloak, provisiona usuário local, sincroniza grupos/perfis e retorna token DRF para consumo legado.
+
+### Permissões e níveis
+- `mg_admin` -> nível `admin`, `is_staff=True`, `is_superuser=True`
+- `mg_operator` -> nível `operator`, `is_staff=True`
+- `mg_viewer` -> nível `viewer`

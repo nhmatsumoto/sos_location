@@ -34,6 +34,7 @@ from apps.api.views_auth import (
     auth_me,
     auth_register,
     google_oauth2_login_view,
+    keycloak_sso_login_view,
     login_view,
     logout_view,
     session_view,
@@ -93,6 +94,7 @@ urlpatterns = [
     path('auth/session-logout', logout_view, name='auth_session_logout'),
     path('auth/session', session_view, name='auth_session'),
     path('auth/google', google_oauth2_login_view, name='auth_google'),
+    path('auth/keycloak', keycloak_sso_login_view, name='auth_keycloak'),
 
     path('disasters/events', disasters_events, name='disasters_events'),
     path('disasters/stats/by-country', disasters_by_country, name='disasters_by_country'),

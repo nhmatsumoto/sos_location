@@ -143,3 +143,15 @@ core/__pycache__/__init__.cpython-311.pyc
 core/__pycache__/settings.cpython-311.pyc
 .gitignore
 apps/api/__pycache__/apps.cpython-311.pyc
+
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+
+# Sensitive auth/cert material
+*.pem
+*.key
+*.p12
+*.crt
+secrets/
+infra/keycloak/*.local.json
