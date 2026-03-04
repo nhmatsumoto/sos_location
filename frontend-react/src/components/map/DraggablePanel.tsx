@@ -1,53 +1,50 @@
-import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react';
-
-export interface FloatingPanelPosition {
-  top: number;
-  left: number;
-}
-
-export type FloatingPanelId = 'global' | 'terrain';
+import type React from 'react';
+import { useState } from 'react';
+import { X, ChevronDown, ChevronUp } from 'lucide-react';
+import type { FloatingPanelPosition } from '../../types';
 
 interface DraggablePanelProps {
   title: string;
-  panelId: FloatingPanelId;
   position: FloatingPanelPosition;
-  docked: boolean;
-  onStartDrag: (panelId: FloatingPanelId, event: ReactPointerEvent<HTMLDivElement>) => void;
-  onToggleDock: (panelId: FloatingPanelId) => void;
-  children: ReactNode;
-  widthClass?: string;
+  onDragStart: (e: React.PointerEvent) => void;
+  onToggleDock: () => void;
+  children: React.ReactNode;
 }
 
-export function DraggablePanel({
-  title,
-  panelId,
-  position,
-  docked,
-  onStartDrag,
-  onToggleDock,
-  children,
-  widthClass = 'w-72',
-}: DraggablePanelProps) {
+export const DraggablePanel: React.FC<DraggablePanelProps> = ({ 
+  title, position, onDragStart, onToggleDock, children 
+}) => {
+  const [collapsed, setCollapsed] = useState(false);
+
   return (
-    <div
-      className={`absolute bg-slate-900/85 backdrop-blur-md border border-slate-700 shadow-xl rounded-xl z-[410] text-sm ${widthClass} ${docked ? 'opacity-70' : ''}`}
-      style={{ top: `${position.top}px`, left: `${position.left}px` }}
+    <div 
+      className="fixed bg-slate-900/90 border border-slate-700 rounded-lg shadow-xl overflow-hidden flex flex-col pointer-events-auto transition-shadow hover:shadow-cyan-500/10"
+      style={{ 
+        top: position.top, 
+        left: position.left, 
+        width: 300,
+        zIndex: 100
+      }}
     >
-      <div
-        className="px-3 py-2 border-b border-slate-700 bg-slate-800/70 rounded-t-xl flex items-center justify-between cursor-move touch-none"
-        onPointerDown={(event) => onStartDrag(panelId, event)}
+      <div 
+        className="px-3 py-2 bg-slate-800 border-b border-slate-700 flex items-center justify-between cursor-move"
+        onPointerDown={onDragStart}
       >
-        <h4 className="font-bold text-white uppercase tracking-wide text-xs">{title}</h4>
-        <button
-          type="button"
-          onPointerDown={(event) => event.stopPropagation()}
-          onClick={() => onToggleDock(panelId)}
-          className="text-[10px] px-2 py-1 rounded border border-slate-600 text-slate-200 hover:text-white hover:border-cyan-400"
-        >
-          {docked ? 'Soltar' : 'Integrar'}
-        </button>
+        <h3 className="text-xs font-bold text-slate-200 uppercase tracking-tight">{title}</h3>
+        <div className="flex items-center gap-1">
+          <button onClick={() => setCollapsed(!collapsed)} className="p-1 hover:bg-slate-700 rounded text-slate-400">
+            {collapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+          </button>
+          <button onClick={onToggleDock} className="p-1 hover:bg-slate-700 rounded text-slate-400">
+            <X size={14} />
+          </button>
+        </div>
       </div>
-      <div className="p-4">{children}</div>
+      {!collapsed && (
+        <div className="flex-1 overflow-y-auto max-h-[400px]">
+          {children}
+        </div>
+      )}
     </div>
   );
-}
+};

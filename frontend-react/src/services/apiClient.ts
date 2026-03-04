@@ -89,6 +89,9 @@ export const setApiNotifier = (handler: (title: string, message: string) => void
 export const apiClient = axios.create({
   baseURL: inferApiBaseUrl(),
   timeout: 10000,
+  withCredentials: true,
+  xsrfCookieName: 'csrftoken',
+  xsrfHeaderName: 'X-CSRFToken',
 });
 
 if (import.meta.env.DEV) {

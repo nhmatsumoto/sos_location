@@ -55,31 +55,8 @@ def get_elevation(lat, lng):
 
 calculatecoordinate = CalculateCoordinate.as_view()
 
-DEFAULT_HOTSPOTS = [
-    {
-        'id': 'HS-BOOT-001',
-        'lat': -21.1215,
-        'lng': -42.9427,
-        'score': 86.0,
-        'type': 'Landslide',
-        'confidence': 0.8,
-        'estimatedAffected': 30,
-    },
-]
-
 SEARCHED_AREAS = []
 MISSING_REPORTS = []
-MISSING_PEOPLE = [
-    {"name": "Maria Silva", "age": 34, "category": "person", "lastSeen": "Córrego do Feijão", "status": "missing"},
-    {"name": "João Pereira", "age": 41, "category": "person", "lastSeen": "Ferro-Carvão", "status": "missing"},
-    {"name": "Bidu", "age": 5, "category": "animal", "lastSeen": "Parque da Cachoeira", "status": "missing"},
-]
-RELATIVE_PHOTO_FEATURES = [
-    {"id": "VF-001", "name": "Pessoa A", "faceEmbedding": [0.10, 0.42, 0.35, 0.62], "notes": "Cicatriz leve na sobrancelha direita"},
-    {"id": "VF-002", "name": "Pessoa B", "faceEmbedding": [0.22, 0.39, 0.31, 0.58], "notes": "Formato de rosto oval"},
-    {"id": "VF-003", "name": "Pessoa C", "faceEmbedding": [0.50, 0.12, 0.66, 0.19], "notes": "Nariz proeminente"},
-]
-
 
 DEVICE_SUBSCRIPTIONS = []
 SPLAT_JOBS = []
@@ -122,6 +99,10 @@ NEWS_UPDATES_CACHE = {
     'items': [],
 }
 
+# Fallbacks for cases where DB is empty or external services are down
+DEFAULT_HOTSPOTS = []
+MISSING_PEOPLE = []
+RELATIVE_PHOTO_FEATURES = []
 
 def health_check(request):
     return JsonResponse(
@@ -697,7 +678,6 @@ def _euclidean_distance(vec_a, vec_b):
     return sum((a - b) ** 2 for a, b in zip(vec_a, vec_b)) ** 0.5
 
 
-@csrf_exempt
 def hotspots(request):
     if request.method != 'GET':
         return HttpResponse(status=405)
@@ -706,7 +686,6 @@ def hotspots(request):
     return JsonResponse(ordered, safe=False)
 
 
-@csrf_exempt
 def collapse_reports(request):
     if request.method == 'GET':
         reports = [_collapse_report_to_dict(item) for item in CollapseReport.objects.order_by('-created_at')[:500]]
@@ -762,7 +741,6 @@ def collapse_reports(request):
     return JsonResponse(_collapse_report_to_dict(report), status=201)
 
 
-@csrf_exempt
 def rescue_support(request):
     if request.method != 'GET':
         return HttpResponse(status=405)
@@ -774,7 +752,6 @@ def rescue_support(request):
     return JsonResponse(_build_rescue_support(area_m2), safe=False)
 
 
-@csrf_exempt
 def location_flow_simulation(request):
     if request.method != 'POST':
         return HttpResponse(status=405)
@@ -832,7 +809,6 @@ def location_flow_simulation(request):
     )
 
 
-@csrf_exempt
 def location_flow_simulation_stream(request):
     if request.method != 'GET':
         return HttpResponse(status=405)
@@ -869,7 +845,6 @@ def location_flow_simulation_stream(request):
     return response
 
 
-@csrf_exempt
 def unified_easy_simulation(request):
     if request.method != 'POST':
         return HttpResponse(status=405)
@@ -911,7 +886,6 @@ def unified_easy_simulation(request):
     )
 
 
-@csrf_exempt
 def climate_integrations(request):
     if request.method != 'GET':
         return HttpResponse(status=405)
@@ -924,7 +898,6 @@ def climate_integrations(request):
     return JsonResponse(_climate_integrations_context(lat, lng), safe=False)
 
 
-@csrf_exempt
 def terrain_context(request):
     if request.method != 'GET':
         return HttpResponse(status=405)
@@ -945,7 +918,6 @@ def terrain_context(request):
     )
 
 
-@csrf_exempt
 def searched_areas(request):
     if request.method == 'GET':
         return JsonResponse(sorted(SEARCHED_AREAS, key=lambda a: a['searchedAtUtc'], reverse=True), safe=False)
@@ -974,7 +946,6 @@ def searched_areas(request):
     return JsonResponse(payload, status=201)
 
 
-@csrf_exempt
 def report_info(request):
     if request.method == 'GET':
         return JsonResponse(sorted(MISSING_REPORTS, key=lambda r: r['reportedAtUtc'], reverse=True), safe=False)
@@ -1020,7 +991,6 @@ def report_info(request):
     return JsonResponse(payload, status=201)
 
 
-@csrf_exempt
 def missing_people_csv(request):
     if request.method != 'GET':
         return HttpResponse(status=405)
@@ -1046,7 +1016,6 @@ def missing_people_csv(request):
     return response
 
 
-@csrf_exempt
 def identify_victim(request):
     if request.method != 'POST':
         return HttpResponse(status=405)
@@ -1088,7 +1057,6 @@ def identify_victim(request):
 
 
 
-@csrf_exempt
 def news_updates(request):
     if request.method != 'GET':
         return HttpResponse(status=405)
@@ -1098,7 +1066,6 @@ def news_updates(request):
     return JsonResponse(items, safe=False)
 
 
-@csrf_exempt
 def cfd_ideas(request):
     if request.method != 'GET':
         return HttpResponse(status=405)
@@ -1112,7 +1079,6 @@ def cfd_ideas(request):
     return JsonResponse(payload, safe=False)
 
 
-@csrf_exempt
 def splat_convert(request):
     if request.method == 'GET':
         return JsonResponse(sorted(SPLAT_JOBS, key=lambda j: j['createdAtUtc'], reverse=True), safe=False)
@@ -1167,7 +1133,6 @@ def splat_convert(request):
     return JsonResponse(job, status=201)
 
 
-@csrf_exempt
 def push_register(request):
     if request.method != 'POST':
         return HttpResponse(status=405)
@@ -1193,7 +1158,6 @@ def push_register(request):
     return JsonResponse(record, status=201)
 
 
-@csrf_exempt
 def attention_alerts(request):
     if request.method == 'GET':
         alerts = [_attention_alert_to_dict(item) for item in AttentionAlert.objects.order_by('-created_at')[:500]]
@@ -1228,7 +1192,6 @@ def attention_alerts(request):
     }, status=201)
 
 
-@csrf_exempt
 def missing_persons(request):
     if request.method == 'GET':
         people = [_missing_person_to_dict(item) for item in MissingPerson.objects.order_by('-created_at')[:1000]]
@@ -1333,7 +1296,6 @@ def _supply_to_dict(item):
     }
 
 
-@csrf_exempt
 def map_annotations(request):
     if request.method == 'GET':
         rows = [_annotation_to_dict(a) for a in MapAnnotation.objects.order_by('-created_at')[:1000]]
@@ -1397,7 +1359,6 @@ def map_annotations(request):
     return JsonResponse(_annotation_to_dict(annotation), status=201)
 
 
-@csrf_exempt
 def support_points(request):
     if request.method == 'GET':
         requested_id = request.GET.get('id')
@@ -1457,7 +1418,6 @@ def support_points(request):
     return HttpResponse(status=405)
 
 
-@csrf_exempt
 def risk_areas(request):
     if request.method == 'GET':
         requested_id = request.GET.get('id')
@@ -1521,7 +1481,6 @@ def risk_areas(request):
     return HttpResponse(status=405)
 
 
-@csrf_exempt
 def rescue_groups(request):
     if request.method == 'GET':
         requested_id = request.GET.get('id')
@@ -1583,7 +1542,6 @@ def rescue_groups(request):
     return HttpResponse(status=405)
 
 
-@csrf_exempt
 def supply_logistics(request):
     if request.method == 'GET':
         requested_id = request.GET.get('id')
@@ -1736,7 +1694,6 @@ def _event_to_map_risk_area(event):
     }
 
 
-@csrf_exempt
 def operations_snapshot(request):
     if request.method != 'GET':
         return HttpResponse(status=405)
