@@ -1,11 +1,19 @@
 import { apiClient } from './apiClient';
 
+export interface AuthzContext {
+  roles: string[];
+  level: 'viewer' | 'operator' | 'admin';
+  isStaff: boolean;
+  isSuperuser: boolean;
+}
+
 export interface AuthUser {
   id: number;
   username: string;
   email: string;
   firstName: string;
   lastName: string;
+  authz?: AuthzContext;
 }
 
 interface AuthResponse {
@@ -32,6 +40,10 @@ export const authApi = {
     const response = await apiClient.post<{ ok: boolean }>('/api/auth/logout', null, {
       headers: { Authorization: `Token ${token}` },
     });
+    return response.data;
+  },
+  async keycloak(payload: { accessToken: string }) {
+    const response = await apiClient.post<AuthResponse>('/api/auth/keycloak', payload);
     return response.data;
   },
 };

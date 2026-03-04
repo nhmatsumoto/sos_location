@@ -32,7 +32,7 @@ INSTALLED_APPS = [
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.TokenAuthentication',
+        'apps.api.auth_keycloak.KeycloakOrTokenAuthentication',
     ],
 }
 
@@ -144,6 +144,15 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 # Google Maps Elevation API
 GMAPS_API_KEY = config('GMAPS_API_KEY', default='')
 GOOGLE_OAUTH_CLIENT_ID = config('GOOGLE_OAUTH_CLIENT_ID', default='')
+
+KEYCLOAK_ENABLED = config('KEYCLOAK_ENABLED', default=False, cast=bool)
+KEYCLOAK_SERVER_URL = config('KEYCLOAK_SERVER_URL', default='http://keycloak:8080')
+KEYCLOAK_REALM = config('KEYCLOAK_REALM', default='mg-location')
+KEYCLOAK_CLIENT_ID = config('KEYCLOAK_CLIENT_ID', default='mg-location-web')
+KEYCLOAK_VERIFY_AUDIENCE = config('KEYCLOAK_VERIFY_AUDIENCE', default=True, cast=bool)
+KEYCLOAK_ROLE_ADMIN = config('KEYCLOAK_ROLE_ADMIN', default='mg_admin')
+KEYCLOAK_ROLE_OPERATOR = config('KEYCLOAK_ROLE_OPERATOR', default='mg_operator')
+KEYCLOAK_ROLE_VIEWER = config('KEYCLOAK_ROLE_VIEWER', default='mg_viewer')
 
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 SESSION_COOKIE_SECURE = config('SESSION_COOKIE_SECURE', default=not DEBUG, cast=bool)

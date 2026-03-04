@@ -6,6 +6,7 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.authtoken.models import Token
 
+from apps.api.auth_keycloak import decode_keycloak_access_token, get_user_auth_context, provision_user_from_keycloak
 from apps.api.views import _request_payload
 
 
@@ -37,6 +38,7 @@ def _serialize_user(user):
         'email': user.email,
         'firstName': user.first_name,
         'lastName': user.last_name,
+        'authz': get_user_auth_context(user),
     }
 
 
@@ -200,3 +202,23 @@ def google_oauth2_login_view(request):
     user, _created = User.objects.get_or_create(username=email, defaults=defaults)
     login(request, user)
     return JsonResponse({'user': _serialize_user(user), 'authenticated': True})
+
+
+@csrf_exempt
+def keycloak_sso_login_view(request):
+    if request.method != 'POST':
+        return JsonResponse({}, status=405)
+
+    if not getattr(settings, 'KEYCLOAK_ENABLED', False):
+        return _auth_error('Keycloak SSO desabilitado no backend.', status=503)
+
+    payload = _request_payload(request)
+    access_token = payload.get('accessToken')
+    if not access_token:
+        return _auth_error('accessToken ausente.', status=400)
+
+    claims = decode_keycloak_access_token(access_token)
+    user = provision_user_from_keycloak(claims)
+    login(request, user)
+    token, _ = Token.objects.get_or_create(user=user)
+    return JsonResponse({'token': token.key, 'user': _serialize_user(user), 'authenticated': True})

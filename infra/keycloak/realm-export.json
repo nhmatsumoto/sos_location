@@ -1,0 +1,23 @@
+{
+  "realm": "mg-location",
+  "enabled": true,
+  "registrationAllowed": false,
+  "clients": [
+    {
+      "clientId": "mg-location-web",
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "redirectUris": ["http://localhost:8088/*", "http://127.0.0.1:8088/*"],
+      "webOrigins": ["http://localhost:8088", "http://127.0.0.1:8088"],
+      "directAccessGrantsEnabled": true,
+      "standardFlowEnabled": true
+    }
+  ],
+  "roles": {
+    "realm": [
+      {"name": "mg_admin"},
+      {"name": "mg_operator"},
+      {"name": "mg_viewer"}
+    ]
+  }
+}
