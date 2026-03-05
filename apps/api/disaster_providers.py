@@ -1,4 +1,5 @@
 import json
+import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta, timezone
 
 from apps.api.integrations.core.http_client import http_client
@@ -132,4 +133,90 @@ def fetch_inmet(window_hours=24):
             'source_url': item.get('link') or 'https://avisos.inmet.gov.br/',
             'raw_payload': json.dumps(item)[:15000],
         })
+    return out
+
+
+def fetch_conflict_news(window_hours=24):
+    url = 'http://feeds.bbci.co.uk/news/world/rss.xml'
+    try:
+        xml_data = http_client.get_text(url, source='bbc-rss')
+        root = ET.fromstring(xml_data)
+        items = root.findall('.//item')
+    except Exception:
+        return []
+
+    out = []
+    # Simple static geocoding for major conflict anchors
+    # (lat, lon, country_code, country_name)
+    geo_anchors = {
+        'ukraine': (50.45, 30.52, 'UA', 'Ukraine'),
+        'kyiv': (50.45, 30.52, 'UA', 'Ukraine'),
+        'russia': (55.75, 37.61, 'RU', 'Russia'),
+        'israel': (31.78, 35.22, 'IL', 'Israel'),
+        'gaza': (31.5, 34.46, 'PS', 'Palestine'),
+        'lebanon': (33.89, 35.5, 'LB', 'Lebanon'),
+        'beirut': (33.89, 35.5, 'LB', 'Lebanon'),
+        'iran': (35.68, 51.38, 'IR', 'Iran'),
+        'tehran': (35.68, 51.38, 'IR', 'Iran'),
+    }
+
+    for item in items:
+        title = (item.find('title').text or '').strip()
+        desc = (item.find('description').text or '').strip() if item.find('description') is not None else ''
+        link = (item.find('link').text or '').strip() if item.find('link') is not None else url
+        guid = (item.find('guid').text or link).strip() if item.find('guid') is not None else link
+        pub_date_str = item.find('pubDate').text if item.find('pubDate') is not None else None
+
+        text_lower = f"{title} {desc}".lower()
+
+        # Check if it relates to our monitored conflicts
+        found_anchor = None
+        for key, geo in geo_anchors.items():
+            if key in text_lower:
+                found_anchor = geo
+                break
+        
+        if not found_anchor:
+            continue
+
+        # Very basic severity heuristic based on keywords
+        severity = 3
+        if any(word in text_lower for word in ['dead', 'killed', 'strike', 'missile', 'bomb', 'attack', 'offensive']):
+            severity = 5
+        elif any(word in text_lower for word in ['warn', 'threat', 'deploy', 'troop']):
+            severity = 4
+
+        dt = datetime.now(timezone.utc)
+        if pub_date_str:
+            try:
+                # e.g., "Thu, 05 Mar 2026 07:44:00 GMT"
+                dt = datetime.strptime(pub_date_str, '%a, %d %b %Y %H:%M:%S %Z')
+                dt = dt.replace(tzinfo=timezone.utc)
+            except ValueError:
+                pass
+
+        # Check window
+        if dt < datetime.now(timezone.utc) - timedelta(hours=window_hours):
+            continue
+
+        lat, lon, cc, cname = found_anchor
+
+        out.append({
+            'provider': 'BBC_NEWS',
+            'provider_event_id': f"bbc-{hash(guid)}",
+            'event_type': 'Conflict',
+            'severity': severity,
+            'title': title,
+            'description': desc,
+            'start_at': dt.isoformat(),
+            'end_at': None,
+            'updated_at': dt.isoformat(),
+            'lat': lat,
+            'lon': lon,
+            'country_code': cc,
+            'country_name': cname,
+            'source_url': link,
+            'raw_payload': json.dumps({'title': title, 'desc': desc, 'guid': guid}),
+        })
+
     return out

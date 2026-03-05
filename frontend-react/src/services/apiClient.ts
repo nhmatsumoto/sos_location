@@ -116,8 +116,11 @@ apiClient.interceptors.request.use((config) => {
   const token = getSessionToken();
   if (token) {
     config.headers = config.headers ?? {};
-    // Functional views/modules currently expect Bearer
-    config.headers.Authorization = `Bearer ${token}`;
+    if (token.length === 40 && !token.includes('.')) {
+      config.headers.Authorization = `Token ${token}`;
+    } else {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
   }
 
   // Support for MessagePack requests

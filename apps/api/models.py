@@ -130,6 +130,7 @@ class DisasterEvent(models.Model):
         ('Storm', 'Storm'),
         ('Tsunami', 'Tsunami'),
         ('Landslide', 'Landslide'),
+        ('Conflict', 'Conflict'),
         ('Other', 'Other'),
     ]
 

@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from django.db import transaction
 from django.utils.dateparse import parse_datetime
 
-from apps.api.disaster_providers import fetch_gdacs, fetch_inmet, fetch_usgs
+from apps.api.disaster_providers import fetch_gdacs, fetch_inmet, fetch_usgs, fetch_conflict_news
 from apps.api.integrations.core.cache import shared_cache
 from apps.api.integrations.geo.nominatim import geocode_city
 from apps.api.models import DisasterEvent
@@ -40,7 +40,7 @@ def _country_from_lat_lon(lat, lon):
     return result['code'], result['name']
 
 
-EVENT_TYPES = {'Flood', 'Earthquake', 'Cyclone', 'Volcano', 'Wildfire', 'Storm', 'Tsunami', 'Landslide', 'Other'}
+EVENT_TYPES = {'Flood', 'Earthquake', 'Cyclone', 'Volcano', 'Wildfire', 'Storm', 'Tsunami', 'Landslide', 'Conflict', 'Other'}
 
 
 def crawl_once(window_hours=24):
@@ -49,6 +49,10 @@ def crawl_once(window_hours=24):
     collected.extend(fetch_usgs(window_hours=window_hours))
     try:
         collected.extend(fetch_inmet(window_hours=window_hours))
+    except Exception:
+        pass
+    try:
+        collected.extend(fetch_conflict_news(window_hours=window_hours))
     except Exception:
         pass
 

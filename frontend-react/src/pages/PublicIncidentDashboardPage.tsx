@@ -10,13 +10,20 @@ export function PublicIncidentDashboardPage() {
   const [areas, setAreas] = useState<any[]>([]);
 
   const load = async () => {
+    if (!id || isNaN(Number(id))) return;
     const incidentId = Number(id);
-    const [snap, searchAreas] = await Promise.all([modulesApi.publicSnapshot(incidentId), modulesApi.publicSearchAreas(incidentId)]);
-    setSnapshot(snap);
-    setAreas(searchAreas);
+    try {
+      const [snap, searchAreas] = await Promise.all([modulesApi.publicSnapshot(incidentId), modulesApi.publicSearchAreas(incidentId)]);
+      setSnapshot(snap);
+      setAreas(searchAreas);
+    } catch {}
   };
 
-  useEffect(() => { void load(); const t = setInterval(() => { void load(); }, 30000); return () => clearInterval(t); }, [id]);
+  useEffect(() => { 
+    void load(); 
+    const t = setInterval(() => { void load(); }, 30000); 
+    return () => clearInterval(t); 
+  }, [id]);
 
   const stats = useMemo(() => snapshot?.data || {}, [snapshot]);
 

@@ -41,11 +41,15 @@ def _get_jwks():
 
 
 def decode_keycloak_access_token(raw_token: str) -> dict:
-    if not raw_token:
-        raise AuthenticationFailed('Bearer token ausente.')
+    if not raw_token or raw_token == 'null':
+        raise AuthenticationFailed('Bearer token ausente ou nulo.')
 
     jwks = _get_jwks()
-    signing_key = jwt.PyJWKClient(_jwks_url()).get_signing_key_from_jwt(raw_token)
+    try:
+        signing_key = jwt.PyJWKClient(_jwks_url()).get_signing_key_from_jwt(raw_token)
+    except jwt.exceptions.DecodeError:
+        raise AuthenticationFailed('Formato de JWT inválido.')
+        
     options = {'verify_aud': settings.KEYCLOAK_VERIFY_AUDIENCE}
     audience = settings.KEYCLOAK_CLIENT_ID if settings.KEYCLOAK_VERIFY_AUDIENCE else None
 

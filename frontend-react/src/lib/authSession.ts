@@ -1,7 +1,7 @@
 const TOKEN_KEY = 'sos_location_token';
 
 export function getSessionToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY);
+  return localStorage.getItem(TOKEN_KEY) ?? localStorage.getItem("access_token") ?? sessionStorage.getItem("access_token");
 }
 
 export function setSessionToken(token: string): void {
