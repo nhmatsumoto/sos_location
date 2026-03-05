@@ -140,6 +140,43 @@ name = "Rescue & Emergency Operations Agent"
 focus = "protocolos de resgate e coordenação de emergência"
 deliverables = "playbooks de resposta, priorização operacional e integração com campo"
 
+
+[[agents]]
+id = 24
+name = "PLATEAU Data Integration Agent"
+focus = "integração de dados geoespaciais do Project PLATEAU e governança de datasets"
+deliverables = "pipeline de ingestão/normalização, versionamento e qualidade de metadados"
+
+[[agents]]
+id = 25
+name = "Geospatial Backend (Django/GIS) Agent"
+focus = "APIs geoespaciais, indexação espacial, cache e performance"
+deliverables = "contratos bbox/polígono, filtros espaciais, paginação e tuning de consultas GIS"
+
+[[agents]]
+id = 26
+name = "3D Web Rendering (Three.js) Agent"
+focus = "renderização 3D web para overlays táticos e ícones informativos"
+deliverables = "pipeline de assets 3D, otimização de cena (LOD/culling) e integração mapa-3D"
+
+[[agents]]
+id = 27
+name = "Gaussian Splatting Scene Agent"
+focus = "integração de cenas .splat para enriquecimento visual de simulações"
+deliverables = "estratégia de ingestão/streaming, fallback, compressão e governança de assets"
+
+[[agents]]
+id = 28
+name = "Leaflet Cartography & Territory Agent"
+focus = "cartografia operacional com Leaflet e demarcação de áreas de simulação"
+deliverables = "fluxos de desenho de polígonos, camadas de referência e UX de área operacional"
+
+[[agents]]
+id = 29
+name = "Geo Observability & QA Agent"
+focus = "telemetria, qualidade e regressão de performance geoespacial"
+deliverables = "logs estruturados geo, métricas de renderização e testes visuais/E2E de mapas"
+
 [matrix]
 python_django_api = [1, 7]
 postgresql = [2]
@@ -159,5 +196,11 @@ architecture = [20]
 civil_engineering = [21]
 supply_chain = [22]
 rescue_emergency = [23]
+plateau_data = [24]
+geospatial_backend = [25]
+threejs_rendering = [26]
+gaussian_splatting = [27]
+leaflet_cartography = [28]
+geo_observability = [29, 10]
 solid_ddd_best_practices = [11]
 automated_testing = [10]
