@@ -10,6 +10,7 @@ import { useNotifications } from '../context/NotificationsContext';
 import { DraggablePanel } from '../components/map/DraggablePanel';
 import { KpiCard } from '../components/ui/KpiCard';
 import { QuickActions } from '../components/ui/QuickActions';
+import { useSimulationStore } from '../store/useSimulationStore';
 
 const Tactical3DMap = lazy(() => import('../components/map/Tactical3DMap').then(m => ({ default: m.Tactical3DMap })));
 import type { SituationalSnapshot } from '../types';
@@ -173,6 +174,7 @@ export function WarRoomPage() {
   const [spatialFilter, setSpatialFilter] = useState<{ center: [number, number], radius: number } | null>(null);
   const [activeSnapshots, setActiveSnapshots] = useState<SituationalSnapshot[]>([]);
   const [intelPanelOpen, setIntelPanelOpen] = useState(false);
+  const [simulationPanelOpen, setSimulationPanelOpen] = useState(false);
 
   // War Room Specific State
   const [opsSnapshot, setOpsSnapshot] = useState<OperationsSnapshot | null>(null);
@@ -183,6 +185,7 @@ export function WarRoomPage() {
     setTool(t);
     if (t !== 'area' && t !== 'snapshot' && t !== 'simulation_box') setAreaDraft([]);
     if (t !== 'filter_area') setSpatialFilter(null);
+    if (t === 'simulation_box') setSimulationPanelOpen(true);
   };
 
   const [openOpsModal, setOpenOpsModal] = useState(false);
@@ -298,8 +301,8 @@ export function WarRoomPage() {
         </div>
       </div>
 
-      {/* Map Tools Sidebar */}
-      <div className="absolute left-4 top-1/2 -translate-y-1/2 z-40 flex flex-col gap-2">
+      {/* Map Tools Sidebar - Moved to bottom-left to avoid KPI overlap */}
+      <div className="absolute left-4 bottom-32 z-40 flex flex-col gap-2">
         <div className="bg-slate-900/90 border border-white/5 backdrop-blur-md p-1 rounded-xl shadow-2xl flex flex-col gap-1">
           <ToolButton active={tool === 'inspect'} onClick={() => selectTool('inspect')} icon={<MousePointer2 size={18} />} label="Inspecionar" />
           <ToolButton active={tool === 'point'} onClick={() => selectTool('point')} icon={<MapPin size={18} />} label="Reg. Evento" />
@@ -322,8 +325,8 @@ export function WarRoomPage() {
         </div>
       </div>
 
-      {/* Top Left: Operational KPIs - Vertical Stack */}
-      <div className="absolute top-20 left-4 z-40 flex flex-col gap-2 w-[180px]">
+      {/* Top Left: Operational KPIs - Vertical Stack - Pushed down to avoid HUD overlap */}
+      <div className="absolute top-28 left-4 z-40 flex flex-col gap-2 w-[180px]">
          <div className="flex items-center gap-2 mb-1 px-1">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
@@ -347,7 +350,7 @@ export function WarRoomPage() {
       {intelPanelOpen && selectedEvent && (
         <DraggablePanel 
           title="SITUATION INTEL" 
-          position={{ top: 80, left: 340 }} 
+          position={{ top: 112, left: 340 }} 
           onDragStart={() => {}} 
           onToggleDock={() => setIntelPanelOpen(false)}
         >
@@ -366,6 +369,9 @@ export function WarRoomPage() {
           </div>
         </DraggablePanel>
       )}
+      {simulationPanelOpen && (
+        <SimulationCommandPanel onClose={() => setSimulationPanelOpen(false)} />
+      )}
 
       {/* Main Map Content */}
       <div className="absolute inset-0 z-0">
@@ -380,6 +386,7 @@ export function WarRoomPage() {
                 setIntelPanelOpen(true);
               }}
               activeSnapshots={activeSnapshots}
+              enableSimulationBox={tool === 'simulation_box'}
             />
           </Suspense>
         ) : (
@@ -428,4 +435,86 @@ function getSeverityColor(severity: number): string {
   if (severity >= 4) return '#f97316';
   if (severity >= 3) return '#eab308';
   return '#22d3ee';
+}
+
+function SimulationCommandPanel({ onClose }: { onClose: () => void }) {
+  const { 
+    hazardType, setHazardType, 
+    waterLevel, setWaterLevel,
+    isSimulating, setIsSimulating,
+    environment, setEnvironment
+  } = useSimulationStore();
+
+  return (
+    <DraggablePanel 
+      title="SIMULATION COMMAND" 
+      position={{ top: 112, right: 20 }} 
+      onDragStart={() => {}} 
+      onToggleDock={onClose}
+    >
+      <div className="p-4 bg-slate-900/95 space-y-6 w-[280px]">
+        {/* Hazard Category */}
+        <div className="space-y-3">
+          <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Tipo de Risco</label>
+          <div className="grid grid-cols-2 gap-2">
+            {['Flood', 'DamBreak', 'Contamination', 'Landslide'].map((t) => (
+              <button
+                key={t}
+                onClick={() => setHazardType(t)}
+                className={`py-2 rounded-lg border text-[10px] font-bold transition-all uppercase ${hazardType === t ? 'bg-amber-500/20 border-amber-500 text-amber-400' : 'bg-slate-800 border-white/5 text-slate-500 hover:text-slate-300'}`}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Hazard Intensity */}
+        <div className="space-y-3 border-t border-white/5 pt-4">
+          <div className="flex justify-between items-center">
+            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Intensidade / Nível</label>
+            <span className="text-xs font-mono text-cyan-400">{waterLevel}m</span>
+          </div>
+          <input 
+            type="range" min="0" max="50" step="1" 
+            value={waterLevel} 
+            onChange={(e) => setWaterLevel(Number(e.target.value))}
+            className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+          />
+        </div>
+
+        {/* Environment Control */}
+        <div className="space-y-4 border-t border-white/5 pt-4">
+           <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Atmosfera Operacional</label>
+           
+           <div className="space-y-3">
+             <div className="flex justify-between text-[10px] font-mono">
+               <span className="text-slate-400 uppercase">Neblina</span>
+               <span className="text-slate-100">{Math.round(environment.fog * 100)}%</span>
+             </div>
+             <input type="range" min="0" max="1" step="0.01" value={environment.fog} onChange={e => setEnvironment({ fog: Number(e.target.value) })} className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-slate-500" />
+           </div>
+
+           <div className="space-y-3">
+             <div className="flex justify-between text-[10px] font-mono">
+               <span className="text-slate-400 uppercase">Chuva (Simulada)</span>
+               <span className="text-slate-100">{Math.round(environment.rain * 100)}%</span>
+             </div>
+             <input type="range" min="0" max="1" step="0.01" value={environment.rain} onChange={e => setEnvironment({ rain: Number(e.target.value) })} className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500" />
+           </div>
+        </div>
+
+        {/* Simulation Lock */}
+        <button 
+          onClick={() => setIsSimulating(!isSimulating)}
+          className={`w-full py-3 rounded-xl font-black text-[10px] uppercase tracking-[0.2em] transition-all
+            ${isSimulating 
+              ? 'bg-rose-600 text-white shadow-[0_0_20px_rgba(225,29,72,0.3)]' 
+              : 'bg-cyan-600 text-white hover:bg-cyan-500 shadow-[0_0_20px_rgba(6,182,212,0.3)]'}`}
+        >
+          {isSimulating ? 'DETENER SIMULAÇÃO' : 'INICIAR PROJEÇÃO'}
+        </button>
+      </div>
+    </DraggablePanel>
+  );
 }

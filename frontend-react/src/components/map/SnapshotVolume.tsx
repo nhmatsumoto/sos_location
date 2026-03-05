@@ -37,11 +37,15 @@ export const SnapshotVolume: React.FC<SnapshotVolumeProps> = ({ snapshot, isSele
         onPointerOut={() => setHovered(false)}
       >
         <boxGeometry args={[width, height, depth]} />
-        <meshStandardMaterial
+        <meshPhysicalMaterial
           color="#22d3ee"
           transparent
-          opacity={hovered || isSelected ? 0.3 : 0.15}
-          wireframe={isSelected}
+          opacity={hovered || isSelected ? 0.3 : 0.1}
+          wireframe={true}
+          blending={THREE.AdditiveBlending}
+          emissive="#22d3ee"
+          emissiveIntensity={hovered ? 1 : 0.2}
+          depthWrite={false}
         />
       </mesh>
 

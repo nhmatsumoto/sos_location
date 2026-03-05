@@ -63,15 +63,17 @@ export const AnimatedBarrier: React.FC<AnimatedBarrierProps> = ({
 
   return (
     <mesh ref={meshRef} geometry={geometry}>
-      <meshStandardMaterial
-        ref={materialRef}
+      <meshPhysicalMaterial
+        ref={materialRef as any}
         color={color}
-        emissive={color}
-        emissiveIntensity={0.5}
         transparent
-        opacity={opacity}
+        opacity={0.15}
+        wireframe={true}
+        blending={THREE.AdditiveBlending}
+        emissive={color}
+        emissiveIntensity={0.3}
         side={THREE.DoubleSide}
-        wireframe={false}
+        depthWrite={false}
       />
     </mesh>
   );

@@ -123,8 +123,10 @@ export interface ClimakiSnapshot {
 export type FloatingPanelId = 'global' | 'terrain' | 'alerts' | 'splat';
 
 export interface FloatingPanelPosition {
-  top: number;
-  left: number;
+  top?: number;
+  left?: number;
+  right?: number;
+  bottom?: number;
 }
 
 export interface SelectedPanel {

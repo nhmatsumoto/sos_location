@@ -1,9 +1,23 @@
-import React from 'react';
+import React, { useRef } from 'react';
+import { useFrame } from '@react-three/fiber';
+import * as THREE from 'three';
 import { useSimulationStore } from '../../store/useSimulationStore';
 
 export const HazardOverlay: React.FC = () => {
-  const { box, waterLevel, hazardType } = useSimulationStore();
+  const { box, waterLevel, hazardType, isSimulating } = useSimulationStore();
+  const waterRef = useRef<THREE.Mesh>(null);
   
+  useFrame((state) => {
+    if (waterRef.current && (hazardType === 'Flood' || hazardType === 'DamBreak')) {
+      // Subtle water movement, faster if simulating
+      const speed = isSimulating ? 1.5 : 0.5;
+      waterRef.current.position.y = waterLevel * 0.1 + Math.sin(state.clock.elapsedTime * speed) * 0.05;
+      if (waterRef.current.material instanceof THREE.MeshPhysicalMaterial) {
+        waterRef.current.material.roughness = 0.1 + Math.sin(state.clock.elapsedTime) * 0.05;
+      }
+    }
+  });
+
   if (!box || waterLevel <= 0) return null;
 
   const x = (box.center[1] + 51.9) * 2;
@@ -14,15 +28,18 @@ export const HazardOverlay: React.FC = () => {
   // Render different abstract geometries based on hazardType
   if (hazardType === 'Flood' || hazardType === 'DamBreak') {
     return (
-      <mesh position={[x, waterLevel * 0.1, z]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[width, height]} />
+      <mesh ref={waterRef} position={[x, waterLevel * 0.1, z]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[width, height, 32, 32]} />
         <meshPhysicalMaterial 
-           color={hazardType === 'DamBreak' ? "#8b5a2b" : "#0284c7"} // muddy water for dambreak
+           color={hazardType === 'DamBreak' ? "#451a03" : "#0ea5e9"} 
            transparent
            opacity={0.8}
            roughness={0.1}
-           transmission={0.9}
-           thickness={2}
+           transmission={0.6}
+           thickness={1}
+           envMapIntensity={1}
+           clearcoat={1}
+           clearcoatRoughness={0.1}
         />
       </mesh>
     );
@@ -30,38 +47,41 @@ export const HazardOverlay: React.FC = () => {
 
   if (hazardType === 'Contamination') {
     return (
-      <mesh position={[x, 0.5, z]}>
-        <cylinderGeometry args={[width/2 * (waterLevel/15), width/2 * (waterLevel/15), 5, 32]} />
-        <meshStandardMaterial color="#84cc16" transparent opacity={0.3 + (waterLevel/30)} />
-      </mesh>
+      <group position={[x, 0, z]}>
+        <mesh position={[0, 0.1, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <planeGeometry args={[width, height]} />
+          <meshStandardMaterial 
+            color="#4d7c0f" 
+            transparent 
+            opacity={0.4} 
+            emissive="#4d7c0f"
+            emissiveIntensity={0.5}
+          />
+        </mesh>
+        <mesh position={[0, 2.5, 0]}>
+          <cylinderGeometry args={[width/2, width/2.2, 5, 32]} />
+          <meshStandardMaterial color="#84cc16" transparent opacity={0.1} wireframe />
+        </mesh>
+      </group>
     );
   }
 
   if (hazardType === 'Earthquake') {
     return (
-      <mesh position={[x, 0.1, z]} rotation={[-Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[0, width * (waterLevel/15), 32]} />
-        <meshBasicMaterial color="#ef4444" transparent opacity={0.5 - (waterLevel/30)} />
+      <mesh position={[x, 0.05, z]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[0, width * 0.8, 64]} />
+        <meshBasicMaterial color="#ef4444" transparent opacity={0.2} />
       </mesh>
     );
   }
-  
-  if (hazardType === 'Cyclone') {
-     return (
-        <mesh position={[x, 2, z]} rotation={[-Math.PI / 2, 0, 0]}>
-           <torusGeometry args={[width * 0.5, width * 0.1 * (waterLevel/15), 16, 100]} />
-           <meshStandardMaterial color="#94a3b8" transparent opacity={0.4} />
-        </mesh>
-     )
-  }
 
   if (hazardType === 'Landslide') {
-      return (
-          <mesh position={[x + (width/4), 1, z]}>
-             <coneGeometry args={[width/4, 2 * (waterLevel/10), 16]} />
-             <meshStandardMaterial color="#78350f" transparent opacity={0.8} />
-          </mesh>
-      )
+    return (
+      <mesh position={[x, 1, z]}>
+        <coneGeometry args={[width/3, 2 + waterLevel/10, 32]} />
+        <meshStandardMaterial color="#78350f" roughness={1} />
+      </mesh>
+    );
   }
 
   return null;

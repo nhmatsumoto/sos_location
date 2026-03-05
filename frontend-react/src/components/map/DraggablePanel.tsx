@@ -22,6 +22,8 @@ export const DraggablePanel: React.FC<DraggablePanelProps> = ({
       style={{ 
         top: position.top, 
         left: position.left, 
+        right: position.right,
+        bottom: position.bottom,
         width: 300,
         zIndex: 100
       }}

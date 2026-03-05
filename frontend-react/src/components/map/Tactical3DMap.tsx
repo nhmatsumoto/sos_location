@@ -7,6 +7,7 @@ import { HazardOverlay } from './HazardOverlay';
 import { SnapshotVolume } from './SnapshotVolume';
 import type { SituationalSnapshot } from '../../types';
 import { AnimatedBarrier } from './AnimatedBarrier';
+import { useSimulationStore } from '../../store/useSimulationStore';
 
 interface BarrierData {
   id: string;
@@ -120,15 +121,13 @@ export const Tactical3DMap: React.FC<Tactical3DMapProps> = ({
   activeSnapshots = [],
   barriers = []
 }) => {
+  const { environment, isSimulating } = useSimulationStore();
+  
   // Projection logic: Lat/Lon to 3D Space
-  // We'll normalize around center of events for better view
   const coords = useMemo(() => {
     if (!events.length) return [];
-    
-    // Simple linear scaling for tactical view
-    // In a real app, use a proper d3-geo projection or simple equirectangular
     return events.map(e => {
-        const x = (e.lon + 51.9) * 2; // Offset around Ubá/Brazil for better initial view
+        const x = (e.lon + 51.9) * 2;
         const z = -(e.lat + 14.2) * 2;
         const color = getEventColor(e.event_type || e.type, e.severity);
         
@@ -181,8 +180,8 @@ export const Tactical3DMap: React.FC<Tactical3DMapProps> = ({
           />
         ))}
 
-        {/* Atmosphere/Fog */}
-        <fog attach="fog" args={['#020617', 10, 60]} />
+        {/* Atmosphere/Fog - Reacts to store */}
+        <fog attach="fog" args={['#020617', 10, 60 - environment.fog * 40]} />
 
         {/* Situational Snapshots */}
         {activeSnapshots.map((snap) => (
@@ -201,16 +200,61 @@ export const Tactical3DMap: React.FC<Tactical3DMapProps> = ({
 
         {enableSimulationBox && <SimulationBoxEditor />}
         {enableSimulationBox && <HazardOverlay />}
+
+        {/* Weather Particles */}
+        <WeatherParticles intensity={environment.rain} isSimulating={isSimulating} />
       </Canvas>
 
       <div className="absolute bottom-4 left-4 pointer-events-none">
         <div className="text-[10px] text-cyan-500/50 uppercase tracking-[0.2em] font-bold">
-           Situation Room 3D v1.0 // Real-time Uplink Active
+           Situation Room 3D v1.0 // Real-time Uplink Active {isSimulating && " // PROJECTION_ACTIVE"}
         </div>
       </div>
     </div>
   );
 };
+
+const WeatherParticles: React.FC<{ intensity: number; isSimulating: boolean }> = ({ intensity, isSimulating }) => {
+  const pointsRef = React.useRef<THREE.Points>(null);
+  const count = 1000;
+  
+  const positions = useMemo(() => {
+    const p = new Float32Array(count * 3);
+    for (let i = 0; i < count; i++) {
+      p[i * 3] = (Math.random() - 0.5) * 50;
+      p[i * 3 + 1] = Math.random() * 20;
+      p[i * 3 + 2] = (Math.random() - 0.5) * 50;
+    }
+    return p;
+  }, []);
+
+  useFrame(() => {
+    if (!pointsRef.current || intensity <= 0) return;
+    const pos = pointsRef.current.geometry.attributes.position.array as Float32Array;
+    for (let i = 0; i < count; i++) {
+      pos[i * 3 + 1] -= (0.1 + intensity * 0.2) * (isSimulating ? 1.5 : 1);
+      if (pos[i * 3 + 1] < 0) pos[i * 3 + 1] = 20;
+    }
+    pointsRef.current.geometry.attributes.position.needsUpdate = true;
+  });
+
+  if (intensity <= 0) return null;
+
+  return (
+    <points ref={pointsRef}>
+      <bufferGeometry>
+        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
+      </bufferGeometry>
+      <pointsMaterial 
+        size={0.05} 
+        color="#93c5fd" 
+        transparent 
+        opacity={0.3 * intensity} 
+        blending={THREE.AdditiveBlending} 
+      />
+    </points>
+  );
+}
 
 function getEventColor(type: string, severity: number): string {
   if (!type) return '#22d3ee';
