@@ -28,6 +28,12 @@ from apps.api.serializers import (
     SupportPointSerializer,
 )
 from apps.api.utils import Position
+from apps.api.services.climate import load_public_news_updates, climate_integrations_context
+from apps.api.services.terrain import terrain_open_data_context
+from apps.api.services.simulation.logic import (
+    build_rescue_support, simulate_tailing_flow, load_hotspots_from_risk_areas,
+    build_rain_timeline, event_to_map_risk_area, FLOW_PATHS
+)
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +51,11 @@ class CalculateCoordinate(APIView):
         lng = serializer.validated_data['lng']
         vector_position = Position(lat, lng).calc_vector()
         return Response(vector_position, status=status.HTTP_200_OK)
+
+
+def health_check(request):
+    """Basic health check endpoint."""
+    return JsonResponse({"status": "ok", "timestamp": datetime.now(timezone.utc).isoformat()})
 
 
 def get_elevation(lat, lng):
@@ -74,161 +85,10 @@ CFD_REFERENCE = {
 }
 
 
-PUBLIC_ALERT_SOURCES = [
-    {
-        'id': 'defesa-civil-alerta',
-        'city': 'Brasil',
-        'label': 'Defesa Civil Alerta (MDR)',
-        'url': 'https://www.gov.br/mdr/pt-br/assuntos/protecao-e-defesa-civil/defesa-civil-alerta',
-        'thumbnailUrl': 'https://www.gov.br/mdr/++theme++padrao_govbr/img/logo.svg',
-        'kind': 'alert',
-    },
-    {
-        'id': 'portal-transparencia-acoes',
-        'city': 'Brasil',
-        'label': 'Portal da Transparência',
-        'url': 'https://portaldatransparencia.gov.br/busca?termo=defesa%20civil',
-        'thumbnailUrl': 'https://portaldatransparencia.gov.br/favicon.ico',
-        'kind': 'government_action',
-    },
-]
-
-NEWS_UPDATES_CACHE = {
-    'fetchedAtUtc': None,
-    'expiresAtUtc': None,
-    'items': [],
-}
-
 # Fallbacks for cases where DB is empty or external services are down
 DEFAULT_HOTSPOTS = []
 MISSING_PEOPLE = []
 RELATIVE_PHOTO_FEATURES = []
-
-def health_check(request):
-    return JsonResponse(
-        {
-            "status": "ok",
-            "service": "mg_location_backend",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-        }
-    )
-
-
-def _strip_html(text):
-    return re.sub(r'\s+', ' ', re.sub(r'<[^>]*>', ' ', text or '')).strip()
-
-
-def _extract_public_alert_news(source):
-    logger.info('public_alert_fetch_started source=%s url=%s', source.get('id'), source.get('url'))
-    try:
-        with urlopen(source['url'], timeout=12) as response:
-            raw = response.read().decode('utf-8', errors='ignore')
-            logger.info('public_alert_fetch_succeeded source=%s status=%s', source.get('id'), getattr(response, 'status', 'n/a'))
-    except Exception as exc:
-        logger.warning('public_alert_fetch_failed source=%s error=%s', source.get('id'), exc)
-        return []
-
-    cleaned = _strip_html(raw)
-    snippets = re.findall(r'([^.]{40,220}(?:alerta|chuva|risco|desastre|emerg[eê]ncia)[^.]{0,180})', cleaned, flags=re.IGNORECASE)
-    unique = []
-    seen = set()
-    for chunk in snippets:
-        sentence = chunk.strip(' -:;')
-        if len(sentence) < 40:
-            continue
-        key = sentence.lower()
-        if key in seen:
-            continue
-        seen.add(key)
-        unique.append({
-            'id': f"{source['id']}-{len(unique)+1}",
-            'city': source['city'],
-            'title': sentence[:180],
-            'source': source['label'],
-            'url': source['url'],
-            'publishedAtUtc': datetime.now(timezone.utc).isoformat(),
-            'thumbnailUrl': source.get('thumbnailUrl'),
-            'kind': source.get('kind', 'alert'),
-        })
-        if len(unique) >= 8:
-            break
-
-    if unique:
-        return unique
-
-    title_match = re.search(r'<title>(.*?)</title>', raw, flags=re.IGNORECASE | re.DOTALL)
-    fallback_title = _strip_html(title_match.group(1)) if title_match else source['label']
-    return [{
-        'id': f"{source['id']}-fallback",
-        'city': source['city'],
-        'title': fallback_title[:180],
-        'source': source['label'],
-        'url': source['url'],
-        'publishedAtUtc': datetime.now(timezone.utc).isoformat(),
-        'thumbnailUrl': source.get('thumbnailUrl'),
-        'kind': source.get('kind', 'alert'),
-    }]
-
-
-def _load_public_news_updates(force_refresh=False):
-    now = datetime.now(timezone.utc)
-    logger.info('public_news_refresh_started force_refresh=%s', force_refresh)
-    expires_at = NEWS_UPDATES_CACHE.get('expiresAtUtc')
-    if not force_refresh and expires_at and now < expires_at and NEWS_UPDATES_CACHE.get('items'):
-        return NEWS_UPDATES_CACHE['items']
-
-    all_items = []
-    for source in PUBLIC_ALERT_SOURCES:
-        all_items.extend(_extract_public_alert_news(source))
-
-    if not all_items:
-        all_items = [{
-            'id': 'fallback-public-alert',
-            'city': 'Brasil',
-            'title': 'Monitoramento ativo de alertas públicos de defesa civil.',
-            'source': 'Fallback local',
-            'url': 'https://www.gov.br/mdr/pt-br/assuntos/protecao-e-defesa-civil/defesa-civil-alerta',
-            'publishedAtUtc': now.isoformat(),
-            'thumbnailUrl': 'https://portaldatransparencia.gov.br/favicon.ico',
-            'kind': 'government_action',
-        }]
-
-    dedup = []
-    seen = set()
-    for item in all_items:
-        key = (item.get('title', '').strip().lower(), item.get('source', '').strip().lower())
-        if key in seen:
-            continue
-        seen.add(key)
-        dedup.append(item)
-
-    dedup.sort(key=lambda i: i.get('publishedAtUtc', ''), reverse=True)
-
-    logger.info('public_news_refresh_completed count=%s', len(dedup))
-    NEWS_UPDATES_CACHE['items'] = dedup
-    NEWS_UPDATES_CACHE['fetchedAtUtc'] = now
-    NEWS_UPDATES_CACHE['expiresAtUtc'] = now + timedelta(minutes=30)
-    return dedup
-
-
-# Camadas simplificadas de terreno (fallback local) inspiradas em fontes abertas
-# de cobertura vegetal (Copernicus/ESA), textura de solo (SoilGrids),
-# e umidade antecedente por precipitação (Open-Meteo).
-OPEN_TERRAIN_FALLBACK = {
-    "soilTexture": "clay_loam",
-    "soilDensityKgM3": 1430,
-    "vegetationCoverPercent": 62,
-    "landUse": "Mosaico agroflorestal",
-    "baseSoilSaturation": 0.52,
-}
-
-SOIL_TYPE_FACTORS = {
-    "sand": {"infiltration": 0.82, "stability": 0.55, "roughness": 0.45},
-    "sandy_loam": {"infiltration": 0.70, "stability": 0.62, "roughness": 0.52},
-    "loam": {"infiltration": 0.64, "stability": 0.70, "roughness": 0.58},
-    "clay_loam": {"infiltration": 0.47, "stability": 0.66, "roughness": 0.64},
-    "clay": {"infiltration": 0.31, "stability": 0.59, "roughness": 0.73},
-}
 
 
 def _json_error(message, status_code=400):
@@ -241,6 +101,23 @@ def _parse_float(value):
         return float(value)
     except (TypeError, ValueError):
         return None
+
+
+def _request_payload(request):
+    """Safely extracts JSON payload from request body."""
+    if not request.body:
+        return {}
+    try:
+        return json.loads(request.body.decode('utf-8'))
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return {}
+
+
+def _uploads_directory():
+    """Ensures and returns the uploads directory path."""
+    path = os.path.join(settings.MEDIA_ROOT, 'uploads')
+    os.makedirs(path, exist_ok=True)
+    return path
 
 
 def _attention_alert_to_dict(alert):
@@ -291,398 +168,11 @@ def _collapse_report_to_dict(report):
     }
 
 
-def _safe_fetch_json(url, timeout=3):
-    try:
-        with urlopen(url, timeout=timeout) as response:
-            return json.loads(response.read().decode('utf-8'))
-    except Exception:
-        return None
-
-
-
-
-def _safe_fetch_json_with_headers(url, headers=None, timeout=4):
-    try:
-        request = Request(url, headers=headers or {})
-        with urlopen(request, timeout=timeout) as response:
-            return json.loads(response.read().decode('utf-8'))
-    except Exception:
-        return None
-
-
-def _metno_weather_snapshot(lat, lng):
-    query = 'https://api.met.no/weatherapi/locationforecast/2.0/compact?lat={}&lon={}'.format(lat, lng)
-    payload = _safe_fetch_json_with_headers(
-        query,
-        headers={'User-Agent': 'mg-location/1.0 (contact: open-source-demo)'},
-        timeout=5,
-    )
-    if not payload:
-        return None
-
-    timeseries = payload.get('properties', {}).get('timeseries') or []
-    if not timeseries:
-        return None
-
-    details = timeseries[0].get('data', {}).get('instant', {}).get('details', {})
-    temp = details.get('air_temperature')
-    humidity = details.get('relative_humidity')
-    wind = details.get('wind_speed')
-
-    return {
-        'provider': 'MET Norway',
-        'temperatureC': temp,
-        'relativeHumidityPercent': humidity,
-        'windSpeedMs': wind,
-    }
-
-
-def _open_meteo_weather_snapshot(lat, lng):
-    query = (
-        'https://api.open-meteo.com/v1/forecast?latitude={}&longitude={}'
-        '&current=temperature_2m,relative_humidity_2m,wind_speed_10m,wind_gusts_10m,precipitation,weather_code'
-        '&hourly=precipitation,precipitation_probability,weather_code&past_days=1&forecast_days=2&timezone=auto'
-    ).format(lat, lng)
-    payload = _safe_fetch_json(query, timeout=6)
-    if not payload:
-        return None
-
-    current = payload.get('current') or {}
-    hourly = payload.get('hourly') or {}
-    times = hourly.get('time') or []
-    rains = hourly.get('precipitation') or []
-    probs = hourly.get('precipitation_probability') or []
-    weather_codes = hourly.get('weather_code') or []
-
-    # Separação temporal baseada em current.time para estimar chuva histórica/próximas 24h.
-    current_time = current.get('time')
-    current_index = 0
-    if current_time and times:
-        for idx, ts in enumerate(times):
-            if ts >= current_time:
-                current_index = idx
-                break
-
-    past_window = rains[max(0, current_index - 24):current_index]
-    next_window = rains[current_index:current_index + 24]
-    next_probs = probs[current_index:current_index + 24]
-    next_codes = weather_codes[current_index:current_index + 24]
-
-    rainfall_mm = round(sum(v for v in past_window if isinstance(v, (int, float))), 2) if past_window else _open_meteo_rainfall_mm(lat, lng)
-    rainfall_next_24h = round(sum(v for v in next_window if isinstance(v, (int, float))), 2) if next_window else 0
-    max_probability = max((v for v in next_probs if isinstance(v, (int, float))), default=0)
-    thunderstorm_codes = {95, 96, 99}
-    has_thunderstorm_code = any(int(c) in thunderstorm_codes for c in next_codes if isinstance(c, (int, float)))
-
-    gust = current.get('wind_gusts_10m')
-    if has_thunderstorm_code or (isinstance(gust, (int, float)) and gust >= 70) or (max_probability >= 85 and rainfall_next_24h >= 25):
-        storm_risk = 'high'
-    elif (isinstance(gust, (int, float)) and gust >= 45) or (max_probability >= 65 and rainfall_next_24h >= 12):
-        storm_risk = 'moderate'
-    else:
-        storm_risk = 'low'
-
-    return {
-        'provider': 'Open-Meteo',
-        'temperatureC': current.get('temperature_2m'),
-        'relativeHumidityPercent': current.get('relative_humidity_2m'),
-        'windSpeedMs': current.get('wind_speed_10m'),
-        'windGustKmh': gust,
-        'weatherCode': current.get('weather_code'),
-        'rainfallMm24h': rainfall_mm,
-        'rainfallNext24hMm': rainfall_next_24h,
-        'stormRisk': storm_risk,
-        'stormSignals': {
-            'maxPrecipitationProbabilityPercent': max_probability,
-            'thunderstormCodeDetected': has_thunderstorm_code,
-        },
-    }
-
-
-def _climate_integrations_context(lat, lng):
-    providers = []
-
-    open_meteo = _open_meteo_weather_snapshot(lat, lng)
-    if open_meteo:
-        providers.append(open_meteo)
-
-    met_no = _metno_weather_snapshot(lat, lng)
-    if met_no:
-        providers.append(met_no)
-
-    summary = {
-        'temperatureC': None,
-        'relativeHumidityPercent': None,
-        'windSpeedMs': None,
-        'rainfallMm24h': None,
-        'rainfallNext24hMm': 0,
-        'stormRisk': 'unknown',
-        'windGustKmh': None,
-    }
-
-    if providers:
-        summary['temperatureC'] = next((p.get('temperatureC') for p in providers if isinstance(p.get('temperatureC'), (int, float))), None)
-        summary['relativeHumidityPercent'] = next((p.get('relativeHumidityPercent') for p in providers if isinstance(p.get('relativeHumidityPercent'), (int, float))), None)
-        summary['windSpeedMs'] = next((p.get('windSpeedMs') for p in providers if isinstance(p.get('windSpeedMs'), (int, float))), None)
-        summary['windGustKmh'] = next((p.get('windGustKmh') for p in providers if isinstance(p.get('windGustKmh'), (int, float))), None)
-        summary['rainfallMm24h'] = next((p.get('rainfallMm24h') for p in providers if isinstance(p.get('rainfallMm24h'), (int, float))), None)
-        summary['rainfallNext24hMm'] = next((p.get('rainfallNext24hMm') for p in providers if isinstance(p.get('rainfallNext24hMm'), (int, float))), 0)
-        summary['stormRisk'] = next((p.get('stormRisk') for p in providers if p.get('stormRisk')), 'unknown')
-
-    return {
-        'lat': lat,
-        'lng': lng,
-        'providers': providers,
-        'summary': summary,
-        'fetchedAtUtc': datetime.now(timezone.utc).isoformat(),
-    }
-
-def _open_meteo_rainfall_mm(lat, lng):
-    query = (
-        'https://api.open-meteo.com/v1/forecast?latitude={}&longitude={}'
-        '&hourly=precipitation&past_days=1&forecast_days=1'
-    ).format(lat, lng)
-    payload = _safe_fetch_json(query)
-    if not payload:
-        return None
-    hourly = payload.get('hourly', {})
-    values = hourly.get('precipitation') or []
-    if not values:
-        return None
-    return round(sum(v for v in values if isinstance(v, (int, float))), 2)
-
-
-def _open_elevation_m(lat, lng):
-    # Open-Meteo elevation endpoint (fonte aberta)
-    query = 'https://api.open-meteo.com/v1/elevation?latitude={}&longitude={}'.format(lat, lng)
-    payload = _safe_fetch_json(query)
-    if not payload:
-        return None
-    elevation = payload.get('elevation') or []
-    if not elevation:
-        return None
-    return round(float(elevation[0]), 2)
-
-
-def _terrain_open_data_context(lat, lng, rainfall_override=None):
-    rainfall_mm = rainfall_override if rainfall_override is not None else _open_meteo_rainfall_mm(lat, lng)
-    elevation_m = _open_elevation_m(lat, lng)
-
-    # Mantém fallback local para reduzir dependência de rede e garantir resposta.
-    vegetation = OPEN_TERRAIN_FALLBACK['vegetationCoverPercent']
-    soil_density = OPEN_TERRAIN_FALLBACK['soilDensityKgM3']
-    soil_type = OPEN_TERRAIN_FALLBACK['soilTexture']
-    land_use = OPEN_TERRAIN_FALLBACK['landUse']
-    base_saturation = OPEN_TERRAIN_FALLBACK['baseSoilSaturation']
-
-    # Se não houver chuva da API aberta, estima valor conservador por fallback.
-    if rainfall_mm is None:
-        rainfall_mm = 48.0
-
-    soil_factor = SOIL_TYPE_FACTORS.get(soil_type, SOIL_TYPE_FACTORS['loam'])
-    climate_saturation = min(0.98, base_saturation + (rainfall_mm / 220.0))
-
-    # Cruzamento simples entre terreno + clima + cobertura vegetal.
-    friction = (
-        (0.35 * soil_factor['roughness'])
-        + (0.30 * (vegetation / 100.0))
-        + (0.35 * (1.0 - climate_saturation))
-    )
-
-    flow_mobility_index = max(
-        0.1,
-        min(
-            1.25,
-            (1.05 - friction) + (1.0 - soil_factor['stability']) * 0.42 + climate_saturation * 0.28,
-        ),
-    )
-
-    source_flags = {
-        'rainfall': 'Open-Meteo' if rainfall_override is None else 'request-override',
-        'elevation': 'Open-Meteo' if elevation_m is not None else 'fallback-local',
-        'vegetation': 'fallback-local (referência Copernicus/ESA)',
-        'soil': 'fallback-local (referência SoilGrids)',
-    }
-
-    return {
-        'rainfallMm24h': round(rainfall_mm, 2),
-        'elevationM': elevation_m if elevation_m is not None else 780.0,
-        'soilType': soil_type,
-        'soilDensityKgM3': soil_density,
-        'soilSaturation': round(climate_saturation, 3),
-        'vegetationCoverPercent': vegetation,
-        'landUse': land_use,
-        'soilInfiltrationFactor': soil_factor['infiltration'],
-        'flowMobilityIndex': round(flow_mobility_index, 3),
-        'dataSources': source_flags,
-    }
-
-
-def _request_payload(request):
-    if request.content_type and 'application/json' in request.content_type:
-        try:
-            import json
-            return json.loads(request.body.decode('utf-8') or '{}')
-        except Exception:
-            return {}
-    return request.POST
-
-def _uploads_directory():
-    base = getattr(settings, 'BASE_DIR', os.getcwd())
-    uploads = os.path.join(base, 'uploads')
-    if not os.path.exists(uploads):
-        os.makedirs(uploads)
-    return uploads
-
-def _build_rescue_support(area_m2):
-    bounded_area = max(area_m2, 3000.0)
-    hotspots = _load_hotspots_from_risk_areas()
-    total_people_at_risk = sum(h.get("estimatedAffected", 0) for h in hotspots)
-    severity_factor = sum(h.get("score", 0) / 100.0 for h in hotspots) / max(len(hotspots), 1)
-    reports_count = CollapseReport.objects.count()
-    reports_bonus = max(0.15, reports_count * 0.05)
-    estimated_trapped = round(total_people_at_risk * (0.38 + severity_factor * 0.22 + reports_bonus))
-    density = round(estimated_trapped / bounded_area, 4)
-
-    top_hotspots = sorted(hotspots, key=lambda h: h.get("score", 0), reverse=True)[:3]
-    probable_locations = []
-
-    for index, hotspot in enumerate(top_hotspots):
-        probability = min(0.97, max(0.35, 0.9 - (index * 0.12) + (hotspot["confidence"] * 0.08)))
-        probable_locations.append(
-            {
-                "label": "Cluster {} - {}".format(index + 1, hotspot["id"]),
-                "latitude": hotspot["lat"] + (index * 0.0007),
-                "longitude": hotspot["lng"] - (index * 0.0006),
-                "priority": index + 1,
-                "probability": round(probability, 2),
-                "estimatedPeople": max(3, round(hotspot["estimatedAffected"] * probability * 0.45)),
-                "reasoning": "Combinação de score {:.1f}, confiança {:.0f}% e gatilhos de risco.".format(hotspot["score"], hotspot["confidence"] * 100),
-            }
-        )
-
-    latest_report = CollapseReport.objects.order_by('-created_at').first()
-    if latest_report:
-        probable_locations.append(
-            {
-                "label": "Upload cidadão - {}".format(latest_report.location_name),
-                "latitude": latest_report.latitude,
-                "longitude": latest_report.longitude,
-                "priority": len(probable_locations) + 1,
-                "probability": 0.64,
-                "estimatedPeople": 4,
-                "reasoning": "Coordenadas vindas de vídeo do usuário; priorizar drone térmico e busca com cães.",
-            }
-        )
-
-    agents = [
-        {
-            "name": "GeoSlope-Physics",
-            "specialty": "Física geotécnica de deslizamentos",
-            "mission": "Calcular corrida, deposição e zonas prováveis de soterramento.",
-            "recommendation": "Priorizar cotas baixas a jusante dos hotspots críticos.",
-            "confidence": round(0.78 + severity_factor * 0.15, 2),
-        },
-        {
-            "name": "RescueDensity-AI",
-            "specialty": "Dispersão de pessoas por metro quadrado",
-            "mission": "Estimar densidade populacional em área de impacto com hotspots + uploads.",
-            "recommendation": "Densidade {:.4f} pessoas/m² em {:.0f} m². Buscar por grid 20x20m.".format(density, bounded_area),
-            "confidence": round(0.72 + reports_count * 0.03, 2),
-        },
-        {
-            "name": "SurvivorLocator",
-            "specialty": "Localização de sobreviventes em escombros",
-            "mission": "Cruzar hotspots e vídeos para sugerir bolsões de sobrevivência.",
-            "recommendation": "Executar varredura acústica e térmica nos clusters 1 e 2.",
-            "confidence": 0.74,
-        },
-    ]
-
-    return {
-        "generatedAtUtc": datetime.now(timezone.utc).isoformat(),
-        "areaAnalyzedM2": round(bounded_area, 0),
-        "estimatedTrappedPeople": int(estimated_trapped),
-        "peopleDispersionPerSquareMeter": density,
-        "potentialSurvivorClusters": len(probable_locations),
-        "agents": agents,
-        "probableLocations": sorted(probable_locations, key=lambda p: p["priority"]),
-    }
-
-def _simulate_tailing_flow(lat, lng, slope_factor, steps, terrain_context):
-    path = []
-    cur_lat = lat
-    cur_lng = lng
-
-    rainfall_mm = terrain_context['rainfallMm24h']
-    saturation = terrain_context['soilSaturation']
-    vegetation_factor = terrain_context['vegetationCoverPercent'] / 100.0
-    soil_density_factor = min(1.15, terrain_context['soilDensityKgM3'] / 1500.0)
-    mobility_index = terrain_context['flowMobilityIndex']
-
-    velocity = (
-        0.00024
-        + (rainfall_mm / 420000.0)
-        + (slope_factor / 120000.0)
-        + (mobility_index / 9000.0)
-        - (vegetation_factor / 16000.0)
-        + (soil_density_factor / 50000.0)
-    )
-
-    for step in range(steps):
-        step_multiplier = 1 + (step * 0.08)
-        cur_lat -= velocity * step_multiplier
-        cur_lng += velocity * (0.35 + saturation * 0.1)
-
-        spread_radius = (
-            10
-            + step * 12
-            + (rainfall_mm * 0.05)
-            + (saturation * 12)
-            + (mobility_index * 5)
-            - (vegetation_factor * 4)
-        )
-
-        path.append(
-            {
-                "step": step + 1,
-                "lat": round(cur_lat, 6),
-                "lng": round(cur_lng, 6),
-                "spreadRadiusMeters": round(max(8.0, spread_radius), 2),
-                "terrainCrossFactor": {
-                    "soilType": terrain_context['soilType'],
-                    "soilSaturation": saturation,
-                    "vegetationCoverPercent": terrain_context['vegetationCoverPercent'],
-                },
-            }
-        )
-
-    return {
-        "input": {
-            "originLat": lat,
-            "originLng": lng,
-            "rainfallMm": rainfall_mm,
-            "slopeFactor": slope_factor,
-            "steps": steps,
-        },
-        "terrainContext": terrain_context,
-        "flowPath": path,
-        "notes": "Simulação simplificada inspirada em métodos CFD/Navier-Stokes com cruzamento terreno+clima para triagem rápida.",
-        "references": CFD_REFERENCE,
-    }
-
-
-def _euclidean_distance(vec_a, vec_b):
-    if len(vec_a) != len(vec_b):
-        return None
-    return sum((a - b) ** 2 for a, b in zip(vec_a, vec_b)) ** 0.5
-
-
 def hotspots(request):
     if request.method != 'GET':
         return HttpResponse(status=405)
 
-    ordered = sorted(_load_hotspots_from_risk_areas(), key=lambda h: h.get("score", 0), reverse=True)
+    ordered = sorted(load_hotspots_from_risk_areas(), key=lambda h: h.get("score", 0), reverse=True)
     return JsonResponse(ordered, safe=False)
 
 
@@ -749,7 +239,7 @@ def rescue_support(request):
     if area_m2 is None:
         area_m2 = 15000
 
-    return JsonResponse(_build_rescue_support(area_m2), safe=False)
+    return JsonResponse(build_rescue_support(area_m2), safe=False)
 
 
 def location_flow_simulation(request):
@@ -766,8 +256,8 @@ def location_flow_simulation(request):
     if lat is None or lng is None:
         return _json_error('lat/lng ou sourceLat/sourceLng são obrigatórios para simulação de fluxo.')
 
-    terrain_context = _terrain_open_data_context(lat, lng, rainfall_override)
-    legacy = _simulate_tailing_flow(lat, lng, slope_factor, steps, terrain_context)
+    terrain_context = terrain_open_data_context(lat, lng, rainfall_override)
+    legacy = simulate_tailing_flow(lat, lng, slope_factor, steps, terrain_context)
 
     path = legacy.get('flowPath') or []
     flooded_cells = []
@@ -822,8 +312,8 @@ def location_flow_simulation_stream(request):
     steps = int(request.GET.get('steps') or 8)
     rainfall_override = _parse_float(request.GET.get('rainfallMm'))
 
-    terrain_context = _terrain_open_data_context(lat, lng, rainfall_override)
-    legacy = _simulate_tailing_flow(lat, lng, slope_factor, steps, terrain_context)
+    terrain_context = terrain_open_data_context(lat, lng, rainfall_override)
+    legacy = simulate_tailing_flow(lat, lng, slope_factor, steps, terrain_context)
     path = legacy.get('flowPath') or []
 
     def event_stream():
@@ -863,7 +353,7 @@ def unified_easy_simulation(request):
 
     flow_payload = json.loads(flow_response.content.decode('utf-8'))
 
-    terrain = _terrain_open_data_context(
+    terrain = terrain_open_data_context(
         lat,
         lng,
         _parse_float(payload.get('rainfallMm', payload.get('rainfallMmPerHour'))),
@@ -879,7 +369,7 @@ def unified_easy_simulation(request):
             },
             'flowSimulation': flow_payload,
             'terrainContext': terrain,
-            'rescueSupport': _build_rescue_support(area_m2),
+            'rescueSupport': build_rescue_support(area_m2),
             'notes': 'Endpoint unificado para o modo fácil: fluxo + terreno + suporte tático.',
         },
         safe=False,
@@ -911,7 +401,7 @@ def terrain_context(request):
         {
             'lat': lat,
             'lng': lng,
-            'context': _terrain_open_data_context(lat, lng),
+            'context': terrain_open_data_context(lat, lng),
             'notes': 'Contexto híbrido com dados abertos (Open-Meteo) e fallback local para operação contínua.',
         },
         safe=False,
@@ -1062,7 +552,7 @@ def news_updates(request):
         return HttpResponse(status=405)
 
     force_refresh = request.GET.get('refresh') == '1'
-    items = _load_public_news_updates(force_refresh=force_refresh)
+    items = load_public_news_updates(force_refresh=force_refresh)
     return JsonResponse(items, safe=False)
 
 
@@ -1619,79 +1109,12 @@ FLOW_PATHS = [
 ]
 
 
-def _risk_area_severity_to_score(severity):
-    normalized = (severity or '').lower().strip()
-    if normalized == 'critical':
-        return 97.0
-    if normalized == 'high':
-        return 90.0
-    if normalized == 'medium':
-        return 78.0
-    if normalized == 'low':
-        return 64.0
-    return 70.0
+def _find_annotation_or_404(external_id, record_type):
+    try:
+        return MapAnnotation.objects.get(external_id=external_id, record_type=record_type)
+    except MapAnnotation.DoesNotExist:
+        return None
 
-
-def _load_hotspots_from_risk_areas():
-    hotspots_rows = []
-    risk_areas = MapAnnotation.objects.filter(record_type=MapAnnotation.TYPE_RISK_AREA).order_by('-created_at')[:500]
-    for row in risk_areas:
-        hotspots_rows.append(
-            {
-                'id': row.external_id,
-                'lat': row.lat,
-                'lng': row.lng,
-                'score': _risk_area_severity_to_score(row.severity),
-                'type': 'Risk Area',
-                'confidence': 0.82,
-                'estimatedAffected': int((row.radius_meters or 300) / 6),
-            }
-        )
-
-    if hotspots_rows:
-        return sorted(hotspots_rows, key=lambda h: h['score'], reverse=True)
-    return DEFAULT_HOTSPOTS
-
-
-def _build_rain_timeline(limit=80):
-    rain_events = DisasterEvent.objects.filter(event_type__in=['Flood', 'Storm', 'Landslide']).order_by('-start_at')[:limit]
-    timeline = []
-    for event in rain_events:
-        timeline.append({
-            'id': f"{event.provider}-{event.provider_event_id}",
-            'at': event.start_at.isoformat(),
-            'title': event.title,
-            'eventType': event.event_type,
-            'severity': event.severity,
-            'lat': event.lat,
-            'lng': event.lon,
-            'countryCode': event.country_code,
-            'countryName': event.country_name,
-            'sourceUrl': event.source_url,
-        })
-    return timeline
-
-
-def _event_to_map_risk_area(event):
-    severity = 'critical' if event.severity >= 4 else 'high' if event.severity >= 3 else 'medium'
-    radius = 1400 if event.event_type == 'Flood' else 900
-    return {
-        'id': f"EV-{event.provider}-{event.provider_event_id}",
-        'recordType': 'risk_area',
-        'title': event.title[:180],
-        'lat': event.lat,
-        'lng': event.lon,
-        'severity': severity,
-        'radiusMeters': radius,
-        'status': 'active',
-        'metadata': {
-            'source': event.provider,
-            'eventType': event.event_type,
-            'sourceUrl': event.source_url,
-            'createdFromCrawler': True,
-        },
-        'createdAtUtc': event.start_at.isoformat(),
-    }
 
 
 def operations_snapshot(request):
@@ -1701,12 +1124,12 @@ def operations_snapshot(request):
     support_points_rows = [_annotation_to_dict(a) for a in MapAnnotation.objects.filter(record_type=MapAnnotation.TYPE_SUPPORT_POINT).order_by('-created_at')[:500]]
     risk_area_rows = [_annotation_to_dict(a) for a in MapAnnotation.objects.filter(record_type=MapAnnotation.TYPE_RISK_AREA).order_by('-created_at')[:500]]
     crawler_rain_events = DisasterEvent.objects.filter(event_type__in=['Flood', 'Storm', 'Landslide']).order_by('-start_at')[:200]
-    crawler_risk_areas = [_event_to_map_risk_area(event) for event in crawler_rain_events]
+    crawler_risk_areas = [event_to_map_risk_area(event) for event in crawler_rain_events]
     combined_risk_areas = (risk_area_rows + crawler_risk_areas)[:700]
     rescue_group_rows = [_rescue_group_to_dict(g) for g in RescueGroup.objects.order_by('-created_at')[:500]]
     supply_rows = [_supply_to_dict(s) for s in SupplyLogistics.objects.order_by('-created_at')[:500]]
 
-    climate = _climate_integrations_context(-21.1207, -42.9359)
+    climate = climate_integrations_context(-21.1207, -42.9359)
     weather = climate.get('summary') or {}
     rain_mm_24h = weather.get('rainfallMm24h') if isinstance(weather.get('rainfallMm24h'), (int, float)) else 0
     critical_risk = len([a for a in risk_area_rows if a.get('severity') in ['critical', 'high']])
@@ -1725,8 +1148,8 @@ def operations_snapshot(request):
             'rescueGroups': rescue_group_rows,
             'flowPaths': FLOW_PATHS,
             'missingPersons': [_missing_person_to_dict(item) for item in MissingPerson.objects.order_by('-created_at')[:500]],
-            'hotspots': sorted(_load_hotspots_from_risk_areas(), key=lambda h: h.get('score', 0), reverse=True),
-            'timeline': _build_rain_timeline(),
+            'hotspots': sorted(load_hotspots_from_risk_areas(), key=lambda h: h.get('score', 0), reverse=True),
+            'timeline': build_rain_timeline(),
         },
         'weather': {
             'summary': 'Clima integrado (Open-Meteo + MET Norway): chuva acumulada, previsão e risco de tempestade.',

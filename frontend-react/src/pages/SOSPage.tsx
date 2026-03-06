@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState, memo, useCallback, lazy, Suspense } from 'react';
+import { useEffect, useMemo, useState, useCallback, lazy, Suspense } from 'react';
 import { latToMeters, lonToMeters } from '../utils/projection';
 import MarkerClusterGroup from 'react-leaflet-cluster';
-import { MapContainer, TileLayer, useMap, useMapEvents, Marker, Rectangle } from 'react-leaflet';
+import { MapContainer, TileLayer } from 'react-leaflet';
 import { Modal } from '../components/ui/Modal';
 import { getEvents } from '../services/disastersApi';
 import { operationsApi, type MapAnnotationDto, type OperationsSnapshot } from '../services/operationsApi';
@@ -15,12 +15,16 @@ import { useSimulationStore } from '../store/useSimulationStore';
 
 import { useNavigate } from 'react-router-dom';
 import { TacticalLoadingScreen } from '../components/ui/TacticalLoadingScreen';
+import { MapInteractions, MapListener, type ToolMode } from '../components/map/MapInteractions';
+import { ToolButton } from '../components/ui/ToolButton';
+import { MemoizedEventMarker } from '../components/map/EventMarker';
+import { SimulationCommandPanel } from '../components/map/SimulationCommandPanel';
+
 const Tactical3DMap = lazy(() => import('../components/map/Tactical3DMap').then(m => ({ default: m.Tactical3DMap })));
 import type { SituationalSnapshot } from '../types';
 import { 
   CloudRain, 
   MapPin,
-  Globe,
   AlertTriangle,
   Users,
   PackageOpen,
@@ -28,12 +32,10 @@ import {
   Box,
   Camera,
   Settings2,
-  Crosshair
+  Crosshair,
+  ShieldAlert
 } from 'lucide-react';
-import L from 'leaflet';
 import { CountryDropdown } from '../components/ui/CountryDropdown';
-
-type ToolMode = 'inspect' | 'point' | 'area' | 'filter_area' | 'simulation_box' | 'snapshot';
 
 interface WeatherSnapshot {
   temp?: number;
@@ -47,151 +49,7 @@ interface WeatherResponse {
   current?: WeatherSnapshot;
 }
 
-function MapInteractions({
-  tool,
-  onPickPoint,
-  onHover,
-  areaDraft,
-  setAreaDraft,
-  spatialFilter,
-  setSpatialFilter,
-  onFilterComplete,
-  onSnapshotComplete,
-  show3D
-}: {
-  tool: ToolMode;
-  onPickPoint: (lat: number, lon: number) => void;
-  onHover: (lat: number, lon: number) => void;
-  areaDraft: Array<[number, number]>;
-  setAreaDraft: (next: Array<[number, number]>) => void;
-  spatialFilter: { center: [number, number], radius: number } | null;
-  setSpatialFilter: (next: { center: [number, number], radius: number } | null) => void;
-  onFilterComplete: (filter: { center: [number, number], radius: number }) => void;
-  onSnapshotComplete: (bounds: Array<[number, number]>) => void;
-  show3D: boolean;
-}) {
-  const map = useMap();
-  useMapEvents({
-    mousemove(e) {
-      if (show3D) return;
-      onHover(e.latlng.lat, e.latlng.lng);
-      if (tool === 'filter_area' && spatialFilter && !spatialFilter.radius) {
-        setSpatialFilter({ ...spatialFilter, radius: map.distance(spatialFilter.center, e.latlng) });
-      }
-      if ((tool === 'snapshot' || tool === 'simulation_box') && areaDraft.length === 1) {
-        setAreaDraft([areaDraft[0], [e.latlng.lat, e.latlng.lng]]);
-      }
-    },
-    click(e) {
-      if (show3D) return;
-      if (tool === 'point') {
-        onPickPoint(e.latlng.lat, e.latlng.lng);
-        return;
-      }
-      if (tool === 'area') {
-        setAreaDraft([...areaDraft, [e.latlng.lat, e.latlng.lng]]);
-        return;
-      }
-      if (tool === 'filter_area') {
-        if (!spatialFilter || spatialFilter.radius) {
-          setSpatialFilter({ center: [e.latlng.lat, e.latlng.lng], radius: 0 });
-        } else {
-          const finalRadius = map.distance(spatialFilter.center, e.latlng);
-          const filter = { ...spatialFilter, radius: finalRadius };
-          setSpatialFilter(filter);
-          onFilterComplete(filter);
-        }
-      }
-    },
-    mousedown(e) {
-      if (show3D) return;
-      if (tool === 'snapshot' || tool === 'simulation_box') {
-        setAreaDraft([[e.latlng.lat, e.latlng.lng]]);
-      }
-    },
-    mouseup(e) {
-      if (show3D) return;
-      if ((tool === 'snapshot' || tool === 'simulation_box') && areaDraft.length === 1) {
-        onSnapshotComplete([areaDraft[0], [e.latlng.lat, e.latlng.lng]]);
-        setAreaDraft([]);
-      }
-    },
-    contextmenu() {
-      if (show3D) return;
-      if (tool === 'area' && areaDraft.length > 2) {
-        const [lat, lon] = areaDraft[0];
-        onPickPoint(lat, lon);
-      }
-    },
-  });
-
-  return (
-    <>
-      {!show3D && (tool === 'snapshot' || tool === 'simulation_box') && areaDraft.length === 2 && (
-        <Rectangle 
-          bounds={[areaDraft[0], areaDraft[1]]} 
-          pathOptions={{ color: tool === 'snapshot' ? '#22d3ee' : '#f59e0b', weight: 1, fillOpacity: 0.1, dashArray: '5, 5' }} 
-        />
-      )}
-    </>
-  );
-}
-
-function ToolButton({ active, onClick, icon, label, disabled }: { active: boolean, onClick: () => void, icon: React.ReactNode, label: string, disabled?: boolean }) {
-  return (
-    <button 
-      onClick={!disabled ? onClick : undefined}
-      disabled={disabled}
-      className={`
-        flex items-center gap-3 px-4 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all duration-300
-        ${active 
-          ? 'bg-cyan-500 text-white shadow-[0_0_15px_rgba(6,182,212,0.4)] translate-x-1' 
-          : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'}
-        ${disabled ? 'opacity-20 cursor-not-allowed' : 'cursor-pointer'}
-      `}
-    >
-      <span className={active ? "animate-pulse" : ""}>{icon}</span>
-      <span>{label}</span>
-    </button>
-  );
-}
-
-function MapListener({ onMove }: { onMove: (center: [number, number], zoom: number) => void }) {
-  const map = useMap();
-  useMapEvents({
-    moveend() {
-      const center = map.getCenter();
-      onMove([center.lat, center.lng], map.getZoom());
-    },
-    zoomend() {
-      const center = map.getCenter();
-      onMove([center.lat, center.lng], map.getZoom());
-    }
-  });
-  return null;
-}
-
-const MemoizedEventMarker = memo(({ e, isHovered, onHover, onUnhover }: { e: any, isHovered: boolean, onHover: (id: string) => void, onUnhover: () => void }) => {
-  const id = `${e.provider}-${e.provider_event_id}`;
-  return (
-    <Marker 
-      position={[e.lat, e.lon]} 
-      icon={L.divIcon({
-        html: `<div class="tactical-marker ${isHovered ? 'hovered' : ''}" style="color: ${isHovered ? '#22d3ee' : getSeverityColor(e.severity)}"></div>`,
-        className: 'custom-div-icon',
-        iconSize: [24, 24],
-        iconAnchor: [12, 12],
-      })}
-      eventHandlers={{
-        mouseover: () => onHover(id),
-        mouseout: onUnhover
-      }}
-    >
-    </Marker>
-  );
-});
-
-export function WarRoomPage() {
+export function SOSPage() {
   const navigate = useNavigate();
   const [events, setEvents] = useState<any[]>([]);
   const [domainEvents, setDomainEvents] = useState<DomainEvent[]>([]);
@@ -219,7 +77,7 @@ export function WarRoomPage() {
   const [intelPanelOpen, setIntelPanelOpen] = useState(false);
   const [simulationPanelOpen, setSimulationPanelOpen] = useState(false);
 
-  // War Room Specific State
+  // SOS Page Specific State
   const [opsSnapshot, setOpsSnapshot] = useState<OperationsSnapshot | null>(null);
 
   const { pushNotice } = useNotifications();
@@ -371,9 +229,9 @@ export function WarRoomPage() {
       {/* HUD - Floating HUD for high level context */}
       <div className="absolute top-4 left-4 right-4 z-50 flex justify-between pointer-events-none">
         <div className="flex gap-4 items-center bg-slate-900/80 border border-white/10 p-2 rounded-2xl backdrop-blur-xl pointer-events-auto shadow-2xl">
-          <Globe className="h-5 w-5 text-cyan-400" />
+          <ShieldAlert className="h-5 w-5 text-cyan-400" />
           <div className="flex flex-col">
-            <h1 className="text-[10px] font-black text-white uppercase tracking-widest leading-none">WAR ROOM COMMAND</h1>
+            <h1 className="text-[10px] font-black text-white uppercase tracking-widest leading-none">SOS TERMINAL</h1>
             <span className="text-[8px] text-cyan-500/70 font-mono">STATUS: OPERATIONAL_v4</span>
           </div>
           <div className="h-4 w-px bg-white/10 mx-2" />
@@ -412,12 +270,12 @@ export function WarRoomPage() {
         </div>
       </div>
 
-      {/* Top Center: War Room Identity */}
+      {/* Top Center: SOS Identity */}
       <div className="absolute top-4 left-1/2 -translate-x-1/2 z-40">
         <div className="px-6 py-2 bg-slate-950/40 backdrop-blur-md border border-white/5 rounded-full shadow-2xl flex items-center gap-4">
            <div className="flex items-center gap-2">
              <div className="h-2 w-2 rounded-full bg-cyan-500 animate-pulse"></div>
-             <span className="text-[10px] font-black text-slate-300 uppercase tracking-[0.3em]">Tactical Operation Center</span>
+             <span className="text-[10px] font-black text-slate-300 uppercase tracking-[0.3em]">Centro de Assistência Tática</span>
            </div>
            <div className="h-4 w-px bg-white/10"></div>
            <span className="text-[10px] font-bold text-cyan-500/80 uppercase tracking-widest">MG-LOCATION Alpha</span>
@@ -589,226 +447,14 @@ export function WarRoomPage() {
 
        {/* Glitch Overlay Effect */}
        {isGlitching && (
-         <div className="absolute inset-0 z-[100] pointer-events-none overflow-hidden bg-cyan-500/5 backdrop-blur-[1px] animate-pulse">
-            <div className="absolute top-1/4 left-0 w-full h-[1px] bg-white/20 animate-scan-fast" />
-            <div className="absolute top-3/4 left-0 w-full h-[1px] bg-white/20 animate-scan-fast" style={{ animationDelay: '0.2s' }} />
+         <div className="absolute inset-0 z-100 pointer-events-none overflow-hidden bg-cyan-500/5 backdrop-blur-[1px] animate-pulse">
+            <div className="absolute top-1/4 left-0 w-full h-px bg-white/20 animate-scan-fast" />
+            <div className="absolute top-3/4 left-0 w-full h-px bg-white/20 animate-scan-fast" style={{ animationDelay: '0.2s' }} />
             <div className="absolute inset-0 flex items-center justify-center">
                <span className="text-[10px] text-white font-black uppercase tracking-[1em] opacity-40">CALIBRATING_OPTICS...</span>
             </div>
          </div>
        )}
     </div>
-  );
-}
-
-function getSeverityColor(severity: number): string {
-  if (severity >= 5) return '#f43f5e';
-  if (severity >= 4) return '#f97316';
-  if (severity >= 3) return '#eab308';
-  return '#22d3ee';
-}
-
-function SimulationCommandPanel({ onClose }: { onClose: () => void }) {
-  const { 
-    hazardType, setHazardType, 
-    waterLevel, setWaterLevel,
-    isSimulating, setIsSimulating,
-    environment, setEnvironment,
-    timeOfDay, setTimeOfDay,
-    showStreets, setShowStreets,
-    showVegetation, setShowVegetation,
-    showGEE, setShowGEE,
-    geeAnalysisType, setGeeAnalysisType,
-    simulationDate, setSimulationDate,
-    rainIntensity, setRainIntensity,
-    soilSaturation, setSoilSaturation,
-    soilType, setSoilType
-  } = useSimulationStore();
-
-  return (
-    <DraggablePanel 
-      title="SIMULATION COMMAND" 
-      position={{ top: 112, right: 20 }} 
-      onDragStart={() => {}} 
-      onToggleDock={onClose}
-    >
-      <div className="p-4 bg-slate-900/95 space-y-6 w-[280px]">
-        {/* Hazard Category */}
-        <div className="space-y-3">
-          <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Tipo de Risco</label>
-          <div className="grid grid-cols-2 gap-2">
-            {['Flood', 'DamBreak', 'Contamination', 'Landslide'].map((t) => (
-              <button
-                key={t}
-                onClick={() => setHazardType(t)}
-                className={`py-2 rounded-lg border text-[10px] font-bold transition-all uppercase ${hazardType === t ? 'bg-amber-500/20 border-amber-500 text-amber-400' : 'bg-slate-800 border-white/5 text-slate-500 hover:text-slate-300'}`}
-              >
-                {t}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Intensity / Level Control */}
-        <div className="space-y-3 border-t border-white/5 pt-4">
-          <div className="flex justify-between items-center">
-            <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Intensidade / Nível</label>
-            <span className="text-xs font-mono text-cyan-400">{waterLevel}m</span>
-          </div>
-          <input 
-            type="range" min="0" max="50" step="1" 
-            value={waterLevel} 
-            onChange={(e) => setWaterLevel(Number(e.target.value))}
-            className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
-          />
-        </div>
-
-        {/* Environment Control */}
-        <div className="space-y-4 border-t border-white/5 pt-4">
-           <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Atmosfera Operacional</label>
-           
-           <div className="space-y-3">
-             <div className="flex justify-between text-[10px] font-mono">
-               <span className="text-slate-400 uppercase">Neblina</span>
-               <span className="text-slate-100">{Math.round(environment.fog * 100)}%</span>
-             </div>
-             <input type="range" min="0" max="1" step="0.01" value={environment.fog} onChange={e => setEnvironment({ fog: Number(e.target.value) })} className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-slate-500" />
-           </div>
-
-           <div className="space-y-3">
-             <div className="flex justify-between text-[10px] font-mono">
-               <span className="text-slate-400 uppercase">Chuva (Simulada)</span>
-               <span className="text-slate-100">{Math.round(environment.rain * 100)}%</span>
-             </div>
-             <input type="range" min="0" max="1" step="0.01" value={environment.rain} onChange={e => setEnvironment({ rain: Number(e.target.value) })} className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500" />
-           </div>
-
-           <div className="space-y-3 border-t border-white/5 pt-4">
-              <div className="flex justify-between text-[10px] font-mono">
-                <span className="text-slate-400 uppercase">Ciclo Dia/Noite</span>
-                <span className="text-slate-100">{Math.floor(timeOfDay)}:00</span>
-              </div>
-              <input 
-                type="range" min="0" max="23" step="1" 
-                value={timeOfDay} 
-                onChange={e => setTimeOfDay(Number(e.target.value))} 
-                className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-amber-400" 
-              />
-           </div>
-
-           <div className="space-y-3 border-t border-white/5 pt-4">
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Camadas Táticas</label>
-              <div className="flex flex-col gap-2 pt-2">
-                <label className="flex items-center justify-between text-[10px] cursor-pointer group">
-                  <span className="text-slate-400 uppercase font-mono group-hover:text-cyan-400 transition-colors">Arvores / Mata</span>
-                  <input type="checkbox" checked={showVegetation} onChange={e => setShowVegetation(e.target.checked)} className="h-3 w-3 rounded border-slate-700 bg-slate-800 accent-cyan-500" />
-                </label>
-                <label className="flex items-center justify-between text-[10px] cursor-pointer group">
-                  <span className="text-slate-400 uppercase font-mono group-hover:text-cyan-400 transition-colors">Rede Viária</span>
-                  <input type="checkbox" checked={showStreets} onChange={e => setShowStreets(e.target.checked)} className="h-3 w-3 rounded border-slate-700 bg-slate-800 accent-cyan-500" />
-                </label>
-              </div>
-           </div>
-
-           <div className="space-y-3 border-t border-white/5 pt-4">
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                <Globe size={12} className="text-emerald-500" /> Google Earth Engine
-              </label>
-              <div className="flex flex-col gap-3 pt-1">
-                <label className="flex items-center justify-between text-[10px] cursor-pointer group">
-                  <span className="text-slate-400 uppercase font-mono group-hover:text-emerald-400 transition-colors">Ativar Análise GEE</span>
-                  <input type="checkbox" checked={showGEE} onChange={e => setShowGEE(e.target.checked)} className="h-3 w-3 rounded border-slate-700 bg-slate-800 accent-emerald-500" />
-                </label>
-                
-                {showGEE && (
-                  <select 
-                    value={geeAnalysisType} 
-                    onChange={e => setGeeAnalysisType(e.target.value as any)}
-                    className="w-full bg-slate-800 border border-white/5 rounded px-2 py-1.5 text-[10px] font-mono text-emerald-400 outline-none"
-                  >
-                    <option value="ndvi">NDVI (Vegetação)</option>
-                    <option value="moisture">Soil Moisture (Umidade)</option>
-                    <option value="thermal">Thermal (Calor)</option>
-                  </select>
-                )}
-              </div>
-           </div>
-
-           <div className="space-y-4 border-t border-white/5 pt-4">
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                <CloudRain size={12} className="text-cyan-400" /> Clima & Solo
-              </label>
-              
-              <div className="space-y-3">
-                <div className="flex flex-col gap-1">
-                  <span className="text-[9px] text-slate-500 uppercase font-mono">Data da Simulação</span>
-                  <input 
-                    type="date" 
-                    value={simulationDate}
-                    onChange={e => setSimulationDate(e.target.value)}
-                    className="w-full bg-slate-800 border border-white/5 rounded px-2 py-1 text-[10px] font-mono text-cyan-400 outline-none"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-[9px] text-slate-500 uppercase font-mono">Intensidade Chuva</span>
-                    <span className="text-[10px] font-mono text-cyan-400">{rainIntensity}%</span>
-                  </div>
-                  <input 
-                    type="range" min="0" max="100" 
-                    value={rainIntensity} 
-                    onChange={e => setRainIntensity(Number(e.target.value))}
-                    className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-[9px] text-slate-500 uppercase font-mono">Saturação do Solo</span>
-                    <span className="text-[10px] font-mono text-cyan-400">{soilSaturation}%</span>
-                  </div>
-                  <input 
-                    type="range" min="0" max="100" 
-                    value={soilSaturation} 
-                    onChange={e => setSoilSaturation(Number(e.target.value))}
-                    className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1">
-                  <span className="text-[9px] text-slate-500 uppercase font-mono">Tipo de Solo</span>
-                  <div className="grid grid-cols-2 gap-2">
-                    {(['clay', 'sandy', 'loam', 'rocky'] as const).map(type => (
-                      <button
-                        key={type}
-                        onClick={() => setSoilType(type)}
-                        className={`px-2 py-1 text-[9px] uppercase font-mono rounded border transition-all ${
-                          soilType === type 
-                            ? 'bg-cyan-500/20 border-cyan-500 text-cyan-400' 
-                            : 'bg-slate-800 border-white/5 text-slate-500 hover:border-white/10'
-                        }`}
-                      >
-                        {type === 'clay' ? 'Argiloso' : type === 'sandy' ? 'Arenoso' : type === 'loam' ? 'Franco' : 'Rochoso'}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-           </div>
-        </div>
-
-        {/* Simulation Lock */}
-        <button 
-          onClick={() => setIsSimulating(!isSimulating)}
-          className={`w-full py-3 rounded-xl font-black text-[10px] uppercase tracking-[0.2em] transition-all
-            ${isSimulating 
-              ? 'bg-rose-600 text-white shadow-[0_0_20px_rgba(225,29,72,0.3)]' 
-              : 'bg-cyan-600 text-white hover:bg-cyan-500 shadow-[0_0_20px_rgba(6,182,212,0.3)]'}`}
-        >
-          {isSimulating ? 'DETENER SIMULAÇÃO' : 'INICIAR PROJEÇÃO'}
-        </button>
-      </div>
-    </DraggablePanel>
   );
 }

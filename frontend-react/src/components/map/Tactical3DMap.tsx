@@ -127,48 +127,77 @@ const FocalIntelligence: React.FC = () => {
   return null;
 };
 
-interface Event3DProps {
-  id: string;
-  position: [number, number, number];
-  color: string;
-  label: string;
-  severity: number;
-  isSelected: boolean;
-  onHover: (id: string | null) => void;
-  onClick: (id: string) => void;
-}
+const InstancedEventBeacons: React.FC<{ 
+  coords: any[], 
+  hoveredId: string | null, 
+  onHover: (id: string | null) => void, 
+  onClick: (e: any) => void 
+}> = ({ coords, hoveredId, onHover, onClick }) => {
+  const polesRef = useRef<THREE.InstancedMesh>(null);
+  const ringsRef = useRef<THREE.InstancedMesh>(null);
 
-const EventBeacon: React.FC<Event3DProps> = ({ 
-  id, position, color, label, severity, isSelected, onHover, onClick 
-}) => {
-  const meshRef = useRef<THREE.Mesh>(null);
-  
-  useFrame((state) => {
-    if (meshRef.current) {
-      meshRef.current.rotation.y += 0.01;
-      if (isSelected) {
-        meshRef.current.scale.setScalar(1 + Math.sin(state.clock.elapsedTime * 5) * 0.1);
-      }
-    }
-  });
+  useEffect(() => {
+    if (!polesRef.current || !ringsRef.current) return;
+
+    const tempObject = new THREE.Object3D();
+    coords.forEach((e, i) => {
+      const isSelected = hoveredId === (e.id || `${e.provider}-${e.provider_event_id}`);
+      
+      // Pole
+      tempObject.position.set(e.pos3d[0], e.pos3d[1], e.pos3d[2]);
+      tempObject.scale.setScalar(isSelected ? 1.2 : 1.0);
+      tempObject.updateMatrix();
+      polesRef.current!.setMatrixAt(i, tempObject.matrix);
+      polesRef.current!.setColorAt(i, new THREE.Color(e.color));
+
+      // Ring
+      tempObject.position.set(e.pos3d[0], -e.severity * 0.15, e.pos3d[2]);
+      tempObject.rotation.set(-Math.PI / 2, 0, 0);
+      tempObject.scale.setScalar(1);
+      tempObject.updateMatrix();
+      ringsRef.current!.setMatrixAt(i, tempObject.matrix);
+      ringsRef.current!.setColorAt(i, new THREE.Color(e.color));
+    });
+
+    polesRef.current.instanceMatrix.needsUpdate = true;
+    if (polesRef.current.instanceColor) polesRef.current.instanceColor.needsUpdate = true;
+    ringsRef.current.instanceMatrix.needsUpdate = true;
+    if (ringsRef.current.instanceColor) ringsRef.current.instanceColor.needsUpdate = true;
+  }, [coords, hoveredId]);
 
   return (
-    <group position={position}>
-      {isSelected && (
-        <Float speed={2} rotationIntensity={0.5} floatIntensity={0.5}>
-          <Text position={[0, severity * 0.2 + 1, 0]} fontSize={0.3} color="white">
-            {label}
-          </Text>
-        </Float>
-      )}
-      <mesh ref={meshRef} onPointerOver={() => onHover(id)} onPointerOut={() => onHover(null)} onClick={() => onClick(id)}>
-        <cylinderGeometry args={[0.1, 0.2, severity * 0.3, 16]} />
-        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={isSelected ? 5 : 1} transparent opacity={0.8} />
-      </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -severity * 0.15, 0]}>
+    <group>
+      <instancedMesh 
+        ref={polesRef} 
+        args={[undefined as any, undefined as any, coords.length]}
+        onPointerOver={(e) => {
+          const id = coords[e.instanceId!].id || `${coords[e.instanceId!].provider}-${coords[e.instanceId!].provider_event_id}`;
+          onHover(id);
+        }}
+        onPointerOut={() => onHover(null)}
+        onClick={(e) => onClick(coords[e.instanceId!])}
+      >
+        <cylinderGeometry args={[0.1, 0.2, 0.3, 16]} />
+        <meshStandardMaterial emissiveIntensity={2} transparent opacity={0.8} />
+      </instancedMesh>
+      
+      <instancedMesh ref={ringsRef} args={[undefined as any, undefined as any, coords.length]}>
         <ringGeometry args={[0.3, 0.4, 32]} />
-        <meshBasicMaterial color={color} transparent opacity={0.3} />
-      </mesh>
+        <meshBasicMaterial transparent opacity={0.3} />
+      </instancedMesh>
+
+      {/* Only render labels for selected item to save CPU/DOM */}
+      {coords.map((e) => {
+        const id = e.id || `${e.provider}-${e.provider_event_id}`;
+        if (id !== hoveredId) return null;
+        return (
+          <Float key={id} speed={2} rotationIntensity={0.5} floatIntensity={0.5}>
+            <Text position={[e.pos3d[0], e.severity * 0.2 + 1, e.pos3d[2]]} fontSize={0.3} color="white">
+              {e.title || e.label || "Evento"}
+            </Text>
+          </Float>
+        );
+      })}
     </group>
   );
 };
@@ -235,19 +264,12 @@ export const Tactical3DMap: React.FC<Tactical3DMapProps> = ({
 
         <ScanningRay />
 
-        {coords.map((e) => (
-          <EventBeacon
-            key={e.id || `${e.provider}-${e.provider_event_id}`}
-            id={e.id || `${e.provider}-${e.provider_event_id}`}
-            position={e.pos3d}
-            color={e.color}
-            label={e.title || e.label || "Evento"}
-            severity={e.severity}
-            isSelected={hoveredId === (e.id || `${e.provider}-${e.provider_event_id}`)}
-            onHover={onHover}
-            onClick={() => onClick(e)}
-          />
-        ))}
+        <InstancedEventBeacons
+          coords={coords}
+          hoveredId={hoveredId}
+          onHover={onHover}
+          onClick={(e) => onClick(e)}
+        />
 
         <fog attach="fog" args={[timeOfDay < 6 || timeOfDay > 18 ? '#020617' : '#94a3b8', 10, 60 - environment.fog * 40]} />
 
@@ -280,37 +302,83 @@ export const Tactical3DMap: React.FC<Tactical3DMapProps> = ({
 };
 
 const WeatherParticles: React.FC<{ intensity: number; isSimulating: boolean }> = ({ intensity, isSimulating }) => {
-  const pointsRef = useRef<THREE.Points>(null);
-  const count = 1000;
+  const meshRef = useRef<THREE.Points>(null);
+  const count = 2000;
   
-  const positions = useMemo(() => {
+  const [positions, randomness] = useMemo(() => {
     const p = new Float32Array(count * 3);
+    const r = new Float32Array(count);
     for (let i = 0; i < count; i++) {
       p[i * 3] = (Math.random() - 0.5) * 50;
-      p[i * 3 + 1] = Math.random() * 20;
+      p[i * 3 + 1] = Math.random() * 25;
       p[i * 3 + 2] = (Math.random() - 0.5) * 50;
+      r[i] = Math.random();
     }
-    return p;
+    return [p, r];
   }, []);
 
-  useFrame(() => {
-    if (!pointsRef.current || intensity <= 0) return;
-    const pos = pointsRef.current.geometry.attributes.position.array as Float32Array;
-    for (let i = 0; i < count; i++) {
-      pos[i * 3 + 1] -= (0.1 + intensity * 0.2) * (isSimulating ? 1.5 : 1);
-      if (pos[i * 3 + 1] < 0) pos[i * 3 + 1] = 20;
+  const uniforms = useMemo(() => ({
+    uTime: { value: 0 },
+    uIntensity: { value: intensity },
+    uColor: { value: new THREE.Color("#93c5fd") },
+    uSpeed: { value: isSimulating ? 2.5 : 1.5 }
+  }), []);
+
+  useEffect(() => {
+    uniforms.uIntensity.value = intensity;
+    uniforms.uSpeed.value = isSimulating ? 2.5 : 1.5;
+  }, [intensity, isSimulating, uniforms]);
+
+  useFrame((state) => {
+    if (meshRef.current) {
+      (meshRef.current.material as THREE.ShaderMaterial).uniforms.uTime.value = state.clock.elapsedTime;
     }
-    pointsRef.current.geometry.attributes.position.needsUpdate = true;
   });
 
   if (intensity <= 0) return null;
 
   return (
-    <points ref={pointsRef}>
+    <points ref={meshRef}>
       <bufferGeometry>
         <bufferAttribute attach="attributes-position" args={[positions, 3]} />
+        <bufferAttribute attach="attributes-aRandom" args={[randomness, 1]} />
       </bufferGeometry>
-      <pointsMaterial size={0.05} color="#93c5fd" transparent opacity={0.3 * intensity} blending={THREE.AdditiveBlending} />
+      <shaderMaterial
+        transparent
+        depthWrite={false}
+        blending={THREE.AdditiveBlending}
+        uniforms={uniforms}
+        vertexShader={`
+          uniform float uTime;
+          uniform float uIntensity;
+          uniform float uSpeed;
+          attribute float aRandom;
+          varying float vOpacity;
+
+          void main() {
+            vec3 pos = position;
+            
+            // Animation logic moving to GPU
+            float fall = uTime * (0.8 + aRandom * 0.4) * uSpeed;
+            pos.y = mod(pos.y - fall, 25.0);
+            
+            vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+            gl_PointSize = (1.5 * uIntensity) * (300.0 / -mvPosition.z);
+            gl_Position = projectionMatrix * mvPosition;
+            vOpacity = uIntensity * 0.3;
+          }
+        `}
+        fragmentShader={`
+          varying float vOpacity;
+          uniform vec3 uColor;
+
+          void main() {
+            float dist = distance(gl_PointCoord, vec2(0.5));
+            if (dist > 0.5) discard;
+            gl_FragColor = vec4(uColor, vOpacity * (1.0 - dist * 2.0));
+          }
+        `}
+      />
     </points>
   );
 };

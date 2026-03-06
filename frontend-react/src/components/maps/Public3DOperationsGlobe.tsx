@@ -216,77 +216,91 @@ export function Public3DOperationsGlobe({ data }: { data: OperationsSnapshot | n
   };
 
   return (
-    <section className="space-y-3">
-      <div className="flex flex-wrap items-end gap-2 rounded-xl border border-slate-700/70 bg-slate-900/80 p-2">
-        <label className="flex flex-col text-xs text-slate-300">
-          Latitude
-          <input
-            value={manualLat}
-            onChange={(event) => setManualLat(event.target.value)}
-            className="mt-1 rounded-md border border-slate-600 bg-slate-950 px-2 py-1 text-sm text-slate-100"
-            placeholder="-19.9167"
-          />
-        </label>
-
-        <label className="flex flex-col text-xs text-slate-300">
-          Longitude
-          <input
-            value={manualLng}
-            onChange={(event) => setManualLng(event.target.value)}
-            className="mt-1 rounded-md border border-slate-600 bg-slate-950 px-2 py-1 text-sm text-slate-100"
-            placeholder="-43.9345"
-          />
-        </label>
-
-        <button
-          onClick={markCoordinate}
-          className="rounded-md border border-amber-400/70 bg-amber-500/20 px-3 py-2 text-xs font-semibold text-amber-200 hover:bg-amber-500/30"
-        >
-          Demarcar ponto por coordenadas
-        </button>
+    <div className="h-full flex flex-col">
+      <div className="flex-1 min-h-0 relative">
+        <Canvas camera={{ position: [0, 0.2, 4.2], fov: 42 }}>
+          <GlobeScene markers={markers} />
+        </Canvas>
+        
+        {/* Interactive Overlay for Coords */}
+        <div className="absolute bottom-4 left-4 right-4 z-10">
+          <div className="bg-slate-950/80 backdrop-blur-md border border-white/5 p-4 rounded-2xl flex flex-col sm:flex-row items-end gap-3 shadow-2xl">
+            <div className="flex-1 grid grid-cols-2 gap-3 w-full">
+              <div className="space-y-1">
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Latitude</span>
+                <input
+                  value={manualLat}
+                  onChange={(event) => setManualLat(event.target.value)}
+                  className="w-full rounded-xl border border-white/5 bg-slate-900/50 px-3 py-2 text-xs text-white focus:border-cyan-500/50 outline-none transition-all"
+                  placeholder="-19.9167"
+                />
+              </div>
+              <div className="space-y-1">
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Longitude</span>
+                <input
+                  value={manualLng}
+                  onChange={(event) => setManualLng(event.target.value)}
+                  className="w-full rounded-xl border border-white/5 bg-slate-900/50 px-3 py-2 text-xs text-white focus:border-cyan-500/50 outline-none transition-all"
+                  placeholder="-43.9345"
+                />
+              </div>
+            </div>
+            <button
+              onClick={markCoordinate}
+              className="w-full sm:w-auto shrink-0 bg-cyan-500 text-slate-950 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-cyan-400 active:scale-95 transition-all shadow-lg shadow-cyan-500/20"
+            >
+              Marcar Radar
+            </button>
+          </div>
+        </div>
       </div>
 
-      <section className="grid gap-3 lg:grid-cols-[1.4fr_1fr]">
-        <article className="h-[460px] overflow-hidden rounded-xl border border-slate-700 bg-slate-950">
-          <Canvas camera={{ position: [0, 0.2, 4.9], fov: 46 }}>
-            <GlobeScene markers={markers} />
-          </Canvas>
-        </article>
+      {/* 2D Sync Map (Optional Toggle or separate section, here simplified for presentation) */}
+      <div className="h-[240px] border-t border-white/5 bg-slate-950">
+        <MapContainer 
+          center={manualPoint ? [manualPoint.lat, manualPoint.lng] : [-15.78, -47.93]} 
+          zoom={manualPoint ? 9 : 4} 
+          style={{ height: '100%', width: '100%' }}
+          zoomControl={false}
+        >
+          <TileLayer
+            attribution='&copy; CARTO'
+            url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+          />
 
-        <article className="h-[460px] overflow-hidden rounded-xl border border-slate-700">
-          <MapContainer center={manualPoint ? [manualPoint.lat, manualPoint.lng] : [-15.78, -47.93]} zoom={manualPoint ? 9 : 4} style={{ height: '100%', width: '100%' }}>
-            <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
+          {markers.map((marker) => (
+            <CircleMarker
+              key={marker.id}
+              center={[marker.lat, marker.lng]}
+              radius={marker.kind === 'critical' || marker.kind === 'event' || marker.kind === 'manual' ? 6 : 4}
+              pathOptions={{ 
+                color: markerColor(marker.kind), 
+                fillColor: markerColor(marker.kind),
+                fillOpacity: 0.8,
+                weight: 1
+              }}
+            >
+              <Popup className="tactical-popup">
+                <div className="p-1 space-y-1 bg-slate-900 text-white rounded-lg">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-cyan-400">{marker.kind}</p>
+                  <p className="text-xs font-bold leading-tight">{marker.label}</p>
+                </div>
+              </Popup>
+            </CircleMarker>
+          ))}
 
-            {markers.map((marker) => (
-              <CircleMarker
-                key={marker.id}
-                center={[marker.lat, marker.lng]}
-                radius={marker.kind === 'critical' || marker.kind === 'event' || marker.kind === 'manual' ? 8 : 6}
-                pathOptions={{ color: markerColor(marker.kind), fillOpacity: 0.85 }}
-              >
-                <Popup>
-                  <div className="text-sm">
-                    <p className="font-semibold">{marker.label}</p>
-                    <p>{marker.lat.toFixed(4)}, {marker.lng.toFixed(4)}</p>
-                  </div>
-                </Popup>
-              </CircleMarker>
-            ))}
-
-            {riskPolygons.map((area) => (
-              <Polygon key={area.id} positions={area.points} pathOptions={{ color: '#f97316', fillOpacity: 0.2, weight: 2 }}>
-                <Popup>
-                  <strong>{area.title}</strong>
-                  <p>Severidade: {area.severity}</p>
-                </Popup>
-              </Polygon>
-            ))}
-          </MapContainer>
-        </article>
-      </section>
-    </section>
+          {riskPolygons.map((area) => (
+            <Polygon key={area.id} positions={area.points} pathOptions={{ color: '#f97316', fillOpacity: 0.1, weight: 1.5, dashArray: '4, 4' }}>
+              <Popup>
+                <div className="p-1">
+                   <p className="text-[10px] font-black text-rose-400 uppercase">Área de Risco</p>
+                   <p className="text-xs font-bold">{area.title}</p>
+                </div>
+              </Popup>
+            </Polygon>
+          ))}
+        </MapContainer>
+      </div>
+    </div>
   );
 }

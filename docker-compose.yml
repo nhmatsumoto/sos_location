@@ -95,13 +95,19 @@ services:
       SEED_ON_STARTUP: ${SEED_ON_STARTUP:-true}
       RUN_INTEGRATIONS_ON_STARTUP: ${RUN_INTEGRATIONS_ON_STARTUP:-true}
       SECURE_SSL_REDIRECT: "False"
+    volumes:
+      - .:/app
     depends_on:
       postgres:
         condition: service_healthy
       keycloak:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import socket; s=socket.create_connection(('127.0.0.1', 8000), 5); s.close()\""]
+      test:
+        [
+          "CMD-SHELL",
+          'python -c "import socket; s=socket.create_connection((''127.0.0.1'', 8000), 5); s.close()"',
+        ]
       interval: 15s
       timeout: 10s
       retries: 10
@@ -113,9 +119,11 @@ services:
 
   risk-agent:
     build:
-      context: ./risk_agent
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: risk_agent/Dockerfile
     container_name: mg-location-ml-risk-agent
+    volumes:
+      - ./risk_agent:/app
     restart: unless-stopped
     environment:
       ALPHAGEO_API_URL: ${ALPHAGEO_API_URL:-}
@@ -125,7 +133,11 @@ services:
     expose:
       - "8091"
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8091/health', timeout=5)\""]
+      test:
+        [
+          "CMD-SHELL",
+          'python -c "import urllib.request; urllib.request.urlopen(''http://127.0.0.1:8091/health'', timeout=5)"',
+        ]
       interval: 20s
       timeout: 10s
       retries: 5
@@ -149,14 +161,17 @@ services:
       backend:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000', timeout=5)\""]
+      test:
+        [
+          "CMD-SHELL",
+          'python -c "import urllib.request; urllib.request.urlopen(''http://127.0.0.1:8000'', timeout=5)"',
+        ]
       interval: 20s
       timeout: 10s
       retries: 5
       start_period: 20s
     networks:
       - mg-location-network
-
 
   dozzle:
     image: amir20/dozzle:latest

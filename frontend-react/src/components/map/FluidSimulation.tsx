@@ -1,4 +1,4 @@
-import React, { useRef, useMemo } from 'react';
+import React, { useRef, useMemo, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useSimulationStore } from '../../store/useSimulationStore';
@@ -7,26 +7,23 @@ const PARTICLE_COUNT = 1500;
 
 export const FluidSimulation: React.FC = () => {
   const { isSimulating, rainIntensity, soilSaturation, soilType, waterLevel, box } = useSimulationStore();
-  
-  // Particle system for fluid simulation
-  const pointsRef = useRef<THREE.Points>(null);
+  const meshRef = useRef<THREE.Points>(null);
 
-  // Absorption logic based on soil type
   const absorptionRate = useMemo(() => {
     const base = (100 - soilSaturation) / 1000;
     switch (soilType) {
-      case 'clay': return base * 0.2; // Slow absorption
-      case 'sandy': return base * 2.5; // Fast absorption
-      case 'rocky': return base * 0.1; // Almost no absorption
+      case 'clay': return base * 0.2;
+      case 'sandy': return base * 2.5;
+      case 'rocky': return base * 0.1;
       default: return base; 
     }
   }, [soilSaturation, soilType]);
 
-  // Initial particle positions within the simulation box
-  const [initialPositions] = useMemo(() => {
+  const [initialPositions, randomness] = useMemo(() => {
     const pos = new Float32Array(PARTICLE_COUNT * 3);
+    const rand = new Float32Array(PARTICLE_COUNT * 3);
     
-    if (!box) return [pos];
+    if (!box) return [pos, rand];
 
     const xPos = (box.center[1] + 51.9) * 2;
     const zPos = -(box.center[0] + 14.2) * 2;
@@ -37,52 +34,89 @@ export const FluidSimulation: React.FC = () => {
         pos[i * 3] = xPos + (Math.random() - 0.5) * width;
         pos[i * 3 + 1] = 5 + Math.random() * 10;
         pos[i * 3 + 2] = zPos + (Math.random() - 0.5) * height;
+        
+        rand[i * 3] = Math.random();
+        rand[i * 3 + 1] = Math.random();
+        rand[i * 3 + 2] = Math.random();
     }
-    return [pos];
+    return [pos, rand];
   }, [box]);
 
-  useFrame((_state, delta) => {
-    if (!pointsRef.current || !isSimulating || rainIntensity <= 0) return;
+  const uniforms = useMemo(() => ({
+    uTime: { value: 0 },
+    uWaterLevel: { value: waterLevel },
+    uAbsorptionRate: { value: absorptionRate },
+    uIntensity: { value: rainIntensity },
+    uColor: { value: new THREE.Color("#38bdf8") }
+  }), []);
 
-    const positions = pointsRef.current.geometry.attributes.position.array as Float32Array;
-    
-    for (let i = 0; i < PARTICLE_COUNT; i++) {
-      // Simulate gravity and flow
-      positions[i * 3 + 1] -= delta * 5; // Gravity
+  useEffect(() => {
+    uniforms.uWaterLevel.value = waterLevel;
+    uniforms.uAbsorptionRate.value = absorptionRate;
+    uniforms.uIntensity.value = rainIntensity;
+  }, [waterLevel, absorptionRate, rainIntensity, uniforms]);
 
-      const groundLevel = 0.2 + (waterLevel * 0.05);
-      
-      if (positions[i * 3 + 1] < groundLevel) {
-        if (Math.random() > absorptionRate) {
-           positions[i * 3] += (Math.random() - 0.5) * 0.1;
-           positions[i * 3 + 2] += (Math.random() - 0.5) * 0.1;
-           positions[i * 3 + 1] = groundLevel;
-        } else {
-           positions[i * 3 + 1] = 10 + Math.random() * 5;
-        }
-      }
+  useFrame((state) => {
+    if (meshRef.current && isSimulating && rainIntensity > 0) {
+      (meshRef.current.material as THREE.ShaderMaterial).uniforms.uTime.value = state.clock.elapsedTime;
     }
-    
-    pointsRef.current.geometry.attributes.position.needsUpdate = true;
   });
 
   if (!box || rainIntensity <= 0) return null;
 
   return (
-    <points ref={pointsRef}>
+    <points ref={meshRef}>
       <bufferGeometry>
-        <bufferAttribute
-          attach="attributes-position"
-          args={[initialPositions, 3]}
-        />
+        <bufferAttribute attach="attributes-position" args={[initialPositions, 3]} />
+        <bufferAttribute attach="attributes-aRandom" args={[randomness, 3]} />
       </bufferGeometry>
-      <pointsMaterial 
-        color="#38bdf8" 
-        size={0.15} 
-        transparent 
-        opacity={0.6} 
+      <shaderMaterial
+        transparent
+        depthWrite={false}
         blending={THREE.AdditiveBlending}
-        sizeAttenuation={true}
+        uniforms={uniforms}
+        vertexShader={`
+          uniform float uTime;
+          uniform float uWaterLevel;
+          uniform float uAbsorptionRate;
+          uniform float uIntensity;
+          attribute vec3 aRandom;
+          varying float vOpacity;
+
+          void main() {
+            vec3 pos = position;
+            float t = uTime * (0.5 + aRandom.x * 0.5);
+            
+            // Vertical movement (Gravity + recycled height)
+            float fall = t * 5.0;
+            float groundLevel = 0.2 + (uWaterLevel * 0.05);
+            
+            // Cycle height from 15.0 down to groundLevel
+            float heightRange = 15.0 - groundLevel;
+            pos.y = groundLevel + mod(pos.y - groundLevel - fall, heightRange);
+            
+            // Horizontal jitter when near ground
+            if (pos.y < groundLevel + 0.1) {
+              pos.x += (aRandom.y - 0.5) * 0.2 * sin(uTime * 10.0 + aRandom.z);
+              pos.z += (aRandom.z - 0.5) * 0.2 * cos(uTime * 10.0 + aRandom.y);
+            }
+
+            vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+            gl_PointSize = 3.0 * (300.0 / -mvPosition.z);
+            gl_Position = projectionMatrix * mvPosition;
+            vOpacity = 0.6 * (uIntensity / 100.0);
+          }
+        `}
+        fragmentShader={`
+          varying float vOpacity;
+          uniform vec3 uColor;
+
+          void main() {
+            float dist = distance(gl_PointCoord, vec2(0.5));
+            if (dist > 0.5) discard;
+            gl_FragColor = vec4(uColor, vOpacity * (1.0 - dist * 2.0));
+          }
+        `}
       />
     </points>
   );

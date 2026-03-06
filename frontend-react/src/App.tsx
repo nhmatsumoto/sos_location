@@ -124,8 +124,8 @@ export default function App() {
         filteredNewsUpdates={filteredNewsUpdates}
         handleDonationSubmit={handleDonationSubmit}
         handleAddCatastropheEvent={handleAddCatastropheEvent}
-        handleRunFlow={() => {}} // Placeholder, logic in hook?
-        handleSplatUpload={() => {}} // Placeholder
+        handleRunFlow={state.onRunFlow}
+        handleSplatUpload={state.handleSplatUpload}
         ENABLE_SIMULATION={ENABLE_SIMULATION}
       />
 
@@ -136,7 +136,7 @@ export default function App() {
         openPanel={openPanel}
       />
 
-      <div className="absolute inset-x-0 bottom-0 z-[420] pointer-events-none p-4 flex items-end justify-between">
+      <div className="absolute inset-x-0 bottom-0 z-420 pointer-events-none p-4 flex items-end justify-between">
         <div className="flex gap-4 pointer-events-auto">
           {!state.dockedPanels.global && (
             <DraggablePanel 
@@ -161,7 +161,7 @@ export default function App() {
         onClose={() => state.setShowMissingModal(false)}
         form={state.missingForm}
         setForm={state.setMissingForm}
-        onSubmit={() => {}} // Logic in hook
+        onSubmit={state.handleMissingSubmit}
         saving={state.savingMissing}
         error={state.missingError}
         success={state.missingSuccess}
@@ -173,7 +173,7 @@ export default function App() {
         riskDraftPoint={state.riskDraftPoint}
         form={state.riskForm}
         setForm={state.setRiskForm}
-        onSubmit={() => {}} // Logic in hook
+        onSubmit={state.handleRiskAreaSubmit}
         saving={state.savingRiskArea}
         error={state.riskError}
         success={state.riskSuccess}
@@ -184,7 +184,7 @@ export default function App() {
         onClose={() => state.setShowUploadModal(false)}
         form={state.formState}
         setForm={state.setFormState}
-        onSubmit={() => {}} // Logic in hook
+        onSubmit={state.handleUpload}
         uploading={state.uploading}
         error={state.uploadError}
         success={state.uploadSuccess}
@@ -200,7 +200,7 @@ export default function App() {
       />
 
       {state.selectedPanel && (
-        <div className="fixed inset-0 z-[1000] bg-black flex flex-col">
+        <div className="fixed inset-0 z-1000 bg-black flex flex-col">
           <div className="bg-slate-900/90 border-b border-slate-700 px-4 py-3 flex items-center justify-between">
              <h2 className="text-white font-bold">{state.selectedPanel.label || 'Visualizador'}</h2>
              <button onClick={() => state.setSelectedPanel(null)} className="text-slate-400 hover:text-white"><Activity className="w-5 h-5" /></button>

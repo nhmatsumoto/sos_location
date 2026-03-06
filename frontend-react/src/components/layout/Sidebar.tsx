@@ -2,7 +2,7 @@ import { Activity, AlertTriangle, BarChart3, FileWarning, Layers3, LifeBuoy, Rad
 import { Link, useLocation } from 'react-router-dom';
 
 const navItems = [
-  { to: '/app/command-center', label: 'Centro de Comando', icon: Radar },
+  { to: '/app/sos', label: 'Monitor SOS', icon: Radar },
   { to: '/app/hotspots', label: 'Hotspots', icon: AlertTriangle },
   { to: '/app/missing-persons', label: 'Desaparecidos', icon: Users },
   { to: '/app/reports', label: 'Relatos', icon: FileWarning },
@@ -12,7 +12,7 @@ const navItems = [
   { to: '/app/simulations', label: 'Simulações', icon: BarChart3 },
   { to: '/app/data-hub', label: 'Data Hub', icon: Layers3 },
   { to: '/app/integrations', label: 'Integrações', icon: PlugZap },
-  { to: '/app/global-disasters', label: 'Eventos Globais', icon: Globe },
+  { to: '/app/sos', label: 'Eventos Globais', icon: Globe },
   { to: '/public/transparency', label: 'Transparência Pública', icon: Globe },
   { to: '/app/settings', label: 'Configurações', icon: Settings },
 ];
@@ -24,7 +24,7 @@ export function Sidebar({ className }: { className?: string }) {
     <aside className={`rounded-2xl border border-slate-700/60 bg-slate-900/80 p-4 shadow-2xl shadow-black/25 ${className || ''}`}>
       <div className="mb-4 border-b border-slate-700/70 pb-3">
         <p className="text-xs font-semibold uppercase tracking-[0.25em] text-cyan-300">SOS Location</p>
-        <h1 className="text-lg font-bold text-slate-100">War Room</h1>
+        <h1 className="text-lg font-bold text-slate-100">SOS Terminal</h1>
       </div>
 
       <nav className="space-y-1" aria-label="Menu principal">

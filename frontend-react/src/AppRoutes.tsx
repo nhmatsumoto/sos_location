@@ -6,7 +6,7 @@ import { LoginPage } from './pages/LoginPage';
 import { LandingPage } from './pages/LandingPage';
 import { PublicMapPage } from './pages/PublicMapPage';
 
-const WarRoomPage = lazy(() => import('./pages/WarRoomPage').then((m) => ({ default: m.WarRoomPage })));
+const SOSPage = lazy(() => import('./pages/SOSPage').then((m) => ({ default: m.SOSPage })));
 const SettingsPage = lazy(() => import('./pages/SettingsPage').then((m) => ({ default: m.SettingsPage })));
 const PublicIncidentDashboardPage = lazy(() => import('./pages/PublicIncidentDashboardPage').then((m) => ({ default: m.PublicIncidentDashboardPage })));
 const SplatScenePage = lazy(() => import('./pages/SplatScenePage').then((m) => ({ default: m.SplatScenePage })));
@@ -22,24 +22,25 @@ function PrivateLayout() {
     return <Navigate to="/login" replace />;
   }
 
-  const isWarRoom = location.pathname === '/app/war-room';
+  const isSOS = location.pathname === '/app/sos';
 
   return (
     <AppShell 
       theme={theme} 
       onToggleTheme={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
-      variant={isWarRoom ? 'tactical' : 'default'}
+      variant={isSOS ? 'tactical' : 'default'}
     >
       <Suspense fallback={<div style={{ padding: 16 }}>Carregando módulo…</div>}>
         <Routes>
-          <Route path="/app/war-room" element={<WarRoomPage />} />
-          <Route path="/app/command-center" element={<Navigate to="/app/war-room" replace />} />
-          <Route path="/app/global-disasters" element={<Navigate to="/app/war-room" replace />} />
-          <Route path="/app/operations" element={<Navigate to="/app/war-room" replace />} />
+          <Route path="/app/sos" element={<SOSPage />} />
+          <Route path="/app/war-room" element={<Navigate to="/app/sos" replace />} />
+          <Route path="/app/command-center" element={<Navigate to="/app/sos" replace />} />
+          <Route path="/app/global-disasters" element={<Navigate to="/app/sos" replace />} />
+          <Route path="/app/operations" element={<Navigate to="/app/sos" replace />} />
           <Route path="/app/settings" element={<SettingsPage />} />
           <Route path="/app/splat-scenes/:id" element={<SplatScenePage />} />
           <Route path="/app/splat-scenes" element={<SplatScenePage />} />
-          <Route path="*" element={<Navigate to="/app/war-room" replace />} />
+          <Route path="*" element={<Navigate to="/app/sos" replace />} />
         </Routes>
       </Suspense>
     </AppShell>
