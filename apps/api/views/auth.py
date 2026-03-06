@@ -222,7 +222,8 @@ def keycloak_sso_login_view(request):
     try:
         claims = decode_keycloak_access_token(access_token)
     except AuthenticationFailed as exc:
-        return _auth_error(str(exc), status=401)
+        logger.warning('keycloak_sso_authentication_failed', extra={'error': str(exc)})
+        return _auth_error('Falha de autenticação Keycloak.', status=401)
     except Exception as exc:
         logger.warning('keycloak_sso_login_error', extra={'error': str(exc)})
         return _auth_error('Falha ao decodificar token Keycloak.', status=401)
