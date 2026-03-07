@@ -1,8 +1,10 @@
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
 using SOSLocation.Domain.Interfaces;
 using SOSLocation.Infrastructure.Persistence;
 using SOSLocation.Infrastructure.Persistence.Repositories;
+using SOSLocation.Infrastructure.Services.Gis;
 using SOSLocation.Infrastructure.Persistence.Dapper;
 using FluentValidation;
 using SOSLocation.Application.Features.Incidents.Commands.CreateIncident;
@@ -35,6 +37,14 @@ namespace SOSLocation.API.Extensions
             services.AddScoped<IGeolocationRepository, GeolocationRepository>();
             services.AddScoped<IVisitedLocationRepository, VisitedLocationRepository>();
             services.AddScoped<IFoundPeopleRepository, FoundPeopleRepository>();
+
+            // GIS Services
+            services.AddHttpClient<IGisService, GisService>();
+
+            // Register AlertsBackgroundService as both IAlertsService and HostedService
+            services.AddSingleton<AlertsBackgroundService>();
+            services.AddSingleton<IAlertsService>(sp => sp.GetRequiredService<AlertsBackgroundService>());
+            services.AddHostedService(sp => sp.GetRequiredService<AlertsBackgroundService>());
 
             return services;
         }
