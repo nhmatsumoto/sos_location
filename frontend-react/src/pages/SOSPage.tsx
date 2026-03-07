@@ -16,10 +16,15 @@ import { useSimulationStore } from '../store/useSimulationStore';
 import { useNavigate } from 'react-router-dom';
 import { TacticalLoadingScreen } from '../components/ui/TacticalLoadingScreen';
 import { LoadingOverlay } from '../components/ui/LoadingOverlay';
+import { gisApi, type ActiveAlert } from '../services/gisApi';
 import { MapInteractions, MapListener, type ToolMode } from '../components/map/MapInteractions';
 import { ToolButton } from '../components/ui/ToolButton';
 import { MemoizedEventMarker } from '../components/map/EventMarker';
 import { SimulationCommandPanel } from '../components/map/SimulationCommandPanel';
+import { LiveOpsPanel } from '../components/map/LiveOpsPanel';
+import { CursorCoordinates } from '../components/map/CursorCoordinates';
+import { MapContextMenu } from '../components/map/MapContextMenu';
+import { SimulationAreaModal } from '../components/ui/SimulationAreaModal';
 
 const Tactical3DMap = lazy(() => import('../components/map/Tactical3DMap').then(m => ({ default: m.Tactical3DMap })));
 import type { SituationalSnapshot } from '../types';
@@ -63,7 +68,8 @@ export function SOSPage() {
   const [show3D, setShow3D] = useState(false);
   
   const [country, setCountry] = useState('BR');
-  const [minSeverity] = useState(1);
+  const [minSeverity, setMinSeverity] = useState<number>(0);
+  const [gisAlerts, setGisAlerts] = useState<ActiveAlert[]>([]);
   const [tool, setTool] = useState<ToolMode>('inspect');
   const [areaDraft, setAreaDraft] = useState<Array<[number, number]>>([]);
   const [spatialFilter, setSpatialFilter] = useState<any>(null);
@@ -79,11 +85,18 @@ export function SOSPage() {
   const [activeSnapshots, setActiveSnapshots] = useState<SituationalSnapshot[]>([]);
   const [intelPanelOpen, setIntelPanelOpen] = useState(false);
   const [simulationPanelOpen, setSimulationPanelOpen] = useState(false);
+  const [liveOpsPanelOpen, setLiveOpsPanelOpen] = useState(false);
+  
+  // Interactive Flow States
+  const [cursorCoords, setCursorCoords] = useState<[number, number] | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ x: number, y: number, lat: number, lon: number } | null>(null);
+  const [areaModal, setAreaModal] = useState<{ open: boolean, lat: number, lon: number }>({ open: false, lat: 0, lon: 0 });
 
   // SOS Page Specific State
   const [opsSnapshot, setOpsSnapshot] = useState<OperationsSnapshot | null>(null);
 
   const { pushNotice } = useNotifications();
+  const focalWeather = useSimulationStore(state => state.focalWeather);
 
   const selectTool = (t: ToolMode) => {
     setTool(t);
@@ -118,6 +131,9 @@ export function SOSPage() {
       const fetchedAnnotations = await operationsApi.listMapAnnotations();
       setMapAnnotations(fetchedAnnotations || []);
 
+      const activeGisAlerts = await gisApi.getActiveAlerts();
+      setGisAlerts(activeGisAlerts || []);
+
       const opSnap = await operationsApi.snapshot();
       setOpsSnapshot(opSnap);
      } catch (err) {
@@ -135,11 +151,49 @@ export function SOSPage() {
 
   const handleMarkerHover = useCallback((id: string) => setHoveredId(id), []);
   const handleMarkerUnhover = useCallback(() => setHoveredId(null), []);
-  const handleMapHover = useCallback((_lat: number, _lon: number) => {}, []);
+  const handleMapHover = useCallback((lat: number, lon: number) => setCursorCoords([lat, lon]), []);
+
+  const handleQuickAction = useCallback((label: string) => {
+    if (label === 'Camadas') {
+      setLiveOpsPanelOpen(!liveOpsPanelOpen);
+    } else if (label === 'Relato') {
+      setOpsForm(prev => ({...prev, recordType: 'risk_area'}));
+      setOpenOpsModal(true);
+    } else if (label === 'Desaparecido') {
+      setOpsForm(prev => ({...prev, recordType: 'missing_person'}));
+      setOpenOpsModal(true);
+    } else if (label === 'Área') {
+      setTool('simulation_box');
+      setShow3D(false);
+    } else if (label === 'Exportar') {
+      alert("Iniciando exportação de relatório estratégico...");
+    }
+  }, [liveOpsPanelOpen]);
 
   const currentDisplayEvents = useMemo(() => {
-    return country ? events.filter(e => e.country_code === country) : events;
-  }, [events, country]);
+    // Transform GIS Alerts into generic events format just for marker rendering
+    const mappedAlerts = gisAlerts.map(a => {
+      let lat = -20.91, lon = -42.98;
+      if (a.polygon && a.polygon.coordinates.length > 0 && a.polygon.coordinates[0].length > 0) {
+        // approximate center from first polygon point
+         lon = a.polygon.coordinates[0][0][0];
+         lat = a.polygon.coordinates[0][0][1];
+      }
+      return {
+        id: a.id,
+        title: a.title,
+        description: a.description,
+        type: 'disaster_alert',
+        severity: a.severity === 'Atenção' ? 2 : (a.severity === 'Perigo' ? 3 : 5),
+        lat, lon,
+        is_gis_alert: true,
+        source: a.source
+      };
+    });
+
+    const combined = [...events, ...mappedAlerts];
+    return country ? combined.filter(e => e.country_code === country || e.is_gis_alert) : combined;
+  }, [events, country, gisAlerts]);
 
   const selectedEvent = useMemo(() => {
     if (!hoveredId) return null;
@@ -325,13 +379,13 @@ export function SOSPage() {
                     <div className="flex flex-col">
                        <span className="text-[9px] text-slate-500 uppercase font-black tracking-widest">Weather</span>
                        <span className="text-lg font-black text-white leading-none tracking-tight text-glow">
-                         {useSimulationStore(state => state.focalWeather).temp}°c
+                         {focalWeather.temp}°c
                        </span>
                     </div>
                  </div>
                  <div className="text-right">
                     <span className="text-[10px] font-mono text-cyan-500/80 uppercase">
-                      {useSimulationStore(state => state.focalWeather).description}
+                      {focalWeather.description}
                     </span>
                  </div>
               </div>
@@ -339,11 +393,11 @@ export function SOSPage() {
               <div className="grid grid-cols-2 gap-4 pt-2 border-t border-white/5">
                  <div className="flex flex-col">
                     <span className="text-[8px] text-slate-500 uppercase font-bold tracking-widest">Umidade</span>
-                    <span className="text-xs font-black text-slate-200">{useSimulationStore(state => state.focalWeather).humidity}%</span>
+                    <span className="text-xs font-black text-slate-200">{focalWeather.humidity}%</span>
                  </div>
                  <div className="flex flex-col">
                     <span className="text-[8px] text-slate-500 uppercase font-bold tracking-widest">Vento</span>
-                    <span className="text-xs font-black text-slate-200">{useSimulationStore(state => state.focalWeather).windSpeed} km/h</span>
+                    <span className="text-xs font-black text-slate-200">{focalWeather.windSpeed} km/h</span>
                  </div>
               </div>
 
@@ -360,7 +414,7 @@ export function SOSPage() {
       {/* Bottom Center: Quick Action Bar */}
       <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-40 group">
         <div className="bg-slate-950/80 backdrop-blur-2xl border border-white/10 p-2.5 rounded-full shadow-[0_0_40px_rgba(0,0,0,0.5)] flex items-center gap-2 transition-all group-hover:scale-105 group-hover:border-white/20">
-           <QuickActions />
+           <QuickActions onToggleLiveOps={() => setLiveOpsPanelOpen(!liveOpsPanelOpen)} onAction={handleQuickAction} />
         </div>
       </div>
 
@@ -397,6 +451,9 @@ export function SOSPage() {
       {simulationPanelOpen && show3D && (
         <SimulationCommandPanel onClose={() => setSimulationPanelOpen(false)} />
       )}
+      {liveOpsPanelOpen && (
+        <LiveOpsPanel onClose={() => setLiveOpsPanelOpen(false)} />
+      )}
 
       {/* Main Map Content */}
       <div className="absolute inset-0 z-0">
@@ -432,6 +489,7 @@ export function SOSPage() {
               setSpatialFilter={setSpatialFilter} 
               onFilterComplete={() => {}} 
               onSnapshotComplete={captureSnapshot}
+              onContextMenu={(x, y, lat, lon) => setContextMenu({ x, y, lat, lon })}
               show3D={show3D}
             />
             <MarkerClusterGroup chunkedLoading maxClusterRadius={50}>
@@ -456,6 +514,33 @@ export function SOSPage() {
            <button onClick={saveOps} className="w-full bg-emerald-600 font-bold py-2 rounded text-xs uppercase tracking-widest">REGISTRAR</button>
          </div>
       </Modal>
+
+      {/* New Interactive 2D Components */}
+      {!show3D && <CursorCoordinates coords={cursorCoords} />}
+      {!show3D && contextMenu && (
+        <MapContextMenu 
+          x={contextMenu.x} 
+          y={contextMenu.y} 
+          lat={contextMenu.lat} 
+          lon={contextMenu.lon} 
+          onClose={() => setContextMenu(null)} 
+          onRender3D={(lat, lon) => setAreaModal({ open: true, lat, lon })} 
+        />
+      )}
+      <SimulationAreaModal 
+        open={areaModal.open} 
+        lat={areaModal.lat} 
+        lon={areaModal.lon} 
+        onClose={() => setAreaModal({ ...areaModal, open: false })} 
+        onConfirm={(bounds) => {
+          setAreaModal({ ...areaModal, open: false });
+          captureSnapshot(bounds);
+        }}
+        onDrawManeally={() => {
+          setAreaModal({ ...areaModal, open: false });
+          selectTool('simulation_box');
+        }}
+      />
 
        {/* Glitch Overlay Effect */}
        {isGlitching && (

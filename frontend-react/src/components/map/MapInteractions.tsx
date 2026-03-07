@@ -12,6 +12,7 @@ interface MapInteractionsProps {
   setSpatialFilter: (next: { center: [number, number], radius: number } | null) => void;
   onFilterComplete: (filter: { center: [number, number], radius: number }) => void;
   onSnapshotComplete: (bounds: Array<[number, number]>) => void;
+  onContextMenu?: (x: number, y: number, lat: number, lon: number) => void;
   show3D: boolean;
 }
 
@@ -25,6 +26,7 @@ export function MapInteractions({
   setSpatialFilter,
   onFilterComplete,
   onSnapshotComplete,
+  onContextMenu,
   show3D
 }: MapInteractionsProps) {
   const map = useMap();
@@ -32,29 +34,31 @@ export function MapInteractions({
   useMapEvents({
     mousemove(e) {
       if (show3D) return;
-      onHover(e.latlng.lat, e.latlng.lng);
+      const wrap = e.latlng.wrap();
+      onHover(wrap.lat, wrap.lng);
       if (tool === 'filter_area' && spatialFilter && !spatialFilter.radius) {
-        setSpatialFilter({ ...spatialFilter, radius: map.distance(spatialFilter.center, e.latlng) });
+        setSpatialFilter({ ...spatialFilter, radius: map.distance(spatialFilter.center, wrap) });
       }
       if ((tool === 'snapshot' || tool === 'simulation_box') && areaDraft.length === 1) {
-        setAreaDraft([areaDraft[0], [e.latlng.lat, e.latlng.lng]]);
+        setAreaDraft([areaDraft[0], [wrap.lat, wrap.lng]]);
       }
     },
     click(e) {
       if (show3D) return;
+      const wrap = e.latlng.wrap();
       if (tool === 'point') {
-        onPickPoint(e.latlng.lat, e.latlng.lng);
+        onPickPoint(wrap.lat, wrap.lng);
         return;
       }
       if (tool === 'area') {
-        setAreaDraft([...areaDraft, [e.latlng.lat, e.latlng.lng]]);
+        setAreaDraft([...areaDraft, [wrap.lat, wrap.lng]]);
         return;
       }
       if (tool === 'filter_area') {
         if (!spatialFilter || spatialFilter.radius) {
-          setSpatialFilter({ center: [e.latlng.lat, e.latlng.lng], radius: 0 });
+          setSpatialFilter({ center: [wrap.lat, wrap.lng], radius: 0 });
         } else {
-          const finalRadius = map.distance(spatialFilter.center, e.latlng);
+          const finalRadius = map.distance(spatialFilter.center, wrap);
           const filter = { ...spatialFilter, radius: finalRadius };
           setSpatialFilter(filter);
           onFilterComplete(filter);
@@ -63,22 +67,30 @@ export function MapInteractions({
     },
     mousedown(e) {
       if (show3D) return;
+      const wrap = e.latlng.wrap();
       if (tool === 'snapshot' || tool === 'simulation_box') {
-        setAreaDraft([[e.latlng.lat, e.latlng.lng]]);
+        setAreaDraft([[wrap.lat, wrap.lng]]);
       }
     },
     mouseup(e) {
       if (show3D) return;
+      const wrap = e.latlng.wrap();
       if ((tool === 'snapshot' || tool === 'simulation_box') && areaDraft.length === 1) {
-        onSnapshotComplete([areaDraft[0], [e.latlng.lat, e.latlng.lng]]);
+        onSnapshotComplete([areaDraft[0], [wrap.lat, wrap.lng]]);
         setAreaDraft([]);
       }
     },
-    contextmenu() {
+    contextmenu(e) {
       if (show3D) return;
+      const wrap = e.latlng.wrap();
       if (tool === 'area' && areaDraft.length > 2) {
         const [lat, lon] = areaDraft[0];
         onPickPoint(lat, lon);
+      } else if (tool === 'inspect') {
+        const { x, y } = e.originalEvent;
+        if (onContextMenu) {
+          onContextMenu(x, y, wrap.lat, wrap.lng);
+        }
       }
     },
   });
@@ -99,11 +111,11 @@ export function MapListener({ onMove }: { onMove: (center: [number, number], zoo
   const map = useMap();
   useMapEvents({
     moveend() {
-      const center = map.getCenter();
+      const center = map.getCenter().wrap();
       onMove([center.lat, center.lng], map.getZoom());
     },
     zoomend() {
-      const center = map.getCenter();
+      const center = map.getCenter().wrap();
       onMove([center.lat, center.lng], map.getZoom());
     }
   });

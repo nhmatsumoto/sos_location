@@ -12,7 +12,7 @@ const navItems = [
   { to: '/app/simulations', label: 'Simulações', icon: BarChart3 },
   { to: '/app/data-hub', label: 'Data Hub', icon: Layers3 },
   { to: '/app/integrations', label: 'Integrações', icon: PlugZap },
-  { to: '/app/sos', label: 'Eventos Globais', icon: Globe },
+  { to: '/app/global-disasters', label: 'Eventos Globais', icon: Globe },
   { to: '/public/transparency', label: 'Transparência Pública', icon: Globe },
   { to: '/app/settings', label: 'Configurações', icon: Settings },
 ];

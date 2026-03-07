@@ -6,12 +6,12 @@ import { TacticalStreets } from './TacticalStreets';
 import { useSimulationStore } from '../../store/useSimulationStore';
 
 export const TacticalEnvironment: React.FC = () => {
-  const { showStreets, showVegetation } = useSimulationStore();
+  const { showStreets, showVegetation, activeLayers } = useSimulationStore();
 
   return (
     <group>
       <TerrainMesh />
-      <OSMBuildings />
+      {activeLayers.buildings && <OSMBuildings />}
       {showVegetation && <TacticalVegetation />}
       {showStreets && <TacticalStreets />}
       

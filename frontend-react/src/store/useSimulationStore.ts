@@ -40,8 +40,22 @@ interface SimulationState {
   setDynamicBounds: (bounds: string | null) => void;
   showGEE: boolean;
   setShowGEE: (show: boolean) => void;
+  showPhotogrammetry: boolean;
+  setShowPhotogrammetry: (show: boolean) => void;
+  activeLayers: {
+    satellite: boolean;
+    map: boolean;
+    relief: boolean;
+    streets: boolean;
+    vegetation: boolean;
+    buildings: boolean;
+    labels: boolean;
+  };
+  setLayer: (layer: keyof SimulationState['activeLayers'], active: boolean) => void;
   geeAnalysisType: 'ndvi' | 'moisture' | 'thermal';
   setGeeAnalysisType: (type: 'ndvi' | 'moisture' | 'thermal') => void;
+  cameraMode: 'orbit' | 'fly';
+  setCameraMode: (mode: 'orbit' | 'fly') => void;
   
   // Advanced Simulation State
   simulationDate: string;
@@ -102,8 +116,24 @@ export const useSimulationStore = create<SimulationState>((set) => ({
   setDynamicBounds: (dynamicBounds) => set({ dynamicBounds }),
   showGEE: false,
   setShowGEE: (showGEE) => set({ showGEE }),
+  showPhotogrammetry: false,
+  setShowPhotogrammetry: (showPhotogrammetry) => set({ showPhotogrammetry }),
+  activeLayers: {
+    satellite: true,
+    map: false,
+    relief: true,
+    streets: true,
+    vegetation: true,
+    buildings: true,
+    labels: false,
+  },
+  setLayer: (layer, active) => set((state) => ({
+    activeLayers: { ...state.activeLayers, [layer]: active }
+  })),
   geeAnalysisType: 'ndvi',
   setGeeAnalysisType: (geeAnalysisType) => set({ geeAnalysisType }),
+  cameraMode: 'orbit',
+  setCameraMode: (cameraMode) => set({ cameraMode }),
   
   // Defaults
   simulationDate: new Date().toISOString().split('T')[0],

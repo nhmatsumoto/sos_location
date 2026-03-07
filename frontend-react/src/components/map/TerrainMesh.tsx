@@ -3,54 +3,107 @@ import * as THREE from 'three';
 import { useLoader } from '@react-three/fiber';
 import { useSimulationStore } from '../../store/useSimulationStore';
 import { projectTo3D } from '../../utils/projection';
+import { gisApi } from '../../services/gisApi';
 
 export const TerrainMesh: React.FC = () => {
   const { 
     satelliteTextureUrl, 
-    dynamicBounds, 
     box: simulationBox, 
     soilType, 
-    soilSaturation 
+    soilSaturation,
+    focalPoint,
+    activeLayers
   } = useSimulationStore();
 
   const center = useMemo(() => {
-    if (dynamicBounds) {
-      const parts = dynamicBounds.split(',').map(Number);
-      const lat = (parts[0] + parts[2]) / 2;
-      const lon = (parts[1] + parts[3]) / 2;
-      return { lat, lon };
-    }
     if (simulationBox) {
       return { lat: simulationBox.center[0], lon: simulationBox.center[1] };
     }
+    if (focalPoint) {
+      return { lat: focalPoint[0], lon: focalPoint[1] };
+    }
     return { lat: -20.91, lon: -42.98 }; 
-  }, [dynamicBounds, simulationBox]);
+  }, [simulationBox, focalPoint]);
 
   const [centerX, centerZ] = useMemo(() => projectTo3D(center.lat, center.lon), [center]);
   
+  const mapTextureUrl = 'https://basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}.png'; // Example map tile
+  const currentTextureUrl = activeLayers.satellite ? (satelliteTextureUrl || 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}') : (activeLayers.map ? mapTextureUrl : null);
+
   const texture = useLoader(
     THREE.TextureLoader, 
-    satelliteTextureUrl || 'https://basemaps.cartocdn.com/rastertiles/voyager_labels_under/0/0/0.png',
+    currentTextureUrl?.replace('{z}/{x}/{y}', '15/18585/11993') || 'https://basemaps.cartocdn.com/rastertiles/voyager_labels_under/0/0/0.png', // Placeholder URL replacement for useLoader
     (loader) => {
       loader.setCrossOrigin('anonymous');
     }
   );
   
+  const segments = 127; // Use 127 to match 128x128 grid from API
+  const [elevationGrid, setElevationGrid] = React.useState<number[][] | null>(null);
+
+  // Fetch real SRTM Topography based on bounds
+  React.useEffect(() => {
+    const fetchTopography = async () => {
+      try {
+        let minLat, minLon, maxLat, maxLon;
+        if (simulationBox) {
+          const latDelta = (simulationBox.size[1] / 2) / 111320;
+          const lonDelta = (simulationBox.size[0] / 2) / (40075000 * Math.cos(simulationBox.center[0] * Math.PI / 180) / 360);
+          minLat = simulationBox.center[0] - latDelta;
+          maxLat = simulationBox.center[0] + latDelta;
+          minLon = simulationBox.center[1] - lonDelta;
+          maxLon = simulationBox.center[1] + lonDelta;
+        } else {
+          minLat = center.lat - 0.01;
+          maxLat = center.lat + 0.01;
+          minLon = center.lon - 0.01;
+          maxLon = center.lon + 0.01;
+        }
+
+        const grid = await gisApi.getElevationGrid(minLat, minLon, maxLat, maxLon, segments + 1);
+        if (grid) setElevationGrid(grid);
+      } catch (err) {
+        console.error("Failed to load topography UI:", err);
+      }
+    };
+    fetchTopography();
+  }, [center, simulationBox]);
+
   const { geometry, wireframeGeometry } = useMemo(() => {
-    const size = simulationBox ? Math.max(simulationBox.size[0] / 500, simulationBox.size[1] / 500) * 1.5 : 200;
-    const segments = 128; 
-    const geo = new THREE.PlaneGeometry(size, size, segments, segments);
+    // If no simulationBox is provided, default to a 2.25km square (22.5 units) because 0.02 degrees * 111.32 km = ~2.22km
+    const width = simulationBox ? simulationBox.size[0] / 100 : 20;
+    const height_len = simulationBox ? simulationBox.size[1] / 100 : 20;
+    const geo = new THREE.PlaneGeometry(width, height_len, segments, segments);
     const vertices = geo.attributes.position.array as Float32Array;
     
-    for (let i = 0; i < vertices.length; i += 3) {
-      const x = vertices[i] + centerX;
-      const y = vertices[i + 1] - centerZ; 
+    // Apply real Topography if available, otherwise fallback to procedural
+    for (let i = 0, j = 0; i < vertices.length; i += 3, j++) {
+      const x = vertices[i];
+      const y = vertices[i + 1]; 
       
-      const h1 = Math.sin(x * 0.1) * Math.cos(y * 0.1) * 3;
-      const h2 = Math.sin(x * 0.2) * Math.sin(y * 0.2) * 1.5;
-      const h3 = (Math.random() - 0.5) * 0.1; 
+      let height = 0;
+      if (elevationGrid && activeLayers.relief) {
+        // Map 1D index to 2D grid
+        const row = Math.floor(j / (segments + 1));
+        const col = j % (segments + 1);
+        
+        // Ensure within bounds
+        if (row < elevationGrid.length && col < elevationGrid[row].length) {
+          // Fallback height from API is in meters, translate to 3D scale (1 unit = 100m)
+          // Subtract the center height to normalize the terrain around Y=0
+          const rawHeight = elevationGrid[row][col] / 100;
+          const centerHeight = elevationGrid[Math.floor((segments+1)/2)][Math.floor((segments+1)/2)] / 100;
+          height = rawHeight - centerHeight;
+        }
+      } else {
+        // Procedural Fallback
+        const h1 = Math.sin(x * 0.01) * Math.cos(y * 0.01) * 0.5;
+        const h2 = Math.sin(x * 0.02) * Math.sin(y * 0.02) * 0.2;
+        const h3 = (Math.random() - 0.5) * 0.02; 
+        height = h1 + h2 + h3;
+      }
       
-      vertices[i + 2] = h1 + h2 + h3;
+      vertices[i + 2] = height;
     }
     
     geo.computeVertexNormals();
@@ -58,16 +111,16 @@ export const TerrainMesh: React.FC = () => {
       geometry: geo,
       wireframeGeometry: new THREE.WireframeGeometry(geo)
     };
-  }, [centerX, centerZ, simulationBox]);
+  }, [centerX, centerZ, simulationBox, elevationGrid, center]);
 
   const terrainColor = useMemo(() => {
     if (satelliteTextureUrl) return "#ffffff";
     
     const color = new THREE.Color();
-    if (soilType === 'clay') color.set("#9a3412");
-    else if (soilType === 'sandy') color.set("#a16207");
-    else if (soilType === 'rocky') color.set("#4b5563");
-    else color.set("#3f3f46"); // Loam
+    if (soilType === 'clay') color.set("#2e1002"); // very dark amber
+    else if (soilType === 'sandy') color.set("#2e1402");
+    else if (soilType === 'rocky') color.set("#0f172a");
+    else color.set("#020617"); // Dark slate (blends perfectly)
     
     // Darken based on saturation
     const darken = (soilSaturation / 100) * 0.4;
@@ -76,26 +129,31 @@ export const TerrainMesh: React.FC = () => {
     return color;
   }, [soilType, satelliteTextureUrl, soilSaturation]);
 
-  return (
-    <group rotation={[-Math.PI / 2, 0, 0]} position={[centerX, -0.6, centerZ]}>
-      <mesh geometry={geometry} receiveShadow>
-        <meshStandardMaterial 
-          color={terrainColor} 
-          map={satelliteTextureUrl ? texture : null}
-          roughness={0.9} 
-          metalness={0.1 - (soilSaturation / 1000)} // Wetter = slightly more reflective
-          transparent
-          opacity={0.9}
-        />
-      </mesh>
-      
-      <lineSegments geometry={wireframeGeometry}>
-        <lineBasicMaterial color="#06b6d4" transparent opacity={0.08} />
-      </lineSegments>
+    if (!activeLayers.relief && !activeLayers.satellite && !activeLayers.map) return null;
 
-      <points geometry={geometry}>
-        <pointsMaterial size={0.03} color="#22d3ee" transparent opacity={0.15} />
-      </points>
-    </group>
-  );
+    return (
+      <group rotation={[-Math.PI / 2, 0, 0]} position={[centerX, 0, centerZ]}>
+        <mesh geometry={geometry} receiveShadow>
+          <meshStandardMaterial 
+            color={terrainColor} 
+            map={(activeLayers.satellite || activeLayers.map) ? texture : null}
+            roughness={0.9} 
+            metalness={0.1 - (soilSaturation / 1000)}
+            transparent
+            opacity={0.8}
+          />
+        </mesh>
+        
+        {activeLayers.relief && (
+          <>
+            <lineSegments geometry={wireframeGeometry}>
+              <lineBasicMaterial color="#06b6d4" transparent opacity={0.15} />
+            </lineSegments>
+            <points geometry={geometry}>
+              <pointsMaterial size={0.03} color="#22d3ee" transparent opacity={0.2} />
+            </points>
+          </>
+        )}
+      </group>
+    );
 };

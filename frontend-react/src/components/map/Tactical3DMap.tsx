@@ -1,7 +1,8 @@
 import React, { useMemo, useEffect, useRef } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls, PerspectiveCamera, Text, Float } from '@react-three/drei';
+import { OrbitControls, PerspectiveCamera, Text, Float, FlyControls, GizmoHelper, GizmoViewport, Splat } from '@react-three/drei';
 import * as THREE from 'three';
+import { CameraOverlayMenu } from './CameraOverlayMenu';
 import { SimulationBoxEditor } from './SimulationBoxEditor';
 import { HazardOverlay } from './HazardOverlay';
 import { SnapshotVolume } from './SnapshotVolume';
@@ -13,6 +14,7 @@ import { TacticalEnvironment } from './TacticalEnvironment';
 import { DayNightCycle } from './DayNightCycle';
 import { MapZoneLayer } from './MapZoneLayer';
 import { Tactical3DMarkers } from './Tactical3DMarkers';
+import { Tactical3DAlerts } from './Tactical3DAlerts';
 
 interface BarrierData {
   id: string;
@@ -216,7 +218,7 @@ interface Tactical3DMapProps {
 export const Tactical3DMap: React.FC<Tactical3DMapProps> = ({ 
   events, hoveredId, onHover, onClick, enableSimulationBox = false, activeSnapshots = [], barriers = [], initialCenter = [-20.91, -42.98]
 }) => {
-  const { environment, isSimulating, timeOfDay, box: simulationBox } = useSimulationStore();
+  const { environment, isSimulating, timeOfDay, box: simulationBox, cameraMode, activeLayers } = useSimulationStore();
   
   const focusPoint = useMemo(() => {
     if (simulationBox) return simulationBox.center;
@@ -224,6 +226,11 @@ export const Tactical3DMap: React.FC<Tactical3DMapProps> = ({
   }, [simulationBox, initialCenter]);
 
   const [centerX, centerZ] = projectTo3D(focusPoint[0], focusPoint[1]);
+
+  // Dynamically position the camera based on the area size so it frames the terrain perfectly
+  const mapSizeInUnits = simulationBox ? Math.max(simulationBox.size[0] / 100, simulationBox.size[1] / 100) : 200;
+  const camHeight = Math.max(mapSizeInUnits * 0.8, 2); 
+  const camOffset = Math.max(mapSizeInUnits * 0.8, 2);
 
   const coords = useMemo(() => {
     return events.map(e => {
@@ -240,38 +247,71 @@ export const Tactical3DMap: React.FC<Tactical3DMapProps> = ({
   return (
     <div className="w-full h-full bg-slate-950 rounded-lg overflow-hidden border border-slate-800">
       <Canvas shadows={{ type: THREE.PCFShadowMap }} dpr={[1, 2]}>
+        <color attach="background" args={['#020617']} />
         <CameraBoundsTracker />
         <FocalIntelligence />
-        <PerspectiveCamera makeDefault position={[centerX + 5, 5, centerZ + 5]} fov={50} />
-        <OrbitControls enablePan={true} maxPolarAngle={Math.PI / 2.1} minDistance={2} maxDistance={200} target={[centerX, 0, centerZ]} />
+        <PerspectiveCamera makeDefault position={[centerX + camOffset, camHeight, centerZ + camOffset]} fov={50} />
         
+        {cameraMode === 'orbit' ? (
+          <OrbitControls makeDefault enablePan={true} maxPolarAngle={Math.PI / 2.1} minDistance={0.5} maxDistance={1000} target={[centerX, 0, centerZ]} />
+        ) : (
+          <FlyControls makeDefault movementSpeed={mapSizeInUnits * 0.5} rollSpeed={1.0} dragToLook={true} />
+        )}
+
+        <GizmoHelper
+          alignment="bottom-left"
+          margin={[80, 80]}
+        >
+          <GizmoViewport axisColors={['#ef4444', '#4ade80', '#3b82f6']} labelColor="white" />
+        </GizmoHelper>
+
         <DayNightCycle timeOfDay={timeOfDay} />
-        <gridHelper args={[100, 50, 0x1e293b, 0x0f172a]} position={[0, -0.1, 0]} />
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.2, 0]} receiveShadow>
-            <planeGeometry args={[100, 100]} />
-            <meshStandardMaterial color="#020617" roughness={0} metalness={0.8} />
-        </mesh>
-        <gridHelper args={[100, 10, 0x06b6d4, 0x06b6d4]} position={[0, -0.19, 0]} />
+        
+        {/* Only show global grid if no relief layer is active to avoid clutter */}
+        {!activeLayers.relief && (
+          <>
+            <gridHelper args={[200, 100, 0x1e293b, 0x0f172a]} position={[0, -0.1, 0]} />
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.2, 0]} receiveShadow>
+                <planeGeometry args={[200, 200]} />
+                <meshStandardMaterial color="#020617" roughness={0} metalness={0.8} />
+            </mesh>
+            <gridHelper args={[200, 20, 0x06b6d4, 0x06b6d4]} position={[0, -0.19, 0]} />
+          </>
+        )}
 
         <TacticalEnvironment />
         <MapZoneLayer />
         
-        <Tactical3DMarkers markers={[
-            { lat: focusPoint[0] + 0.002, lon: focusPoint[1] + 0.002, type: 'risk', label: 'Zona de Inundação Alpha', severity: 4 },
-            { lat: focusPoint[0] - 0.001, lon: focusPoint[1] + 0.003, type: 'hospital', label: 'Centro Médico Regional' },
-            { lat: focusPoint[1], lon: focusPoint[1], type: 'base', label: 'Posto de Comando' }
-        ]} />
+        {/* showPhotogrammetry && (
+          <Splat 
+            src="https://huggingface.co/datasets/dylanebert/3dgs/resolve/main/bonsai/bonsai-7k.splat" 
+            position={[centerX, 1, centerZ]} 
+            scale={10} 
+          />
+        ) */}
 
-        <ScanningRay />
+        {activeLayers.labels && (
+          <>
+            <Tactical3DMarkers markers={[
+                { lat: focusPoint[0] + 0.002, lon: focusPoint[1] + 0.002, type: 'risk', label: 'Zona de Inundação Alpha', severity: 4 },
+                { lat: focusPoint[0] - 0.001, lon: focusPoint[1] + 0.003, type: 'hospital', label: 'Centro Médico Regional' },
+                { lat: focusPoint[1], lon: focusPoint[1], type: 'base', label: 'Posto de Comando' }
+            ]} />
 
-        <InstancedEventBeacons
-          coords={coords}
-          hoveredId={hoveredId}
-          onHover={onHover}
-          onClick={(e) => onClick(e)}
-        />
+            <ScanningRay />
 
-        <fog attach="fog" args={[timeOfDay < 6 || timeOfDay > 18 ? '#020617' : '#94a3b8', 10, 60 - environment.fog * 40]} />
+            <Tactical3DAlerts events={events} />
+
+            <InstancedEventBeacons
+              coords={coords}
+              hoveredId={hoveredId}
+              onHover={onHover}
+              onClick={(e) => onClick(e)}
+            />
+          </>
+        )}
+
+        <fog attach="fog" args={['#020617', 10, 60 - environment.fog * 40]} />
 
         {activeSnapshots.map((snap) => (
           <SnapshotVolume key={snap.id} snapshot={snap} />
@@ -292,11 +332,13 @@ export const Tactical3DMap: React.FC<Tactical3DMapProps> = ({
         <WeatherParticles intensity={environment.rain} isSimulating={isSimulating} />
       </Canvas>
 
-      <div className="absolute bottom-4 left-4 pointer-events-none">
+      <div className="absolute bottom-4 left-4 pointer-events-none z-40">
         <div className="text-[10px] text-cyan-500/50 uppercase tracking-[0.2em] font-bold">
            Situation Room 3D v1.0 // Real-time Uplink Active {isSimulating && " // PROJECTION_ACTIVE"}
         </div>
       </div>
+      
+      <CameraOverlayMenu />
     </div>
   );
 };
@@ -309,9 +351,9 @@ const WeatherParticles: React.FC<{ intensity: number; isSimulating: boolean }> =
     const p = new Float32Array(count * 3);
     const r = new Float32Array(count);
     for (let i = 0; i < count; i++) {
-      p[i * 3] = (Math.random() - 0.5) * 50;
-      p[i * 3 + 1] = Math.random() * 25;
-      p[i * 3 + 2] = (Math.random() - 0.5) * 50;
+      p[i * 3] = (Math.random() - 0.5) * 500;
+      p[i * 3 + 1] = Math.random() * 200;
+      p[i * 3 + 2] = (Math.random() - 0.5) * 500;
       r[i] = Math.random();
     }
     return [p, r];
@@ -359,11 +401,11 @@ const WeatherParticles: React.FC<{ intensity: number; isSimulating: boolean }> =
             vec3 pos = position;
             
             // Animation logic moving to GPU
-            float fall = uTime * (0.8 + aRandom * 0.4) * uSpeed;
-            pos.y = mod(pos.y - fall, 25.0);
+            float fall = uTime * (0.8 + aRandom * 0.4) * uSpeed * 5.0;
+            pos.y = mod(pos.y - fall, 200.0);
             
             vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
-            gl_PointSize = (1.5 * uIntensity) * (300.0 / -mvPosition.z);
+            gl_PointSize = (1.5 * uIntensity) * (300.0 / -mvPosition.z) * 10.0;
             gl_Position = projectionMatrix * mvPosition;
             vOpacity = uIntensity * 0.3;
           }

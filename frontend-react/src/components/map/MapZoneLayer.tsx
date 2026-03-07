@@ -13,13 +13,15 @@ interface ZoneData {
 
 export const MapZoneLayer: React.FC = () => {
   const [zones, setZones] = useState<ZoneData[]>([]);
-  const simulationBox = useSimulationStore((state: any) => state.box);
+  const { box: simulationBox, activeLayers } = useSimulationStore();
   const lastFetchedBbox = useRef<string | null>(null);
 
   useEffect(() => {
     if (!simulationBox) return;
 
-    const activeBbox = `${simulationBox.center[0] - 0.05},${simulationBox.center[1] - 0.05},${simulationBox.center[0] + 0.05},${simulationBox.center[1] + 0.05}`;
+    const latDelta = (simulationBox.size[1] / 2) / 111320;
+    const lonDelta = (simulationBox.size[0] / 2) / (40075000 * Math.cos(simulationBox.center[0] * Math.PI / 180) / 360);
+    const activeBbox = `${(simulationBox.center[0] - latDelta).toFixed(4)},${(simulationBox.center[1] - lonDelta).toFixed(4)},${(simulationBox.center[0] + latDelta).toFixed(4)},${(simulationBox.center[1] + lonDelta).toFixed(4)}`;
 
     if (activeBbox === lastFetchedBbox.current) return;
     lastFetchedBbox.current = activeBbox;
@@ -63,7 +65,7 @@ export const MapZoneLayer: React.FC = () => {
   }, [simulationBox]);
 
   const renderedZones = useMemo(() => {
-    if (zones.length === 0) return null;
+    if (zones.length === 0 || (!activeLayers.satellite && !activeLayers.map)) return null;
 
     const project = (lon: number, lat: number) => projectTo3D(lat, lon);
 

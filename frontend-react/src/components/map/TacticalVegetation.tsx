@@ -13,15 +13,20 @@ export const TacticalVegetation: React.FC = () => {
   const [forests, setForests] = useState<VegetationData[]>([]);
   const trunkRef = useRef<THREE.InstancedMesh>(null);
   const foliageRef = useRef<THREE.InstancedMesh>(null);
-  const { dynamicBounds, box: simulationBox, rainIntensity } = useSimulationStore();
+  const { focalPoint, box: simulationBox, rainIntensity, activeLayers } = useSimulationStore();
   const lastFetchedBbox = useRef<string | null>(null);
 
-  const defaultBbox = "-20.94,-43.01,-20.88,-42.95";
-
   useEffect(() => {
-    const activeBbox = dynamicBounds || (simulationBox ? 
-      `${simulationBox.center[0] - 0.02},${simulationBox.center[1] - 0.02},${simulationBox.center[0] + 0.02},${simulationBox.center[1] + 0.02}` 
-      : defaultBbox);
+    const center = simulationBox ? simulationBox.center : (focalPoint || [-20.91, -42.98]);
+    let activeBbox: string;
+    
+    if (simulationBox) {
+      const latDelta = (simulationBox.size[1] / 2) / 111320;
+      const lonDelta = (simulationBox.size[0] / 2) / (40075000 * Math.cos(simulationBox.center[0] * Math.PI / 180) / 360);
+      activeBbox = `${(simulationBox.center[0] - latDelta).toFixed(4)},${(simulationBox.center[1] - lonDelta).toFixed(4)},${(simulationBox.center[0] + latDelta).toFixed(4)},${(simulationBox.center[1] + lonDelta).toFixed(4)}`;
+    } else {
+      activeBbox = `${(center[0] - 0.01).toFixed(4)},${(center[1] - 0.01).toFixed(4)},${(center[0] + 0.01).toFixed(4)},${(center[1] + 0.01).toFixed(4)}`;
+    }
 
     if (activeBbox === lastFetchedBbox.current) return;
     lastFetchedBbox.current = activeBbox;
@@ -60,7 +65,7 @@ export const TacticalVegetation: React.FC = () => {
     };
 
     void fetchVegetation();
-  }, [dynamicBounds, simulationBox]);
+  }, [focalPoint, simulationBox]);
 
   const treeMatrices = useMemo(() => {
     const matrices: THREE.Matrix4[] = [];
@@ -85,17 +90,17 @@ export const TacticalVegetation: React.FC = () => {
       });
 
       const area = (maxX - minX) * (maxZ - minZ);
-      const density = 25; 
-      const count = Math.min(200, Math.floor(area * density)); 
+      const density = 400; // Trees per square unit
+      const count = Math.min(300, Math.floor(area * density)); 
 
       for (let i = 0; i < count; i++) {
         const x = minX + Math.random() * (maxX - minX);
         const z = minZ + Math.random() * (maxZ - minZ);
         
-        tempPosition.set(x, -0.45, z);
+        tempPosition.set(x, 0, z); // sit on terrain at Y=0
         tempRotation.set(0, Math.random() * Math.PI, 0);
         tempQuaternion.setFromEuler(tempRotation);
-        const scaleBy = 0.5 + Math.random() * 0.5;
+        const scaleBy = 0.6 + Math.random() * 0.4;
         tempScale.set(scaleBy, scaleBy, scaleBy);
         
         tempMatrix.compose(tempPosition, tempQuaternion, tempScale);
@@ -118,16 +123,28 @@ export const TacticalVegetation: React.FC = () => {
     foliageRef.current.instanceMatrix.needsUpdate = true;
   }, [treeMatrices]);
 
-  if (treeMatrices.length === 0) return null;
+  const trunkGeo = useMemo(() => {
+    const geo = new THREE.CylinderGeometry(0.01, 0.015, 0.05, 8);
+    geo.translate(0, 0.025, 0);
+    return geo;
+  }, []);
+
+  const foliageGeo = useMemo(() => {
+    const geo = new THREE.ConeGeometry(0.08, 0.15, 8);
+    geo.translate(0, 0.125, 0);
+    return geo;
+  }, []);
+
+  if (treeMatrices.length === 0 || !activeLayers.vegetation) return null;
 
   return (
     <group>
       <instancedMesh ref={trunkRef} args={[undefined as any, undefined as any, treeMatrices.length]} castShadow>
-        <cylinderGeometry args={[0.02, 0.04, 0.2, 8]} />
+        <primitive object={trunkGeo} attach="geometry" />
         <meshStandardMaterial color="#3f2b1d" />
       </instancedMesh>
       <instancedMesh ref={foliageRef} args={[undefined as any, undefined as any, treeMatrices.length]} castShadow>
-        <coneGeometry args={[0.15, 0.4, 8]} />
+        <primitive object={foliageGeo} attach="geometry" />
         <meshStandardMaterial 
           color={new THREE.Color("#064e3b").multiplyScalar(1 - (rainIntensity / 400))} 
           roughness={1 - (rainIntensity / 200)} 

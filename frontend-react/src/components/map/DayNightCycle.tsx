@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Stars, Sky } from '@react-three/drei';
+import { Stars } from '@react-three/drei';
 import * as THREE from 'three';
 
 interface DayNightCycleProps {
@@ -16,21 +16,11 @@ export const DayNightCycle: React.FC<DayNightCycleProps> = ({ timeOfDay = 12 }) 
     );
   }, [timeOfDay]);
 
-  const isNight = timeOfDay < 6 || timeOfDay > 18;
   const intensity = Math.max(0.1, Math.sin((timeOfDay / 24) * Math.PI) * 1.5);
 
   return (
     <group>
-      {/* Sky Component */}
-      <Sky 
-        sunPosition={sunPosition} 
-        turbidity={0.1} 
-        rayleigh={0.5} 
-        mieCoefficient={0.005} 
-        mieDirectionalG={0.8} 
-      />
-
-      {/* Dynamic Main Light (Sun/Moon) */}
+      {/* Dynamic Main Light */}
       <directionalLight
         position={sunPosition}
         intensity={intensity}
@@ -38,21 +28,19 @@ export const DayNightCycle: React.FC<DayNightCycleProps> = ({ timeOfDay = 12 }) 
         shadow-mapSize={[2048, 2048]}
       />
 
-      {/* Ambient Light remains low for tactical feel */}
-      <ambientLight intensity={isNight ? 0.05 : 0.2} />
+      {/* Ambient Light for tactical feel */}
+      <ambientLight intensity={0.15} />
 
-      {/* Stars visible only at night/dusk */}
-      {isNight && (
-        <Stars 
-          radius={100} 
-          depth={50} 
-          count={5000} 
-          factor={4} 
-          saturation={0} 
-          fade 
-          speed={1} 
-        />
-      )}
+      {/* Stars visible as a tactical backdrop */}
+      <Stars 
+        radius={100} 
+        depth={50} 
+        count={5000} 
+        factor={4} 
+        saturation={0} 
+        fade 
+        speed={1} 
+      />
       
       {/* Hemispheric Light for ground bounce */}
       <hemisphereLight 

@@ -3,6 +3,8 @@ from functools import lru_cache
 
 from apps.api.integrations.core.http_client import http_client
 
+from urllib.error import HTTPError
+
 logger = logging.getLogger(__name__)
 
 
@@ -25,6 +27,9 @@ class CountryResolver:
             )
             addr = payload.get('address', {})
             return (addr.get('country_code') or '').upper(), addr.get('country') or ''
+        except HTTPError as exc:
+            logger.info('country_resolver_ratelimited lat=%s lon=%s err=%s', lat, lon, type(exc).__name__)
+            return '', ''
         except Exception as exc:
             logger.warning('country_resolver_failed lat=%s lon=%s err=%s', lat, lon, type(exc).__name__)
             return '', ''

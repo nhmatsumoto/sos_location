@@ -168,11 +168,17 @@ def _parse_dt(raw):
     if not raw:
         return None
     try:
-        return datetime.fromisoformat(str(raw).replace('Z', '+00:00'))
+        dt = datetime.fromisoformat(str(raw).replace('Z', '+00:00'))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt
     except ValueError:
         for fmt in ('%a, %d %b %Y %H:%M:%S %z', '%Y-%m-%d %H:%M:%S'):
             try:
-                return datetime.strptime(str(raw), fmt).replace(tzinfo=timezone.utc)
+                dt = datetime.strptime(str(raw), fmt)
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone.utc)
+                return dt
             except ValueError:
                 continue
     return None

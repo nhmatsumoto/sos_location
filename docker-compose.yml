@@ -148,12 +148,18 @@ services:
   frontend:
     build:
       context: ./frontend-react
-      dockerfile: Dockerfile
-      args:
-        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8001}
+      dockerfile: Dockerfile.dev
+      network: host
     container_name: mg-location-web-frontend
+    working_dir: /app
+    volumes:
+      - ./frontend-react:/app
+      - /app/node_modules
+    # CMD gerido pelo Dockerfile.dev para evitar freeze do bun install no boot
     environment:
       VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8001}
+      VITE_DEV_API_TARGET: http://backend:8000
+      VITE_DEV_GIS_TARGET: http://backend-gis:8000
     ports:
       - "${FRONTEND_PORT:-8088}:8000"
     restart: unless-stopped
@@ -164,7 +170,7 @@ services:
       test:
         [
           "CMD-SHELL",
-          'python -c "import urllib.request; urllib.request.urlopen(''http://127.0.0.1:8000'', timeout=5)"',
+          "node -e \"require('http').request('http://127.0.0.1:8000', (res) => { process.exit(res.statusCode === 200 ? 0 : 1); }).on('error', () => process.exit(1)).end();\""
         ]
       interval: 20s
       timeout: 10s
@@ -192,6 +198,19 @@ services:
         condition: service_healthy
     networks:
       - mg-location-network
+
+  backend-gis:
+    build:
+      context: ./backend-gis
+      dockerfile: Dockerfile
+    container_name: mg-location-api-gis
+    restart: unless-stopped
+    ports:
+      - "8002:8000"
+    networks:
+      - mg-location-network
+    volumes:
+      - ./backend-gis/app:/app/app
 
 volumes:
   postgres_data:

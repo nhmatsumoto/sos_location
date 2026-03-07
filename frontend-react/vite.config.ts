@@ -15,6 +15,18 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       proxy: {
+        '/api/v1/urban': {
+          target: env.VITE_DEV_GIS_TARGET || 'http://localhost:8002',
+          changeOrigin: true,
+        },
+        '/api/v1/terrain': {
+          target: env.VITE_DEV_GIS_TARGET || 'http://localhost:8002',
+          changeOrigin: true,
+        },
+        '/api/v1/alerts': {
+          target: env.VITE_DEV_GIS_TARGET || 'http://localhost:8002',
+          changeOrigin: true,
+        },
         '/api': {
           target: devApiTarget,
           changeOrigin: true,

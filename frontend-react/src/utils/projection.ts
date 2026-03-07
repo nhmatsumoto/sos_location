@@ -4,9 +4,9 @@
  */
 
 export const PROJECTION_CONFIG = {
-  LAT_REF: -14.235, // Geographic center of Brazil
-  LON_REF: -51.925,
-  SCALE: 2,         // Coordinate scaling for 3D visibility
+  LAT_REF: -20.91, // Reference point set near Ubá to avoid precision loss
+  LON_REF: -42.98,
+  SCALE: 1113.2,   // 1 unit = 100 meters (1 degree approx 111,320m)
 };
 
 /**

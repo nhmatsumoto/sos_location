@@ -2,9 +2,9 @@
 FROM oven/bun:1.2.14-alpine AS builder
 
 WORKDIR /app
-COPY package.json bun.lock* ./
+COPY package.json package-lock.* bun.lock* ./
 RUN --mount=type=cache,target=/root/.bun/install/cache \
-    bun install --frozen-lockfile
+    bun install
 
 COPY . .
 ARG VITE_API_BASE_URL="http://localhost:8001"

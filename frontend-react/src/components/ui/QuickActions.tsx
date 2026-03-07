@@ -15,12 +15,13 @@ const actions = [
   { label: 'Camadas', icon: <Layers size={18} />, color: 'hover:text-indigo-400' },
 ];
 
-export function QuickActions() {
+export function QuickActions({ onToggleLiveOps, onAction }: { onToggleLiveOps?: () => void, onAction?: (label: string) => void }) {
   return (
     <div className="flex items-center gap-3">
       {actions.map((action) => (
         <button
           key={action.label}
+          onClick={() => onAction && onAction(action.label)}
           type="button"
           title={action.label}
           className={`group relative flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-slate-900/80 backdrop-blur-xl transition-all hover:scale-110 hover:border-white/30 active:scale-95 shadow-lg ${action.color}`}
@@ -32,7 +33,7 @@ export function QuickActions() {
         </button>
       ))}
       <div className="h-8 w-px bg-white/10 mx-1" />
-      <button className="flex h-10 px-4 items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-500/10 text-cyan-400 text-[10px] font-black tracking-widest uppercase hover:bg-cyan-500/20 transition-all">
+      <button onClick={onToggleLiveOps} className="flex h-10 px-4 items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-500/10 text-cyan-400 text-[10px] font-black tracking-widest uppercase hover:bg-cyan-500/20 transition-all">
         <Zap size={14} /> LIVE OPS
       </button>
     </div>
