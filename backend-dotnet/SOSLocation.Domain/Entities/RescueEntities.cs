@@ -6,7 +6,7 @@ namespace SOSLocation.Domain.Entities
 {
     public class SearchArea : BaseEntity
     {
-        public int IncidentId { get; set; }
+        public Guid IncidentId { get; set; }
         public Incident? Incident { get; set; }
 
         public Guid? ExternalId { get; set; }
@@ -22,12 +22,12 @@ namespace SOSLocation.Domain.Entities
 
     public class Assignment : BaseEntity
     {
-        public int IncidentId { get; set; }
+        public Guid IncidentId { get; set; }
         public Incident? Incident { get; set; }
 
         public Guid? ExternalId { get; set; }
 
-        public int SearchAreaId { get; set; }
+        public Guid SearchAreaId { get; set; }
         public SearchArea? SearchArea { get; set; }
 
         [MaxLength(128)]

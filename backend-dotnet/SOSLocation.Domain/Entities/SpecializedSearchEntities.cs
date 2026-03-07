@@ -14,7 +14,7 @@ namespace SOSLocation.Domain.Entities
         [MaxLength(100)]
         public string Reference { get; set; } = string.Empty;
 
-        public int GeolocationId { get; set; }
+        public Guid GeolocationId { get; set; }
         public Geolocation? Geolocation { get; set; }
 
         public DateTime? VisitationDate { get; set; }

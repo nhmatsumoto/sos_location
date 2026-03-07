@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace SOSLocation.Domain.Entities
 {
-    public class SimulationArea : BaseEntityGuid
+    public class SimulationArea : BaseEntity
     {
         [MaxLength(255)]
         public string Name { get; set; } = "New Simulation Area";
@@ -17,7 +17,7 @@ namespace SOSLocation.Domain.Entities
         public string PolygonGeometryJson { get; set; } = "{}";
     }
 
-    public class ScenarioBundle : BaseEntityGuid
+    public class ScenarioBundle : BaseEntity
     {
         public Guid AreaId { get; set; }
         public SimulationArea? Area { get; set; }
@@ -37,7 +37,7 @@ namespace SOSLocation.Domain.Entities
         public string ParametersJson { get; set; } = "{}";
     }
 
-    public class SimulationRun : BaseEntityGuid
+    public class SimulationRun : BaseEntity
     {
         public Guid ScenarioId { get; set; }
         public ScenarioBundle? Scenario { get; set; }

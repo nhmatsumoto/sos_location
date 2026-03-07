@@ -2,7 +2,7 @@ namespace SOSLocation.Application.DTOs.Alerts
 {
     public class AlertDto
     {
-        public int Id { get; set; }
+        public Guid Id { get; set; }
         public string ExternalId { get; set; } = string.Empty;
         public string Title { get; set; } = string.Empty;
         public string Message { get; set; } = string.Empty;

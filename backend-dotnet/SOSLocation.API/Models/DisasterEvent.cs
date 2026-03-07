@@ -4,7 +4,7 @@ namespace SOSLocation.API.Models
 {
     public class DisasterEvent : TimestampedEntity
     {
-        public int Id { get; set; }
+        public Guid Id { get; set; } = Guid.NewGuid();
 
         [MaxLength(20)]
         public string Provider { get; set; } = string.Empty;

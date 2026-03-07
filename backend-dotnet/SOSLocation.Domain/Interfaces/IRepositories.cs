@@ -1,23 +1,24 @@
 using SOSLocation.Domain.Entities;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using System; // Added for Guid
 
 namespace SOSLocation.Domain.Interfaces
 {
     public interface IIncidentRepository
     {
-        Task<Incident?> GetByIdAsync(int id);
+        Task<Incident?> GetByIdAsync(Guid id);
         Task<IEnumerable<Incident>> GetAllAsync();
-        Task<int> AddAsync(Incident incident);
+        Task AddAsync(Incident incident);
         Task UpdateAsync(Incident incident);
-        Task DeleteAsync(int id);
+        Task DeleteAsync(Guid id);
     }
 
     public interface IAttentionAlertRepository
     {
         Task<IEnumerable<AttentionAlert>> GetAllAsync();
-        Task<AttentionAlert?> GetByIdAsync(int id);
-        Task<int> AddAsync(AttentionAlert alert);
+        Task<AttentionAlert?> GetByIdAsync(Guid id);
+        Task AddAsync(AttentionAlert alert);
     }
 
     public interface IRescueGroupRepository
@@ -34,15 +35,16 @@ namespace SOSLocation.Domain.Interfaces
 
     public interface ISearchAreaRepository
     {
-        Task<IEnumerable<SearchArea>> GetByIncidentIdAsync(int incidentId);
-        Task<int> AddAsync(SearchArea area);
+        Task<IEnumerable<SearchArea>> GetByIncidentIdAsync(Guid incidentId);
+        Task AddAsync(SearchArea area);
         Task UpdateAsync(SearchArea area);
     }
 
     public interface IAssignmentRepository
     {
-        Task<IEnumerable<Assignment>> GetByIncidentIdAsync(int incidentId);
-        Task<int> AddAsync(Assignment assignment);
+        Task<IEnumerable<Assignment>> GetAllAsync();
+        Task<IEnumerable<Assignment>> GetByIncidentIdAsync(Guid incidentId);
+        Task AddAsync(Assignment assignment);
     }
 
     public interface IHubRepository
@@ -53,20 +55,20 @@ namespace SOSLocation.Domain.Interfaces
 
     public interface ICampaignRepository
     {
-        Task<IEnumerable<Campaign>> GetByIncidentIdAsync(int incidentId);
-        Task<int> AddAsync(Campaign campaign);
+        Task<IEnumerable<Campaign>> GetByIncidentIdAsync(Guid incidentId);
+        Task AddAsync(Campaign campaign);
     }
 
     public interface IDonationRepository
     {
-        Task<IEnumerable<DonationMoney>> GetByIncidentIdAsync(int incidentId);
-        Task<int> AddAsync(DonationMoney donation);
+        Task<IEnumerable<DonationMoney>> GetByIncidentIdAsync(Guid incidentId);
+        Task AddAsync(DonationMoney donation);
     }
 
     public interface IExpenseRepository
     {
-        Task<IEnumerable<Expense>> GetByIncidentIdAsync(int incidentId);
-        Task<int> AddAsync(Expense expense);
+        Task<IEnumerable<Expense>> GetByIncidentIdAsync(Guid incidentId);
+        Task AddAsync(Expense expense);
     }
 
     public interface IGeolocationRepository

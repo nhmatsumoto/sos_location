@@ -4,7 +4,7 @@ namespace SOSLocation.API.Models
 {
     public class MapAnnotation : TimestampedEntity
     {
-        public int Id { get; set; }
+        public Guid Id { get; set; } = Guid.NewGuid();
 
         [MaxLength(24)]
         public string ExternalId { get; set; } = string.Empty;

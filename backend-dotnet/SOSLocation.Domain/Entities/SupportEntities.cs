@@ -6,7 +6,7 @@ namespace SOSLocation.Domain.Entities
 {
     public class Campaign : BaseEntity
     {
-        public int IncidentId { get; set; }
+        public Guid IncidentId { get; set; }
         public Incident? Incident { get; set; }
 
         public Guid? ExternalId { get; set; }
@@ -25,7 +25,7 @@ namespace SOSLocation.Domain.Entities
 
     public class DonationMoney : BaseEntity
     {
-        public int IncidentId { get; set; }
+        public Guid IncidentId { get; set; }
         public Incident? Incident { get; set; }
 
         public Guid? ExternalId { get; set; }
@@ -44,7 +44,7 @@ namespace SOSLocation.Domain.Entities
 
     public class Expense : BaseEntity
     {
-        public int IncidentId { get; set; }
+        public Guid IncidentId { get; set; }
         public Incident? Incident { get; set; }
 
         public Guid? ExternalId { get; set; }

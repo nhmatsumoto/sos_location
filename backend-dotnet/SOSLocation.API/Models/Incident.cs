@@ -6,7 +6,7 @@ namespace SOSLocation.API.Models
 {
     public class Incident : TimestampedEntity
     {
-        public int Id { get; set; }
+        public Guid Id { get; set; } = Guid.NewGuid();
         
         [MaxLength(180)]
         public string Name { get; set; } = string.Empty;

@@ -4,7 +4,7 @@ namespace SOSLocation.API.Models
 {
     public class CollapseReport : TimestampedEntity
     {
-        public int Id { get; set; }
+        public Guid Id { get; set; } = Guid.NewGuid();
 
         [MaxLength(40)]
         public string ExternalId { get; set; } = string.Empty;

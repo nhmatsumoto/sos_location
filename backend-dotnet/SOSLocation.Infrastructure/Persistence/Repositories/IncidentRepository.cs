@@ -25,18 +25,17 @@ namespace SOSLocation.Infrastructure.Persistence.Repositories
             return await connection.QueryAsync<Incident>(query);
         }
 
-        public async Task<Incident?> GetByIdAsync(int id)
+        public async Task<Incident?> GetByIdAsync(Guid id)
         {
             var query = "SELECT * FROM \"Incidents\" WHERE \"Id\" = @Id";
             using var connection = _dapperContext.CreateConnection();
             return await connection.QuerySingleOrDefaultAsync<Incident>(query, new { Id = id });
         }
 
-        public async Task<int> AddAsync(Incident incident)
+        public async Task AddAsync(Incident incident)
         {
             _efContext.Incidents.Add(incident);
             await _efContext.SaveChangesAsync();
-            return incident.Id;
         }
 
         public async Task UpdateAsync(Incident incident)
@@ -45,7 +44,7 @@ namespace SOSLocation.Infrastructure.Persistence.Repositories
             await _efContext.SaveChangesAsync();
         }
 
-        public async Task DeleteAsync(int id)
+        public async Task DeleteAsync(Guid id)
         {
             var incident = await _efContext.Incidents.FindAsync(id);
             if (incident != null)

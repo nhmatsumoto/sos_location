@@ -25,7 +25,7 @@ namespace SOSLocation.Domain.Entities
 
     public class PublicSnapshot : BaseEntity
     {
-        public int IncidentId { get; set; }
+        public Guid IncidentId { get; set; }
         public Incident? Incident { get; set; }
 
         public DateTime GeneratedAt { get; set; } = DateTime.UtcNow;

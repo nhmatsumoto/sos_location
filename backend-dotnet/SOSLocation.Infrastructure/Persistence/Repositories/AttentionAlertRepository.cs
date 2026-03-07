@@ -25,18 +25,17 @@ namespace SOSLocation.Infrastructure.Persistence.Repositories
             return await connection.QueryAsync<AttentionAlert>(query);
         }
 
-        public async Task<AttentionAlert?> GetByIdAsync(int id)
+        public async Task<AttentionAlert?> GetByIdAsync(Guid id)
         {
             var query = "SELECT * FROM \"AttentionAlerts\" WHERE \"Id\" = @Id";
             using var connection = _dapperContext.CreateConnection();
             return await connection.QuerySingleOrDefaultAsync<AttentionAlert>(query, new { Id = id });
         }
 
-        public async Task<int> AddAsync(AttentionAlert alert)
+        public async Task AddAsync(AttentionAlert alert)
         {
             _efContext.AttentionAlerts.Add(alert);
             await _efContext.SaveChangesAsync();
-            return alert.Id;
         }
     }
 }
