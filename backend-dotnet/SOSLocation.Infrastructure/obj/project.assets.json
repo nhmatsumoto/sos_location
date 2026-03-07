@@ -4142,11 +4142,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "/home/nhmatsumoto/mg_location/backend-dotnet/SOSLocation.Infrastructure/SOSLocation.Infrastructure.csproj",
+      "projectUniqueName": "/home/nhmatsumoto/sos_location/backend-dotnet/SOSLocation.Infrastructure/SOSLocation.Infrastructure.csproj",
       "projectName": "SOSLocation.Infrastructure",
-      "projectPath": "/home/nhmatsumoto/mg_location/backend-dotnet/SOSLocation.Infrastructure/SOSLocation.Infrastructure.csproj",
+      "projectPath": "/home/nhmatsumoto/sos_location/backend-dotnet/SOSLocation.Infrastructure/SOSLocation.Infrastructure.csproj",
       "packagesPath": "/home/nhmatsumoto/.nuget/packages/",
-      "outputPath": "/home/nhmatsumoto/mg_location/backend-dotnet/SOSLocation.Infrastructure/obj/",
+      "outputPath": "/home/nhmatsumoto/sos_location/backend-dotnet/SOSLocation.Infrastructure/obj/",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "/home/nhmatsumoto/.nuget/NuGet/NuGet.Config"
@@ -4161,11 +4161,11 @@
         "net10.0": {
           "targetAlias": "net10.0",
           "projectReferences": {
-            "/home/nhmatsumoto/mg_location/backend-dotnet/SOSLocation.Application/SOSLocation.Application.csproj": {
-              "projectPath": "/home/nhmatsumoto/mg_location/backend-dotnet/SOSLocation.Application/SOSLocation.Application.csproj"
+            "/home/nhmatsumoto/sos_location/backend-dotnet/SOSLocation.Application/SOSLocation.Application.csproj": {
+              "projectPath": "/home/nhmatsumoto/sos_location/backend-dotnet/SOSLocation.Application/SOSLocation.Application.csproj"
             },
-            "/home/nhmatsumoto/mg_location/backend-dotnet/SOSLocation.Domain/SOSLocation.Domain.csproj": {
-              "projectPath": "/home/nhmatsumoto/mg_location/backend-dotnet/SOSLocation.Domain/SOSLocation.Domain.csproj"
+            "/home/nhmatsumoto/sos_location/backend-dotnet/SOSLocation.Domain/SOSLocation.Domain.csproj": {
+              "projectPath": "/home/nhmatsumoto/sos_location/backend-dotnet/SOSLocation.Domain/SOSLocation.Domain.csproj"
             }
           }
         }

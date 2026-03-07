@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using Serilog;
 using SOSLocation.API.Extensions;
 using SOSLocation.API.Middleware;
@@ -31,7 +32,17 @@ builder.Services.AddCors(options =>
     });
 });
 
+builder.Services.AddDbContext<SOSLocation.API.Data.SOSLocationDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var context = scope.ServiceProvider.GetRequiredService<SOSLocation.API.Data.SOSLocationDbContext>();
+    context.Database.Migrate();
+}
+
 
 // Web API Pipeline
 if (app.Environment.IsDevelopment())

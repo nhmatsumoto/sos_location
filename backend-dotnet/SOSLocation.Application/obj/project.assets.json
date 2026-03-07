@@ -569,11 +569,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "/home/nhmatsumoto/mg_location/backend-dotnet/SOSLocation.Application/SOSLocation.Application.csproj",
+      "projectUniqueName": "/home/nhmatsumoto/sos_location/backend-dotnet/SOSLocation.Application/SOSLocation.Application.csproj",
       "projectName": "SOSLocation.Application",
-      "projectPath": "/home/nhmatsumoto/mg_location/backend-dotnet/SOSLocation.Application/SOSLocation.Application.csproj",
+      "projectPath": "/home/nhmatsumoto/sos_location/backend-dotnet/SOSLocation.Application/SOSLocation.Application.csproj",
       "packagesPath": "/home/nhmatsumoto/.nuget/packages/",
-      "outputPath": "/home/nhmatsumoto/mg_location/backend-dotnet/SOSLocation.Application/obj/",
+      "outputPath": "/home/nhmatsumoto/sos_location/backend-dotnet/SOSLocation.Application/obj/",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "/home/nhmatsumoto/.nuget/NuGet/NuGet.Config"
@@ -588,8 +588,8 @@
         "net10.0": {
           "targetAlias": "net10.0",
           "projectReferences": {
-            "/home/nhmatsumoto/mg_location/backend-dotnet/SOSLocation.Domain/SOSLocation.Domain.csproj": {
-              "projectPath": "/home/nhmatsumoto/mg_location/backend-dotnet/SOSLocation.Domain/SOSLocation.Domain.csproj"
+            "/home/nhmatsumoto/sos_location/backend-dotnet/SOSLocation.Domain/SOSLocation.Domain.csproj": {
+              "projectPath": "/home/nhmatsumoto/sos_location/backend-dotnet/SOSLocation.Domain/SOSLocation.Domain.csproj"
             }
           }
         }
