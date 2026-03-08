@@ -5,12 +5,17 @@ import { OperationalMap } from '../components/maps/OperationalMap';
 import { Public3DOperationsGlobe } from '../components/maps/Public3DOperationsGlobe';
 import { operationsApi, type OperationsSnapshot } from '../services/operationsApi';
 import { ErrorBoundary } from '../components/common/ErrorBoundary';
-import { Shield, Globe, Map as MapIcon, RefreshCw, Info, FileText, Box, Activity, Zap, Users, HelpCircle } from 'lucide-react';
+import { Shield, Globe, Map as MapIcon, RefreshCw, Info, FileText, Box, Activity, Zap, Users, HelpCircle, MousePointer2, Layers, Settings2 } from 'lucide-react';
+import { useMapStore } from '../map/store/mapStore';
+import { OperationalKPIStack } from '../components/ui/OperationalKPIStack';
+import { ToolButton } from '../components/ui/ToolButton';
 
 export function PublicMapPage() {
   const navigate = useNavigate();
+  const { setPanelState, panels } = useMapStore();
   const [snapshot, setSnapshot] = useState<OperationsSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activeTool, setActiveTool] = useState('inspect');
 
   const benefits = [
     { 
@@ -110,7 +115,6 @@ export function PublicMapPage() {
       </header>
 
       <main className="relative z-10 mx-auto max-w-[1600px] p-6 lg:p-8 space-y-24">
-        {/* Intro Section */}
         <section className="flex flex-col md:flex-row gap-6 items-start justify-between">
           <div className="max-w-2xl">
             <h2 className="text-3xl font-black text-white uppercase tracking-tighter mb-4 flex items-center gap-3 italic leading-none">
@@ -120,29 +124,53 @@ export function PublicMapPage() {
               Acompanhe a situação operacional tática com dados consolidados de múltiplos sensores e inteligência artificial. Esta interface pública provê transparência e consciência situacional para a população e parceiros.
             </p>
           </div>
-          <div className="flex gap-4">
-             <div className="bg-slate-900/40 border border-white/5 p-5 rounded-2xl backdrop-blur-md min-w-[180px] shadow-xl">
-                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1">Incidentes Ativos</span>
-                <span className="text-2xl font-black text-white italic">024</span>
-             </div>
-             <div className="bg-slate-900/40 border border-white/5 p-5 rounded-2xl backdrop-blur-md min-w-[180px] shadow-xl border-t-amber-500/20">
-                <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1">Nível de Alerta</span>
-                <span className="text-2xl font-black text-amber-400 italic">ALFA</span>
-             </div>
-          </div>
         </section>
 
         <div className="grid grid-cols-1 xl:grid-cols-[1fr_400px] gap-8 items-start">
           <div className="space-y-8">
             {/* Main Map View */}
-            <div className="rounded-[2.5rem] overflow-hidden border border-white/5 bg-slate-900/20 backdrop-blur-sm shadow-2xl relative group min-h-[600px] flex flex-col">
-               <div className="absolute top-6 left-6 z-10">
+            <div className="rounded-[2.5rem] overflow-hidden border border-white/5 bg-slate-900/20 backdrop-blur-sm shadow-2xl relative group min-h-[700px] flex flex-col">
+               <div className="absolute top-6 left-6 z-40 flex flex-col gap-4">
                   <div className="bg-slate-950/80 backdrop-blur-md border border-white/10 rounded-2xl p-3 flex items-center gap-3 shadow-xl">
                      <MapIcon className="text-cyan-400" size={18} />
                      <span className="text-xs font-black uppercase tracking-widest text-white italic">Mapa Operacional 2D</span>
                   </div>
+                  
+                  {/* Integrated KPIs over Map */}
+                  <div className="scale-90 origin-top-left">
+                    <OperationalKPIStack 
+                      opsSnapshot={snapshot} 
+                      className="relative mt-2 flex flex-col gap-2 w-[180px] pointer-events-auto" 
+                    />
+                  </div>
                </div>
-               <div className="flex-1">
+
+               {/* Integrated Tool Sidebar */}
+               <div className="absolute right-6 top-6 z-40 flex flex-col gap-2">
+                  <div className="bg-slate-950/80 backdrop-blur-md border border-white/10 p-1.5 rounded-2xl shadow-xl flex flex-col gap-1">
+                    <ToolButton 
+                      active={activeTool === 'inspect'} 
+                      onClick={() => setActiveTool('inspect')} 
+                      icon={<MousePointer2 size={18} />} 
+                      label="Inspecionar" 
+                    />
+                    <ToolButton 
+                      active={panels.tools.open} 
+                      onClick={() => setPanelState('tools', { open: !panels.tools.open })} 
+                      icon={<Layers size={18} />} 
+                      label="Camadas" 
+                    />
+                    <div className="h-px bg-white/10 mx-1 my-1" />
+                    <ToolButton 
+                      active={panels.climate.open} 
+                      onClick={() => setPanelState('climate', { open: !panels.climate.open })} 
+                      icon={<Settings2 size={18} />} 
+                      label="Clima" 
+                    />
+                  </div>
+               </div>
+
+               <div className="flex-1 h-full">
                 <OperationalMap data={snapshot} />
                </div>
             </div>

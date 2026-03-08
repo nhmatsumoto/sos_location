@@ -94,7 +94,7 @@ export function MapShell({ data }: { data: OperationsSnapshot | null }) {
   };
 
   return (
-    <div className="relative h-[520px] overflow-hidden rounded-xl border border-slate-700">
+    <div className="relative h-full overflow-hidden rounded-xl border border-slate-700">
       <MapContainer center={[-21.1215, -42.9427]} zoom={13} style={{ height: '100%', width: '100%' }}>
         <BaseLayers />
         <MapEvents onMapClick={(lat, lng) => { void onMapClick(lat, lng); }} />
