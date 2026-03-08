@@ -6,27 +6,29 @@ export const MeteorologicalIntelPanel: React.FC = () => {
   const focalWeather = useSimulationStore(state => state.focalWeather);
 
   return (
-    <div className="absolute top-28 left-4 z-40 flex flex-col gap-2 w-[220px] animate-in fade-in slide-in-from-left-4 duration-500">
-       <div className="flex items-center gap-2 mb-1 px-1">
-          <div className="h-1.5 w-1.5 rounded-full bg-cyan-400"></div>
-          <span className="text-[9px] font-black text-white/40 uppercase tracking-[0.2em]">Regional Intelligence</span>
+    <div className="absolute top-32 left-6 z-40 flex flex-col gap-3 w-[280px] animate-in fade-in slide-in-from-left-6 duration-700">
+       <div className="flex items-center gap-2 mb-1 px-1 opacity-70">
+          <div className="h-1.5 w-1.5 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)]"></div>
+          <span className="text-[10px] font-black text-white/60 uppercase tracking-[0.25em]">Regional Intelligence</span>
        </div>
        
-       <div className="bg-slate-950/80 backdrop-blur-xl border border-white/5 p-4 rounded-2xl space-y-4">
-          <div className="flex items-center justify-between">
-             <div className="flex items-center gap-3">
-                <CloudRain className="text-cyan-400" size={24} />
+       <div className="bg-slate-950/60 backdrop-blur-2xl border border-white/10 p-5 rounded-3xl shadow-[0_0_50px_rgba(0,0,0,0.3)] space-y-5">
+          <div className="flex items-center justify-between gap-4">
+             <div className="flex items-center gap-4">
+                <div className="p-2 bg-cyan-500/10 rounded-xl border border-cyan-500/20">
+                   <CloudRain className="text-cyan-400" size={20} />
+                </div>
                 <div className="flex flex-col">
-                   <span className="text-[9px] text-slate-500 uppercase font-black tracking-widest">Weather</span>
-                   <span className="text-lg font-black text-white leading-none tracking-tight text-glow">
-                     {focalWeather.temp}°c
+                   <span className="text-[8px] text-slate-500 uppercase font-black tracking-widest mb-0.5">Atmosphere</span>
+                   <span className="text-2xl font-black text-white leading-none tracking-tighter text-glow-cyan">
+                     {focalWeather.temp}°C
                    </span>
                 </div>
              </div>
-             <div className="text-right">
-                <span className="text-[10px] font-mono text-cyan-500/80 uppercase">
+             <div className="flex-1 text-right">
+                <div className="inline-block px-2 py-1 bg-cyan-500/10 border border-cyan-500/20 rounded text-[9px] font-bold text-cyan-400 uppercase tracking-wider">
                   {focalWeather.description}
-                </span>
+                </div>
              </div>
           </div>
 

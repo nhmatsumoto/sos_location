@@ -23,6 +23,7 @@ namespace SOSLocation.API.Extensions
                 options.UseNpgsql(connectionString));
 
             services.AddSingleton<DapperContext>();
+            services.AddMemoryCache();
 
             services.AddScoped<IIncidentRepository, IncidentRepository>();
             services.AddScoped<IAttentionAlertRepository, AttentionAlertRepository>();

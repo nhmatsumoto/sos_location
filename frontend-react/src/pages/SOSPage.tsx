@@ -15,8 +15,6 @@ import { SimulationCommandPanel } from '../components/map/SimulationCommandPanel
 import { LiveOpsPanel } from '../components/map/LiveOpsPanel';
 import { CursorCoordinates } from '../components/map/CursorCoordinates';
 import { MapContextMenu } from '../components/map/MapContextMenu';
-import { SimulationAreaModal } from '../components/ui/SimulationAreaModal';
-
 const Tactical3DMap = lazy(() => import('../components/map/Tactical3DMap').then(m => ({ default: m.Tactical3DMap })));
 import { 
   MapPin,
@@ -38,7 +36,7 @@ export function SOSPage() {
     events, domainEvents, alerts, mapAnnotations, opsSnapshot,
     country, setCountry, initialLoading, savingOps,
     activeSnapshots, show3D, setShow3D, currentDisplayEvents,
-    captureSnapshot, saveOps
+    captureSnapshot, saveOps, toggle3DAt
   } = useSOSPageData();
   
   const [hoveredId, setHoveredId] = useState<string | null>(null);
@@ -78,7 +76,6 @@ export function SOSPage() {
   const [liveOpsPanelOpen, setLiveOpsPanelOpen] = useState(false);
   const [cursorCoords, setCursorCoords] = useState<[number, number] | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, lat: number, lon: number } | null>(null);
-  const [areaModal, setAreaModal] = useState<{ open: boolean, lat: number, lon: number }>({ open: false, lat: 0, lon: 0 });
 
   const handleMarkerHover = useCallback((id: string) => setHoveredId(id), []);
   const handleMarkerUnhover = useCallback(() => setHoveredId(null), []);
@@ -93,10 +90,10 @@ export function SOSPage() {
     } else if (label === 'Desaparecido') {
       setOpsForm(prev => ({...prev, recordType: 'missing_person'}));
       setOpenOpsModal(true);
-    } else if (label === 'Área') {
-      setTool('simulation_box');
-      setShow3D(false);
+    } else if (label === 'Focar 3D') {
+      toggle3DAt(mapCenter[0], mapCenter[1]);
     } else if (label === 'Exportar') {
+
       alert("Iniciando exportação de relatório estratégico...");
     }
   }, [liveOpsPanelOpen]);
@@ -285,23 +282,13 @@ export function SOSPage() {
           lat={contextMenu.lat} 
           lon={contextMenu.lon} 
           onClose={() => setContextMenu(null)} 
-          onRender3D={(lat, lon) => setAreaModal({ open: true, lat, lon })} 
+          onRender3D={(lat, lon) => {
+            setContextMenu(null);
+            toggle3DAt(lat, lon);
+          }} 
         />
       )}
-      <SimulationAreaModal 
-        open={areaModal.open} 
-        lat={areaModal.lat} 
-        lon={areaModal.lon} 
-        onClose={() => setAreaModal({ ...areaModal, open: false })} 
-        onConfirm={(bounds) => {
-          setAreaModal({ ...areaModal, open: false });
-          captureSnapshot(bounds);
-        }}
-        onDrawManeally={() => {
-          setAreaModal({ ...areaModal, open: false });
-          selectTool('simulation_box');
-        }}
-      />
+
 
        {/* Glitch Overlay Effect */}
        {isGlitching && (

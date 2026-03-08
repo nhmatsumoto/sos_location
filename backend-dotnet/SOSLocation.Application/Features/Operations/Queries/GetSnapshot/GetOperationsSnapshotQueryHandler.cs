@@ -32,17 +32,22 @@ namespace SOSLocation.Application.Features.Operations.Queries.GetSnapshot
         {
             var incidents = await _incidentRepository.GetAllAsync();
             var alerts = await _alertRepository.GetAllAsync();
-            var rescueGroups = await _rescueGroupRepository.GetAllAsync();
-            var supplies = await _supplyRepository.GetAllAsync();
+
+            var highAlertTask = _alertRepository.GetCountAsync("high");
+            var criticalAlertTask = _alertRepository.GetCountAsync("critical");
+            var activeTeamsTask = _rescueGroupRepository.GetCountByStatusAsync("pronto", "em_campo");
+            var suppliesTask = _supplyRepository.GetCountByStatusAsync("em_transporte");
+
+            await Task.WhenAll(highAlertTask, criticalAlertTask, activeTeamsTask, suppliesTask);
 
             return new OperationsSnapshotDto
             {
                 GeneratedAtUtc = DateTime.UtcNow,
                 Kpis = new OperationsKpis
                 {
-                    CriticalAlerts = alerts.Count(a => a.Severity == "high" || a.Severity == "critical"),
-                    ActiveTeams = rescueGroups.Count(g => g.Status == "pronto" || g.Status == "em_campo"),
-                    SuppliesInTransit = supplies.Count(s => s.Status == "em_transporte")
+                    CriticalAlerts = await highAlertTask + await criticalAlertTask,
+                    ActiveTeams = await activeTeamsTask,
+                    SuppliesInTransit = await suppliesTask
                 },
                 Layers = new OperationsLayers
                 {

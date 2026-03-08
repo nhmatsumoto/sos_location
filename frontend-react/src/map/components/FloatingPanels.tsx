@@ -42,11 +42,12 @@ export function FloatingPanels({ weatherData, snapshot }: { weatherData: OpenMet
       </FloatingPanel>
 
       <FloatingPanel panel={panels.missing} title="Desaparecidos" onChange={(next) => setPanelState('missing', next)}>
-        <p>Total no mapa: {snapshot?.layers.missingPersons.length ?? 0}</p>
+        <p>Total no mapa: {snapshot?.layers?.missingPersons?.length ?? 0}</p>
         <ul className="mt-2 space-y-1">
-          {(snapshot?.layers.missingPersons ?? []).slice(0, 5).map((person) => <li key={person.id}>{person.personName}</li>)}
+          {(snapshot?.layers?.missingPersons ?? []).slice(0, 5).map((person) => <li key={person.id}>{person.personName}</li>)}
         </ul>
       </FloatingPanel>
+
 
       <FloatingPanel panel={panels.tools} title="Ferramentas" onChange={(next) => setPanelState('tools', next)}>
         <div className="space-y-1">

@@ -9,7 +9,7 @@
     {
       "alias": "google",
       "providerId": "google",
-      "enabled": true,
+      "enabled": false,
       "config": {
         "clientId": "placeholder",
         "clientSecret": "placeholder"
@@ -18,7 +18,7 @@
     {
       "alias": "facebook",
       "providerId": "facebook",
-      "enabled": true,
+      "enabled": false,
       "config": {
         "clientId": "placeholder",
         "clientSecret": "placeholder"

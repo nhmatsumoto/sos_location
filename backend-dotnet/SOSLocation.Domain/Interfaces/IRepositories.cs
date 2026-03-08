@@ -13,6 +13,7 @@ namespace SOSLocation.Domain.Interfaces
         Task AddAsync(Incident incident);
         Task UpdateAsync(Incident incident);
         Task DeleteAsync(Guid id);
+        Task<int> GetCountAsync();
     }
 
     public interface IAttentionAlertRepository
@@ -20,18 +21,21 @@ namespace SOSLocation.Domain.Interfaces
         Task<IEnumerable<AttentionAlert>> GetAllAsync();
         Task<AttentionAlert?> GetByIdAsync(Guid id);
         Task AddAsync(AttentionAlert alert);
+        Task<int> GetCountAsync(string? severity = null);
     }
 
     public interface IRescueGroupRepository
     {
         Task<IEnumerable<RescueGroup>> GetAllAsync();
         Task AddAsync(RescueGroup group);
+        Task<int> GetCountByStatusAsync(params string[] statuses);
     }
 
     public interface ISupplyLogisticsRepository
     {
         Task<IEnumerable<SupplyLogistics>> GetAllAsync();
         Task AddAsync(SupplyLogistics item);
+        Task<int> GetCountByStatusAsync(string status);
     }
 
     public interface ISearchAreaRepository

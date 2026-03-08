@@ -205,7 +205,21 @@ apiClient.interceptors.response.use(
 
     // Handle 500+ Internal Server Errors
     if (error.response?.status && error.response.status >= 500) {
-       window.location.href = `/error?code=${error.response.status}`;
+       const status = error.response.status;
+       frontendLogger.error(`Server error (${status})`, { url: config.url });
+       
+       if (!config.__skipGlobalNotify) {
+         notifyWithCooldown(
+           `Erro no Servidor (${status})`, 
+           'Ocorreu um erro interno no servidor. Nossa equipe técnica foi notificada. Por favor, tente novamente em alguns instantes.'
+         );
+       }
+       
+       // Only redirect if it's a critical failure on a main page load, 
+       // otherwise let the component handle the error or show the notification.
+       if (!config.url?.includes('/api/health') && !config.url?.includes('/api/operations/snapshot')) {
+         // Optional: window.location.href = `/error?code=${error.response.status}`;
+       }
     }
 
     if (shouldRetry(error)) {

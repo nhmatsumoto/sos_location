@@ -9,7 +9,8 @@ import {
 
 const actions = [
   { label: 'Relato', icon: <FilePlus size={18} />, color: 'hover:text-cyan-400' },
-  { label: 'Área', icon: <MapPin size={18} />, color: 'hover:text-amber-400' },
+  { label: 'Focar 3D', icon: <MapPin size={18} />, color: 'hover:text-amber-400' },
+
   { label: 'Desaparecido', icon: <UserPlus size={18} />, color: 'hover:text-emerald-400' },
   { label: 'Exportar', icon: <Download size={18} />, color: 'hover:text-blue-400' },
   { label: 'Camadas', icon: <Layers size={18} />, color: 'hover:text-indigo-400' },

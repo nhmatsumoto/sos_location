@@ -37,5 +37,16 @@ namespace SOSLocation.Infrastructure.Persistence.Repositories
             _efContext.AttentionAlerts.Add(alert);
             await _efContext.SaveChangesAsync();
         }
+
+        public async Task<int> GetCountAsync(string? severity = null)
+        {
+            var query = "SELECT COUNT(*) FROM \"AttentionAlerts\"";
+            if (!string.IsNullOrEmpty(severity))
+            {
+                query += " WHERE \"Severity\" = @Severity";
+            }
+            using var connection = _dapperContext.CreateConnection();
+            return await connection.ExecuteScalarAsync<int>(query, new { Severity = severity });
+        }
     }
 }

@@ -101,12 +101,13 @@ function GlobeScene({ markers }: { markers: GlobeMarker[] }) {
   const groupRef = useRef<THREE.Group>(null);
 
   const [albedoMap, bumpMap, specularMap] = useLoader(THREE.TextureLoader, [
-    'https://cdn.jsdelivr.net/gh/mrdoob/three.js@master/examples/textures/planets/earth_atmos_2048.jpg',
-    'https://cdn.jsdelivr.net/gh/mrdoob/three.js@master/examples/textures/planets/earth_bump_2048.jpg',
-    'https://cdn.jsdelivr.net/gh/mrdoob/three.js@master/examples/textures/planets/earth_specular_2048.jpg',
+    'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_atmos_2048.jpg',
+    'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_bump_2048.jpg',
+    'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_specular_2048.jpg',
   ], (loader) => {
     loader.crossOrigin = 'anonymous';
   });
+
 
   useMemo(() => {
     albedoMap.colorSpace = THREE.SRGBColorSpace;
@@ -189,9 +190,9 @@ export function Public3DOperationsGlobe({ data }: { data: OperationsSnapshot | n
   const [manualPoint, setManualPoint] = useState<{ lat: number; lng: number } | null>(null);
 
   const markers = useMemo<GlobeMarker[]>(() => {
-    if (!data) return manualPoint ? [{ id: 'manual-marker', lat: manualPoint.lat, lng: manualPoint.lng, kind: 'manual', label: 'Ponto manual' }] : [];
+    if (!data?.layers) return manualPoint ? [{ id: 'manual-marker', lat: manualPoint.lat, lng: manualPoint.lng, kind: 'manual', label: 'Ponto manual' }] : [];
 
-    const supportMarkers = data.layers.supportPoints.map((point) => ({
+    const supportMarkers = (data.layers.supportPoints || []).map((point) => ({
       id: `support-${point.id}`,
       lat: point.lat,
       lng: point.lng,
@@ -199,7 +200,7 @@ export function Public3DOperationsGlobe({ data }: { data: OperationsSnapshot | n
       label: point.title,
     } satisfies GlobeMarker));
 
-    const criticalMarkers = data.layers.hotspots.map((hotspot) => ({
+    const criticalMarkers = (data.layers.hotspots || []).map((hotspot) => ({
       id: `critical-${hotspot.id}`,
       lat: hotspot.lat,
       lng: hotspot.lng,
@@ -217,6 +218,7 @@ export function Public3DOperationsGlobe({ data }: { data: OperationsSnapshot | n
 
     const all = [...supportMarkers, ...criticalMarkers, ...timelineMarkers];
 
+
     if (!manualPoint) return all;
 
     return [
@@ -226,7 +228,7 @@ export function Public3DOperationsGlobe({ data }: { data: OperationsSnapshot | n
   }, [data, manualPoint]);
 
   const riskPolygons = useMemo(() => {
-    if (!data) return [];
+    if (!data?.layers?.riskAreas) return [];
 
     return data.layers.riskAreas.map((area) => ({
       id: area.id,
@@ -235,6 +237,7 @@ export function Public3DOperationsGlobe({ data }: { data: OperationsSnapshot | n
       points: createAreaPolygon(area.lat, area.lng, area.radiusMeters ?? 750),
     }));
   }, [data]);
+
 
   const markCoordinate = () => {
     const lat = Number(manualLat);

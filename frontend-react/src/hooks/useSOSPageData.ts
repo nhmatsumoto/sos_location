@@ -159,6 +159,12 @@ export function useSOSPageData() {
     }
   };
 
+  const toggle3DAt = (lat: number, lon: number) => {
+    useSimulationStore.getState().setHeroPosition([lat, lon]);
+    useSimulationStore.getState().setFocalPoint([lat, lon]);
+    setShow3D(true);
+  };
+
   return {
     events, domainEvents, alerts, mapAnnotations, gisAlerts, opsSnapshot,
     country, setCountry,
@@ -168,6 +174,7 @@ export function useSOSPageData() {
     activeSnapshots, setActiveSnapshots,
     show3D, setShow3D,
     currentDisplayEvents,
-    captureSnapshot, saveOps, loadData
+    captureSnapshot, saveOps, loadData,
+    toggle3DAt
   };
 }

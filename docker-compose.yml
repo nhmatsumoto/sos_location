@@ -123,7 +123,7 @@ services:
       - ./frontend-react:/app
     # CMD gerido pelo Dockerfile.dev para evitar freeze do bun install no boot
     environment:
-      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8001}
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-}
       VITE_DEV_API_TARGET: http://backend:8000
       VITE_DEV_GIS_TARGET: http://backend:8000
     ports:

@@ -30,6 +30,13 @@ namespace SOSLocation.Infrastructure.Persistence.Repositories
             _efContext.RescueGroups.Add(group);
             await _efContext.SaveChangesAsync();
         }
+
+        public async Task<int> GetCountByStatusAsync(params string[] statuses)
+        {
+            var query = "SELECT COUNT(*) FROM \"RescueGroups\" WHERE \"Status\" = ANY(@Statuses)";
+            using var connection = _dapperContext.CreateConnection();
+            return await connection.ExecuteScalarAsync<int>(query, new { Statuses = statuses });
+        }
     }
 
     public class SupplyLogisticsRepository : ISupplyLogisticsRepository
@@ -54,6 +61,13 @@ namespace SOSLocation.Infrastructure.Persistence.Repositories
         {
             _efContext.SupplyLogistics.Add(item);
             await _efContext.SaveChangesAsync();
+        }
+
+        public async Task<int> GetCountByStatusAsync(string status)
+        {
+            var query = "SELECT COUNT(*) FROM \"SupplyLogistics\" WHERE \"Status\" = @Status";
+            using var connection = _dapperContext.CreateConnection();
+            return await connection.ExecuteScalarAsync<int>(query, new { Status = status });
         }
     }
 }

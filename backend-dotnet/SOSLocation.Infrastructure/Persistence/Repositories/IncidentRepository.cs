@@ -58,5 +58,12 @@ namespace SOSLocation.Infrastructure.Persistence.Repositories
                 await _efContext.SaveChangesAsync();
             }
         }
+
+        public async Task<int> GetCountAsync()
+        {
+            var query = "SELECT COUNT(*) FROM \"Incidents\"";
+            using var connection = _dapperContext.CreateConnection();
+            return await connection.ExecuteScalarAsync<int>(query);
+        }
     }
 }

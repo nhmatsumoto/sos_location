@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls, PerspectiveCamera, FlyControls, GizmoHelper, GizmoViewport } from '@react-three/drei';
+import { OrbitControls, PerspectiveCamera, FlyControls, GizmoHelper, GizmoViewport, Stars } from '@react-three/drei';
 import * as THREE from 'three';
 import { CameraOverlayMenu } from './CameraOverlayMenu';
 import { SimulationBoxEditor } from './SimulationBoxEditor';
@@ -10,16 +10,17 @@ import type { SituationalSnapshot } from '../../types';
 import { AnimatedBarrier } from './AnimatedBarrier';
 import { useSimulationStore } from '../../store/useSimulationStore';
 import { projectTo3D } from '../../utils/projection';
-import { TacticalEnvironment } from './TacticalEnvironment';
 import { DayNightCycle } from './DayNightCycle';
 import { MapZoneLayer } from './MapZoneLayer';
 import { Tactical3DMarkers } from './Tactical3DMarkers';
 import { Tactical3DAlerts } from './Tactical3DAlerts';
 import { SosHero } from './SosHero';
+import { EngineController } from '../../engine/core/EngineController';
 
 interface BarrierData {
   id: string;
   points: [number, number, number][];
+
   color?: string;
   type: 'containment' | 'restricted' | 'hazard';
 }
@@ -99,10 +100,10 @@ export const Tactical3DMap: React.FC<Tactical3DMapProps> = ({
         <React.Suspense fallback={null}>
           <CameraBoundsTracker />
           <FocalIntelligence />
-          <PerspectiveCamera makeDefault position={[centerX + camOffset, camHeight, centerZ + camOffset]} fov={50} />
+          <PerspectiveCamera makeDefault position={[centerX + camOffset, camHeight, centerZ + camOffset]} fov={50} far={5000} />
           
           {cameraMode === 'orbit' ? (
-            <OrbitControls makeDefault enablePan={true} maxPolarAngle={Math.PI / 2.1} minDistance={0.5} maxDistance={1000} target={[centerX, 0, centerZ]} />
+            <OrbitControls makeDefault enablePan={true} maxPolarAngle={Math.PI / 2.1} minDistance={0.5} maxDistance={4000} target={[centerX, 0, centerZ]} />
           ) : (
             <FlyControls makeDefault movementSpeed={mapSizeInUnits * 0.5} rollSpeed={1.0} dragToLook={true} />
           )}
@@ -116,25 +117,35 @@ export const Tactical3DMap: React.FC<Tactical3DMapProps> = ({
 
           <DayNightCycle timeOfDay={timeOfDay} />
           
+          <ambientLight intensity={0.4} />
+          <directionalLight 
+            position={[centerX + 50, 100, centerZ + 50]} 
+            intensity={1.2} 
+            castShadow 
+            shadow-mapSize={[4096, 4096]}
+            shadow-camera-left={-250}
+            shadow-camera-right={250}
+            shadow-camera-top={250}
+            shadow-camera-bottom={-250}
+          />
+
           {/* Only show global grid if no relief layer is active to avoid clutter */}
           {!activeLayers.relief && (
             <group>
-              <gridHelper args={[200, 100, 0x1e293b, 0x0f172a]} position={[0, -0.1, 0]} />
+              <gridHelper args={[500, 100, 0x1e293b, 0x0f172a]} position={[0, -0.1, 0]} />
               <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.2, 0]} receiveShadow>
-                  <planeGeometry args={[200, 200]} />
+                  <planeGeometry args={[1000, 1000]} />
                   <meshStandardMaterial color="#020617" roughness={0} metalness={0.8} />
               </mesh>
-              <gridHelper args={[200, 20, 0x06b6d4, 0x06b6d4]} position={[0, -0.19, 0]} />
             </group>
           )}
 
-          <React.Suspense fallback={<gridHelper args={[20, 20, 0x334155, 0x1e293b]} position={[centerX, -0.1, centerZ]} />}>
-            <TacticalEnvironment clippingPlanes={clippingPlanes} />
-          </React.Suspense>
+          <EngineController />
           
           <React.Suspense fallback={null}>
             <MapZoneLayer clippingPlanes={clippingPlanes} />
           </React.Suspense>
+
           
           <SosHero />
 
@@ -142,7 +153,7 @@ export const Tactical3DMap: React.FC<Tactical3DMapProps> = ({
             <React.Suspense fallback={null}>
               <Tactical3DMarkers markers={[
                   { lat: focusPoint[0] + 0.002, lon: focusPoint[1] + 0.002, type: 'risk', label: 'Zona de Inundação Alpha', severity: 4 },
-                  { lat: focusPoint[0] - 0.001, lon: focusPoint[1] + 0.003, type: 'hospital', label: 'Centro Médico Regional' },
+                  { lat: focusPoint[0] - 0.001, lon: focusPoint[1] + 0.003, type: 'hospital', label: 'Centro Méd Regional' },
                   { lat: focusPoint[1], lon: focusPoint[1], type: 'base', label: 'Posto de Comando' }
               ]} />
 
@@ -159,7 +170,10 @@ export const Tactical3DMap: React.FC<Tactical3DMapProps> = ({
             </React.Suspense>
           )}
 
-          <fog attach="fog" args={['#020617', 10, 60 - environment.fog * 40]} />
+          <fog attach="fog" args={['#020617', 50, 2000 - environment.fog * 1500]} />
+
+          <Stars radius={1000} depth={500} count={8000} factor={6} saturation={0} fade speed={1} />
+
 
           {activeSnapshots.map((snap) => (
             <SnapshotVolume key={snap.id} snapshot={snap} />

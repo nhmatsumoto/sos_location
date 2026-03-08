@@ -119,8 +119,8 @@ export const TerrainMesh: React.FC<TerrainMeshProps> = ({ clippingPlanes, overri
           // Fallback height from API is in meters, translate to 3D scale (1 unit = 100m)
           // Subtract the center height to normalize the terrain around Y=0
           const rawHeight = elevationGrid[row][col] / 100;
-          const centerHeight = elevationGrid[Math.floor((segments+1)/2)][Math.floor((segments+1)/2)] / 100;
-          height = rawHeight - centerHeight;
+          // height = rawHeight - centerHeight;
+          height = rawHeight; 
         }
       } else {
         // Procedural Fallback
