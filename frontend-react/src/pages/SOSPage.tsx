@@ -29,6 +29,7 @@ import { useSOSPageData } from '../hooks/useSOSPageData';
 import { SOSHeaderHUD } from '../components/ui/SOSHeaderHUD';
 import { OperationalKPIStack } from '../components/ui/OperationalKPIStack';
 import { MeteorologicalIntelPanel } from '../components/map/MeteorologicalIntelPanel';
+import { useSimulationStore } from '../store/useSimulationStore';
 
 export function SOSPage() {
   const navigate = useNavigate();
@@ -87,16 +88,16 @@ export function SOSPage() {
     } else if (label === 'Relato') {
       setOpsForm(prev => ({...prev, recordType: 'risk_area'}));
       setOpenOpsModal(true);
-    } else if (label === 'Desaparecido') {
-      setOpsForm(prev => ({...prev, recordType: 'missing_person'}));
-      setOpenOpsModal(true);
-    } else if (label === 'Focar 3D') {
+    } else if (label === 'Edificios') {
+      useSimulationStore.getState().setLayer('buildings', !useSimulationStore.getState().activeLayers.buildings);
+    } else if (label === 'Ruas') {
+      useSimulationStore.getState().setLayer('streets', !useSimulationStore.getState().activeLayers.streets);
+    } else if (label === 'Verde') {
+      useSimulationStore.getState().setLayer('vegetation', !useSimulationStore.getState().activeLayers.vegetation);
+    } else if (label === 'Map Ref') {
       toggle3DAt(mapCenter[0], mapCenter[1]);
-    } else if (label === 'Exportar') {
-
-      alert("Iniciando exportação de relatório estratégico...");
     }
-  }, [liveOpsPanelOpen]);
+  }, [liveOpsPanelOpen, mapCenter, toggle3DAt]);
 
 
 
@@ -170,8 +171,8 @@ export function SOSPage() {
       {show3D && <MeteorologicalIntelPanel />}
 
       {/* Bottom Center: Quick Action Bar */}
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-40 group">
-        <div className="bg-slate-950/80 backdrop-blur-2xl border border-white/10 p-2.5 rounded-full shadow-[0_0_40px_rgba(0,0,0,0.5)] flex items-center gap-2 transition-all group-hover:scale-105 group-hover:border-white/20">
+      <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-40">
+        <div className="animate-in fade-in slide-in-from-bottom duration-1000">
            <QuickActions onToggleLiveOps={() => setLiveOpsPanelOpen(!liveOpsPanelOpen)} onAction={handleQuickAction} />
         </div>
       </div>
@@ -292,12 +293,18 @@ export function SOSPage() {
 
        {/* Glitch Overlay Effect */}
        {isGlitching && (
-         <div className="absolute inset-0 z-100 pointer-events-none overflow-hidden bg-cyan-500/5 backdrop-blur-[1px] animate-pulse">
-            <div className="absolute top-1/4 left-0 w-full h-px bg-white/20 animate-scan-fast" />
-            <div className="absolute top-3/4 left-0 w-full h-px bg-white/20 animate-scan-fast" style={{ animationDelay: '0.2s' }} />
+         <div className="absolute inset-0 z-100 pointer-events-none overflow-hidden bg-cyan-500/5 backdrop-blur-[1px]">
+            <div className="absolute top-1/4 left-0 w-full h-px bg-cyan-400/30 animate-scan-fast" />
+            <div className="absolute top-3/4 left-0 w-full h-px bg-cyan-400/30 animate-scan-fast" style={{ animationDelay: '0.2s' }} />
             <div className="absolute inset-0 flex items-center justify-center">
-               <span className="text-[10px] text-white font-black uppercase tracking-[1em] opacity-40">CALIBRATING_OPTICS...</span>
+               <div className="flex flex-col items-center gap-2">
+                  <span className="text-[11px] text-white font-black uppercase tracking-[1.5em] opacity-60 animate-pulse">RECONFIGURING_VIEWPORT</span>
+                  <div className="w-64 h-px bg-linear-to-r from-transparent via-cyan-500 to-transparent" />
+               </div>
             </div>
+            
+            {/* Vignette */}
+            <div className="absolute inset-0 shadow-[inset_0_0_150px_rgba(0,0,0,0.8)]" />
          </div>
        )}
     </div>

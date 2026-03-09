@@ -11,7 +11,7 @@
 ![Status Build](https://img.shields.io/badge/Build-Passing-success?style=for-the-badge)
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
 
-**English** | [Português](./README.pt.md)
+**English** | [Português](./README.pt.md) | [日本語](./README.ja.md)
 
 **SOS Location** is a decision support and operational coordination system for natural disaster scenarios (floods, landslides, humanitarian crises). The primary goal is to ensure **100% operational availability**, even under catastrophic network infrastructure failure.
 

@@ -90,7 +90,7 @@ export const setApiNotifier = (handler: (title: string, message: string) => void
 
 export const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '',
-  timeout: 10000,
+  timeout: 120000,
   withCredentials: true,
   xsrfCookieName: 'csrftoken',
   xsrfHeaderName: 'X-CSRFToken',

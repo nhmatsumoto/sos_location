@@ -40,7 +40,10 @@ namespace SOSLocation.API.Extensions
             services.AddScoped<IFoundPeopleRepository, FoundPeopleRepository>();
 
             // GIS Services
-            services.AddHttpClient<IGisService, GisService>();
+            services.AddHttpClient<IGisService, GisService>(client =>
+            {
+                client.Timeout = TimeSpan.FromSeconds(120);
+            });
 
             // Register AlertsBackgroundService as both IAlertsService and HostedService
             services.AddSingleton<AlertsBackgroundService>();

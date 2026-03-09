@@ -30,6 +30,9 @@ import { CameraBoundsTracker } from './logic/CameraBoundsTracker';
 import { FocalIntelligence } from './logic/FocalIntelligence';
 import { InstancedEventBeacons } from './markers/InstancedEventBeacons';
 import { WeatherParticles } from './effects/WeatherParticles';
+import { BuildingLayer } from './BuildingLayer';
+import { StreetLayer } from '../ui/StreetLayer';
+import { VegetationLayer } from '../ui/VegetationLayer';
 
 
 
@@ -47,7 +50,19 @@ interface Tactical3DMapProps {
 export const Tactical3DMap: React.FC<Tactical3DMapProps> = ({ 
   events, hoveredId, onHover, onClick, enableSimulationBox = false, activeSnapshots = [], barriers = [], initialCenter = [-20.91, -42.98]
 }) => {
-  const { environment, isSimulating, timeOfDay, box: simulationBox, cameraMode, activeLayers, heroPosition, cameraTarget } = useSimulationStore();
+  const { environment, isSimulating, timeOfDay, box: simulationBox, cameraMode, activeLayers, heroPosition, cameraTarget, setCameraTo } = useSimulationStore();
+  const lastHeroPos = React.useRef<[number, number] | null>(null);
+
+  useEffect(() => {
+    if (!lastHeroPos.current || 
+        lastHeroPos.current[0] !== heroPosition[0] || 
+        lastHeroPos.current[1] !== heroPosition[1]) {
+      
+      const p = projectTo3D(heroPosition[0], heroPosition[1]);
+      setCameraTo(p[0], 500, p[1]); // Teleport high above
+      lastHeroPos.current = heroPosition;
+    }
+  }, [heroPosition, setCameraTo]);
   
   // Intentionally commented unused hook
   // const heroWorldPos = useMemo(() => projectTo3D(heroPosition[0], heroPosition[1]), [heroPosition]);
@@ -119,14 +134,14 @@ export const Tactical3DMap: React.FC<Tactical3DMapProps> = ({
           
           <ambientLight intensity={0.4} />
           <directionalLight 
-            position={[centerX + 50, 100, centerZ + 50]} 
-            intensity={1.2} 
+            position={[centerX + 50, 150, centerZ + 50]} 
+            intensity={1.5} 
             castShadow 
             shadow-mapSize={[4096, 4096]}
-            shadow-camera-left={-250}
-            shadow-camera-right={250}
-            shadow-camera-top={250}
-            shadow-camera-bottom={-250}
+            shadow-camera-left={-400}
+            shadow-camera-right={400}
+            shadow-camera-top={400}
+            shadow-camera-bottom={-400}
           />
 
           {/* Only show global grid if no relief layer is active to avoid clutter */}
@@ -140,10 +155,11 @@ export const Tactical3DMap: React.FC<Tactical3DMapProps> = ({
             </group>
           )}
 
-          <EngineController />
-          
           <React.Suspense fallback={null}>
             <MapZoneLayer clippingPlanes={clippingPlanes} />
+            <BuildingLayer clippingPlanes={clippingPlanes} />
+            <StreetLayer />
+            <VegetationLayer />
           </React.Suspense>
 
           

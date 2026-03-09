@@ -1,28 +1,35 @@
-# MG Location: レジリエント戦術マップ & 3Dシチュエーションルーム v1.2
+# SOS Location: レジリエント戦術マップ & 3Dシチュエーションルーム v2.0
 
-![MG Location Banner](https://img.shields.io/badge/MG--Location-Resilience--v1.1-blueviolet?style=for-the-badge)
+> [!CAUTION]
+> **重要：倫理的警告 (CRITICAL ETHICAL WARNING)**
+>
+> このプラットフォームを軍事目的、紛争地帯、または戦闘シミュレーションに使用することは**完全に容認されません**。このプロジェクトは、自然災害や人道危機の際、**人命を救い**、その影響を軽減するためにのみ開発されました。このテクノロジーを破壊的な目的で使用することは、組織によって明示的に非難されており、本ソフトウェアの基本原則に違反します。
+>
+> The use of this platform for military purposes, warfare environments, or conflict simulations is **COMPLETELY UNACCEPTABLE**. This project was developed exclusively to **SAVE LIVES** and mitigate the impacts of natural disasters and humanitarian crises. Using this technology for destructive purposes is expressly condemned by the organization and violates the fundamental principles of this software.
+
+![SOS Location Banner](https://img.shields.io/badge/SOS--Location-Resilience--v2.0-blueviolet?style=for-the-badge)
 ![Status Build](https://img.shields.io/badge/Build-Passing-success?style=for-the-badge)
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
 
-[English](./README.md) | **日本語** | [Português](./README.pt.md)
+[English](./README.md) | [Português](./README.pt.md) | **日本語**
 
-**MG Location** は、自然災害（洪水、土砂崩れ、人道危機）シナリオにおける意思決定支援と運用調整のためのシステムです。主な目的は、ネットワークインフラが壊滅的な故障をきたした場合でも、**100%の運用可用性**を保証することです。
+**SOS Location** は、自然災害（洪水、土砂崩れ、人道危機）シナリオにおける意思決定支援と運用調整のためのシステムです。主な目的は、ネットワークインフラが壊滅的な故障をきたした場合でも、**100%の運用可用性**を保証することです。
 
 ---
 
 ## 🎯 ミッション
-複雑なデータを即時の戦術的行動に変換すること。MG Location は単なるダッシュボードではなく、インターネットが届かない場所でも機能するように設計されたフィールドツールです。
+複雑なデータを即時の戦術的行動に変換すること。SOS Location は単なるダッシュボードではなく、インターネットが届かない場所でも機能するように設計されたフィールドツールです。
 
 ---
 
-## 🏗️ レジリエンス・アーキテクチャ (v1.2)
+## 🏗️ レジリエンス・アーキテクチャ (v2.0)
 
-バージョン 1.2 では、**Resilience-First** 設計の強化と、新たな **戦術的視覚化レイヤー** が導入されました：
+バージョン 2.0 では、**Resilience-First** 設計が導入され、4つの基本柱に焦点が当てられています：
 
 ```mermaid
 graph TD
     subgraph "戦術的UI 2.0"
-        UI[PWA Frontend] --> T3D[3Dシチュエーションルーム]
+        UI[PWA フロントエンド] --> T3D[3D シチュエーションルーム]
         UI --> SPT[戦術的散布図]
         UI --> MCP[精密地点キャプチャ]
         T3D -.->|共有状態| SPT
@@ -33,13 +40,13 @@ graph TD
         DB --> OB[アウトボックスキュー]
     end
 
-    subgraph "戦術的プロキシ"
+    subgraph "戦術적プロキシ"
         EH[Edge Hub / RPi] 
         EH -->|ローカル同期| OB
     end
 
     subgraph "グローバルインフラ"
-        API[Django REST API]
+        API[.NET 10 Web API]
         MP[MessagePack + Zstd]
         EV[Event Store / DDD]
         API --> EV
@@ -50,24 +57,27 @@ graph TD
     EH -.->|バックホール| API
 ```
 
-1. **Local-first (Offline Outbox)**: PWA アプリは IndexedDB を使用してインターネットなしで動作します。アクションは同期待ちキューに入れられ、接続時に自動同期されます。
-2. **バイナリプロトコル (MessagePack + Zstd)**: 低帯域幅環境向けにデータトラフィックを最大 80% 削減。
-3. **イベントソーシング (DDD)**: 全てのシステム変更を不変のイベントとして扱い、自動的な競合解決を実現。
-4. **没入型3D視覚化**: リアルタイムで深い状況認識を可能にする新たな空間レンダリングレイヤー。
+1. **Local-first (Offline Outbox)**: PWA アプリは IndexedDB を使用してインターネットなしで動作します。アクションは同期待ちキューに入れられ、接続が回復すると自動的に同期されます。
+2. **バイナリプロトコル (MessagePack + Zstd)**: 重い JSON を Zstandard で圧縮された MessagePack に置き換え、データトラフィックを最大 80% 削減しました。これは無線や衛星回線にとって非常に重要です。
+3. **イベントソーシング (DDD)**: すべてのシステム変更を不変のイベントとして扱います。これにより、自動的な競合解決（CRDT-lite）と完全な監査証跡が可能になります。
+4. **Edge Hubs (分散型コマンド)**: 隔離されたエリアで戦術的プロキシとして機能するローカルサーバー（Raspberry Pi など）をサポートします。
 
 ---
 
 ## 🚀 仕組み
 
-### 1. 3Dシチュエーションルーム (v2.0)
+### 1. 3D シチュエーションルーム (v2.0)
 **Three.js** を使用した没入型戦術環境。イベントを脈動する 3D ビーコンとして視覚化し、災害の空間的クラスター化と深度把握を可能にします。
 
-### 2. 標準化されたAPIとヘルスモニタリング
+### 2. 標準化された API とヘルスモニタリング
 **ASPNET Core v10** との堅牢な統合。高可用性監視のための専用エンドポイントが含まれています：
-- `GET /api/health`: サービスのステータスとアップタイムの確認を提供します。
+- `GET /api/health`: サービスのステータスと稼働時間の確認を提供します。
 
 ### 3. 戦術分析 (Scatter Plot 2.0)
-...
+マップと統合された詳細な時間軸分析。さまざまなプロバイダー（GDACS、USGS、地元機関）にわたるパターンの特定や深刻度の傾向を把握できます。
+
+---
+
 ### クイックスタート (Docker)
 ```bash
 ./dev.sh up
@@ -104,4 +114,4 @@ graph TD
 
 ---
 
-**MG Location © 2026** - レジリエントなテクノロジーで命を救うために開発されました。
+**SOS Location © 2026** - レジリエントなテクノロジーで命を救うために開発されました。

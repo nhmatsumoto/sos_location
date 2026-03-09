@@ -1,23 +1,30 @@
-# MG Location: Mapa Tático Resiliente e Sala de Situação 3D v1.2
+# SOS Location: Mapa Tático Resiliente e Sala de Situação 3D v2.0
 
-![MG Location Banner](https://img.shields.io/badge/MG--Location-Resilience--v1.1-blueviolet?style=for-the-badge)
+> [!CAUTION]
+> **AVISO ÉTICO CRÍTICO / CRITICAL ETHICAL WARNING**
+>
+> O uso desta plataforma para fins militares, em ambientes de guerra ou para simulações de conflito é **COMPLETAMENTE INACEITÁVEL**. Este projeto foi desenvolvido exclusivamente para **SALVAR VIDAS** e mitigar os impactos de desastres naturais e crises humanitárias. Usar esta tecnologia para fins de destruição é expressamente condenado pela organização e viola os princípios fundamentais deste software.
+>
+> The use of this platform for military purposes, warfare environments, or conflict simulations is **COMPLETELY UNACCEPTABLE**. This project was developed exclusively to **SAVE LIVES** and mitigate the impacts of natural disasters and humanitarian crises. Using this technology for destructive purposes is expressly condemned by the organization and violates the fundamental principles of this software.
+
+![SOS Location Banner](https://img.shields.io/badge/SOS--Location-Resilience--v2.0-blueviolet?style=for-the-badge)
 ![Status Build](https://img.shields.io/badge/Build-Passing-success?style=for-the-badge)
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
 
 [English](./README.md) | [日本語](./README.ja.md) | **Português**
 
-**MG Location** é um sistema de suporte à decisão e coordenação operacional para cenários de desastres naturais (enchentes, deslizamentos, crises humanitárias). O objetivo principal é garantir **100% de disponibilidade operacional**, mesmo sob falha catastrófica de infraestrutura de rede.
+**SOS Location** é um sistema de suporte à decisão e coordenação operacional para cenários de desastres naturais (enchentes, deslizamentos, crises humanitárias). O objetivo principal é garantir **100% de disponibilidade operacional**, mesmo sob falha catastrófica de infraestrutura de rede.
 
 ---
 
 ## 🎯 Nossa Missão
-Transformar dados complexos em ações táticas imediatas. O MG Location não é apenas um dashboard, é uma ferramenta de campo projetada para funcionar onde a internet não chega.
+Transformar dados complexos em ações táticas imediatas. O SOS Location não é apenas um dashboard, é uma ferramenta de campo projetada para funcionar onde a internet não chega.
 
 ---
 
-## 🏗️ Arquitetura de Resiliência (v1.2)
+## 🏗️ Arquitetura de Resiliência (v2.0)
 
-A versão 1.2 consolidou o redesenho **Resilience-First** e a nova camada de **Visualização Tática**, focada em quatro pilares fundamentais:
+A versão 2.0 consolidou o redesenho **Resilience-First**, focado em quatro pilares fundamentais:
 
 ```mermaid
 graph TD
@@ -39,7 +46,7 @@ graph TD
     end
 
     subgraph "Infraestrutura Global"
-        API[Django REST API]
+        API[.NET 10 Web API]
         MP[MessagePack + Zstd]
         EV[Event Store / DDD]
         API --> EV
@@ -51,9 +58,9 @@ graph TD
 ```
 
 1. **Local-first (Offline Outbox)**: O app PWA funciona sem internet usando IndexedDB. Ações são enfileiradas e sincronizadas automaticamente quando houver conectividade.
-2. **Protocolo Binário (MessagePack + Zstd)**: Substituímos o JSON pesado por MessagePack comprimido com Zstandard, reduzindo o tráfego de dados em até 80%.
-3. **Event-Souring (DDD)**: Todas as alterações no sistema são tratadas como eventos imutáveis com reconciliação automática de conflitos.
-4. **Visualização 3D Imersiva**: Nova camada de renderização espacial para consciência situacional profunda em tempo real.
+2. **Protocolo Binário (MessagePack + Zstd)**: Substituímos o JSON pesado por MessagePack comprimido com Zstandard, reduzindo o tráfego de dados em até 80% — vital para rádio ou satélite.
+3. **Event-Souring (DDD)**: Todas as alterações no sistema são tratadas como eventos imutáveis. Isso permite reconciliação automática de conflitos (CRDT-lite) e uma trilha de auditoria completa.
+4. **Edge Hubs (Comando Descentralizado)**: Suporte para servidores locais (como Raspberry Pi) que servem como proxies táticos em áreas isoladas.
 
 ---
 
@@ -67,8 +74,11 @@ Integração robusta com **ASPNET Core v10**. Inclui endpoints especializados pa
 - `GET /api/health`: Fornece o status do serviço e verificação de uptime.
 
 ### 3. Análise Tática (Scatter Plot 2.0)
-...
-### Rápido (Docker)
+Análise temporal avançada integrada ao mapa. Permite identificar padrões e tendências de gravidade ao longo do tempo por meio de diferentes provedores (GDACS, USGS, local).
+
+---
+
+### Início Rápido (Docker)
 ```bash
 ./dev.sh up
 ```
@@ -77,7 +87,7 @@ Integração robusta com **ASPNET Core v10**. Inclui endpoints especializados pa
 - **Saúde**: `http://localhost:8001/api/health`
 
 ### Semente de Dados (Importante)
-Para ver o sistema populado com dados de simulação de enchentes em Ubá (MG):
+Para ver o sistema populado com dados de simulação de enchentes em Ubá (MG, Brasil):
 ```bash
 ./dev.sh seed
 ```
@@ -104,4 +114,4 @@ Para ver o sistema populado com dados de simulação de enchentes em Ubá (MG):
 
 ---
 
-**MG Location © 2026** - Desenvolvido para salvar vidas com tecnologia resiliente.
+**SOS Location © 2026** - Desenvolvido para salvar vidas com tecnologia resiliente.

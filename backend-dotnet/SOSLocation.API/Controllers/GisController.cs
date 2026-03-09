@@ -51,6 +51,22 @@ namespace SOSLocation.API.Controllers
         }
 
         [AllowAnonymous]
+        [HttpPost("soil/data")]
+        public async Task<IActionResult> GetSoilData([FromBody] GisAreaRequest req)
+        {
+            var data = await _gisService.FetchSoilDataAsync(req.MinLat, req.MinLon, req.MaxLat, req.MaxLon);
+            return Ok(new { status = "success", data = data });
+        }
+
+        [AllowAnonymous]
+        [HttpPost("vegetation/data")]
+        public async Task<IActionResult> GetVegetationData([FromBody] GisAreaRequest req)
+        {
+            var data = await _gisService.FetchVegetationDataAsync(req.MinLat, req.MinLon, req.MaxLat, req.MaxLon);
+            return Ok(new { status = "success", data = data });
+        }
+
+        [AllowAnonymous]
         [HttpGet("alerts/active")]
         public IActionResult GetActiveAlerts()
         {
@@ -62,6 +78,18 @@ namespace SOSLocation.API.Controllers
                 data = alerts
             });
         }
+    }
+
+    public class GisAreaRequest
+    {
+        [JsonPropertyName("min_lat")]
+        public double MinLat { get; set; }
+        [JsonPropertyName("min_lon")]
+        public double MinLon { get; set; }
+        [JsonPropertyName("max_lat")]
+        public double MaxLat { get; set; }
+        [JsonPropertyName("max_lon")]
+        public double MaxLon { get; set; }
     }
 
     public class DemRequest

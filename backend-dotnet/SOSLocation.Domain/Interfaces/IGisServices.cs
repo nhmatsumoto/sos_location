@@ -7,6 +7,8 @@ namespace SOSLocation.Domain.Interfaces
     {
         Task<List<List<float>>> FetchElevationGridAsync(double minLat, double minLon, double maxLat, double maxLon, int resolution = 128);
         Task<object> FetchUrbanFeaturesAsync(double minLat, double minLon, double maxLat, double maxLon);
+        Task<object> FetchSoilDataAsync(double minLat, double minLon, double maxLat, double maxLon);
+        Task<object> FetchVegetationDataAsync(double minLat, double minLon, double maxLat, double maxLon);
     }
 
     public interface IAlertsService

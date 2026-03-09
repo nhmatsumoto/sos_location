@@ -83,11 +83,11 @@ export const MapZoneLayer: React.FC<MapZoneLayerProps> = ({ clippingPlanes, over
 
       const shape = new THREE.Shape();
       const [startX, startZ] = project(z.points[0][0], z.points[0][1]);
-      shape.moveTo(startX, startZ);
+      shape.moveTo(startX, -startZ);
       
       for (let i = 1; i < z.points.length; i++) {
         const [px, pz] = project(z.points[i][0], z.points[i][1]);
-        shape.lineTo(px, pz);
+        shape.lineTo(px, -pz);
       }
 
       const geometry = new THREE.ShapeGeometry(shape);

@@ -106,5 +106,47 @@ export const gisApi = {
       console.error("Failed to fetch active alerts:", error);
       return [];
     }
+  },
+
+  getVegetationData: async (minLat: number, minLon: number, maxLat: number, maxLon: number) => {
+    const cacheKey = `veg_${minLat.toFixed(4)}_${minLon.toFixed(4)}_${maxLat.toFixed(4)}_${maxLon.toFixed(4)}`;
+    const cached = getFromCache(cacheKey);
+    if (cached) return cached;
+
+    try {
+      const response = await apiClient.post(`/api/v1/vegetation/data`, {
+        min_lat: minLat,
+        min_lon: minLon,
+        max_lat: maxLat,
+        max_lon: maxLon
+      });
+      const data = response.data.data;
+      setInCache(cacheKey, data);
+      return data;
+    } catch (error) {
+      console.error("Failed to fetch Vegetation Data:", error);
+      return null;
+    }
+  },
+
+  getSoilData: async (minLat: number, minLon: number, maxLat: number, maxLon: number) => {
+    const cacheKey = `soil_${minLat.toFixed(4)}_${minLon.toFixed(4)}_${maxLat.toFixed(4)}_${maxLon.toFixed(4)}`;
+    const cached = getFromCache(cacheKey);
+    if (cached) return cached;
+
+    try {
+      const response = await apiClient.post(`/api/v1/soil/data`, {
+        min_lat: minLat,
+        min_lon: minLon,
+        max_lat: maxLat,
+        max_lon: maxLon
+      });
+      const data = response.data.data;
+      setInCache(cacheKey, data);
+      return data;
+    } catch (error) {
+      console.error("Failed to fetch Soil Data:", error);
+      return null;
+    }
   }
 };
