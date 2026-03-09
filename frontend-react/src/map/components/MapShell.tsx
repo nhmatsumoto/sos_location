@@ -11,6 +11,16 @@ import { MapEvents } from './MapEvents';
 import { OverlayLayers } from './OverlayLayers';
 import { WeatherPopupCard } from './WeatherPopupCard';
 
+function MapUpdater({ center, zoom }: { center?: [number, number]; zoom?: number }) {
+  const map = useMap();
+  useEffect(() => {
+    if (center) {
+      map.setView(center, zoom || map.getZoom());
+    }
+  }, [center, zoom, map]);
+  return null;
+}
+
 function WeatherCanvasBridge({ active, value }: { active: boolean; value: number | null }) {
   const map = useMap();
   const [layer] = useState(() => new WeatherLayer());
@@ -58,12 +68,12 @@ function ThreeBridge({ active, bars }: { active: boolean; bars: Array<{ id: stri
   return null;
 }
 
-export function MapShell({ data }: { data: OperationsSnapshot | null }) {
+export function MapShell({ data, hideFloatingPanels = false, center, zoom }: { data: OperationsSnapshot | null; hideFloatingPanels?: boolean; center?: [number, number]; zoom?: number }) {
   const [weatherData, setWeatherData] = useState<OpenMeteoResponse | null>(null);
   const [selectedLatLng, setSelectedLatLng] = useState<[number, number] | null>(null);
   const { layersEnabled, timelineCursor, timeRange } = useMapStore((state) => state);
 
-  const current = weatherData
+  const current = weatherData?.hourly
     ? {
       timestamp: weatherData.hourly.time[timelineCursor],
       temperature: weatherData.hourly.temperature_2m?.[timelineCursor],
@@ -95,7 +105,8 @@ export function MapShell({ data }: { data: OperationsSnapshot | null }) {
 
   return (
     <div className="relative h-full overflow-hidden rounded-xl border border-slate-700">
-      <MapContainer center={[-21.1215, -42.9427]} zoom={13} style={{ height: '100%', width: '100%' }}>
+      <MapContainer center={center || [-21.1215, -42.9427]} zoom={zoom || 13} zoomControl={false} style={{ height: '100%', width: '100%' }}>
+        <MapUpdater center={center} zoom={zoom} />
         <BaseLayers />
         <MapEvents onMapClick={(lat, lng) => { void onMapClick(lat, lng); }} />
         <OverlayLayers data={data} />
@@ -107,7 +118,7 @@ export function MapShell({ data }: { data: OperationsSnapshot | null }) {
           </Popup>
         )}
       </MapContainer>
-      <FloatingPanels weatherData={weatherData} snapshot={data} />
+      {!hideFloatingPanels && <FloatingPanels weatherData={weatherData} snapshot={data} />}
     </div>
   );
 }

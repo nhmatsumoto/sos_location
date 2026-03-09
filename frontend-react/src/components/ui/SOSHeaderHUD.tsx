@@ -1,7 +1,7 @@
-import React from 'react';
-import { ShieldAlert, Box, Crosshair } from 'lucide-react';
-import { CountryDropdown } from './CountryDropdown';
+import { ShieldAlert, Box, Crosshair, MousePointer2, MapPin, Camera, Activity, Users, PackageOpen, CloudRain } from 'lucide-react';
 import { CitySearch } from './CitySearch';
+import { CountryDropdown } from './CountryDropdown';
+import { ToolButton } from './ToolButton';
 
 interface SOSHeaderHUDProps {
   country: string;
@@ -9,57 +9,131 @@ interface SOSHeaderHUDProps {
   show3D: boolean;
   setShow3D: (val: boolean) => void;
   onReset: () => void;
+  activeTool: string;
+  setTool: (tool: any) => void;
+  stats?: {
+    activeTeams: string | number;
+    criticalAlerts: string | number;
+    supplies: string | number;
+    missingPersons?: string | number;
+    climate?: {
+      temp: number;
+      humidity: number;
+      windSpeed: number;
+      description: string;
+    };
+  };
 }
 
-export const SOSHeaderHUD: React.FC<SOSHeaderHUDProps> = ({ country, setCountry, show3D, setShow3D, onReset }) => {
+export const SOSHeaderHUD: React.FC<SOSHeaderHUDProps> = ({ 
+  country, setCountry, show3D, setShow3D, onReset, activeTool, setTool, stats 
+}) => {
   return (
-    <div className="absolute top-6 left-6 right-6 z-50 flex justify-between items-start pointer-events-none">
-      <div className="flex flex-col gap-2">
-        <div className="flex gap-4 items-center bg-slate-950/40 border border-white/10 p-2 rounded-2xl backdrop-blur-md pointer-events-auto shadow-[0_8px_32px_rgba(0,0,0,0.5)] border-l-cyan-500/50 border-l-2">
-          <ShieldAlert className="h-5 w-5 text-cyan-400 animate-pulse ml-2" />
+    <div className="absolute top-0 left-0 right-0 z-50 border-b border-white/10 bg-slate-950/80 backdrop-blur-xl px-6 py-3 flex items-center justify-between pointer-events-auto">
+      {/* Brand & Search */}
+      <div className="flex items-center gap-6">
+        <div className="flex items-center gap-4">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 shadow-[0_0_20px_rgba(6,182,212,0.2)]">
+            <ShieldAlert size={22} className="animate-pulse" />
+          </div>
           <div className="flex flex-col">
-            <h1 className="text-[10px] font-black text-white uppercase tracking-[0.2em] leading-none mb-1">SOS COMMAND <span className="text-cyan-500/80">CENTER</span></h1>
+            <h1 className="text-sm font-black text-white uppercase tracking-[0.2em] leading-none mb-1">SOS <span className="text-cyan-500">MASTER</span> COMMAND</h1>
             <div className="flex items-center gap-2">
-              <span className="h-1 w-1 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]"></span>
-              <span className="text-[8px] text-slate-400 font-mono uppercase tracking-tighter">System: Active_v5.0</span>
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]"></span>
+              <span className="text-[9px] text-slate-400 font-mono uppercase tracking-tighter">Node: BRA-SEC-01 // v5.0</span>
             </div>
           </div>
-          <div className="h-6 w-px bg-white/5 mx-2" />
-          <CitySearch />
-          <div className="h-6 w-px bg-white/5 mx-2" />
-          <CountryDropdown value={country} onChange={setCountry} />
         </div>
         
-        {/* Animated Status Line */}
-        <div className="h-px w-48 bg-linear-to-r from-cyan-500/50 to-transparent ml-4 animate-in slide-in-from-left duration-1000" />
+        <div className="h-8 w-px bg-white/10 mx-2" />
+        <div className="flex items-center gap-4">
+          <CitySearch />
+          <CountryDropdown value={country} onChange={setCountry} />
+        </div>
       </div>
 
-      <div className="flex gap-3 pointer-events-auto">
-         <button 
-           onClick={() => setShow3D(!show3D)} 
-           className={`group relative flex items-center gap-3 px-5 py-2.5 rounded-2xl border transition-all duration-500 overflow-hidden ${
-             show3D 
-             ? 'bg-cyan-500/20 border-cyan-400/50 text-cyan-400 shadow-[0_0_30px_rgba(6,182,212,0.2)]' 
-             : 'bg-slate-950/40 border-white/10 text-slate-400 hover:border-white/20 hover:text-white backdrop-blur-md'
-           }`}
-         >
-           <Box size={18} className={`${show3D ? 'animate-bounce' : ''}`} /> 
-           <div className="flex flex-col items-start">
-             <span className="text-[10px] font-black uppercase tracking-widest leading-none">Tactical 3D</span>
-             <span className="text-[7px] font-mono opacity-50 uppercase tracking-tighter">{show3D ? 'Active' : 'Standby'}</span>
-           </div>
-           
-           {/* Glow Effect */}
-           {show3D && <div className="absolute inset-0 bg-cyan-400/10 animate-pulse pointer-events-none" />}
-         </button>
+      {/* Center Section: KPIs & Climate */}
+      <div className="hidden xl:flex items-center gap-6 px-4 py-1.5 rounded-full bg-white/5 border border-white/5">
+        <div className="flex items-center gap-3">
+          <Users size={14} className="text-cyan-400" />
+          <div className="flex flex-col">
+            <span className="text-[8px] font-mono text-slate-500 uppercase tracking-widest leading-none mb-0.5">Equipes</span>
+            <span className="text-[10px] font-bold text-white uppercase leading-none">{stats?.activeTeams || '0'}</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <Activity size={14} className="text-amber-400" />
+          <div className="flex flex-col">
+            <span className="text-[8px] font-mono text-slate-500 uppercase tracking-widest leading-none mb-0.5">Alertas</span>
+            <span className="text-[10px] font-bold text-white uppercase leading-none">{stats?.criticalAlerts || '0'}</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <PackageOpen size={14} className="text-emerald-400" />
+          <div className="flex flex-col">
+            <span className="text-[8px] font-mono text-slate-500 uppercase tracking-widest leading-none mb-0.5">Logística</span>
+            <span className="text-[10px] font-bold text-white uppercase leading-none">{stats?.supplies || '0'}</span>
+          </div>
+        </div>
+        
+        {/* Missing Persons */}
+        <div className="h-6 w-px bg-white/10 mx-1" />
+        <div className="flex items-center gap-3">
+          <MapPin size={14} className="text-orange-400" />
+          <div className="flex flex-col">
+            <span className="text-[8px] font-mono text-slate-500 uppercase tracking-widest leading-none mb-0.5">Desaparecidos</span>
+            <span className="text-[10px] font-bold text-white uppercase leading-none text-glow-orange">{stats?.missingPersons || '0'}</span>
+          </div>
+        </div>
 
-         <button 
-           onClick={onReset} 
-           className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-slate-950/40 text-slate-400 hover:text-white hover:border-white/20 hover:scale-105 active:scale-95 backdrop-blur-md transition-all shadow-lg"
-           title="Re-calibrate View"
-         >
-           <Crosshair size={20} />
-         </button>
+        {/* Climate */}
+        <div className="h-6 w-px bg-white/10 mx-1" />
+        <div className="flex items-center gap-3 border border-cyan-500/20 bg-cyan-500/5 px-3 py-1 rounded-lg">
+          <CloudRain size={14} className="text-cyan-400" />
+          <div className="flex flex-col min-w-[60px]">
+            <span className="text-[8px] font-mono text-cyan-500/60 uppercase tracking-widest leading-none mb-0.5">Clima Regional</span>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-black text-white leading-none">{stats?.climate?.temp ?? '--'}°C</span>
+              <span className="text-[7px] font-bold text-cyan-400/80 uppercase tracking-tighter truncate max-w-[50px]">{stats?.climate?.description || 'N/A'}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Right Section: Tools & Actions */}
+      <div className="flex items-center gap-4">
+        {/* Map Engine Tools */}
+        <div className="flex items-center gap-1 p-1 rounded-xl bg-white/5 border border-white/5">
+          <ToolButton active={activeTool === 'inspect'} onClick={() => setTool('inspect')} icon={<MousePointer2 size={16} />} label="Inspect" hideLabel className="scale-90" />
+          <ToolButton active={activeTool === 'point'} onClick={() => setTool('point')} icon={<MapPin size={16} />} label="Mark" hideLabel className="scale-90" />
+          <ToolButton active={activeTool === 'area'} onClick={() => setTool('area')} icon={<Box size={16} />} label="Area" hideLabel className="scale-90" />
+          <div className="h-4 w-px bg-white/10 mx-1" />
+          <ToolButton active={activeTool === 'snapshot'} onClick={() => setTool('snapshot')} icon={<Camera size={16} />} label="Snapshot" hideLabel className="scale-90" />
+        </div>
+
+        <div className="h-8 w-px bg-white/10 mx-1" />
+
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => setShow3D(!show3D)} 
+            className={`flex items-center gap-3 h-10 px-4 rounded-xl border transition-all duration-300 ${
+              show3D 
+              ? 'bg-cyan-500/20 border-cyan-400/50 text-cyan-400' 
+              : 'bg-white/5 border-white/10 text-slate-400 hover:border-white/20'
+            }`}
+          >
+            <Box size={16} className={show3D ? 'animate-bounce' : ''} /> 
+            <span className="text-[10px] font-black uppercase tracking-widest">3D Mode</span>
+          </button>
+
+          <button 
+            onClick={onReset} 
+            className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-400 hover:text-white hover:border-white/20 transition-all"
+            title="Recalibrate"
+          >
+            <Crosshair size={18} />
+          </button>
+        </div>
       </div>
     </div>
   );

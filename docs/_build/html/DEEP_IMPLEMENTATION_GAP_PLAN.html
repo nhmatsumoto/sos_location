@@ -1,383 +1,812 @@
-
-
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" data-content_root="./">
+
 <head>
-  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Análise Profunda Consolidada e Plano de Implementação por Funcionalidade &mdash; SOS Location 2.0 documentation</title>
-      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
-      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
-      <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
+  <title>Análise Profunda Consolidada e Plano de Implementação por Funcionalidade &mdash; SOS Location 2.0 documentation
+  </title>
+  <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+  <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+  <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
 
-  
-      <script src="_static/jquery.js?v=5d32c60e"></script>
-      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=60dbed4a"></script>
-      <script src="_static/doctools.js?v=fd6eb6e6"></script>
-      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
-      <script src="_static/clipboard.min.js?v=a7894cd8"></script>
-      <script src="_static/copybutton.js?v=f281be69"></script>
-    <script src="_static/js/theme.js"></script>
-    <link rel="index" title="Index" href="genindex.html" />
-    <link rel="search" title="Search" href="search.html" /> 
+
+  <script src="_static/jquery.js?v=5d32c60e"></script>
+  <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+  <script src="_static/documentation_options.js?v=60dbed4a"></script>
+  <script src="_static/doctools.js?v=fd6eb6e6"></script>
+  <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+  <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+  <script src="_static/copybutton.js?v=f281be69"></script>
+  <script src="_static/js/theme.js"></script>
+  <link rel="index" title="Index" href="genindex.html" />
+  <link rel="search" title="Search" href="search.html" />
 </head>
 
-<body class="wy-body-for-nav"> 
+<body class="wy-body-for-nav">
   <div class="wy-grid-for-nav">
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
-        <div class="wy-side-nav-search" >
+        <div class="wy-side-nav-search">
 
-          
-          
+
+
           <a href="index.html" class="icon icon-home">
             SOS Location
           </a>
-<div role="search">
-  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
-    <input type="hidden" name="check_keywords" value="yes" />
-    <input type="hidden" name="area" value="default" />
-  </form>
-</div>
-        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="introduction.html">Introduction</a></li>
-<li class="toctree-l1"><a class="reference internal" href="architecture.html">Architecture</a></li>
-<li class="toctree-l1"><a class="reference internal" href="api_reference.html">API Reference</a></li>
-<li class="toctree-l1"><a class="reference internal" href="integrations.html">Integrations</a></li>
-<li class="toctree-l1"><a class="reference internal" href="compliance.html">Compliance &amp; Standards</a></li>
-</ul>
+          <div role="search">
+            <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+              <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+              <input type="hidden" name="check_keywords" value="yes" />
+              <input type="hidden" name="area" value="default" />
+            </form>
+          </div>
+        </div>
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+          <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+          <ul>
+            <li class="toctree-l1"><a class="reference internal" href="introduction.html">Introduction</a></li>
+            <li class="toctree-l1"><a class="reference internal" href="architecture.html">Architecture</a></li>
+            <li class="toctree-l1"><a class="reference internal" href="api_reference.html">API Reference</a></li>
+            <li class="toctree-l1"><a class="reference internal" href="integrations.html">Integrations</a></li>
+            <li class="toctree-l1"><a class="reference internal" href="compliance.html">Compliance &amp; Standards</a>
+            </li>
+          </ul>
 
         </div>
       </div>
     </nav>
 
-    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
-          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
-          <a href="index.html">SOS Location</a>
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" aria-label="Mobile navigation menu">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="index.html">SOS Location</a>
       </nav>
 
       <div class="wy-nav-content">
         <div class="rst-content">
           <div role="navigation" aria-label="Page navigation">
-  <ul class="wy-breadcrumbs">
-      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
-      <li class="breadcrumb-item active">Análise Profunda Consolidada e Plano de Implementação por Funcionalidade</li>
-      <li class="wy-breadcrumbs-aside">
-            <a href="_sources/DEEP_IMPLEMENTATION_GAP_PLAN.md.txt" rel="nofollow"> View page source</a>
-      </li>
-  </ul>
-  <hr/>
-</div>
+            <ul class="wy-breadcrumbs">
+              <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+              <li class="breadcrumb-item active">Análise Profunda Consolidada e Plano de Implementação por
+                Funcionalidade</li>
+              <li class="wy-breadcrumbs-aside">
+                <a href="_sources/DEEP_IMPLEMENTATION_GAP_PLAN.md.txt" rel="nofollow"> View page source</a>
+              </li>
+            </ul>
+            <hr />
+          </div>
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
-           <div itemprop="articleBody">
-             
-  <section class="tex2jax_ignore mathjax_ignore" id="analise-profunda-consolidada-e-plano-de-implementacao-por-funcionalidade">
-<h1>Análise Profunda Consolidada e Plano de Implementação por Funcionalidade<a class="headerlink" href="#analise-profunda-consolidada-e-plano-de-implementacao-por-funcionalidade" title="Link to this heading"></a></h1>
-<section id="objetivo">
-<h2>1) Objetivo<a class="headerlink" href="#objetivo" title="Link to this heading"></a></h2>
-<p>Consolidar, em um único artefato, o que já existe, o que ainda falta implementar e um plano de execução por especialistas para maximizar eficiência e previsibilidade.</p>
-</section>
-<section id="escopo-analisado-todos-os-projetos">
-<h2>2) Escopo analisado (todos os projetos)<a class="headerlink" href="#escopo-analisado-todos-os-projetos" title="Link to this heading"></a></h2>
-<ul class="simple">
-<li><p>Backend principal Django: <code class="docutils literal notranslate"><span class="pre">apps/api</span></code>, <code class="docutils literal notranslate"><span class="pre">apps/map</span></code>, <code class="docutils literal notranslate"><span class="pre">apps/rescue_ops</span></code>, <code class="docutils literal notranslate"><span class="pre">core</span></code>.</p></li>
-<li><p>Frontend web React/TypeScript: <code class="docutils literal notranslate"><span class="pre">frontend-react</span></code>.</p></li>
-<li><p>App mobile de captura: <code class="docutils literal notranslate"><span class="pre">flutter_capture_app</span></code>.</p></li>
-<li><p>Agente de risco (ML/service): <code class="docutils literal notranslate"><span class="pre">risk_agent</span></code>.</p></li>
-<li><p>Serviço legado geolocations: <code class="docutils literal notranslate"><span class="pre">geolocations_service</span></code>.</p></li>
-<li><p>Infra e operação: <code class="docutils literal notranslate"><span class="pre">docker-compose.yml</span></code>, scripts e documentação técnica.</p></li>
-</ul>
-</section>
-<section id="diagnostico-executivo-por-projeto">
-<h2>3) Diagnóstico executivo por projeto<a class="headerlink" href="#diagnostico-executivo-por-projeto" title="Link to this heading"></a></h2>
-<section id="backend-django-api-principal">
-<h3>3.1 Backend Django (API principal)<a class="headerlink" href="#backend-django-api-principal" title="Link to this heading"></a></h3>
-<p><strong>Cobertura atual observada</strong></p>
-<ul class="simple">
-<li><p>Endpoints para incidentes, suporte, resgate, autenticação, integrações, risco, mapa e snapshot operacional.</p></li>
-<li><p>Suíte de testes backend funcional (46 testes em <code class="docutils literal notranslate"><span class="pre">apps.api.tests</span></code>) executando com sucesso localmente.</p></li>
-</ul>
-<p><strong>Gaps críticos (P0/P1)</strong></p>
-<ol class="arabic simple">
-<li><p>Seed e fallback em runtime ainda presentes (<code class="docutils literal notranslate"><span class="pre">_seed_initial_collapse_report</span></code>, <code class="docutils literal notranslate"><span class="pre">ATTENTION_ALERTS</span></code>, fallbacks em contexto de terreno).</p></li>
-<li><p>Endpoints de autenticação majoritariamente <code class="docutils literal notranslate"><span class="pre">&#64;csrf_exempt</span></code> com reforço de hardening ainda pendente.</p></li>
-<li><p>Falta explicitar política única de erro/observabilidade por domínio de endpoint.</p></li>
-<li><p>Falta e2e real ponta a ponta (já indicado no checklist).</p></li>
-</ol>
-</section>
-<section id="frontend-react-typescript">
-<h3>3.2 Frontend React/TypeScript<a class="headerlink" href="#frontend-react-typescript" title="Link to this heading"></a></h3>
-<p><strong>Cobertura atual observada</strong></p>
-<ul class="simple">
-<li><p>Páginas operacionais amplas (Command Center, Data Hub, Incidents, Missing Persons, Simulations etc.).</p></li>
-<li><p>Serviços por domínio (<code class="docutils literal notranslate"><span class="pre">authApi</span></code>, <code class="docutils literal notranslate"><span class="pre">incidentsApi</span></code>, <code class="docutils literal notranslate"><span class="pre">integrationsApi</span></code>, <code class="docutils literal notranslate"><span class="pre">operationsApi</span></code>, etc.).</p></li>
-</ul>
-<p><strong>Gaps críticos (P0/P1)</strong></p>
-<ol class="arabic simple">
-<li><p>Snapshot fallback local em <code class="docutils literal notranslate"><span class="pre">operationsApi</span></code> pode mascarar falha de backend.</p></li>
-<li><p>Ausência de suíte e2e formal para fluxos críticos de operação.</p></li>
-<li><p>Estratégia de feature flags e states de indisponibilidade parcial ainda não padronizada.</p></li>
-</ol>
-</section>
-<section id="flutter-capture-app">
-<h3>3.3 Flutter Capture App<a class="headerlink" href="#flutter-capture-app" title="Link to this heading"></a></h3>
-<p><strong>Cobertura atual observada</strong></p>
-<ul class="simple">
-<li><p>Fluxos de envio de relatório, alerta, push register e upload para splat.</p></li>
-</ul>
-<p><strong>Gaps críticos (P0/P1)</strong></p>
-<ol class="arabic simple">
-<li><p>Uso de <code class="docutils literal notranslate"><span class="pre">mock-fcm-token</span></code> no fluxo de registro push.</p></li>
-<li><p>Falta camada robusta de autenticação/tokens para uso em produção.</p></li>
-<li><p>Falta instrumentação de erros, retries e telemetry mobile.</p></li>
-</ol>
-</section>
-<section id="risk-agent-fastapi">
-<h3>3.4 Risk Agent (FastAPI)<a class="headerlink" href="#risk-agent-fastapi" title="Link to this heading"></a></h3>
-<p><strong>Cobertura atual observada</strong></p>
-<ul class="simple">
-<li><p>Endpoint <code class="docutils literal notranslate"><span class="pre">/risk-assessment</span></code> com validação de token interno.</p></li>
-<li><p>Pipeline de feature engineering + inferência local.</p></li>
-</ul>
-<p><strong>Gaps críticos (P0/P1)</strong></p>
-<ol class="arabic simple">
-<li><p>Modelo treinado on-request (custo/latência), sem estratégia explícita de versionamento de modelo.</p></li>
-<li><p>Falta suíte de testes dedicada e contrato OpenAPI validado em CI.</p></li>
-<li><p>Fontes externas com fallback silencioso (<code class="docutils literal notranslate"><span class="pre">return</span> <span class="pre">{}</span></code>), sem classificação de erro observável.</p></li>
-</ol>
-</section>
-<section id="geolocations-service-legado">
-<h3>3.5 Geolocations Service (legado)<a class="headerlink" href="#geolocations-service-legado" title="Link to this heading"></a></h3>
-<p><strong>Cobertura atual observada</strong></p>
-<ul class="simple">
-<li><p>Serviço Django legado com routers de geolocations/visited/found_people.</p></li>
-</ul>
-<p><strong>Gaps críticos (P1/P2)</strong></p>
-<ol class="arabic simple">
-<li><p>Stack e settings desatualizados (SQLite, configuração antiga) frente ao backend principal.</p></li>
-<li><p>Sobreposição funcional com API principal sem estratégia de convergência.</p></li>
-<li><p>Falta plano de descontinuação, migração ou integração oficial.</p></li>
-</ol>
-</section>
-<section id="infra-seguranca-e-governanca">
-<h3>3.6 Infra, segurança e governança<a class="headerlink" href="#infra-seguranca-e-governanca" title="Link to this heading"></a></h3>
-<p><strong>Cobertura atual observada</strong></p>
-<ul class="simple">
-<li><p>Compose com backend/frontend/postgres/risk-agent.</p></li>
-<li><p>Catálogo de agentes e skills ampliado.</p></li>
-</ul>
-<p><strong>Gaps críticos (P0/P1)</strong></p>
-<ol class="arabic simple">
-<li><p>Falta pipeline único de qualidade com gates cross-stack (backend + frontend + mobile + risk-agent).</p></li>
-<li><p>Falta baseline formal para certificados/TLS por ambiente.</p></li>
-<li><p>Falta SLO/SLI operacional com alertas para APIs críticas.</p></li>
-</ol>
-</section>
-</section>
-<hr class="docutils" />
-<section id="matriz-de-funcionalidades-e-plano-por-especialistas">
-<h2>4) Matriz de funcionalidades e plano por especialistas<a class="headerlink" href="#matriz-de-funcionalidades-e-plano-por-especialistas" title="Link to this heading"></a></h2>
-<table class="docutils align-default">
-<thead>
-<tr class="row-odd"><th class="head"><p>Funcionalidade</p></th>
-<th class="head"><p>Status atual</p></th>
-<th class="head"><p>Lacuna principal</p></th>
-<th class="head"><p>Agentes líderes</p></th>
-<th class="head"><p>Skills aplicadas</p></th>
-<th class="head"><p>Plano de implementação</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p>Gestão de incidentes (<code class="docutils literal notranslate"><span class="pre">/api/incidents*</span></code>)</p></td>
-<td><p>Parcialmente madura</p></td>
-<td><p>Falta observabilidade de negócio e e2e</p></td>
-<td><p>Python/Django Backend, Quality Testing</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">python-django-api-rest</span></code>, <code class="docutils literal notranslate"><span class="pre">automated-testing-pyramid</span></code></p></td>
-<td><p>Fase 1: mapear contratos críticos; Fase 2: ampliar testes de integração; Fase 3: e2e por jornada operacional</p></td>
-</tr>
-<tr class="row-odd"><td><p>Operações de resgate e busca</p></td>
-<td><p>Funcional</p></td>
-<td><p>Falta otimização de priorização e métricas de eficiência</p></td>
-<td><p>Rescue &amp; Emergency, Statistics, Software Engineering Execution</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">rescue-emergency-operations</span></code>, <code class="docutils literal notranslate"><span class="pre">statistics-decision-intelligence</span></code>, <code class="docutils literal notranslate"><span class="pre">software-engineering-execution</span></code></p></td>
-<td><p>Definir KPIs (tempo de resposta, cobertura por área), painel de decisão e backlog de melhorias</p></td>
-</tr>
-<tr class="row-even"><td><p>Data Hub (weather/alerts/transparency/satellite)</p></td>
-<td><p>Funcional</p></td>
-<td><p>Dependência de fallback e políticas de indisponibilidade</p></td>
-<td><p>API Integration, Network &amp; HTTP, Quality Testing</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">integration-api-resilience</span></code>, <code class="docutils literal notranslate"><span class="pre">http-certificates-tls</span></code>, <code class="docutils literal notranslate"><span class="pre">automated-testing-pyramid</span></code></p></td>
-<td><p>Introduzir política de degrade controlado, circuit-breaker com telemetry e teste de caos leve</p></td>
-</tr>
-<tr class="row-odd"><td><p>Simulação de risco/deslizamento</p></td>
-<td><p>Funcional com fallback</p></td>
-<td><p>Modelo e fonte de dados sem governança de versão</p></td>
-<td><p>Risk (Python), Physics, Geology, Mathematics</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">physics-simulation-basics</span></code>, <code class="docutils literal notranslate"><span class="pre">geology-risk-terrain</span></code>, <code class="docutils literal notranslate"><span class="pre">mathematics-modeling</span></code></p></td>
-<td><p>Definir versionamento de modelo, separar treino/inferência, validar métricas técnicas por release</p></td>
-</tr>
-<tr class="row-even"><td><p>Cadastro de desaparecidos e anotações de mapa</p></td>
-<td><p>Funcional</p></td>
-<td><p>Falta hardening de validações e trilha analítica</p></td>
-<td><p>Django Backend, Web Frontend, LGPD</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">python-django-api-rest</span></code>, <code class="docutils literal notranslate"><span class="pre">web-react-typescript-zustand</span></code>, <code class="docutils literal notranslate"><span class="pre">security-auth-keycloak-lgpd</span></code></p></td>
-<td><p>Revisar validações, adicionar auditoria e política de retenção de dados pessoais</p></td>
-</tr>
-<tr class="row-odd"><td><p>Autenticação e autorização</p></td>
-<td><p>Parcial</p></td>
-<td><p>Endpoints com <code class="docutils literal notranslate"><span class="pre">csrf_exempt</span></code> e evolução IAM pendente</p></td>
-<td><p>Security/Auth/Keycloak, Engineering Best Practices</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">security-auth-keycloak-lgpd</span></code>, <code class="docutils literal notranslate"><span class="pre">oauth2-keycloak-integration</span></code>, <code class="docutils literal notranslate"><span class="pre">solid-ddd-best-practices</span></code></p></td>
-<td><p>Evoluir para política de autenticação unificada (token/session), hardening e testes de segurança</p></td>
-</tr>
-<tr class="row-even"><td><p>Frontend Command Center</p></td>
-<td><p>Funcional</p></td>
-<td><p>Fallback local oculta indisponibilidade</p></td>
-<td><p>Web Frontend, API Integration</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">web-react-typescript-zustand</span></code>, <code class="docutils literal notranslate"><span class="pre">integration-api-resilience</span></code></p></td>
-<td><p>Adotar estados explícitos: online/degradado/offline com alertas visuais e ação operacional</p></td>
-</tr>
-<tr class="row-odd"><td><p>Mobile captura (Flutter)</p></td>
-<td><p>MVP funcional</p></td>
-<td><p>Push token mockado e sem fluxo auth robusto</p></td>
-<td><p>Rescue Operations, Security/Auth, Software Engineering Execution</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">rescue-emergency-operations</span></code>, <code class="docutils literal notranslate"><span class="pre">security-auth-keycloak-lgpd</span></code>, <code class="docutils literal notranslate"><span class="pre">software-engineering-execution</span></code></p></td>
-<td><p>Integrar provider push real, autenticação de dispositivo e política de retry/offline queue</p></td>
-</tr>
-<tr class="row-even"><td><p>Serviço legado geolocations</p></td>
-<td><p>Legado ativo</p></td>
-<td><p>Duplicidade com backend principal</p></td>
-<td><p>Software Engineering Execution, Git Governance</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">software-engineering-execution</span></code>, <code class="docutils literal notranslate"><span class="pre">git-workflow-governance</span></code></p></td>
-<td><p>Decidir: migrar, encapsular ou descontinuar; publicar ADR com cronograma</p></td>
-</tr>
-<tr class="row-odd"><td><p>Supply e logística de apoio</p></td>
-<td><p>Parcial</p></td>
-<td><p>Falta motor de planejamento e monitoramento de estoque</p></td>
-<td><p>Supply Chain, Product Owner</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">supply-chain-operations</span></code>, <code class="docutils literal notranslate"><span class="pre">product-owner-delivery</span></code></p></td>
-<td><p>Mapear fluxo ponta a ponta e implementar backlog de reposição + nível de serviço</p></td>
-</tr>
-<tr class="row-even"><td><p>Governança de mudanças</p></td>
-<td><p>Parcial</p></td>
-<td><p>Falta standard único de release/hotfix e readiness</p></td>
-<td><p>Git Governance, PO, Eng. Software</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">git-workflow-governance</span></code>, <code class="docutils literal notranslate"><span class="pre">product-owner-delivery</span></code>, <code class="docutils literal notranslate"><span class="pre">software-engineering-execution</span></code></p></td>
-<td><p>Definir Definition of Ready/Done, PR template obrigatório e checklist de release</p></td>
-</tr>
-</tbody>
-</table>
-</section>
-<hr class="docutils" />
-<section id="plano-macro-de-implementacao-90-dias">
-<h2>5) Plano macro de implementação (90 dias)<a class="headerlink" href="#plano-macro-de-implementacao-90-dias" title="Link to this heading"></a></h2>
-</section>
-<section id="sprint-0-semana-1">
-<h2>Sprint 0 (semana 1)<a class="headerlink" href="#sprint-0-semana-1" title="Link to this heading"></a></h2>
-<ul class="simple">
-<li><p>Criar backlog único priorizado por risco operacional (P0/P1/P2).</p></li>
-<li><p>Definir owners por agente e handoff oficial.</p></li>
-<li><p>Publicar baseline de validação (testes, segurança, observabilidade).</p></li>
-</ul>
-</section>
-<section id="sprint-1-2-semanas-2-5-estabilizacao-p0">
-<h2>Sprint 1-2 (semanas 2-5) — Estabilização P0<a class="headerlink" href="#sprint-1-2-semanas-2-5-estabilizacao-p0" title="Link to this heading"></a></h2>
-<ul class="simple">
-<li><p>Remover seeds/fallbacks perigosos em runtime do backend.</p></li>
-<li><p>Hardening de autenticação/autorização e política CSRF.</p></li>
-<li><p>Remover mock token no Flutter e preparar integração push real.</p></li>
-<li><p>Tornar fallback do frontend explícito para operação (sem mascarar erro).</p></li>
-</ul>
-</section>
-<section id="sprint-3-4-semanas-6-9-eficiencia-operacional-p1">
-<h2>Sprint 3-4 (semanas 6-9) — Eficiência operacional P1<a class="headerlink" href="#sprint-3-4-semanas-6-9-eficiencia-operacional-p1" title="Link to this heading"></a></h2>
-<ul class="simple">
-<li><p>Formalizar governança do risk-agent (versão de modelo + métricas).</p></li>
-<li><p>Implementar testes e2e prioritários (incidente -&gt; resgate -&gt; suporte).</p></li>
-<li><p>Consolidar SLO/SLI para APIs críticas e painéis de saúde.</p></li>
-</ul>
-</section>
-<section id="sprint-5-6-semanas-10-13-escala-e-convergencia-p2">
-<h2>Sprint 5-6 (semanas 10-13) — Escala e convergência P2<a class="headerlink" href="#sprint-5-6-semanas-10-13-escala-e-convergencia-p2" title="Link to this heading"></a></h2>
-<ul class="simple">
-<li><p>Resolver destino do <code class="docutils literal notranslate"><span class="pre">geolocations_service</span></code> (migração/descontinuação).</p></li>
-<li><p>Evoluir planejamento de supply chain e alocação de recursos.</p></li>
-<li><p>Consolidar catálogo de decisões arquiteturais (ADRs) por domínio.</p></li>
-</ul>
-</section>
-<hr class="docutils" />
-<section id="protocolo-de-execucao-com-todos-os-agentes">
-<h2>6) Protocolo de execução com todos os agentes<a class="headerlink" href="#protocolo-de-execucao-com-todos-os-agentes" title="Link to this heading"></a></h2>
-<ol class="arabic simple">
-<li><p>Orquestrador gera Requirement Card por funcionalidade.</p></li>
-<li><p>Roteamento obrigatório via matriz <code class="docutils literal notranslate"><span class="pre">agent-skill-routing-matrix.md</span></code>.</p></li>
-<li><p>Cada agente devolve:</p>
-<ul class="simple">
-<li><p>escopo técnico,</p></li>
-<li><p>plano incremental,</p></li>
-<li><p>riscos,</p></li>
-<li><p>critérios de validação.</p></li>
-</ul>
-</li>
-<li><p>Orquestrador consolida cronograma e dependências bloqueantes.</p></li>
-<li><p>Fechamento com evidências (testes, métricas, rollback, aprendizado).</p></li>
-</ol>
-</section>
-<hr class="docutils" />
-<section id="checklist-de-validacao-continua">
-<h2>7) Checklist de validação contínua<a class="headerlink" href="#checklist-de-validacao-continua" title="Link to this heading"></a></h2>
-<ul class="simple">
-<li><p>Backend: <code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">manage.py</span> <span class="pre">check</span></code> + suíte de testes API.</p></li>
-<li><p>Frontend: lint + testes unitários + e2e de jornadas críticas.</p></li>
-<li><p>Mobile: smoke tests de captura/envio/push + telemetria de erro.</p></li>
-<li><p>Risk agent: testes de contrato, latência e qualidade de predição mínima.</p></li>
-<li><p>Infra: healthchecks, logs estruturados e alerta por indisponibilidade.</p></li>
-</ul>
-</section>
-<section id="definicao-de-pronto-dod-consolidada">
-<h2>8) Definição de pronto (DoD) consolidada<a class="headerlink" href="#definicao-de-pronto-dod-consolidada" title="Link to this heading"></a></h2>
-<p>Uma funcionalidade só é considerada concluída quando:</p>
-<ol class="arabic simple">
-<li><p>Possui critérios de aceite executáveis.</p></li>
-<li><p>Possui testes automatizados (unidade e/ou integração) no nível adequado.</p></li>
-<li><p>Possui observabilidade mínima (logs de erro e métricas de sucesso/falha).</p></li>
-<li><p>Possui plano de rollback para mudanças críticas.</p></li>
-<li><p>Possui registro de aprendizado no <code class="docutils literal notranslate"><span class="pre">docs/agents/learning-log.md</span></code>.</p></li>
-</ol>
-</section>
-</section>
+            <div itemprop="articleBody">
+
+              <section class="tex2jax_ignore mathjax_ignore"
+                id="analise-profunda-consolidada-e-plano-de-implementacao-por-funcionalidade">
+                <h1>Análise Profunda Consolidada e Plano de Implementação por Funcionalidade<a class="headerlink"
+                    href="#analise-profunda-consolidada-e-plano-de-implementacao-por-funcionalidade"
+                    title="Link to this heading"></a></h1>
+                <section id="objetivo">
+                  <h2>1) Objetivo<a class="headerlink" href="#objetivo" title="Link to this heading"></a></h2>
+                  <p>Consolidar, em um único artefato, o que já existe, o que ainda falta implementar e um plano de
+                    execução por especialistas para maximizar eficiência e previsibilidade.</p>
+                </section>
+                <section id="escopo-analisado-todos-os-projetos">
+                  <h2>2) Escopo analisado (todos os projetos)<a class="headerlink"
+                      href="#escopo-analisado-todos-os-projetos" title="Link to this heading"></a></h2>
+                  <ul class="simple">
+                    <li>
+                      <p>Backend principal Django: <code
+                          class="docutils literal notranslate"><span class="pre">apps/api</span></code>, <code
+                          class="docutils literal notranslate"><span class="pre">apps/map</span></code>, <code
+                          class="docutils literal notranslate"><span class="pre">apps/rescue_ops</span></code>, <code
+                          class="docutils literal notranslate"><span class="pre">core</span></code>.</p>
+                    </li>
+                    <li>
+                      <p>Frontend web React/TypeScript: <code
+                          class="docutils literal notranslate"><span class="pre">frontend-react</span></code>.</p>
+                    </li>
+                    <li>
+                      <p>App mobile de captura: <code
+                          class="docutils literal notranslate"><span class="pre">flutter_capture_app</span></code>.</p>
+                    </li>
+                    <li>
+                      <p>Agente de risco (ML/service): <code
+                          class="docutils literal notranslate"><span class="pre">risk_agent</span></code>.</p>
+                    </li>
+                    <li>
+                      <p>Serviço legado geolocations: <code
+                          class="docutils literal notranslate"><span class="pre">geolocations_service</span></code>.</p>
+                    </li>
+                    <li>
+                      <p>Infra e operação: <code
+                          class="docutils literal notranslate"><span class="pre">docker-compose.yml</span></code>,
+                        scripts e documentação técnica.</p>
+                    </li>
+                  </ul>
+                </section>
+                <section id="diagnostico-executivo-por-projeto">
+                  <h2>3) Diagnóstico executivo por projeto<a class="headerlink"
+                      href="#diagnostico-executivo-por-projeto" title="Link to this heading"></a></h2>
+                  <section id="backend-django-api-principal">
+                    <h3>3.1 Backend Django (API principal)<a class="headerlink" href="#backend-django-api-principal"
+                        title="Link to this heading"></a></h3>
+                    <p><strong>Cobertura atual observada</strong></p>
+                    <ul class="simple">
+                      <li>
+                        <p>Endpoints para incidentes, suporte, resgate, autenticação, integrações, risco, mapa e
+                          snapshot operacional.</p>
+                      </li>
+                      <li>
+                        <p>Suíte de testes backend funcional (46 testes em <code
+                            class="docutils literal notranslate"><span class="pre">apps.api.tests</span></code>)
+                          executando com sucesso localmente.</p>
+                      </li>
+                    </ul>
+                    <p><strong>Gaps críticos (P0/P1)</strong></p>
+                    <ol class="arabic simple">
+                      <li>
+                        <p>Seed e fallback em runtime ainda presentes (<code
+                            class="docutils literal notranslate"><span class="pre">_seed_initial_collapse_report</span></code>,
+                          <code class="docutils literal notranslate"><span class="pre">ATTENTION_ALERTS</span></code>,
+                          fallbacks em contexto de terreno).
+                        </p>
+                      </li>
+                      <li>
+                        <p>Endpoints de autenticação majoritariamente <code
+                            class="docutils literal notranslate"><span class="pre">&#64;csrf_exempt</span></code> com
+                          reforço de hardening ainda pendente.</p>
+                      </li>
+                      <li>
+                        <p>Falta explicitar política única de erro/observabilidade por domínio de endpoint.</p>
+                      </li>
+                      <li>
+                        <p>Falta e2e real ponta a ponta (já indicado no checklist).</p>
+                      </li>
+                    </ol>
+                  </section>
+                  <section id="frontend-react-typescript">
+                    <h3>3.2 Frontend React/TypeScript<a class="headerlink" href="#frontend-react-typescript"
+                        title="Link to this heading"></a></h3>
+                    <p><strong>Cobertura atual observada</strong></p>
+                    <ul class="simple">
+                      <li>
+                        <p>Páginas operacionais amplas (Command Center, Data Hub, Incidents, Missing Persons,
+                          Simulations etc.).</p>
+                      </li>
+                      <li>
+                        <p>Serviços por domínio (<code
+                            class="docutils literal notranslate"><span class="pre">authApi</span></code>, <code
+                            class="docutils literal notranslate"><span class="pre">incidentsApi</span></code>, <code
+                            class="docutils literal notranslate"><span class="pre">integrationsApi</span></code>, <code
+                            class="docutils literal notranslate"><span class="pre">operationsApi</span></code>, etc.).
+                        </p>
+                      </li>
+                    </ul>
+                    <p><strong>Gaps críticos (P0/P1)</strong></p>
+                    <ol class="arabic simple">
+                      <li>
+                        <p>Snapshot fallback local em <code
+                            class="docutils literal notranslate"><span class="pre">operationsApi</span></code> pode
+                          mascarar falha de backend.</p>
+                      </li>
+                      <li>
+                        <p>Ausência de suíte e2e formal para fluxos críticos de operação.</p>
+                      </li>
+                      <li>
+                        <p>Estratégia de feature flags e states de indisponibilidade parcial ainda não padronizada.</p>
+                      </li>
+                    </ol>
+                  </section>
+                  <section id="flutter-capture-app">
+                    <h3>3.3 Flutter Capture App<a class="headerlink" href="#flutter-capture-app"
+                        title="Link to this heading"></a></h3>
+                    <p><strong>Cobertura atual observada</strong></p>
+                    <ul class="simple">
+                      <li>
+                        <p>Fluxos de envio de relatório, alerta, push register e upload para splat.</p>
+                      </li>
+                    </ul>
+                    <p><strong>Gaps críticos (P0/P1)</strong></p>
+                    <ol class="arabic simple">
+                      <li>
+                        <p>Uso de <code
+                            class="docutils literal notranslate"><span class="pre">mock-fcm-token</span></code> no fluxo
+                          de registro push.</p>
+                      </li>
+                      <li>
+                        <p>Falta camada robusta de autenticação/tokens para uso em produção.</p>
+                      </li>
+                      <li>
+                        <p>Falta instrumentação de erros, retries e telemetry mobile.</p>
+                      </li>
+                    </ol>
+                  </section>
+                  <section id="risk-agent-fastapi">
+                    <h3>3.4 Risk Agent (FastAPI)<a class="headerlink" href="#risk-agent-fastapi"
+                        title="Link to this heading"></a></h3>
+                    <p><strong>Cobertura atual observada</strong></p>
+                    <ul class="simple">
+                      <li>
+                        <p>Endpoint <code
+                            class="docutils literal notranslate"><span class="pre">/risk-assessment</span></code> com
+                          validação de token interno.</p>
+                      </li>
+                      <li>
+                        <p>Pipeline de feature engineering + inferência local.</p>
+                      </li>
+                    </ul>
+                    <p><strong>Gaps críticos (P0/P1)</strong></p>
+                    <ol class="arabic simple">
+                      <li>
+                        <p>Modelo treinado on-request (custo/latência), sem estratégia explícita de versionamento de
+                          modelo.</p>
+                      </li>
+                      <li>
+                        <p>Falta suíte de testes dedicada e contrato OpenAPI validado em CI.</p>
+                      </li>
+                      <li>
+                        <p>Fontes externas com fallback silencioso (<code
+                            class="docutils literal notranslate"><span class="pre">return</span> <span class="pre">{}</span></code>),
+                          sem classificação de erro observável.</p>
+                      </li>
+                    </ol>
+                  </section>
+                  <section id="geolocations-service-legado">
+                    <h3>3.5 Geolocations Service (legado)<a class="headerlink" href="#geolocations-service-legado"
+                        title="Link to this heading"></a></h3>
+                    <p><strong>Cobertura atual observada</strong></p>
+                    <ul class="simple">
+                      <li>
+                        <p>Serviço Django legado com routers de geolocations/visited/found_people.</p>
+                      </li>
+                    </ul>
+                    <p><strong>Gaps críticos (P1/P2)</strong></p>
+                    <ol class="arabic simple">
+                      <li>
+                        <p>Stack e settings desatualizados (SQLite, configuração antiga) frente ao backend principal.
+                        </p>
+                      </li>
+                      <li>
+                        <p>Sobreposição funcional com API principal sem estratégia de convergência.</p>
+                      </li>
+                      <li>
+                        <p>Falta plano de descontinuação, migração ou integração oficial.</p>
+                      </li>
+                    </ol>
+                  </section>
+                  <section id="infra-seguranca-e-governanca">
+                    <h3>3.6 Infra, segurança e governança<a class="headerlink" href="#infra-seguranca-e-governanca"
+                        title="Link to this heading"></a></h3>
+                    <p><strong>Cobertura atual observada</strong></p>
+                    <ul class="simple">
+                      <li>
+                        <p>Compose com backend/frontend/postgres/risk-agent.</p>
+                      </li>
+                      <li>
+                        <p>Catálogo de agentes e skills ampliado.</p>
+                      </li>
+                    </ul>
+                    <p><strong>Gaps críticos (P0/P1)</strong></p>
+                    <ol class="arabic simple">
+                      <li>
+                        <p>Falta pipeline único de qualidade com gates cross-stack (backend + frontend + mobile +
+                          risk-agent).</p>
+                      </li>
+                      <li>
+                        <p>Falta baseline formal para certificados/TLS por ambiente.</p>
+                      </li>
+                      <li>
+                        <p>Falta SLO/SLI operacional com alertas para APIs críticas.</p>
+                      </li>
+                    </ol>
+                  </section>
+                </section>
+                <hr class="docutils" />
+                <section id="matriz-de-funcionalidades-e-plano-por-especialistas">
+                  <h2>4) Matriz de funcionalidades e plano por especialistas<a class="headerlink"
+                      href="#matriz-de-funcionalidades-e-plano-por-especialistas" title="Link to this heading"></a>
+                  </h2>
+                  <table class="docutils align-default">
+                    <thead>
+                      <tr class="row-odd">
+                        <th class="head">
+                          <p>Funcionalidade</p>
+                        </th>
+                        <th class="head">
+                          <p>Status atual</p>
+                        </th>
+                        <th class="head">
+                          <p>Lacuna principal</p>
+                        </th>
+                        <th class="head">
+                          <p>Agentes líderes</p>
+                        </th>
+                        <th class="head">
+                          <p>Skills aplicadas</p>
+                        </th>
+                        <th class="head">
+                          <p>Plano de implementação</p>
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr class="row-even">
+                        <td>
+                          <p>Gestão de incidentes (<code
+                              class="docutils literal notranslate"><span class="pre">/api/incidents*</span></code>)</p>
+                        </td>
+                        <td>
+                          <p>Parcialmente madura</p>
+                        </td>
+                        <td>
+                          <p>Falta observabilidade de negócio e e2e</p>
+                        </td>
+                        <td>
+                          <p>Python/Django Backend, Quality Testing</p>
+                        </td>
+                        <td>
+                          <p><code
+                              class="docutils literal notranslate"><span class="pre">python-django-api-rest</span></code>,
+                            <code
+                              class="docutils literal notranslate"><span class="pre">automated-testing-pyramid</span></code>
+                          </p>
+                        </td>
+                        <td>
+                          <p>Fase 1: mapear contratos críticos; Fase 2: ampliar testes de integração; Fase 3: e2e por
+                            jornada operacional</p>
+                        </td>
+                      </tr>
+                      <tr class="row-odd">
+                        <td>
+                          <p>Operações de resgate e busca</p>
+                        </td>
+                        <td>
+                          <p>Funcional</p>
+                        </td>
+                        <td>
+                          <p>Falta otimização de priorização e métricas de eficiência</p>
+                        </td>
+                        <td>
+                          <p>Rescue &amp; Emergency, Statistics, Software Engineering Execution</p>
+                        </td>
+                        <td>
+                          <p><code
+                              class="docutils literal notranslate"><span class="pre">rescue-emergency-operations</span></code>,
+                            <code
+                              class="docutils literal notranslate"><span class="pre">statistics-decision-intelligence</span></code>,
+                            <code
+                              class="docutils literal notranslate"><span class="pre">software-engineering-execution</span></code>
+                          </p>
+                        </td>
+                        <td>
+                          <p>Definir KPIs (tempo de resposta, cobertura por área), painel de decisão e backlog de
+                            melhorias</p>
+                        </td>
+                      </tr>
+                      <tr class="row-even">
+                        <td>
+                          <p>Data Hub (weather/alerts/transparency/satellite)</p>
+                        </td>
+                        <td>
+                          <p>Funcional</p>
+                        </td>
+                        <td>
+                          <p>Dependência de fallback e políticas de indisponibilidade</p>
+                        </td>
+                        <td>
+                          <p>API Integration, Network &amp; HTTP, Quality Testing</p>
+                        </td>
+                        <td>
+                          <p><code
+                              class="docutils literal notranslate"><span class="pre">integration-api-resilience</span></code>,
+                            <code
+                              class="docutils literal notranslate"><span class="pre">http-certificates-tls</span></code>,
+                            <code
+                              class="docutils literal notranslate"><span class="pre">automated-testing-pyramid</span></code>
+                          </p>
+                        </td>
+                        <td>
+                          <p>Introduzir política de degrade controlado, circuit-breaker com telemetry e teste de caos
+                            leve</p>
+                        </td>
+                      </tr>
+                      <tr class="row-odd">
+                        <td>
+                          <p>Simulação de risco/deslizamento</p>
+                        </td>
+                        <td>
+                          <p>Funcional com fallback</p>
+                        </td>
+                        <td>
+                          <p>Modelo e fonte de dados sem governança de versão</p>
+                        </td>
+                        <td>
+                          <p>Risk (Python), Physics, Geology, Mathematics</p>
+                        </td>
+                        <td>
+                          <p><code
+                              class="docutils literal notranslate"><span class="pre">physics-simulation-basics</span></code>,
+                            <code
+                              class="docutils literal notranslate"><span class="pre">geology-risk-terrain</span></code>,
+                            <code
+                              class="docutils literal notranslate"><span class="pre">mathematics-modeling</span></code>
+                          </p>
+                        </td>
+                        <td>
+                          <p>Definir versionamento de modelo, separar treino/inferência, validar métricas técnicas por
+                            release</p>
+                        </td>
+                      </tr>
+                      <tr class="row-even">
+                        <td>
+                          <p>Cadastro de desaparecidos e anotações de mapa</p>
+                        </td>
+                        <td>
+                          <p>Funcional</p>
+                        </td>
+                        <td>
+                          <p>Falta hardening de validações e trilha analítica</p>
+                        </td>
+                        <td>
+                          <p>Django Backend, Web Frontend, LGPD</p>
+                        </td>
+                        <td>
+                          <p><code
+                              class="docutils literal notranslate"><span class="pre">python-django-api-rest</span></code>,
+                            <code
+                              class="docutils literal notranslate"><span class="pre">web-react-typescript-zustand</span></code>,
+                            <code
+                              class="docutils literal notranslate"><span class="pre">security-auth-keycloak-lgpd</span></code>
+                          </p>
+                        </td>
+                        <td>
+                          <p>Revisar validações, adicionar auditoria e política de retenção de dados pessoais</p>
+                        </td>
+                      </tr>
+                      <tr class="row-odd">
+                        <td>
+                          <p>Autenticação e autorização</p>
+                        </td>
+                        <td>
+                          <p>Parcial</p>
+                        </td>
+                        <td>
+                          <p>Endpoints com <code
+                              class="docutils literal notranslate"><span class="pre">csrf_exempt</span></code> e
+                            evolução IAM pendente</p>
+                        </td>
+                        <td>
+                          <p>Security/Auth/Keycloak, Engineering Best Practices</p>
+                        </td>
+                        <td>
+                          <p><code
+                              class="docutils literal notranslate"><span class="pre">security-auth-keycloak-lgpd</span></code>,
+                            <code
+                              class="docutils literal notranslate"><span class="pre">oauth2-keycloak-integration</span></code>,
+                            <code
+                              class="docutils literal notranslate"><span class="pre">solid-ddd-best-practices</span></code>
+                          </p>
+                        </td>
+                        <td>
+                          <p>Evoluir para política de autenticação unificada (token/session), hardening e testes de
+                            segurança</p>
+                        </td>
+                      </tr>
+                      <tr class="row-even">
+                        <td>
+                          <p>Frontend Command Center</p>
+                        </td>
+                        <td>
+                          <p>Funcional</p>
+                        </td>
+                        <td>
+                          <p>Fallback local oculta indisponibilidade</p>
+                        </td>
+                        <td>
+                          <p>Web Frontend, API Integration</p>
+                        </td>
+                        <td>
+                          <p><code
+                              class="docutils literal notranslate"><span class="pre">web-react-typescript-zustand</span></code>,
+                            <code
+                              class="docutils literal notranslate"><span class="pre">integration-api-resilience</span></code>
+                          </p>
+                        </td>
+                        <td>
+                          <p>Adotar estados explícitos: online/degradado/offline com alertas visuais e ação operacional
+                          </p>
+                        </td>
+                      </tr>
+                      <tr class="row-odd">
+                        <td>
+                          <p>Mobile captura (Flutter)</p>
+                        </td>
+                        <td>
+                          <p>MVP funcional</p>
+                        </td>
+                        <td>
+                          <p>Push token mockado e sem fluxo auth robusto</p>
+                        </td>
+                        <td>
+                          <p>Rescue Operations, Security/Auth, Software Engineering Execution</p>
+                        </td>
+                        <td>
+                          <p><code
+                              class="docutils literal notranslate"><span class="pre">rescue-emergency-operations</span></code>,
+                            <code
+                              class="docutils literal notranslate"><span class="pre">security-auth-keycloak-lgpd</span></code>,
+                            <code
+                              class="docutils literal notranslate"><span class="pre">software-engineering-execution</span></code>
+                          </p>
+                        </td>
+                        <td>
+                          <p>Integrar provider push real, autenticação de dispositivo e política de retry/offline queue
+                          </p>
+                        </td>
+                      </tr>
+                      <tr class="row-even">
+                        <td>
+                          <p>Serviço legado geolocations</p>
+                        </td>
+                        <td>
+                          <p>Legado ativo</p>
+                        </td>
+                        <td>
+                          <p>Duplicidade com backend principal</p>
+                        </td>
+                        <td>
+                          <p>Software Engineering Execution, Git Governance</p>
+                        </td>
+                        <td>
+                          <p><code
+                              class="docutils literal notranslate"><span class="pre">software-engineering-execution</span></code>,
+                            <code
+                              class="docutils literal notranslate"><span class="pre">git-workflow-governance</span></code>
+                          </p>
+                        </td>
+                        <td>
+                          <p>Decidir: migrar, encapsular ou descontinuar; publicar ADR com cronograma</p>
+                        </td>
+                      </tr>
+                      <tr class="row-odd">
+                        <td>
+                          <p>Supply e logística de apoio</p>
+                        </td>
+                        <td>
+                          <p>Parcial</p>
+                        </td>
+                        <td>
+                          <p>Falta motor de planejamento e monitoramento de estoque</p>
+                        </td>
+                        <td>
+                          <p>Supply Chain, Product Owner</p>
+                        </td>
+                        <td>
+                          <p><code
+                              class="docutils literal notranslate"><span class="pre">supply-chain-operations</span></code>,
+                            <code
+                              class="docutils literal notranslate"><span class="pre">product-owner-delivery</span></code>
+                          </p>
+                        </td>
+                        <td>
+                          <p>Mapear fluxo ponta a ponta e implementar backlog de reposição + nível de serviço</p>
+                        </td>
+                      </tr>
+                      <tr class="row-even">
+                        <td>
+                          <p>Governança de mudanças</p>
+                        </td>
+                        <td>
+                          <p>Parcial</p>
+                        </td>
+                        <td>
+                          <p>Falta standard único de release/hotfix e readiness</p>
+                        </td>
+                        <td>
+                          <p>Git Governance, PO, Eng. Software</p>
+                        </td>
+                        <td>
+                          <p><code
+                              class="docutils literal notranslate"><span class="pre">git-workflow-governance</span></code>,
+                            <code
+                              class="docutils literal notranslate"><span class="pre">product-owner-delivery</span></code>,
+                            <code
+                              class="docutils literal notranslate"><span class="pre">software-engineering-execution</span></code>
+                          </p>
+                        </td>
+                        <td>
+                          <p>Definir Definition of Ready/Done, PR template obrigatório e checklist de release</p>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </section>
+                <hr class="docutils" />
+                <section id="plano-macro-de-implementacao-90-dias">
+                  <h2>5) Plano macro de implementação (90 dias)<a class="headerlink"
+                      href="#plano-macro-de-implementacao-90-dias" title="Link to this heading"></a></h2>
+                </section>
+                <section id="sprint-0-semana-1">
+                  <h2>Sprint 0 (semana 1)<a class="headerlink" href="#sprint-0-semana-1"
+                      title="Link to this heading"></a></h2>
+                  <ul class="simple">
+                    <li>
+                      <p>Criar backlog único priorizado por risco operacional (P0/P1/P2).</p>
+                    </li>
+                    <li>
+                      <p>Definir owners por agente e handoff oficial.</p>
+                    </li>
+                    <li>
+                      <p>Publicar baseline de validação (testes, segurança, observabilidade).</p>
+                    </li>
+                  </ul>
+                </section>
+                <section id="sprint-1-2-semanas-2-5-estabilizacao-p0">
+                  <h2>Sprint 1-2 (semanas 2-5) — Estabilização P0<a class="headerlink"
+                      href="#sprint-1-2-semanas-2-5-estabilizacao-p0" title="Link to this heading"></a></h2>
+                  <ul class="simple">
+                    <li>
+                      <p>Remover seeds/fallbacks perigosos em runtime do backend.</p>
+                    </li>
+                    <li>
+                      <p>Hardening de autenticação/autorização e política CSRF.</p>
+                    </li>
+                    <li>
+                      <p>Remover mock token no Flutter e preparar integração push real.</p>
+                    </li>
+                    <li>
+                      <p>Tornar fallback do frontend explícito para operação (sem mascarar erro).</p>
+                    </li>
+                  </ul>
+                </section>
+                <section id="sprint-3-4-semanas-6-9-eficiencia-operacional-p1">
+                  <h2>Sprint 3-4 (semanas 6-9) — Eficiência operacional P1<a class="headerlink"
+                      href="#sprint-3-4-semanas-6-9-eficiencia-operacional-p1" title="Link to this heading"></a></h2>
+                  <ul class="simple">
+                    <li>
+                      <p>Formalizar governança do risk-agent (versão de modelo + métricas).</p>
+                    </li>
+                    <li>
+                      <p>Implementar testes e2e prioritários (incidente -&gt; resgate -&gt; suporte).</p>
+                    </li>
+                    <li>
+                      <p>Consolidar SLO/SLI para APIs críticas e painéis de saúde.</p>
+                    </li>
+                  </ul>
+                </section>
+                <section id="sprint-5-6-semanas-10-13-escala-e-convergencia-p2">
+                  <h2>Sprint 5-6 (semanas 10-13) — Escala e convergência P2<a class="headerlink"
+                      href="#sprint-5-6-semanas-10-13-escala-e-convergencia-p2" title="Link to this heading"></a></h2>
+                  <ul class="simple">
+                    <li>
+                      <p>Resolver destino do <code
+                          class="docutils literal notranslate"><span class="pre">geolocations_service</span></code>
+                        (migração/descontinuação).</p>
+                    </li>
+                    <li>
+                      <p>Evoluir planejamento de supply chain e alocação de recursos.</p>
+                    </li>
+                    <li>
+                      <p>Consolidar catálogo de decisões arquiteturais (ADRs) por domínio.</p>
+                    </li>
+                  </ul>
+                </section>
+                <hr class="docutils" />
+                <section id="protocolo-de-execucao-com-todos-os-agentes">
+                  <h2>6) Protocolo de execução com todos os agentes<a class="headerlink"
+                      href="#protocolo-de-execucao-com-todos-os-agentes" title="Link to this heading"></a></h2>
+                  <ol class="arabic simple">
+                    <li>
+                      <p>Orquestrador gera Requirement Card por funcionalidade.</p>
+                    </li>
+                    <li>
+                      <p>Roteamento obrigatório via matriz <code
+                          class="docutils literal notranslate"><span class="pre">agent-skill-routing-matrix.md</span></code>.
+                      </p>
+                    </li>
+                    <li>
+                      <p>Cada agente devolve:</p>
+                      <ul class="simple">
+                        <li>
+                          <p>escopo técnico,</p>
+                        </li>
+                        <li>
+                          <p>plano incremental,</p>
+                        </li>
+                        <li>
+                          <p>riscos,</p>
+                        </li>
+                        <li>
+                          <p>critérios de validação.</p>
+                        </li>
+                      </ul>
+                    </li>
+                    <li>
+                      <p>Orquestrador consolida cronograma e dependências bloqueantes.</p>
+                    </li>
+                    <li>
+                      <p>Fechamento com evidências (testes, métricas, rollback, aprendizado).</p>
+                    </li>
+                  </ol>
+                </section>
+                <hr class="docutils" />
+                <section id="checklist-de-validacao-continua">
+                  <h2>7) Checklist de validação contínua<a class="headerlink" href="#checklist-de-validacao-continua"
+                      title="Link to this heading"></a></h2>
+                  <ul class="simple">
+                    <li>
+                      <p>Backend: <code
+                          class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">manage.py</span> <span class="pre">check</span></code>
+                        + suíte de testes API.</p>
+                    </li>
+                    <li>
+                      <p>Frontend: lint + testes unitários + e2e de jornadas críticas.</p>
+                    </li>
+                    <li>
+                      <p>Mobile: smoke tests de captura/envio/push + telemetria de erro.</p>
+                    </li>
+                    <li>
+                      <p>Risk agent: testes de contrato, latência e qualidade de predição mínima.</p>
+                    </li>
+                    <li>
+                      <p>Infra: healthchecks, logs estruturados e alerta por indisponibilidade.</p>
+                    </li>
+                  </ul>
+                </section>
+                <section id="definicao-de-pronto-dod-consolidada">
+                  <h2>8) Definição de pronto (DoD) consolidada<a class="headerlink"
+                      href="#definicao-de-pronto-dod-consolidada" title="Link to this heading"></a></h2>
+                  <p>Uma funcionalidade só é considerada concluída quando:</p>
+                  <ol class="arabic simple">
+                    <li>
+                      <p>Possui critérios de aceite executáveis.</p>
+                    </li>
+                    <li>
+                      <p>Possui testes automatizados (unidade e/ou integração) no nível adequado.</p>
+                    </li>
+                    <li>
+                      <p>Possui observabilidade mínima (logs de erro e métricas de sucesso/falha).</p>
+                    </li>
+                    <li>
+                      <p>Possui plano de rollback para mudanças críticas.</p>
+                    </li>
+                    <li>
+                      <p>Possui registro de aprendizado no <code
+                          class="docutils literal notranslate"><span class="pre">docs/agents/learning-log.md</span></code>.
+                      </p>
+                    </li>
+                  </ol>
+                </section>
+              </section>
 
 
-           </div>
+            </div>
           </div>
           <footer>
 
-  <hr/>
+            <hr />
 
-  <div role="contentinfo">
-    <p>&#169; Copyright 2026, SOS Location Team.</p>
-  </div>
+            <div role="contentinfo">
+              <p>&#169; Copyright 2026, SOS Location Team.</p>
+            </div>
 
-  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
-    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
-    provided by <a href="https://readthedocs.org">Read the Docs</a>.
-   
+            Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+            <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+            provided by <a href="https://readthedocs.org">Read the Docs</a>.
 
-</footer>
+
+          </footer>
         </div>
       </div>
     </section>
   </div>
   <script>
-      jQuery(function () {
-          SphinxRtdTheme.Navigation.enable(true);
-      });
-  </script> 
+    jQuery(function () {
+      SphinxRtdTheme.Navigation.enable(true);
+    });
+  </script>
 
 </body>
+
 </html>

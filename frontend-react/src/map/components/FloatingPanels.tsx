@@ -28,7 +28,7 @@ export function FloatingPanels({ weatherData, snapshot }: { weatherData: OpenMet
   const summary = weatherData ? summarizeWeather(weatherData) : null;
 
   return (
-    <div className="pointer-events-none absolute inset-0 z-[900]">
+    <div className="pointer-events-none absolute inset-0 z-900">
       <FloatingPanel panel={panels.climate} title="Clima" onChange={(next) => setPanelState('climate', next)}>
         {!weatherData && <p className="text-slate-400">Clique no mapa para carregar dados Open-Meteo.</p>}
         {summary && (
@@ -57,7 +57,7 @@ export function FloatingPanels({ weatherData, snapshot }: { weatherData: OpenMet
           <label className="flex items-center justify-between"><span>3D Layer</span><input type="checkbox" checked={layersEnabled.three} onChange={() => toggleLayer('three')} /></label>
         </div>
         <div className="mt-3">
-          <TimelineControl max={Math.max(0, (weatherData?.hourly.time.length ?? 1) - 1)} value={timelineCursor} onChange={setTimelineCursor} />
+          <TimelineControl max={Math.max(0, (weatherData?.hourly?.time?.length ?? 1) - 1)} value={timelineCursor} onChange={setTimelineCursor} />
         </div>
       </FloatingPanel>
     </div>

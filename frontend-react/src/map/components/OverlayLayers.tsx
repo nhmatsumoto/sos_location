@@ -39,6 +39,47 @@ export function OverlayLayers({ data }: { data: OperationsSnapshot | null }) {
           <Popup>{person.personName}</Popup>
         </CircleMarker>
       ))}
+
+      {data?.layers?.timeline?.map((item) => {
+        const severity = typeof item.severity === 'number' ? item.severity :
+          (item.severity.toLowerCase() === 'extremo' ? 5 :
+            (item.severity.toLowerCase() === 'perigo' ? 3 : 2));
+        const color = severity >= 5 ? '#f43f5e' : (severity >= 3 ? '#f97316' : '#22d3ee');
+
+        return (
+          <CircleMarker
+            key={item.id}
+            center={[item.lat, item.lng]}
+            radius={8}
+            pathOptions={{
+              color: color,
+              fillColor: color,
+              fillOpacity: 0.6,
+              weight: 2,
+              className: severity >= 4 ? 'animate-pulse' : ''
+            }}
+          >
+            <Popup>
+              <div className="flex flex-col gap-1 p-1">
+                <div className="font-black text-[11px] uppercase tracking-wider border-b border-black/10 pb-1 flex items-center gap-2">
+                  🚨 {item.title}
+                </div>
+                <div className="text-[10px] leading-relaxed text-slate-700 py-1">
+                  {item.description}
+                </div>
+                {item.affectedPopulation && (
+                  <div className="text-[9px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">
+                    Impacto: ~{item.affectedPopulation.toLocaleString()} pessoas
+                  </div>
+                )}
+                <div className="text-[8px] font-mono text-slate-400 mt-1 uppercase">
+                  Fonte: {item.source || item.eventType} · {item.at && new Date(item.at).toLocaleTimeString()}
+                </div>
+              </div>
+            </Popup>
+          </CircleMarker>
+        );
+      })}
     </>
   );
 }

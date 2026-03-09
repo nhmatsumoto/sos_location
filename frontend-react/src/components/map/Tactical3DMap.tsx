@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, PerspectiveCamera, FlyControls, GizmoHelper, GizmoViewport, Stars } from '@react-three/drei';
 import * as THREE from 'three';
@@ -15,7 +15,7 @@ import { MapZoneLayer } from './MapZoneLayer';
 import { Tactical3DMarkers } from './Tactical3DMarkers';
 import { Tactical3DAlerts } from './Tactical3DAlerts';
 import { SosHero } from './SosHero';
-import { EngineController } from '../../engine/core/EngineController';
+
 
 interface BarrierData {
   id: string;

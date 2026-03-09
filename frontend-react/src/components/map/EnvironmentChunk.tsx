@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { TerrainMesh } from './TerrainMesh';
 import { TacticalStreets } from './TacticalStreets';
-import { OSMBuildings } from './OSMBuildings';
+import { BuildingLayer } from './BuildingLayer';
 import { TacticalVegetation } from './TacticalVegetation';
 import { MapZoneLayer } from './MapZoneLayer';
 import { gisApi } from '../../services/gisApi';
@@ -56,7 +56,7 @@ export const EnvironmentChunk: React.FC<EnvironmentChunkProps> = ({ bbox, chunkI
       </React.Suspense>
 
       <React.Suspense fallback={null}>
-        <OSMBuildings 
+        <BuildingLayer 
           clippingPlanes={[]} 
           data={urbanData?.buildings} 
         />

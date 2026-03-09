@@ -89,11 +89,14 @@ export interface OperationsSnapshot {
       id: string;
       at: string;
       title: string;
+      description?: string;
       eventType: string;
       severity: number | string;
       lat: number;
       lng: number;
+      source?: string;
       sourceUrl?: string;
+      affectedPopulation?: number;
     }>;
   };
   weather: {

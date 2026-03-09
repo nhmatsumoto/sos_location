@@ -49,9 +49,14 @@ export const VegetationLayer: React.FC = () => {
 
     const geometries: THREE.BufferGeometry[] = [];
     zones.forEach(z => {
+      const shape = new THREE.Shape();
       z.coordinates.forEach((c: [number, number]) => {
         const p = projectTo3D(c[0], c[1]);
-        shape.lineTo(p[0], p[1]);
+        if (shape.currentPoint.x === 0 && shape.currentPoint.y === 0) {
+           shape.moveTo(p[0], -p[1]);
+        } else {
+           shape.lineTo(p[0], -p[1]);
+        }
       });
 
       const geometry = new THREE.ShapeGeometry(shape);

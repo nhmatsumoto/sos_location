@@ -82,9 +82,24 @@ export function useSOSPageData() {
       };
     });
 
-    const combined = [...events, ...mappedAlerts];
-    return country ? combined.filter(e => e.country_code === country || e.is_gis_alert) : combined;
-  }, [events, country, gisAlerts]);
+    const timelineAlerts = (opsSnapshot?.layers?.timeline || []).map(t => ({
+      id: t.id,
+      title: t.title,
+      description: t.description || `Alerta de ${t.source}`,
+      type: 'disaster_alert',
+      severity: typeof t.severity === 'number' ? t.severity : (t.severity.toLowerCase() === 'extremo' ? 5 : (t.severity.toLowerCase() === 'perigo' ? 3 : 2)),
+      lat: t.lat,
+      lon: t.lng,
+      is_gis_alert: true,
+      source: t.source || t.eventType,
+      timestamp: t.at,
+      affectedPopulation: t.affectedPopulation,
+      sourceUrl: t.sourceUrl
+    }));
+
+    const combined = [...events, ...mappedAlerts, ...timelineAlerts];
+    return country ? combined.filter(e => (e as any).country_code === country || e.is_gis_alert) : combined;
+  }, [events, country, gisAlerts, opsSnapshot]);
 
   const captureSnapshot = async (bounds: Array<[number, number]>) => {
     try {
@@ -175,6 +190,7 @@ export function useSOSPageData() {
     show3D, setShow3D,
     currentDisplayEvents,
     captureSnapshot, saveOps, loadData,
-    toggle3DAt
+    toggle3DAt,
+    sidebarAlerts: currentDisplayEvents
   };
 }

@@ -86,6 +86,8 @@ interface SimulationState {
   setIsPegmanActive: (active: boolean) => void;
   cameraTarget: 'hero' | 'manual';
   setCameraTarget: (target: 'hero' | 'manual') => void;
+  // Camera repositioning action
+  setCameraTo: (x: number, y: number, z: number) => void;
 }
 
 export const useSimulationStore = create<SimulationState>((set) => ({
@@ -174,4 +176,11 @@ export const useSimulationStore = create<SimulationState>((set) => ({
   setIsPegmanActive: (isPegmanActive) => set({ isPegmanActive }),
   cameraTarget: 'manual',
   setCameraTarget: (cameraTarget) => set({ cameraTarget }),
+  setCameraTo: (x, y, z) => {
+    // This is a placeholder for the actual implementation which might involve 
+    // updating a focal point or a specific camera state that the 3D map consumes.
+    // For now, we'll log it to ensure it's called and can be expanded.
+    console.log(`[SimulationStore] Moving camera to: ${x}, ${y}, ${z}`);
+    set({ cameraTarget: 'manual', focalPoint: [x, z] }); // Partial migration
+  }
 }));

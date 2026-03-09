@@ -15,15 +15,20 @@ interface BuildingData {
 
 interface BuildingLayerProps {
   clippingPlanes?: THREE.Plane[];
+  data?: BuildingData[];
 }
 
-export const BuildingLayer: React.FC<BuildingLayerProps> = ({ clippingPlanes }) => {
-  const [buildings, setBuildings] = useState<BuildingData[]>([]);
+export const BuildingLayer: React.FC<BuildingLayerProps> = ({ clippingPlanes, data: initialData }) => {
+  const [buildings, setBuildings] = useState<BuildingData[]>(initialData || []);
   const store = useSimulationStore();
   const { box: simulationBox, activeLayers } = store;
   const lastFetchedBbox = useRef<string | null>(null);
 
   useEffect(() => {
+    if (initialData) {
+      setBuildings(initialData);
+      return;
+    }
     if (!activeLayers.buildings) return;
 
     // Use simulation box or fallback to a 2km area around center

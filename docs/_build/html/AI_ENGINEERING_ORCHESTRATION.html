@@ -1,185 +1,270 @@
-
-
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" data-content_root="./">
+
 <head>
-  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Arquitetura de Orquestração de Engenharia (DDD + Agentes + Skills) &mdash; SOS Location 2.0 documentation</title>
-      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
-      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
-      <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
+  <title>Arquitetura de Orquestração de Engenharia (DDD + Agentes + Skills) &mdash; SOS Location 2.0 documentation
+  </title>
+  <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
+  <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
+  <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
 
-  
-      <script src="_static/jquery.js?v=5d32c60e"></script>
-      <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-      <script src="_static/documentation_options.js?v=60dbed4a"></script>
-      <script src="_static/doctools.js?v=fd6eb6e6"></script>
-      <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
-      <script src="_static/clipboard.min.js?v=a7894cd8"></script>
-      <script src="_static/copybutton.js?v=f281be69"></script>
-    <script src="_static/js/theme.js"></script>
-    <link rel="index" title="Index" href="genindex.html" />
-    <link rel="search" title="Search" href="search.html" /> 
+
+  <script src="_static/jquery.js?v=5d32c60e"></script>
+  <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+  <script src="_static/documentation_options.js?v=60dbed4a"></script>
+  <script src="_static/doctools.js?v=fd6eb6e6"></script>
+  <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+  <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+  <script src="_static/copybutton.js?v=f281be69"></script>
+  <script src="_static/js/theme.js"></script>
+  <link rel="index" title="Index" href="genindex.html" />
+  <link rel="search" title="Search" href="search.html" />
 </head>
 
-<body class="wy-body-for-nav"> 
+<body class="wy-body-for-nav">
   <div class="wy-grid-for-nav">
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
-        <div class="wy-side-nav-search" >
+        <div class="wy-side-nav-search">
 
-          
-          
+
+
           <a href="index.html" class="icon icon-home">
             SOS Location
           </a>
-<div role="search">
-  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
-    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
-    <input type="hidden" name="check_keywords" value="yes" />
-    <input type="hidden" name="area" value="default" />
-  </form>
-</div>
-        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="introduction.html">Introduction</a></li>
-<li class="toctree-l1"><a class="reference internal" href="architecture.html">Architecture</a></li>
-<li class="toctree-l1"><a class="reference internal" href="api_reference.html">API Reference</a></li>
-<li class="toctree-l1"><a class="reference internal" href="integrations.html">Integrations</a></li>
-<li class="toctree-l1"><a class="reference internal" href="compliance.html">Compliance &amp; Standards</a></li>
-</ul>
+          <div role="search">
+            <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+              <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+              <input type="hidden" name="check_keywords" value="yes" />
+              <input type="hidden" name="area" value="default" />
+            </form>
+          </div>
+        </div>
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+          <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+          <ul>
+            <li class="toctree-l1"><a class="reference internal" href="introduction.html">Introduction</a></li>
+            <li class="toctree-l1"><a class="reference internal" href="architecture.html">Architecture</a></li>
+            <li class="toctree-l1"><a class="reference internal" href="api_reference.html">API Reference</a></li>
+            <li class="toctree-l1"><a class="reference internal" href="integrations.html">Integrations</a></li>
+            <li class="toctree-l1"><a class="reference internal" href="compliance.html">Compliance &amp; Standards</a>
+            </li>
+          </ul>
 
         </div>
       </div>
     </nav>
 
-    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
-          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
-          <a href="index.html">SOS Location</a>
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+      <nav class="wy-nav-top" aria-label="Mobile navigation menu">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="index.html">SOS Location</a>
       </nav>
 
       <div class="wy-nav-content">
         <div class="rst-content">
           <div role="navigation" aria-label="Page navigation">
-  <ul class="wy-breadcrumbs">
-      <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
-      <li class="breadcrumb-item active">Arquitetura de Orquestração de Engenharia (DDD + Agentes + Skills)</li>
-      <li class="wy-breadcrumbs-aside">
-            <a href="_sources/AI_ENGINEERING_ORCHESTRATION.md.txt" rel="nofollow"> View page source</a>
-      </li>
-  </ul>
-  <hr/>
-</div>
+            <ul class="wy-breadcrumbs">
+              <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
+              <li class="breadcrumb-item active">Arquitetura de Orquestração de Engenharia (DDD + Agentes + Skills)</li>
+              <li class="wy-breadcrumbs-aside">
+                <a href="_sources/AI_ENGINEERING_ORCHESTRATION.md.txt" rel="nofollow"> View page source</a>
+              </li>
+            </ul>
+            <hr />
+          </div>
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
-           <div itemprop="articleBody">
-             
-  <section class="tex2jax_ignore mathjax_ignore" id="arquitetura-de-orquestracao-de-engenharia-ddd-agentes-skills">
-<h1>Arquitetura de Orquestração de Engenharia (DDD + Agentes + Skills)<a class="headerlink" href="#arquitetura-de-orquestracao-de-engenharia-ddd-agentes-skills" title="Link to this heading"></a></h1>
-<section id="objetivo">
-<h2>Objetivo<a class="headerlink" href="#objetivo" title="Link to this heading"></a></h2>
-<p>Transformar linguagem natural em requisitos de engenharia de software de alto nível, com rastreabilidade ponta a ponta, alinhamento ao DDD e aprendizado contínuo dos agentes.</p>
-</section>
-<section id="stack-atual-base-para-decisoes">
-<h2>Stack atual (base para decisões)<a class="headerlink" href="#stack-atual-base-para-decisoes" title="Link to this heading"></a></h2>
-<ul class="simple">
-<li><p><strong>Backend:</strong> Django + Django REST Framework.</p></li>
-<li><p><strong>Banco de dados:</strong> PostgreSQL 15.</p></li>
-<li><p><strong>Frontend:</strong> React 19 + TypeScript + Vite + Chakra UI + Tailwind.</p></li>
-<li><p><strong>Agente de risco:</strong> serviço Python dedicado (<code class="docutils literal notranslate"><span class="pre">risk-agent</span></code>).</p></li>
-<li><p><strong>Operação:</strong> Docker Compose com serviços separados por responsabilidade.</p></li>
-</ul>
-</section>
-<section id="principios-arquiteturais">
-<h2>Princípios arquiteturais<a class="headerlink" href="#principios-arquiteturais" title="Link to this heading"></a></h2>
-<ol class="arabic simple">
-<li><p><strong>DDD como núcleo</strong></p>
-<ul class="simple">
-<li><p>Toda demanda em linguagem natural deve ser mapeada para:</p>
-<ul>
-<li><p>Contexto delimitado (Bounded Context)</p></li>
-<li><p>Caso de uso (Application Service)</p></li>
-<li><p>Regras de domínio (Entities/VOs/Domain Services)</p></li>
-<li><p>Contratos de integração (APIs/eventos)</p></li>
-</ul>
-</li>
-</ul>
-</li>
-<li><p><strong>Especificação antes de implementação</strong></p>
-<ul class="simple">
-<li><p>Agentes só iniciam codificação após registrar:</p>
-<ul>
-<li><p>objetivo de negócio,</p></li>
-<li><p>critérios de aceite,</p></li>
-<li><p>riscos técnicos,</p></li>
-<li><p>estratégia de teste.</p></li>
-</ul>
-</li>
-</ul>
-</li>
-<li><p><strong>Aprendizado contínuo explícito</strong></p>
-<ul class="simple">
-<li><p>Cada execução relevante deve produzir ou atualizar um registro em <code class="docutils literal notranslate"><span class="pre">docs/agents/learning-log.md</span></code>.</p></li>
-</ul>
-</li>
-<li><p><strong>Observabilidade de fluxo</strong></p>
-<ul class="simple">
-<li><p>Erros, incidentes e decisões arquiteturais viram insumos para melhoria de skills e playbooks.</p></li>
-</ul>
-</li>
-</ol>
-</section>
-<section id="pipeline-canonico-natural-language-engenharia">
-<h2>Pipeline canônico (Natural Language -&gt; Engenharia)<a class="headerlink" href="#pipeline-canonico-natural-language-engenharia" title="Link to this heading"></a></h2>
-<ol class="arabic simple">
-<li><p><strong>Ingestão da demanda (orquestrador)</strong></p>
-<ul class="simple">
-<li><p>Entrada em linguagem natural.</p></li>
-<li><p>Extração de intenção, domínio afetado, impacto esperado e urgência.</p></li>
-</ul>
-</li>
-<li><p><strong>Tradução para requisitos estruturados</strong></p>
-<ul class="simple">
-<li><p>Saída mínima:</p>
-<ul>
-<li><p>problema,</p></li>
-<li><p>resultado esperado,</p></li>
-<li><p>escopo in/out,</p></li>
-<li><p>critérios de aceite,</p></li>
-<li><p>restrições técnicas e de negócio.</p></li>
-</ul>
-</li>
-</ul>
-</li>
-<li><p><strong>Fatiamento por especialistas</strong></p>
-<ul class="simple">
-<li><p>Distribuição para agentes especialistas (backend/frontend/dados/ops/qualidade).</p></li>
-</ul>
-</li>
-<li><p><strong>Execução guiada por skills</strong></p>
-<ul class="simple">
-<li><p>Cada agente aplica skills específicas com checklist objetivo.</p></li>
-</ul>
-</li>
-<li><p><strong>Validação técnica e funcional</strong></p>
-<ul class="simple">
-<li><p>Testes, lint, validação de contrato e revisão de risco.</p></li>
-</ul>
-</li>
-<li><p><strong>Retroalimentação e atualização de conhecimento</strong></p>
-<ul class="simple">
-<li><p>Atualização de aprendizado no log.</p></li>
-<li><p>Se houver padrão recorrente, promover para skill/padrão oficial.</p></li>
-</ul>
-</li>
-</ol>
-</section>
-<section id="contrato-minimo-de-requisito-estruturado">
-<h2>Contrato mínimo de requisito estruturado<a class="headerlink" href="#contrato-minimo-de-requisito-estruturado" title="Link to this heading"></a></h2>
-<p>Use o template abaixo em toda nova demanda:</p>
-<div class="highlight-md notranslate"><div class="highlight"><pre><span></span><span class="gh"># Requirement Card</span>
+            <div itemprop="articleBody">
+
+              <section class="tex2jax_ignore mathjax_ignore"
+                id="arquitetura-de-orquestracao-de-engenharia-ddd-agentes-skills">
+                <h1>Arquitetura de Orquestração de Engenharia (DDD + Agentes + Skills)<a class="headerlink"
+                    href="#arquitetura-de-orquestracao-de-engenharia-ddd-agentes-skills"
+                    title="Link to this heading"></a></h1>
+                <section id="objetivo">
+                  <h2>Objetivo<a class="headerlink" href="#objetivo" title="Link to this heading"></a></h2>
+                  <p>Transformar linguagem natural em requisitos de engenharia de software de alto nível, com
+                    rastreabilidade ponta a ponta, alinhamento ao DDD e aprendizado contínuo dos agentes.</p>
+                </section>
+                <section id="stack-atual-base-para-decisoes">
+                  <h2>Stack atual (base para decisões)<a class="headerlink" href="#stack-atual-base-para-decisoes"
+                      title="Link to this heading"></a></h2>
+                  <ul class="simple">
+                    <li>
+                      <p><strong>Backend:</strong> Django + Django REST Framework.</p>
+                    </li>
+                    <li>
+                      <p><strong>Banco de dados:</strong> PostgreSQL 15.</p>
+                    </li>
+                    <li>
+                      <p><strong>Frontend:</strong> React 19 + TypeScript + Vite + Chakra UI + Tailwind.</p>
+                    </li>
+                    <li>
+                      <p><strong>Agente de risco:</strong> serviço Python dedicado (<code
+                          class="docutils literal notranslate"><span class="pre">risk-agent</span></code>).</p>
+                    </li>
+                    <li>
+                      <p><strong>Operação:</strong> Docker Compose com serviços separados por responsabilidade.</p>
+                    </li>
+                  </ul>
+                </section>
+                <section id="principios-arquiteturais">
+                  <h2>Princípios arquiteturais<a class="headerlink" href="#principios-arquiteturais"
+                      title="Link to this heading"></a></h2>
+                  <ol class="arabic simple">
+                    <li>
+                      <p><strong>DDD como núcleo</strong></p>
+                      <ul class="simple">
+                        <li>
+                          <p>Toda demanda em linguagem natural deve ser mapeada para:</p>
+                          <ul>
+                            <li>
+                              <p>Contexto delimitado (Bounded Context)</p>
+                            </li>
+                            <li>
+                              <p>Caso de uso (Application Service)</p>
+                            </li>
+                            <li>
+                              <p>Regras de domínio (Entities/VOs/Domain Services)</p>
+                            </li>
+                            <li>
+                              <p>Contratos de integração (APIs/eventos)</p>
+                            </li>
+                          </ul>
+                        </li>
+                      </ul>
+                    </li>
+                    <li>
+                      <p><strong>Especificação antes de implementação</strong></p>
+                      <ul class="simple">
+                        <li>
+                          <p>Agentes só iniciam codificação após registrar:</p>
+                          <ul>
+                            <li>
+                              <p>objetivo de negócio,</p>
+                            </li>
+                            <li>
+                              <p>critérios de aceite,</p>
+                            </li>
+                            <li>
+                              <p>riscos técnicos,</p>
+                            </li>
+                            <li>
+                              <p>estratégia de teste.</p>
+                            </li>
+                          </ul>
+                        </li>
+                      </ul>
+                    </li>
+                    <li>
+                      <p><strong>Aprendizado contínuo explícito</strong></p>
+                      <ul class="simple">
+                        <li>
+                          <p>Cada execução relevante deve produzir ou atualizar um registro em <code
+                              class="docutils literal notranslate"><span class="pre">docs/agents/learning-log.md</span></code>.
+                          </p>
+                        </li>
+                      </ul>
+                    </li>
+                    <li>
+                      <p><strong>Observabilidade de fluxo</strong></p>
+                      <ul class="simple">
+                        <li>
+                          <p>Erros, incidentes e decisões arquiteturais viram insumos para melhoria de skills e
+                            playbooks.</p>
+                        </li>
+                      </ul>
+                    </li>
+                  </ol>
+                </section>
+                <section id="pipeline-canonico-natural-language-engenharia">
+                  <h2>Pipeline canônico (Natural Language -&gt; Engenharia)<a class="headerlink"
+                      href="#pipeline-canonico-natural-language-engenharia" title="Link to this heading"></a></h2>
+                  <ol class="arabic simple">
+                    <li>
+                      <p><strong>Ingestão da demanda (orquestrador)</strong></p>
+                      <ul class="simple">
+                        <li>
+                          <p>Entrada em linguagem natural.</p>
+                        </li>
+                        <li>
+                          <p>Extração de intenção, domínio afetado, impacto esperado e urgência.</p>
+                        </li>
+                      </ul>
+                    </li>
+                    <li>
+                      <p><strong>Tradução para requisitos estruturados</strong></p>
+                      <ul class="simple">
+                        <li>
+                          <p>Saída mínima:</p>
+                          <ul>
+                            <li>
+                              <p>problema,</p>
+                            </li>
+                            <li>
+                              <p>resultado esperado,</p>
+                            </li>
+                            <li>
+                              <p>escopo in/out,</p>
+                            </li>
+                            <li>
+                              <p>critérios de aceite,</p>
+                            </li>
+                            <li>
+                              <p>restrições técnicas e de negócio.</p>
+                            </li>
+                          </ul>
+                        </li>
+                      </ul>
+                    </li>
+                    <li>
+                      <p><strong>Fatiamento por especialistas</strong></p>
+                      <ul class="simple">
+                        <li>
+                          <p>Distribuição para agentes especialistas (backend/frontend/dados/ops/qualidade).</p>
+                        </li>
+                      </ul>
+                    </li>
+                    <li>
+                      <p><strong>Execução guiada por skills</strong></p>
+                      <ul class="simple">
+                        <li>
+                          <p>Cada agente aplica skills específicas com checklist objetivo.</p>
+                        </li>
+                      </ul>
+                    </li>
+                    <li>
+                      <p><strong>Validação técnica e funcional</strong></p>
+                      <ul class="simple">
+                        <li>
+                          <p>Testes, lint, validação de contrato e revisão de risco.</p>
+                        </li>
+                      </ul>
+                    </li>
+                    <li>
+                      <p><strong>Retroalimentação e atualização de conhecimento</strong></p>
+                      <ul class="simple">
+                        <li>
+                          <p>Atualização de aprendizado no log.</p>
+                        </li>
+                        <li>
+                          <p>Se houver padrão recorrente, promover para skill/padrão oficial.</p>
+                        </li>
+                      </ul>
+                    </li>
+                  </ol>
+                </section>
+                <section id="contrato-minimo-de-requisito-estruturado">
+                  <h2>Contrato mínimo de requisito estruturado<a class="headerlink"
+                      href="#contrato-minimo-de-requisito-estruturado" title="Link to this heading"></a></h2>
+                  <p>Use o template abaixo em toda nova demanda:</p>
+                  <div class="highlight-md notranslate">
+                    <div class="highlight">
+                      <pre><span></span><span class="gh"># Requirement Card</span>
 
 <span class="gu">## 1) Contexto de negócio</span>
 <span class="k">-</span><span class="w"> </span>Problema:
@@ -208,112 +293,186 @@
 <span class="k">-</span><span class="w"> </span>Quebra por agente especialista:
 <span class="k">-</span><span class="w"> </span>Estratégia de teste:
 <span class="k">-</span><span class="w"> </span>Definição de pronto (DoD):
-</pre></div>
-</div>
-</section>
-<section id="atualizacao-automatica-dos-agentes-governanca">
-<h2>Atualização automática dos agentes (governança)<a class="headerlink" href="#atualizacao-automatica-dos-agentes-governanca" title="Link to this heading"></a></h2>
-<p>Quando um agente concluir uma tarefa, ele deve:</p>
-<ol class="arabic simple">
-<li><p>Registrar lições aprendidas no <code class="docutils literal notranslate"><span class="pre">learning-log.md</span></code>.</p></li>
-<li><p>Classificar o aprendizado:</p>
-<ul class="simple">
-<li><p>bug recorrente,</p></li>
-<li><p>melhoria arquitetural,</p></li>
-<li><p>otimização de fluxo,</p></li>
-<li><p>novo padrão de skill.</p></li>
-</ul>
-</li>
-<li><p>Propor ação:</p>
-<ul class="simple">
-<li><p>atualizar skill existente,</p></li>
-<li><p>criar novo agente,</p></li>
-<li><p>ajustar checklist de validação.</p></li>
-</ul>
-</li>
-</ol>
-</section>
-<section id="catalogo-inicial-de-novos-agentes-recomendados">
-<h2>Catálogo inicial de novos agentes recomendados<a class="headerlink" href="#catalogo-inicial-de-novos-agentes-recomendados" title="Link to this heading"></a></h2>
-<ol class="arabic simple">
-<li><p><strong>Requirements Translator Agent</strong></p>
-<ul class="simple">
-<li><p>Converte linguagem natural em Requirement Cards orientados a DDD.</p></li>
-</ul>
-</li>
-<li><p><strong>DDD Consistency Agent</strong></p>
-<ul class="simple">
-<li><p>Verifica aderência entre modelagem, regras de domínio e APIs.</p></li>
-</ul>
-</li>
-<li><p><strong>Skill Evolution Agent</strong></p>
-<ul class="simple">
-<li><p>Identifica padrões em incidentes/bugs e propõe evolução de skills.</p></li>
-</ul>
-</li>
-<li><p><strong>Engineering Memory Agent</strong></p>
-<ul class="simple">
-<li><p>Curadoria do <code class="docutils literal notranslate"><span class="pre">learning-log.md</span></code>, removendo duplicação e promovendo padrões estáveis.</p></li>
-</ul>
-</li>
-</ol>
-</section>
-<section id="metricas-de-eficacia">
-<h2>Métricas de eficácia<a class="headerlink" href="#metricas-de-eficacia" title="Link to this heading"></a></h2>
-<ul class="simple">
-<li><p>Lead time da demanda até requisito estruturado.</p></li>
-<li><p>Taxa de retrabalho por requisito ambíguo.</p></li>
-<li><p>Defeitos em produção por bounded context.</p></li>
-<li></li>
-<li></li>
-</ul>
-</section>
-<section id="protocolo-de-sincronizacao-do-orquestrador-v2">
-<h2>Protocolo de sincronização do orquestrador (v2)<a class="headerlink" href="#protocolo-de-sincronizacao-do-orquestrador-v2" title="Link to this heading"></a></h2>
-<ol class="arabic simple">
-<li><p>Classificar demanda por domínio (software, operação, ciência aplicada, emergência).</p></li>
-<li><p>Roteamento agente-skill via matriz oficial em <code class="docutils literal notranslate"><span class="pre">skills/sos-location-orchestration/references/agent-skill-routing-matrix.md</span></code>.</p></li>
-<li><p>Definir handoffs de entrada/saída entre especialistas com dependências explícitas.</p></li>
-<li><p>Consolidar estado em quadro único (<code class="docutils literal notranslate"><span class="pre">pendente</span></code>, <code class="docutils literal notranslate"><span class="pre">em</span> <span class="pre">execução</span></code>, <code class="docutils literal notranslate"><span class="pre">validado</span></code>, <code class="docutils literal notranslate"><span class="pre">bloqueado</span></code>).</p></li>
-<li><p>Encerrar com evidências de validação + risco residual + atualização de aprendizado.</p></li>
-</ol>
-</section>
-<section id="catalogo-expandido">
-<h2>Catálogo expandido<a class="headerlink" href="#catalogo-expandido" title="Link to this heading"></a></h2>
-<ul class="simple">
-<li><p>Agentes: <code class="docutils literal notranslate"><span class="pre">docs/agents/specialist-agents-catalog.md</span></code>.</p></li>
-<li><p>Skills: <code class="docutils literal notranslate"><span class="pre">skills/README.md</span></code>.</p></li>
-<li><p>Plano consolidado de gaps e implementação: <code class="docutils literal notranslate"><span class="pre">docs/DEEP_IMPLEMENTATION_GAP_PLAN.md</span></code>.</p></li>
-</ul>
-</section>
-</section>
+</pre>
+                    </div>
+                  </div>
+                </section>
+                <section id="atualizacao-automatica-dos-agentes-governanca">
+                  <h2>Atualização automática dos agentes (governança)<a class="headerlink"
+                      href="#atualizacao-automatica-dos-agentes-governanca" title="Link to this heading"></a></h2>
+                  <p>Quando um agente concluir uma tarefa, ele deve:</p>
+                  <ol class="arabic simple">
+                    <li>
+                      <p>Registrar lições aprendidas no <code
+                          class="docutils literal notranslate"><span class="pre">learning-log.md</span></code>.</p>
+                    </li>
+                    <li>
+                      <p>Classificar o aprendizado:</p>
+                      <ul class="simple">
+                        <li>
+                          <p>bug recorrente,</p>
+                        </li>
+                        <li>
+                          <p>melhoria arquitetural,</p>
+                        </li>
+                        <li>
+                          <p>otimização de fluxo,</p>
+                        </li>
+                        <li>
+                          <p>novo padrão de skill.</p>
+                        </li>
+                      </ul>
+                    </li>
+                    <li>
+                      <p>Propor ação:</p>
+                      <ul class="simple">
+                        <li>
+                          <p>atualizar skill existente,</p>
+                        </li>
+                        <li>
+                          <p>criar novo agente,</p>
+                        </li>
+                        <li>
+                          <p>ajustar checklist de validação.</p>
+                        </li>
+                      </ul>
+                    </li>
+                  </ol>
+                </section>
+                <section id="catalogo-inicial-de-novos-agentes-recomendados">
+                  <h2>Catálogo inicial de novos agentes recomendados<a class="headerlink"
+                      href="#catalogo-inicial-de-novos-agentes-recomendados" title="Link to this heading"></a></h2>
+                  <ol class="arabic simple">
+                    <li>
+                      <p><strong>Requirements Translator Agent</strong></p>
+                      <ul class="simple">
+                        <li>
+                          <p>Converte linguagem natural em Requirement Cards orientados a DDD.</p>
+                        </li>
+                      </ul>
+                    </li>
+                    <li>
+                      <p><strong>DDD Consistency Agent</strong></p>
+                      <ul class="simple">
+                        <li>
+                          <p>Verifica aderência entre modelagem, regras de domínio e APIs.</p>
+                        </li>
+                      </ul>
+                    </li>
+                    <li>
+                      <p><strong>Skill Evolution Agent</strong></p>
+                      <ul class="simple">
+                        <li>
+                          <p>Identifica padrões em incidentes/bugs e propõe evolução de skills.</p>
+                        </li>
+                      </ul>
+                    </li>
+                    <li>
+                      <p><strong>Engineering Memory Agent</strong></p>
+                      <ul class="simple">
+                        <li>
+                          <p>Curadoria do <code
+                              class="docutils literal notranslate"><span class="pre">learning-log.md</span></code>,
+                            removendo duplicação e promovendo padrões estáveis.</p>
+                        </li>
+                      </ul>
+                    </li>
+                  </ol>
+                </section>
+                <section id="metricas-de-eficacia">
+                  <h2>Métricas de eficácia<a class="headerlink" href="#metricas-de-eficacia"
+                      title="Link to this heading"></a></h2>
+                  <ul class="simple">
+                    <li>
+                      <p>Lead time da demanda até requisito estruturado.</p>
+                    </li>
+                    <li>
+                      <p>Taxa de retrabalho por requisito ambíguo.</p>
+                    </li>
+                    <li>
+                      <p>Defeitos em produção por bounded context.</p>
+                    </li>
+                    <li></li>
+                    <li></li>
+                  </ul>
+                </section>
+                <section id="protocolo-de-sincronizacao-do-orquestrador-v2">
+                  <h2>Protocolo de sincronização do orquestrador (v2)<a class="headerlink"
+                      href="#protocolo-de-sincronizacao-do-orquestrador-v2" title="Link to this heading"></a></h2>
+                  <ol class="arabic simple">
+                    <li>
+                      <p>Classificar demanda por domínio (software, operação, ciência aplicada, emergência).</p>
+                    </li>
+                    <li>
+                      <p>Roteamento agente-skill via matriz oficial em <code
+                          class="docutils literal notranslate"><span class="pre">skills/sos-location-orchestration/references/agent-skill-routing-matrix.md</span></code>.
+                      </p>
+                    </li>
+                    <li>
+                      <p>Definir handoffs de entrada/saída entre especialistas com dependências explícitas.</p>
+                    </li>
+                    <li>
+                      <p>Consolidar estado em quadro único (<code
+                          class="docutils literal notranslate"><span class="pre">pendente</span></code>, <code
+                          class="docutils literal notranslate"><span class="pre">em</span> <span class="pre">execução</span></code>,
+                        <code class="docutils literal notranslate"><span class="pre">validado</span></code>, <code
+                          class="docutils literal notranslate"><span class="pre">bloqueado</span></code>).
+                      </p>
+                    </li>
+                    <li>
+                      <p>Encerrar com evidências de validação + risco residual + atualização de aprendizado.</p>
+                    </li>
+                  </ol>
+                </section>
+                <section id="catalogo-expandido">
+                  <h2>Catálogo expandido<a class="headerlink" href="#catalogo-expandido"
+                      title="Link to this heading"></a></h2>
+                  <ul class="simple">
+                    <li>
+                      <p>Agentes: <code
+                          class="docutils literal notranslate"><span class="pre">docs/agents/specialist-agents-catalog.md</span></code>.
+                      </p>
+                    </li>
+                    <li>
+                      <p>Skills: <code
+                          class="docutils literal notranslate"><span class="pre">skills/README.md</span></code>.</p>
+                    </li>
+                    <li>
+                      <p>Plano consolidado de gaps e implementação: <code
+                          class="docutils literal notranslate"><span class="pre">docs/DEEP_IMPLEMENTATION_GAP_PLAN.md</span></code>.
+                      </p>
+                    </li>
+                  </ul>
+                </section>
+              </section>
 
 
-           </div>
+            </div>
           </div>
           <footer>
 
-  <hr/>
+            <hr />
 
-  <div role="contentinfo">
-    <p>&#169; Copyright 2026, SOS Location Team.</p>
-  </div>
+            <div role="contentinfo">
+              <p>&#169; Copyright 2026, SOS Location Team.</p>
+            </div>
 
-  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
-    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
-    provided by <a href="https://readthedocs.org">Read the Docs</a>.
-   
+            Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+            <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+            provided by <a href="https://readthedocs.org">Read the Docs</a>.
 
-</footer>
+
+          </footer>
         </div>
       </div>
     </section>
   </div>
   <script>
-      jQuery(function () {
-          SphinxRtdTheme.Navigation.enable(true);
-      });
-  </script> 
+    jQuery(function () {
+      SphinxRtdTheme.Navigation.enable(true);
+    });
+  </script>
 
 </body>
+
 </html>

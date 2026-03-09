@@ -10,6 +10,7 @@ using FluentValidation;
 using SOSLocation.Application.Features.Incidents.Commands.CreateIncident;
 using SOSLocation.Application.Common.Behaviors;
 using MediatR;
+using SOSLocation.Infrastructure.Services.Gis.Providers;
 
 namespace SOSLocation.API.Extensions
 {
@@ -44,6 +45,14 @@ namespace SOSLocation.API.Extensions
             {
                 client.Timeout = TimeSpan.FromSeconds(120);
             });
+
+            // Alert Providers
+            services.AddHttpClient<IAlertProvider, InmetAlertProvider>();
+            services.AddHttpClient<IAlertProvider, DefesaCivilAlertProvider>();
+            services.AddHttpClient<IAlertProvider, CemadenAlertProvider>();
+
+            // Enrichment
+            services.AddHttpClient<IIbgeEnrichmentService, IbgeEnrichmentService>();
 
             // Register AlertsBackgroundService as both IAlertsService and HostedService
             services.AddSingleton<AlertsBackgroundService>();

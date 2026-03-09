@@ -1,3 +1,4 @@
+using SOSLocation.Domain.Entities;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
@@ -14,6 +15,12 @@ namespace SOSLocation.Domain.Interfaces
     public interface IAlertsService
     {
         Task PollAlertsAsync();
-        IEnumerable<object> GetActiveAlerts();
+        IEnumerable<AlertDto> GetActiveAlerts();
+    }
+
+    public interface IAlertProvider
+    {
+        string Name { get; }
+        Task<IEnumerable<AlertDto>> FetchAlertsAsync();
     }
 }
