@@ -1,4 +1,4 @@
-import { useState, useCallback, lazy, Suspense, useEffect, useMemo } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import { MapContainer, TileLayer } from 'react-leaflet';
 import { Modal } from '../components/ui/Modal';
@@ -6,15 +6,12 @@ import { DraggablePanel } from '../components/map/DraggablePanel';
 import { QuickActions } from '../components/ui/QuickActions';
 
 import { useNavigate } from 'react-router-dom';
-import { TacticalLoadingScreen } from '../components/ui/TacticalLoadingScreen';
 import { LoadingOverlay } from '../components/ui/LoadingOverlay';
 import { MapInteractions, MapListener, type ToolMode } from '../components/map/MapInteractions';
 import { MemoizedEventMarker } from '../components/map/EventMarker';
-import { SimulationCommandPanel } from '../components/map/SimulationCommandPanel';
 import { LiveOpsPanel } from '../components/map/LiveOpsPanel';
 import { CursorCoordinates } from '../components/map/CursorCoordinates';
 import { MapContextMenu } from '../components/map/MapContextMenu';
-const Tactical3DMap = lazy(() => import('../components/map/Tactical3DMap').then(m => ({ default: m.Tactical3DMap })));
 import {
   Crosshair,
   Box
@@ -23,16 +20,14 @@ import {
 import { useSOSPageData } from '../hooks/useSOSPageData';
 import { SOSHeaderHUD } from '../components/ui/SOSHeaderHUD';
 import { AlertSidebar } from '../components/ui/AlertSidebar';
-import { MeteorologicalIntelPanel } from '../components/map/MeteorologicalIntelPanel';
-import { useSimulationStore } from '../store/useSimulationStore';
 
 export function SOSPage() {
   const navigate = useNavigate();
   const {
     events, domainEvents, alerts, mapAnnotations, opsSnapshot,
     country, setCountry, initialLoading, savingOps,
-    activeSnapshots, show3D, setShow3D, currentDisplayEvents,
-    captureSnapshot, saveOps, toggle3DAt, sidebarAlerts
+    currentDisplayEvents,
+    saveOps, sidebarAlerts
   } = useSOSPageData();
 
   const [hoveredId, setHoveredId] = useState<string | null>(null);
@@ -42,24 +37,10 @@ export function SOSPage() {
   const [tool, setTool] = useState<ToolMode>('inspect');
   const [areaDraft, setAreaDraft] = useState<Array<[number, number]>>([]);
   const [spatialFilter, setSpatialFilter] = useState<any>(null);
-  const [isGlitching, setIsGlitching] = useState(false);
-
-  useEffect(() => {
-    setIsGlitching(true);
-    const timer = setTimeout(() => setIsGlitching(false), 500);
-    return () => clearTimeout(timer);
-  }, [show3D]);
-
-
-  useEffect(() => {
-    setIsGlitching(true);
-    const timer = setTimeout(() => setIsGlitching(false), 500);
-    return () => clearTimeout(timer);
-  }, [show3D]);
 
   const [openOpsModal, setOpenOpsModal] = useState(false);
   const [opsForm, setOpsForm] = useState({
-    recordType: 'risk_area' as 'risk_area' | 'support_point' | 'missing_person',
+    recordType: 'risk_area' as any,
     personName: '',
     lastSeenLocation: '',
     incidentTitle: '',
@@ -67,7 +48,6 @@ export function SOSPage() {
   });
 
   const [intelPanelOpen, setIntelPanelOpen] = useState(false);
-  const [simulationPanelOpen, setSimulationPanelOpen] = useState(false);
   const [liveOpsPanelOpen, setLiveOpsPanelOpen] = useState(false);
   const [cursorCoords, setCursorCoords] = useState<[number, number] | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, lat: number, lon: number } | null>(null);
@@ -77,23 +57,23 @@ export function SOSPage() {
   const handleMapHover = useCallback((lat: number, lon: number) => setCursorCoords([lat, lon]), []);
 
   const handleQuickAction = useCallback((label: string) => {
-    if (label === 'Camadas') {
+    if (label === 'LIVE OPERATIONS') {
       setLiveOpsPanelOpen(!liveOpsPanelOpen);
     } else if (label === 'Relato') {
       setOpsForm(prev => ({ ...prev, recordType: 'risk_area' }));
       setOpenOpsModal(true);
-    } else if (label === 'Edificios') {
-      useSimulationStore.getState().setLayer('buildings', !useSimulationStore.getState().activeLayers.buildings);
-    } else if (label === 'Ruas') {
-      useSimulationStore.getState().setLayer('streets', !useSimulationStore.getState().activeLayers.streets);
-    } else if (label === 'Verde') {
-      useSimulationStore.getState().setLayer('vegetation', !useSimulationStore.getState().activeLayers.vegetation);
-    } else if (label === 'Map Ref') {
-      toggle3DAt(mapCenter[0], mapCenter[1]);
+    } else if (['Voluntários', 'Doações', 'Resgate', 'Bombeiros', 'Exército'].includes(label)) {
+      const typeMap: Record<string, string> = {
+        'Voluntários': 'voluntario',
+        'Doações': 'doacao',
+        'Resgate': 'resgate',
+        'Bombeiros': 'bombeiros',
+        'Exército': 'exercito'
+      };
+      setOpsForm(prev => ({ ...prev, recordType: typeMap[label] }));
+      setOpenOpsModal(true);
     }
-  }, [liveOpsPanelOpen, mapCenter, toggle3DAt]);
-
-
+  }, [liveOpsPanelOpen]);
 
   const selectedEvent = useMemo(() => {
     if (!hoveredId) return null;
@@ -105,7 +85,6 @@ export function SOSPage() {
   }, [hoveredId, events, domainEvents, alerts, mapAnnotations, sidebarAlerts]);
 
   const handleReset = () => {
-    setShow3D(false);
     setMapCenter([-14.2, -51.9]);
     setHoveredId(null);
     setTool('inspect');
@@ -115,7 +94,6 @@ export function SOSPage() {
     saveOps(opsForm, lastClickedCoords, setOpenOpsModal, setLastClickedCoords);
   };
 
-
   return (
     <div className="h-screen w-screen relative overflow-hidden bg-slate-950">
       {initialLoading && <LoadingOverlay message="Inicializando Terminal SOS..." />}
@@ -124,8 +102,6 @@ export function SOSPage() {
       <SOSHeaderHUD
         country={country}
         setCountry={setCountry}
-        show3D={show3D}
-        setShow3D={setShow3D}
         onReset={handleReset}
         activeTool={tool}
         setTool={setTool}
@@ -133,8 +109,7 @@ export function SOSPage() {
           activeTeams: opsSnapshot?.kpis?.activeTeams ?? '0',
           criticalAlerts: opsSnapshot?.kpis?.criticalAlerts ?? '0',
           supplies: opsSnapshot?.kpis?.suppliesInTransit ?? '0',
-          missingPersons: opsSnapshot?.layers?.missingPersons?.length ?? '0',
-          climate: useSimulationStore.getState()?.focalWeather
+          missingPersons: opsSnapshot?.layers?.missingPersons?.length ?? '0'
         }}
       />
 
@@ -157,9 +132,6 @@ export function SOSPage() {
           }
         }}
       />
-
-      {/* 3D Tactical HUD: Meteorological Intelligence */}
-      {show3D && <MeteorologicalIntelPanel />}
 
       {/* Bottom Center: Quick Action Bar */}
       <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-40">
@@ -198,104 +170,93 @@ export function SOSPage() {
           </div>
         </DraggablePanel>
       )}
-      {simulationPanelOpen && show3D && (
-        <SimulationCommandPanel onClose={() => setSimulationPanelOpen(false)} />
-      )}
+
       {liveOpsPanelOpen && (
         <LiveOpsPanel onClose={() => setLiveOpsPanelOpen(false)} />
       )}
 
       <div className="absolute inset-0 z-0">
-        {show3D ? (
-          <Suspense fallback={<TacticalLoadingScreen />}>
-            <Tactical3DMap
-              events={currentDisplayEvents}
-              hoveredId={hoveredId}
-              onHover={setHoveredId}
-              onClick={(p: any) => {
-                setHoveredId(p.id || `${p.provider}-${p.provider_event_id}`);
-                setIntelPanelOpen(true);
-              }}
-              activeSnapshots={activeSnapshots}
-              enableSimulationBox={tool === 'simulation_box'}
-              initialCenter={mapCenter}
-            />
-          </Suspense>
-        ) : (
-          <MapContainer center={mapCenter} zoom={mapZoom} zoomControl={false} style={{ height: '100%', width: '100%' }} className="tactical-map-container">
-            <TileLayer attribution='&copy; CARTO' url='https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png' />
-            <MapListener onMove={(c, z) => { setMapCenter(c); setMapZoom(z); }} />
-            <MapInteractions
-              tool={tool}
-              onPickPoint={(lat, lon) => {
-                setLastClickedCoords([lat, lon]);
-                setOpenOpsModal(true);
-              }}
-              onHover={handleMapHover}
-              areaDraft={areaDraft}
-              setAreaDraft={setAreaDraft}
-              spatialFilter={spatialFilter}
-              setSpatialFilter={setSpatialFilter}
-              onFilterComplete={() => { }}
-              onSnapshotComplete={captureSnapshot}
-              onContextMenu={(x, y, lat, lon) => setContextMenu({ x, y, lat, lon })}
-              show3D={show3D}
-            />
-            <MarkerClusterGroup chunkedLoading maxClusterRadius={50}>
-              {currentDisplayEvents.map((e) => (
-                <MemoizedEventMarker key={e.id || `${e.provider}-${e.provider_event_id}`} e={e} isHovered={hoveredId === (e.id || `${e.provider}-${e.provider_event_id}`)} onHover={handleMarkerHover} onUnhover={handleMarkerUnhover} />
-              ))}
-            </MarkerClusterGroup>
-          </MapContainer>
-        )}
+        <MapContainer center={mapCenter} zoom={mapZoom} zoomControl={false} style={{ height: '100%', width: '100%' }} className="tactical-map-container">
+          <TileLayer attribution='&copy; CARTO' url='https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png' />
+          <MapListener onMove={(c, z) => { setMapCenter(c); setMapZoom(z); }} />
+          <MapInteractions
+            tool={tool}
+            onPickPoint={(lat, lon) => {
+              setLastClickedCoords([lat, lon]);
+              setOpenOpsModal(true);
+            }}
+            onHover={handleMapHover}
+            areaDraft={areaDraft}
+            setAreaDraft={setAreaDraft}
+            spatialFilter={spatialFilter}
+            setSpatialFilter={setSpatialFilter}
+            onFilterComplete={() => { }}
+            onSnapshotComplete={() => { }}
+            onContextMenu={(x, y, lat, lon) => setContextMenu({ x, y, lat, lon })}
+            show3D={false}
+          />
+          <MarkerClusterGroup chunkedLoading maxClusterRadius={50}>
+            {currentDisplayEvents.map((e) => (
+              <MemoizedEventMarker key={e.id || `${e.provider}-${e.provider_event_id}`} e={e} isHovered={hoveredId === (e.id || `${e.provider}-${e.provider_event_id}`)} onHover={handleMarkerHover} onUnhover={handleMarkerUnhover} />
+            ))}
+          </MarkerClusterGroup>
+        </MapContainer>
       </div>
 
-      <Modal title="CADASTRO DE CAMPO" open={openOpsModal} onClose={() => setOpenOpsModal(false)}>
+      <Modal title="CADASTRO TÁTICO DE CAMPO" open={openOpsModal} onClose={() => setOpenOpsModal(false)}>
         <div className="space-y-4 p-4 text-slate-200 bg-slate-950">
           <div className="grid grid-cols-2 gap-2">
-            {['risk_area', 'support_point', 'missing_person'].map(mode => (
-              <button key={mode} onClick={() => setOpsForm({ ...opsForm, recordType: mode as any })} className={`p-3 rounded-xl border flex flex-col items-center gap-2 transition-all ${opsForm.recordType === mode ? 'bg-cyan-900/40 border-cyan-500 text-cyan-400' : 'bg-slate-900 border-slate-800 text-slate-500'}`}>
-                <span className="text-[10px] font-bold uppercase">{mode.replace('_', ' ')}</span>
+            {[
+              { id: 'voluntario', label: 'Voluntário' },
+              { id: 'doacao', label: 'Doação' },
+              { id: 'resgate', label: 'Equipe Resgate' },
+              { id: 'bombeiros', label: 'Bombeiros' },
+              { id: 'exercito', label: 'Exército' },
+              { id: 'risk_area', label: 'Área de Risco' },
+              { id: 'missing_person', label: 'Busca Pessoa' }
+            ].map(mode => (
+              <button
+                key={mode.id}
+                onClick={() => setOpsForm({ ...opsForm, recordType: mode.id as any })}
+                className={`p-3 rounded-xl border flex flex-col items-center gap-2 transition-all ${opsForm.recordType === mode.id ? 'bg-cyan-900/40 border-cyan-500 text-cyan-400' : 'bg-slate-900 border-slate-800 text-slate-500 hover:border-slate-700'}`}
+              >
+                <span className="text-[10px] font-black uppercase tracking-widest text-center">{mode.label}</span>
               </button>
             ))}
           </div>
-          <input className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-xs" placeholder="Título..." value={opsForm.incidentTitle} onChange={e => setOpsForm({ ...opsForm, incidentTitle: e.target.value })} />
-          <button onClick={handleSaveOps} className="w-full bg-emerald-600 font-bold py-2 rounded text-xs uppercase tracking-widest">REGISTRAR</button>
+          <div className="space-y-2">
+            <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-1">Descrição do Registro</label>
+            <input
+              className="w-full bg-slate-900 border border-slate-700/50 rounded-xl px-4 py-3 text-xs focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/20 outline-none transition-all"
+              placeholder="Título ou Identificação..."
+              value={opsForm.incidentTitle}
+              onChange={e => setOpsForm({ ...opsForm, incidentTitle: e.target.value })}
+            />
+          </div>
+          <button
+            onClick={handleSaveOps}
+            className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-4 rounded-xl text-[10px] uppercase tracking-[0.2em] shadow-lg shadow-emerald-900/20 active:scale-[0.98] transition-all"
+          >
+            REGISTRAR NO MAPA TÁTICO
+          </button>
         </div>
       </Modal>
 
       {/* New Interactive 2D Components */}
-      {!show3D && <CursorCoordinates coords={cursorCoords} />}
-      {!show3D && contextMenu && (
+      <CursorCoordinates coords={cursorCoords} />
+      {contextMenu && (
         <MapContextMenu
           x={contextMenu.x}
           y={contextMenu.y}
           lat={contextMenu.lat}
           lon={contextMenu.lon}
           onClose={() => setContextMenu(null)}
-          onRender3D={(lat, lon) => {
-            setContextMenu(null);
-            toggle3DAt(lat, lon);
+          onMarkRiskArea={(lat, lon) => {
+            setLastClickedCoords([lat, lon]);
+            setOpsForm(prev => ({ ...prev, recordType: 'risk_area' }));
+            setOpenOpsModal(true);
           }}
         />
-      )}
-
-
-      {/* Glitch Overlay Effect */}
-      {isGlitching && (
-        <div className="absolute inset-0 z-100 pointer-events-none overflow-hidden bg-cyan-500/5 backdrop-blur-[1px]">
-          <div className="absolute top-1/4 left-0 w-full h-px bg-cyan-400/30 animate-scan-fast" />
-          <div className="absolute top-3/4 left-0 w-full h-px bg-cyan-400/30 animate-scan-fast" style={{ animationDelay: '0.2s' }} />
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="flex flex-col items-center gap-2">
-              <span className="text-[11px] text-white font-black uppercase tracking-[1.5em] opacity-60 animate-pulse">RECONFIGURING_VIEWPORT</span>
-              <div className="w-64 h-px bg-linear-to-r from-transparent via-cyan-500 to-transparent" />
-            </div>
-          </div>
-
-          {/* Vignette */}
-          <div className="absolute inset-0 shadow-[inset_0_0_150px_rgba(0,0,0,0.8)]" />
-        </div>
       )}
     </div>
   );

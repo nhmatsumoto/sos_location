@@ -1,17 +1,20 @@
-import { 
-  FilePlus, 
-  MapPin, 
-  Layers, 
+import {
+  Users,
+  PackageOpen,
+  Activity,
+  Flame,
+  Shield,
   Zap,
-  Box
+  FilePlus
 } from 'lucide-react';
 
 const actions = [
   { label: 'Relato', icon: <FilePlus size={18} />, color: 'hover:text-cyan-400' },
-  { label: 'Map Ref', icon: <MapPin size={18} />, color: 'hover:text-amber-400' },
-  { label: 'Edificios', icon: <Layers size={18} />, color: 'hover:text-slate-400' },
-  { label: 'Ruas', icon: <Zap size={18} />, color: 'hover:text-purple-400' },
-  { label: 'Verde', icon: <Box size={18} />, color: 'hover:text-emerald-400' },
+  { label: 'Voluntários', icon: <Users size={18} />, color: 'hover:text-amber-400' },
+  { label: 'Doações', icon: <PackageOpen size={18} />, color: 'hover:text-emerald-400' },
+  { label: 'Resgate', icon: <Activity size={18} />, color: 'hover:text-red-400' },
+  { label: 'Bombeiros', icon: <Flame size={18} />, color: 'hover:text-orange-400' },
+  { label: 'Exército', icon: <Shield size={18} />, color: 'hover:text-slate-400' },
 ];
 
 export function QuickActions({ onToggleLiveOps, onAction }: { onToggleLiveOps?: () => void, onAction?: (label: string) => void }) {
@@ -35,11 +38,11 @@ export function QuickActions({ onToggleLiveOps, onAction }: { onToggleLiveOps?: 
         </button>
       ))}
       <div className="h-8 w-px bg-white/10 mx-1" />
-      <button 
-        onClick={onToggleLiveOps} 
+      <button
+        onClick={onToggleLiveOps}
         className="group flex h-11 px-6 items-center gap-3 rounded-2xl border border-cyan-500/20 bg-cyan-500/5 text-cyan-400 text-[10px] font-black tracking-[0.2em] uppercase hover:bg-cyan-500/20 hover:border-cyan-500/40 hover:scale-105 active:scale-95 transition-all shadow-[0_0_20px_rgba(6,182,212,0.1)]"
       >
-        <Zap size={16} className="group-hover:animate-pulse" /> 
+        <Zap size={16} className="group-hover:animate-pulse" />
         LIVE OPERATIONS
       </button>
     </div>

@@ -5,9 +5,6 @@ import { eventsApi, type DomainEvent } from '../services/eventsApi';
 import { integrationsApi, type AlertDto } from '../services/integrationsApi';
 import { gisApi, type ActiveAlert } from '../services/gisApi';
 import { useNotifications } from '../context/NotificationsContext';
-import { useSimulationStore } from '../store/useSimulationStore';
-import { latToMeters, lonToMeters } from '../utils/projection';
-import type { SituationalSnapshot } from '../types';
 
 export function useSOSPageData() {
   const { pushNotice } = useNotifications();
@@ -25,8 +22,6 @@ export function useSOSPageData() {
   const [minSeverity] = useState<number>(0);
   const [initialLoading, setInitialLoading] = useState(true);
   const [savingOps, setSavingOps] = useState(false);
-  const [activeSnapshots, setActiveSnapshots] = useState<SituationalSnapshot[]>([]);
-  const [show3D, setShow3D] = useState(false);
 
   const loadData = async (isInitial = false) => {
     if (isInitial) setInitialLoading(true);
@@ -101,52 +96,6 @@ export function useSOSPageData() {
     return country ? combined.filter(e => (e as any).country_code === country || e.is_gis_alert) : combined;
   }, [events, country, gisAlerts, opsSnapshot]);
 
-  const captureSnapshot = async (bounds: Array<[number, number]>) => {
-    try {
-      const latMin = Math.min(bounds[0][0], bounds[1][0]);
-      const latMax = Math.max(bounds[0][0], bounds[1][0]);
-      const lonMin = Math.min(bounds[0][1], bounds[1][1]);
-      const lonMax = Math.max(bounds[0][1], bounds[1][1]);
-
-      const centerLat = (latMin + latMax) / 2;
-      const centerLon = (lonMin + lonMax) / 2;
-      
-      const latDistance = latToMeters(latMax - latMin);
-      const lonDistance = lonToMeters(lonMax - lonMin, centerLat);
-
-      useSimulationStore.getState().setBox({
-        center: [centerLat, centerLon],
-        size: [lonDistance, latDistance]
-      });
-
-      const zoom = 15;
-      const x = Math.floor((centerLon + 180) / 360 * Math.pow(2, zoom));
-      const y = Math.floor((1 - Math.log(Math.tan(centerLat * Math.PI / 180) + 1 / Math.cos(centerLat * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, zoom));
-      const textureUrl = `https://basemaps.cartocdn.com/rastertiles/voyager_labels_under/${zoom}/${x}/${y}.png`;
-      useSimulationStore.getState().setSatelliteTextureUrl(textureUrl);
-
-      const weather = await integrationsApi.getWeatherForecast(centerLat, centerLon) as any;
-      const newSnapshot: SituationalSnapshot = {
-        id: `snap-${Date.now()}`,
-        timestamp: new Date().toISOString(),
-        center: [centerLat, centerLon],
-        bounds,
-        environmentalData: {
-          temp: weather.current?.temp,
-          pressure: weather.current?.pressure,
-          humidity: weather.current?.humidity,
-          windSpeed: weather.current?.wind_speed,
-          rainfall: weather.current?.rain?.['1h'] || 0,
-          soilSaturaion: Math.random() * 100
-        }
-      };
-      setActiveSnapshots(prev => [...prev, newSnapshot]);
-      setShow3D(true);
-    } catch (err) {
-      pushNotice({ type: 'error', title: 'Falha na Captura', message: 'Erro ao processar dados.' });
-    }
-  };
-
   const saveOps = async (opsForm: any, lastClickedCoords: [number, number] | null, setOpenOpsModal: (v: boolean) => void, setLastClickedCoords: (v: any) => void) => {
     if (!lastClickedCoords) {
       pushNotice({ type: 'warning', title: 'Coordenadas ausentes', message: 'Clique no mapa para selecionar o local.' });
@@ -174,23 +123,14 @@ export function useSOSPageData() {
     }
   };
 
-  const toggle3DAt = (lat: number, lon: number) => {
-    useSimulationStore.getState().setHeroPosition([lat, lon]);
-    useSimulationStore.getState().setFocalPoint([lat, lon]);
-    setShow3D(true);
-  };
-
   return {
     events, domainEvents, alerts, mapAnnotations, gisAlerts, opsSnapshot,
     country, setCountry,
     minSeverity,
     initialLoading,
     savingOps,
-    activeSnapshots, setActiveSnapshots,
-    show3D, setShow3D,
     currentDisplayEvents,
-    captureSnapshot, saveOps, loadData,
-    toggle3DAt,
+    saveOps, loadData,
     sidebarAlerts: currentDisplayEvents
   };
 }

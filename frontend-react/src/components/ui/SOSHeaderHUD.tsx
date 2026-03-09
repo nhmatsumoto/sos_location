@@ -6,8 +6,6 @@ import { ToolButton } from './ToolButton';
 interface SOSHeaderHUDProps {
   country: string;
   setCountry: (val: string) => void;
-  show3D: boolean;
-  setShow3D: (val: boolean) => void;
   onReset: () => void;
   activeTool: string;
   setTool: (tool: any) => void;
@@ -25,8 +23,8 @@ interface SOSHeaderHUDProps {
   };
 }
 
-export const SOSHeaderHUD: React.FC<SOSHeaderHUDProps> = ({ 
-  country, setCountry, show3D, setShow3D, onReset, activeTool, setTool, stats 
+export const SOSHeaderHUD: React.FC<SOSHeaderHUDProps> = ({
+  country, setCountry, onReset, activeTool, setTool, stats
 }) => {
   return (
     <div className="absolute top-0 left-0 right-0 z-50 border-b border-white/10 bg-slate-950/80 backdrop-blur-xl px-6 py-3 flex items-center justify-between pointer-events-auto">
@@ -37,14 +35,14 @@ export const SOSHeaderHUD: React.FC<SOSHeaderHUDProps> = ({
             <ShieldAlert size={22} className="animate-pulse" />
           </div>
           <div className="flex flex-col">
-            <h1 className="text-sm font-black text-white uppercase tracking-[0.2em] leading-none mb-1">SOS <span className="text-cyan-500">MASTER</span> COMMAND</h1>
+            <h1 className="text-sm font-black text-white uppercase tracking-[0.2em] leading-none mb-1">SOS <span className="text-cyan-500">FIELD</span> COMMAND</h1>
             <div className="flex items-center gap-2">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]"></span>
               <span className="text-[9px] text-slate-400 font-mono uppercase tracking-tighter">Node: BRA-SEC-01 // v5.0</span>
             </div>
           </div>
         </div>
-        
+
         <div className="h-8 w-px bg-white/10 mx-2" />
         <div className="flex items-center gap-4">
           <CitySearch />
@@ -75,7 +73,7 @@ export const SOSHeaderHUD: React.FC<SOSHeaderHUDProps> = ({
             <span className="text-[10px] font-bold text-white uppercase leading-none">{stats?.supplies || '0'}</span>
           </div>
         </div>
-        
+
         {/* Missing Persons */}
         <div className="h-6 w-px bg-white/10 mx-1" />
         <div className="flex items-center gap-3">
@@ -114,20 +112,8 @@ export const SOSHeaderHUD: React.FC<SOSHeaderHUDProps> = ({
         <div className="h-8 w-px bg-white/10 mx-1" />
 
         <div className="flex items-center gap-3">
-          <button 
-            onClick={() => setShow3D(!show3D)} 
-            className={`flex items-center gap-3 h-10 px-4 rounded-xl border transition-all duration-300 ${
-              show3D 
-              ? 'bg-cyan-500/20 border-cyan-400/50 text-cyan-400' 
-              : 'bg-white/5 border-white/10 text-slate-400 hover:border-white/20'
-            }`}
-          >
-            <Box size={16} className={show3D ? 'animate-bounce' : ''} /> 
-            <span className="text-[10px] font-black uppercase tracking-widest">3D Mode</span>
-          </button>
-
-          <button 
-            onClick={onReset} 
+          <button
+            onClick={onReset}
             className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-400 hover:text-white hover:border-white/20 transition-all"
             title="Recalibrate"
           >
