@@ -7,8 +7,6 @@ using System;
 
 namespace SOSLocation.Application.Features.Logistics.Commands.CreateSupply
 {
-    public record CreateSupplyCommand(string Item, int Quantity, string Unit, string Origin, string Destination, string Priority) : IRequest<Guid>;
-
     public class CreateSupplyCommandHandler : IRequestHandler<CreateSupplyCommand, Guid>
     {
         private readonly ISupplyLogisticsRepository _repository;

@@ -7,7 +7,7 @@ namespace SOSLocation.Application.Features.Logistics.Commands.CreateSupply
     {
         [Required]
         public string Item { get; set; } = string.Empty;
-        public double Quantity { get; set; }
+        public int Quantity { get; set; }
         public string Unit { get; set; } = "un";
         public string Origin { get; set; } = string.Empty;
         public string Destination { get; set; } = string.Empty;

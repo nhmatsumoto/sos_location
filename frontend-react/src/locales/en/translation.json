@@ -1,0 +1,35 @@
+{
+  "onboarding": {
+    "title": "Welcome to SOS Location",
+    "subtitle": "To provide the best experience, please tell us who you are:",
+    "roles": {
+      "visitor": {
+        "title": "Visitor",
+        "description": "I want to view the map and receive alerts about risks in my area."
+      },
+      "volunteer": {
+        "title": "Volunteer",
+        "description": "I want to help in rescue or support operations."
+      },
+      "government_rescue": {
+        "title": "Government / Rescue",
+        "description": "I am part of an official response team or government agency."
+      }
+    },
+    "subtypes": {
+      "title": "Select your team type:",
+      "volunteer_team": "Volunteer Team",
+      "government": "Government",
+      "private": "Private"
+    },
+    "actions": {
+      "continue": "Continue",
+      "back": "Back",
+      "finish": "Finish"
+    }
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "An error occurred"
+  }
+}

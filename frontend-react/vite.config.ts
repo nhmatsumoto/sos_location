@@ -12,7 +12,6 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: {
         'react-router-dom': '/src/lib/react-router-dom.tsx',
-        'sos-3d-engine': '/../sos-3d-engine/src/index.ts',
       },
     },
     server: {

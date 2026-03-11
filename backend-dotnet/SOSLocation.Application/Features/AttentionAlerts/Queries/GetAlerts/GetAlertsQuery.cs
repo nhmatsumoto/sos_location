@@ -10,9 +10,9 @@ using System;
 
 namespace SOSLocation.Application.Features.AttentionAlerts.Queries.GetAlerts
 {
-    public record GetAlertsQuery : IRequest<IEnumerable<AlertDto>>;
+    public record GetAlertsQuery : IRequest<IEnumerable<SOSLocation.Application.DTOs.Alerts.AlertDto>>;
 
-    public class GetAlertsQueryHandler : IRequestHandler<GetAlertsQuery, IEnumerable<AlertDto>>
+    public class GetAlertsQueryHandler : IRequestHandler<GetAlertsQuery, IEnumerable<SOSLocation.Application.DTOs.Alerts.AlertDto>>
     {
         private readonly IAttentionAlertRepository _repository;
 
@@ -21,10 +21,10 @@ namespace SOSLocation.Application.Features.AttentionAlerts.Queries.GetAlerts
             _repository = repository;
         }
 
-        public async Task<IEnumerable<AlertDto>> Handle(GetAlertsQuery request, CancellationToken cancellationToken)
+        public async Task<IEnumerable<SOSLocation.Application.DTOs.Alerts.AlertDto>> Handle(GetAlertsQuery request, CancellationToken cancellationToken)
         {
             var alerts = await _repository.GetAllAsync();
-            return alerts.Select(a => new AlertDto
+            return alerts.Select(a => new SOSLocation.Application.DTOs.Alerts.AlertDto
             {
                 Id = a.Id,
                 ExternalId = a.ExternalId,

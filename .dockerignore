@@ -1,6 +1,5 @@
 .git
 .github
-frontend-react
 flutter_capture_app
 **/node_modules
 **/__pycache__

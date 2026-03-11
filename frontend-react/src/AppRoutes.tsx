@@ -14,6 +14,7 @@ const VolunteerDashboardPage = lazy(() => import('./pages/VolunteerDashboardPage
 const LogisticsPage = lazy(() => import('./pages/LogisticsPage.tsx').then((m) => ({ default: m.LogisticsPage })));
 const RiskAssessmentPage = lazy(() => import('./pages/RiskAssessmentPage.tsx').then((m) => ({ default: m.RiskAssessmentPage })));
 const SupportDashboardPage = lazy(() => import('./pages/SupportDashboardPage.tsx').then((m) => ({ default: m.SupportDashboardPage })));
+const OnboardingPage = lazy(() => import('./pages/OnboardingPage').then((m) => ({ default: m.OnboardingPage })));
 function PrivateLayout() {
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const location = useLocation();
@@ -21,6 +22,12 @@ function PrivateLayout() {
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
   }, [theme]);
+
+  const isOnboardingComplete = localStorage.getItem('onboarding_complete') === 'true';
+
+  if (!isOnboardingComplete && location.pathname !== '/onboarding') {
+    return <Navigate to="/onboarding" replace />;
+  }
 
   // Redirection to login if not authenticated
   if (!keycloak.authenticated) {
@@ -66,6 +73,7 @@ export default function AppRoutes() {
       <Route path="/public/map" element={<Navigate to="/" replace />} />
       <Route path="/public/transparency" element={<PublicIncidentDashboardPage />} />
       <Route path="/error" element={<ErrorPage />} />
+      <Route path="/onboarding" element={<Suspense fallback={<LoadingScreen />}><OnboardingPage /></Suspense>} />
       <Route path="/app/*" element={<PrivateLayout />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

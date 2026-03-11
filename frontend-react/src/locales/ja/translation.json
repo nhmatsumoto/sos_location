@@ -1,0 +1,35 @@
+{
+  "onboarding": {
+    "title": "SOS Locationへようこそ",
+    "subtitle": "最高の体験を提供するために、あなたの役割を教えてください:",
+    "roles": {
+      "visitor": {
+        "title": "一般ユーザー",
+        "description": "地図を確認し、地域の居住リスクに関するアラートを受け取りたい。"
+      },
+      "volunteer": {
+        "title": "ボランティア",
+        "description": "救助活動やサポート活動に協力したい。"
+      },
+      "government_rescue": {
+        "title": "政府 / 救助隊",
+        "description": "公的なレスポンスチームや政府機関の一員である。"
+      }
+    },
+    "subtypes": {
+      "title": "チームの種類を選択してください:",
+      "volunteer_team": "ボランティアチーム",
+      "government": "政府機関",
+      "private": "民間企業"
+    },
+    "actions": {
+      "continue": "次へ",
+      "back": "戻る",
+      "finish": "完了"
+    }
+  },
+  "common": {
+    "loading": "読み込み中...",
+    "error": "エラーが発生しました"
+  }
+}

@@ -5,6 +5,7 @@ import AppRoutes from './AppRoutes';
 import { NotificationsProvider } from './context/NotificationsContext';
 import { frontendLogger } from './lib/logger';
 import './index.css';
+import './i18n';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 

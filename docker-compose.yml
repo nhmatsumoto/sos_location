@@ -116,7 +116,6 @@ services:
     build:
       context: ./frontend-react
       dockerfile: Dockerfile.dev
-      network: host
     container_name: sos-location-web-frontend
     working_dir: /app
     volumes:
