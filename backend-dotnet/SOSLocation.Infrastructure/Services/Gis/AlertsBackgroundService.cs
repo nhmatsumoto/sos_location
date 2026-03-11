@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using SOSLocation.Application.DTOs.External;
+using SOSLocation.Domain.Common;
 using SOSLocation.Domain.Interfaces;
 using System;
 using System.Collections.Generic;

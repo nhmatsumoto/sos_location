@@ -2,8 +2,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SOSLocation.Domain.Interfaces;
 using SOSLocation.Domain.Common;
-using SOSLocation.Application.DTOs.Gis;
-using SOSLocation.Application.DTOs.External;
 using SOSLocation.Application.DTOs.Common;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;

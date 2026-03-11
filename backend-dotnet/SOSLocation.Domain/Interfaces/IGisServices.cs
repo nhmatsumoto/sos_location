@@ -1,4 +1,4 @@
-using SOSLocation.Application.DTOs.External;
+using SOSLocation.Domain.Common;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
