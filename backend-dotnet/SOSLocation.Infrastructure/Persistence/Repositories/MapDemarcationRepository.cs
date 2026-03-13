@@ -40,7 +40,6 @@ namespace SOSLocation.Infrastructure.Persistence.Repositories
         {
             var annotation = new MapAnnotation
             {
-                Id = Guid.NewGuid(),
                 RecordType = "Demarcation",
                 Title = demarcation.Title,
                 Lat = demarcation.Latitude,

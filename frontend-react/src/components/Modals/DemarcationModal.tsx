@@ -24,7 +24,7 @@ export const DemarcationModal: React.FC<DemarcationModalProps> = ({
   if (!show) return null;
 
   return (
-    <div className="fixed inset-0 z-[5000] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
+    <div className="fixed inset-0 z-5000 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
       <div className="w-full max-w-lg bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-800/50">
           <div className="flex items-center gap-3">

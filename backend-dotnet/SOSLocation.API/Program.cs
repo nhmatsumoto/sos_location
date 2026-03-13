@@ -92,11 +92,11 @@ builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
-using (var scope = app.Services.CreateScope())
-{
-    var context = scope.ServiceProvider.GetRequiredService<SOSLocationDbContext>();
-    context.Database.Migrate();
-}
+// using (var scope = app.Services.CreateScope())
+// {
+//     var context = scope.ServiceProvider.GetRequiredService<SOSLocationDbContext>();
+//     context.Database.Migrate();
+// }
 
 
 // Web API Pipeline

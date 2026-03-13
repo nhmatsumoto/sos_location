@@ -64,7 +64,7 @@ export function PublicMapPage() {
             
             <div className="w-px h-6 bg-slate-200" />
             
-            <div className="relative flex-[2] group">
+            <div className="relative flex-2 group">
               <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-hover:text-blue-500 transition-colors" size={16} />
               <input 
                 type="text" 

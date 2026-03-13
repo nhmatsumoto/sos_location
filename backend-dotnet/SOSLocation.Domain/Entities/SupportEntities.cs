@@ -1,4 +1,5 @@
 using SOSLocation.Domain.Common;
+using SOSLocation.Domain.Incidents;
 using System;
 using System.ComponentModel.DataAnnotations;
 
