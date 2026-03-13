@@ -1,11 +1,11 @@
 # SOS Location: レジリエント戦術マップ & 3Dシチュエーションルーム v2.0
 
-> [!CAUTION]
-> **重要：倫理的警告 (CRITICAL ETHICAL WARNING)**
+> [!NOTE]
+> **倫理的声明 (ETHICAL COMMITMENT)**
 >
-> このプラットフォームを軍事目的、紛争地帯、または戦闘シミュレーションに使用することは**完全に容認されません**。このプロジェクトは、自然災害や人道危機の際、**人命を救い**、その影響を軽減するためにのみ開発されました。このテクノロジーを破壊的な目的で使用することは、組織によって明示的に非難されており、本ソフトウェアの基本原則に違反します。
+> このプロジェクトは、自然災害や人道危機の際に**人命を救い**、その影響を軽減するというミッションの下に運営されています。本プラットフォームを軍事目的、戦闘活動、または紛争シミュレーションに使用することは、私たちの基本原則や人道的目的とは一致しません。
 >
-> The use of this platform for military purposes, warfare environments, or conflict simulations is **COMPLETELY UNACCEPTABLE**. This project was developed exclusively to **SAVE LIVES** and mitigate the impacts of natural disasters and humanitarian crises. Using this technology for destructive purposes is expressly condemned by the organization and violates the fundamental principles of this software.
+> This project is driven by the mission to **SAVE LIVES** and mitigate the impacts of natural disasters and humanitarian crises. The use of this platform for military purposes, warfare activities, or conflict simulations does not align with our core values and humanitarian purpose.
 
 ![SOS Location Banner](https://img.shields.io/badge/SOS--Location-Resilience--v2.0-blueviolet?style=for-the-badge)
 ![Status Build](https://img.shields.io/badge/Build-Passing-success?style=for-the-badge)

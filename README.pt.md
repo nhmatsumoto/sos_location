@@ -1,11 +1,11 @@
 # SOS Location: Mapa Tático Resiliente e Sala de Situação 3D v2.0
 
-> [!CAUTION]
-> **AVISO ÉTICO CRÍTICO / CRITICAL ETHICAL WARNING**
+> [!NOTE]
+> **COMPROMISSO ÉTICO / ETHICAL COMMITMENT**
 >
-> O uso desta plataforma para fins militares, em ambientes de guerra ou para simulações de conflito é **COMPLETAMENTE INACEITÁVEL**. Este projeto foi desenvolvido exclusivamente para **SALVAR VIDAS** e mitigar os impactos de desastres naturais e crises humanitárias. Usar esta tecnologia para fins de destruição é expressamente condenado pela organização e viola os princípios fundamentais deste software.
+> Este projeto é movido pela missão de **SALVAR VIDAS** e mitigar os impactos de desastres naturais e crises humanitárias. O uso desta plataforma para fins militares, atividades bélicas ou simulações de conflito não alinha-se com nossos valores fundamentais e propósito humanitário.
 >
-> The use of this platform for military purposes, warfare environments, or conflict simulations is **COMPLETELY UNACCEPTABLE**. This project was developed exclusively to **SAVE LIVES** and mitigate the impacts of natural disasters and humanitarian crises. Using this technology for destructive purposes is expressly condemned by the organization and violates the fundamental principles of this software.
+> This project is driven by the mission to **SAVE LIVES** and mitigate the impacts of natural disasters and humanitarian crises. The use of this platform for military purposes, warfare activities, or conflict simulations does not align with our core values and humanitarian purpose.
 
 ![SOS Location Banner](https://img.shields.io/badge/SOS--Location-Resilience--v2.0-blueviolet?style=for-the-badge)
 ![Status Build](https://img.shields.io/badge/Build-Passing-success?style=for-the-badge)
