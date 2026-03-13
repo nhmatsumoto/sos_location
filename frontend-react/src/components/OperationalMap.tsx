@@ -30,10 +30,14 @@ interface OperationalMapProps {
   setLastMapClick: (p: { lat: number, lng: number } | null) => void;
   setMapQuickMenu: (m: { visible: boolean, x: number, y: number, lat: number, lng: number }) => void;
   mapActionMode: string;
-  setMapActionMode: (m: 'none' | 'incident' | 'risk' | 'support') => void;
+  setMapActionMode: (m: 'none' | 'incident' | 'risk' | 'support' | 'demarcation') => void;
+  demarcations: MapDemarcation[];
+  setDemarcations: (d: (prev: MapDemarcation[]) => MapDemarcation[]) => void;
   setFlowForm: (f: (prev: any) => any) => void;
   setRiskDraftPoint: (p: { lat: number, lng: number } | null) => void;
   setShowRiskModal: (s: boolean) => void;
+  setDemarcationDraftPoint: (p: { lat: number, lng: number } | null) => void;
+  setShowDemarcationModal: (s: boolean) => void;
   setRiskForm: (f: (prev: any) => any) => void;
   openPanel: (p: SelectedPanel) => void;
   sidebarTab: string;
@@ -43,11 +47,13 @@ export const OperationalMap: React.FC<OperationalMapProps> = (props) => {
   const {
     tacticalMapEnabled, activeCatastrophe, catastrophes,
     displayedHotspots, selectedIncidentPoint, setSelectedIncidentPoint,
-    supportPoints, setSupportPoints, attentionAlerts, flowResult,
+    supportPoints, setSupportPoints,    attentionAlerts, flowResult,
     flowPathLatLng, mapOverlayRef, setLastMapClick,
     setMapQuickMenu, mapActionMode, setMapActionMode,
-    setFlowForm, setRiskDraftPoint, setShowRiskModal, setRiskForm,
-    openPanel, sidebarTab
+    demarcations, setDemarcations,
+    setFlowForm, setRiskDraftPoint, setShowRiskModal, 
+    setDemarcationDraftPoint, setShowDemarcationModal,
+    setRiskForm, openPanel, sidebarTab
   } = props;
 
   return (
@@ -114,6 +120,14 @@ export const OperationalMap: React.FC<OperationalMapProps> = (props) => {
                 createdAtUtc: new Date().toISOString(),
               }, ...prev]));
               setMapActionMode('none');
+              return;
+            }
+
+            if (mapActionMode === 'demarcation') {
+              setDemarcationDraftPoint({ lat, lng });
+              setShowDemarcationModal(true);
+              setMapActionMode('none');
+              return;
             }
           }}
         />
@@ -208,6 +222,29 @@ export const OperationalMap: React.FC<OperationalMapProps> = (props) => {
                 <p><strong>{point.type}</strong></p>
                 <p>{point.lat.toFixed(5)}, {point.lng.toFixed(5)}</p>
                 {point.notes ? <p>{point.notes}</p> : null}
+              </div>
+            </Popup>
+          </Marker>
+        ))}
+
+        {demarcations.map((dm) => (
+          <Marker key={dm.id} position={[dm.latitude, dm.longitude]} icon={iconCritical}>
+            <Popup className="custom-popup">
+              <div className="p-1 min-w-[180px]">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-[10px] font-black uppercase bg-blue-600 text-white px-1.5 py-0.5 rounded">
+                    {dm.type}
+                  </span>
+                </div>
+                <h4 className="font-bold text-slate-900 text-sm mb-1">{dm.title}</h4>
+                <p className="text-xs text-slate-500 mb-2">{dm.description}</p>
+                <div className="flex flex-wrap gap-1">
+                  {dm.tags.map(tag => (
+                    <span key={tag} className="text-[9px] font-bold bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded border border-slate-200">
+                      #{tag}
+                    </span>
+                  ))}
+                </div>
               </div>
             </Popup>
           </Marker>

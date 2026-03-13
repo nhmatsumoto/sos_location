@@ -2,14 +2,14 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import type { FormEvent } from 'react';
 import { useLocation } from 'react-router-dom';
 import type { 
-  NewsUpdate, SupportPoint, 
+  NewsUpdate, SupportPoint, MapDemarcation,
   DonationTask, Catastrophe, 
   FloatingPanelId, FloatingPanelPosition, SelectedPanel 
 } from '../types';
 import { 
   initialFormState, initialMissingForm, initialRiskForm, initialDonationForm, 
   initialSplatForm, initialCatastropheForm, initialCatastropheEventForm, 
-  LOCAL_WEEKLY_RAIN_NEWS
+  initialDemarcationForm, LOCAL_WEEKLY_RAIN_NEWS
 } from '../constants';
 import { useClimate } from './useClimate';
 import { useEmergencyAlerts } from './useEmergencyAlerts';
@@ -57,6 +57,14 @@ export function useOperationalState() {
   const [riskError, setRiskError] = useState('');
   const [riskSuccess, setRiskSuccess] = useState('');
   const [riskForm, setRiskForm] = useState(initialRiskForm);
+
+  const [demarcations, setDemarcations] = useState<MapDemarcation[]>([]);
+  const [demarcationDraftPoint, setDemarcationDraftPoint] = useState<{ lat: number; lng: number } | null>(null);
+  const [showDemarcationModal, setShowDemarcationModal] = useState(false);
+  const [savingDemarcation, setSavingDemarcation] = useState(false);
+  const [demarcationError, setDemarcationError] = useState('');
+  const [demarcationSuccess, setDemarcationSuccess] = useState('');
+  const [demarcationForm, setDemarcationForm] = useState(initialDemarcationForm);
   
   const location = useLocation();
   const sidebarTab = useMemo<'news' | 'hotspots' | 'support' | 'volunteers'>(() => {
@@ -165,6 +173,19 @@ export function useOperationalState() {
     };
   }, [loadHotspots, loadMissingPeople, loadAttentionAlerts, loadClimakiContext]);
 
+  const loadDemarcations = async () => {
+    try {
+      const res = await apiClient.get<MapDemarcation[]>('/api/v1/demarcations');
+      setDemarcations(res.data);
+    } catch (err) {
+      frontendLogger.error('Falha ao carregar demarcações', { err });
+    }
+  };
+
+  useEffect(() => {
+    loadDemarcations();
+  }, []);
+
   const handleUpload = async (event: FormEvent) => {
     event.preventDefault();
     setUploadError('');
@@ -243,6 +264,39 @@ export function useOperationalState() {
     setSavingRiskArea(false);
   };
 
+  const handleDemarcationSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!demarcationDraftPoint) {
+      setDemarcationError('Selecione um ponto no mapa.');
+      return;
+    }
+
+    setSavingDemarcation(true);
+    setDemarcationError('');
+    setDemarcationSuccess('');
+
+    try {
+      const payload = {
+        ...demarcationForm,
+        latitude: demarcationDraftPoint.lat,
+        longitude: demarcationDraftPoint.lng,
+        tags: demarcationForm.tags.split(',').map(t => t.trim()).filter(t => t !== ''),
+        createdBy: 'Admin', // Static for now
+      };
+
+      const res = await apiClient.post<MapDemarcation>('/api/v1/demarcations', payload);
+      setDemarcations(prev => [res.data, ...prev]);
+      setDemarcationSuccess('Demarcação salva!');
+      setShowDemarcationModal(false);
+      setDemarcationForm(initialDemarcationForm);
+      setDemarcationDraftPoint(null);
+    } catch (err) {
+      setDemarcationError('Falha ao salvar demarcação.');
+    } finally {
+      setSavingDemarcation(false);
+    }
+  };
+
   const handleSplatUpload = async (event: FormEvent) => {
     event.preventDefault();
 
@@ -305,6 +359,13 @@ export function useOperationalState() {
     riskError, setRiskError,
     riskSuccess, setRiskSuccess,
     riskForm, setRiskForm,
+    demarcations, setDemarcations,
+    demarcationDraftPoint, setDemarcationDraftPoint,
+    showDemarcationModal, setShowDemarcationModal,
+    savingDemarcation,
+    demarcationError,
+    demarcationSuccess,
+    demarcationForm, setDemarcationForm,
     sidebarTab,
     mapActionMode, setMapActionMode,
     mapQuickMenu, setMapQuickMenu,
@@ -335,6 +396,7 @@ export function useOperationalState() {
     handleMissingSubmit,
     onRunFlow,
     handleRiskAreaSubmit,
+    handleDemarcationSubmit,
     handleSplatUpload
   };
 }

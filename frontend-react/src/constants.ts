@@ -42,6 +42,13 @@ export const initialDonationForm = {
   location: 'Centro comunitário de Ubá',
 };
 
+export const initialDemarcationForm = {
+  title: '',
+  description: '',
+  type: 'Ponto de Apoio',
+  tags: '',
+};
+
 export const initialSplatForm = {
   latitude: '-21.1215',
   longitude: '-42.9427',

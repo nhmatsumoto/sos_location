@@ -13,19 +13,16 @@ namespace SOSLocation.Infrastructure.Services.Gis
     public class AlertsBackgroundService : BackgroundService, IAlertsService
     {
         private readonly ILogger<AlertsBackgroundService> _logger;
-        private readonly IEnumerable<IAlertProvider> _providers;
-        private readonly IIbgeEnrichmentService _enrichmentService;
+        private readonly IServiceScopeFactory _scopeFactory;
         private readonly List<ExternalAlert> _activeAlerts = new();
         private const int PollIntervalMinutes = 30;
 
         public AlertsBackgroundService(
             ILogger<AlertsBackgroundService> logger,
-            IEnumerable<IAlertProvider> providers,
-            IIbgeEnrichmentService enrichmentService)
+            IServiceScopeFactory scopeFactory)
         {
             _logger = logger;
-            _providers = providers;
-            _enrichmentService = enrichmentService;
+            _scopeFactory = scopeFactory;
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -40,11 +37,15 @@ namespace SOSLocation.Infrastructure.Services.Gis
 
         public async Task PollAlertsAsync()
         {
-            _logger.LogInformation("Polling {count} providers for active disaster alerts...", _providers.Count());
+            using var scope = _scopeFactory.CreateScope();
+            var providers = scope.ServiceProvider.GetServices<IAlertProvider>();
+            var enrichmentService = scope.ServiceProvider.GetRequiredService<IIbgeEnrichmentService>();
+
+            _logger.LogInformation("Polling {count} providers for active disaster alerts...", providers.Count());
 
             var allAlerts = new List<ExternalAlert>();
 
-            foreach (var provider in _providers)
+            foreach (var provider in providers)
             {
                 try
                 {
@@ -87,7 +88,7 @@ namespace SOSLocation.Infrastructure.Services.Gis
 
             try
             {
-                await _enrichmentService.EnrichAlertsAsync(allAlerts);
+                await enrichmentService.EnrichAlertsAsync(allAlerts);
                 _logger.LogInformation("Enriched {count} alerts with IBGE/Demographic data", allAlerts.Count);
             }
             catch (Exception ex)

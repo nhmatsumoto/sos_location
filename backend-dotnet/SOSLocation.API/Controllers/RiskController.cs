@@ -1,5 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
 using System.Collections.Generic;
+using System.Net.Http;
+using System.Net.Http.Json;
 using System.Threading.Tasks;
 
 namespace SOSLocation.API.Controllers
@@ -8,26 +11,44 @@ namespace SOSLocation.API.Controllers
     [Route("api/risk")]
     public class RiskController : ControllerBase
     {
-        [HttpGet("assessment")]
-        public IActionResult GetAssessment([FromQuery] double lat, [FromQuery] double lon, [FromQuery] double radiusKm = 10)
+        private readonly HttpClient _httpClient;
+        private readonly string _riskServiceUrl;
+
+        public RiskController(HttpClient httpClient, IConfiguration configuration)
         {
-            // Simulation logic
-            return Ok(new
+            _httpClient = httpClient;
+            _riskServiceUrl = configuration["ExternalIntegrations:RiskServiceUrl"] ?? "http://risk-analysis:8000";
+        }
+
+        [HttpGet("assessment")]
+        public async Task<IActionResult> GetAssessment()
+        {
+            try
             {
-                model = new { name = "SOS-Risk-Alpha", version = "v2.1" },
-                riskMap = new List<object>
+                var scores = await _httpClient.GetFromJsonAsync<List<object>>($"{_riskServiceUrl}/api/v1/risk/scores");
+                return Ok(new
                 {
-                    new { lat = lat + 0.001, lon = lon + 0.001, severity = "high", riskScore = 0.85 },
-                    new { lat = lat - 0.002, lon = lon + 0.001, severity = "medium", riskScore = 0.45 }
-                },
-                analytics = new { affectedPopulation = 1250, criticalInfrastructureCount = 3 }
-            });
+                    model = new { name = "SOS-Risk-ML-Unit", version = "v1.0.0" },
+                    riskMap = scores ?? new List<object>(),
+                    status = "live_from_ml_unit"
+                });
+            }
+            catch (Exception ex)
+            {
+                return Ok(new
+                {
+                    model = new { name = "SOS-Risk-Fallback", version = "v0.1-fallback" },
+                    riskMap = new List<object>(),
+                    error = "Risk analysis service unavailable",
+                    message = ex.Message
+                });
+            }
         }
 
         [HttpPost("pipeline-sync")]
         public IActionResult PipelineSync()
         {
-            return Ok(new { savedRiskAreas = 2, status = "synced" });
+            return Ok(new { savedRiskAreas = 0, status = "automatic_sync_active" });
         }
     }
 }

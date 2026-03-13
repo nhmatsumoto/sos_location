@@ -16,6 +16,7 @@ import { MissingPersonModal } from './components/Modals/MissingPersonModal';
 import { RiskAreaModal } from './components/Modals/RiskAreaModal';
 import { UploadModal } from './components/Modals/UploadModal';
 import { CatastropheModal } from './components/Modals/CatastropheModal';
+import { DemarcationModal } from './components/Modals/DemarcationModal';
 import { DraggablePanel } from './components/map/DraggablePanel';
 import { LocalConditionsPanel } from './components/map/LocalConditionsPanel';
 
@@ -197,6 +198,18 @@ export default function App() {
         setForm={state.setCatastropheForm}
         onSubmit={handleCreateCatastrophe}
         saving={false}
+      />
+
+      <DemarcationModal 
+        show={state.showDemarcationModal}
+        onClose={() => state.setShowDemarcationModal(false)}
+        draftPoint={state.demarcationDraftPoint}
+        form={state.demarcationForm}
+        setForm={state.setDemarcationForm}
+        onSubmit={state.handleDemarcationSubmit}
+        saving={state.savingDemarcation}
+        error={state.demarcationError}
+        success={state.demarcationSuccess}
       />
 
       {state.selectedPanel && (

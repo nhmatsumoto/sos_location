@@ -129,9 +129,22 @@ export interface FloatingPanelPosition {
   bottom?: number;
 }
 
+export interface MapDemarcation {
+  id: string;
+  title: string;
+  description: string;
+  latitude: number;
+  longitude: number;
+  type: string;
+  tags: string[];
+  createdAtUtc: string;
+  createdBy: string;
+  isActive: boolean;
+}
+
 export interface SelectedPanel {
   hotspot?: Hotspot;
-  mode: 'sim' | 'splat';
+  mode: 'sim' | 'splat' | 'demarcation';
   sourceLat?: number;
   sourceLng?: number;
   label?: string;
