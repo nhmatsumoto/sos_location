@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using SOSLocation.Domain.Shared;
 using SOSLocation.Domain.Incidents;
 using SOSLocation.Domain.Missions;
+using SOSLocation.Domain.News;
 using SOSLocation.Domain.Tracking;
 using System;
 using System.Linq;
@@ -39,6 +40,7 @@ namespace SOSLocation.Infrastructure.Persistence
         public DbSet<MissingPerson> MissingPersons { get; set; } = null!;
         public DbSet<CollapseReport> CollapseReports { get; set; } = null!;
         public DbSet<MapAnnotation> MapAnnotations { get; set; } = null!;
+        public DbSet<NewsNotification> NewsNotifications { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

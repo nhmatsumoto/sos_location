@@ -1,194 +1,172 @@
-import { Shield, RefreshCw, FileText, Activity, Users, MousePointer2, Layers, Settings2, MapPin, CloudRain } from 'lucide-react';
-import { useMapStore } from '../map/store/mapStore';
-import { ToolButton } from '../components/ui/ToolButton';
-import { AlertSidebar } from '../components/ui/AlertSidebar';
-import { useSOSPageData } from '../hooks/useSOSPageData';
-import { keycloak } from '../lib/keycloak';
-import { OperationalMap } from '../components/maps/OperationalMap';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { Shield, Search, LogIn, ChevronRight, Globe, MapPin } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { newsApi } from '../services/newsApi';
+import type { NewsNotification } from '../services/newsApi';
+import { NewsFeed } from '../components/public/NewsFeed';
 
 export function PublicMapPage() {
   const navigate = useNavigate();
-  const { setPanelState, panels } = useMapStore();
-  const {
-    opsSnapshot: snapshot,
-    initialLoading: loading,
-    sidebarAlerts,
-    loadData: load // Renamed from loadData to load
-  } = useSOSPageData();
+  const [news, setNews] = useState<NewsNotification[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [countryFilter, setCountryFilter] = useState('');
+  const [locationFilter, setLocationFilter] = useState('');
 
-  const [activeTool, setActiveTool] = useState('inspect');
-  const [mapCenter, setMapCenter] = useState<[number, number]>([-21.1215, -42.9427]);
-  const [mapZoom, setMapZoom] = useState(13);
-
-  const handleLogin = () => {
-    if (keycloak.authenticated) {
-      navigate('/app/sos');
-    } else {
-      keycloak.login();
-    }
+  const fetchNews = async () => {
+    setIsLoading(true);
+    const data = await newsApi.getNews(countryFilter, locationFilter);
+    setNews(data);
+    setIsLoading(false);
   };
 
+  useEffect(() => {
+    fetchNews();
+  }, [countryFilter, locationFilter]);
+
   return (
-    <div className="h-screen w-screen bg-slate-950 text-slate-100 overflow-hidden flex flex-col relative">
-      {/* Background Orbs - subtle */}
-      <div className="fixed top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
-        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-cyan-500/5 rounded-full blur-[120px]" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-blue-600/5 rounded-full blur-[120px]" />
+    <div className="min-h-screen w-full bg-slate-50 text-slate-900 flex flex-col font-sans overflow-x-hidden">
+      {/* Background Subtle Patterns */}
+      <div className="fixed inset-0 pointer-events-none z-0 opacity-40">
+        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-100/50 rounded-full blur-[120px] -translate-y-1/2 translate-x-1/2" />
+        <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-indigo-100/50 rounded-full blur-[120px] translate-y-1/2 -translate-x-1/2" />
       </div>
 
-      {/* Overlay Header / Navbar */}
-      <header className="absolute top-0 left-0 right-0 z-50 border-b border-white/10 bg-slate-950/80 backdrop-blur-2xl px-6 py-4">
-        <div className="flex items-center justify-between gap-8">
-          {/* Brand Section */}
-          <div className="flex items-center gap-4 shrink-0">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 shadow-lg shadow-cyan-500/10">
-              <Shield size={20} />
+      {/* Modern Glass Header */}
+      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-200 px-6 py-4">
+        <div className="max-w-6xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-lg shadow-blue-200">
+              <Shield size={22} fill="white" />
             </div>
             <div>
-              <p className="text-[9px] font-black uppercase tracking-[0.3em] text-cyan-500/60 leading-none mb-1">Tactical Monitor</p>
-              <h1 className="text-xl font-bold tracking-tight text-white leading-none italic">SOS Dashboard</h1>
-            </div>
-          </div>
-
-          {/* Center Section: Stats & Metrics */}
-          <div className="flex-1 hidden xl:flex items-center justify-center gap-8">
-            <div className="flex items-center gap-3">
-              <Activity size={14} className="text-amber-400" />
-              <div className="flex flex-col">
-                <span className="text-[8px] font-mono text-slate-500 uppercase tracking-widest">Alertas</span>
-                <span className="text-[10px] font-bold text-white uppercase">{snapshot?.kpis?.criticalAlerts ?? 0}</span>
-              </div>
-            </div>
-            <div className="h-6 w-px bg-white/5" />
-            <div className="flex items-center gap-3">
-              <Users size={14} className="text-blue-400" />
-              <div className="flex flex-col">
-                <span className="text-[8px] font-mono text-slate-500 uppercase tracking-widest">Equipes</span>
-                <span className="text-[10px] font-bold text-white uppercase">{snapshot?.kpis?.activeTeams ?? 0}</span>
-              </div>
-            </div>
-            <div className="h-6 w-px bg-white/5" />
-            <div className="flex items-center gap-3">
-              <MapPin size={14} className="text-orange-400" />
-              <div className="flex flex-col">
-                <span className="text-[8px] font-mono text-slate-500 uppercase tracking-widest">Desaparecidos</span>
-                <span className="text-[10px] font-bold text-white uppercase">{snapshot?.layers?.missingPersons?.length ?? 0}</span>
-              </div>
-            </div>
-            <div className="h-6 w-px bg-white/5" />
-            <div className="flex items-center gap-3 border border-cyan-500/20 bg-cyan-500/5 px-3 py-1 rounded-lg">
-              <CloudRain size={14} className="text-cyan-400" />
-              <div className="flex flex-col min-w-[60px]">
-                <span className="text-[8px] font-mono text-cyan-500/60 uppercase tracking-widest leading-none mb-0.5">Clima</span>
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-black text-white leading-none">{snapshot?.weather?.summary ? snapshot.weather.summary.split(',')[0] : '--'}</span>
-                  <span className="text-[7px] font-bold text-cyan-400/80 uppercase tracking-tighter">{snapshot?.weather?.rain24hMm ?? 0}mm</span>
-                </div>
+              <h1 className="text-xl font-black tracking-tight text-slate-900">
+                SOS <span className="text-blue-600">Portal</span>
+              </h1>
+              <div className="flex items-center gap-2 text-[10px] text-slate-400 font-bold uppercase tracking-widest">
+                <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                Live Indexer
               </div>
             </div>
           </div>
 
-          {/* Right Section: Tools & Actions */}
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-1 p-1 rounded-xl bg-white/5 border border-white/5">
-              <ToolButton
-                active={activeTool === 'inspect'}
-                onClick={() => setActiveTool('inspect')}
-                icon={<MousePointer2 size={16} />}
-                label="Inspect"
-                hideLabel
-                className="scale-90"
-              />
-              <ToolButton
-                active={panels.tools.open}
-                onClick={() => setPanelState('tools', { open: !panels.tools.open })}
-                icon={<Layers size={16} />}
-                label="Layers"
-                hideLabel
-                className="scale-90"
-              />
-              <ToolButton
-                active={panels.climate.open}
-                onClick={() => setPanelState('climate', { open: !panels.climate.open })}
-                icon={<Settings2 size={16} />}
-                label="Climate"
-                hideLabel
-                className="scale-90"
-              />
-            </div>
-
-            <div className="h-6 w-px bg-white/10" />
-
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => load()}
-                disabled={loading}
-                className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 transition-all shadow-sm"
-                title="Sync Data"
-              >
-                <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
-              </button>
-
-              <a
-                href="/docs/index.html"
-                target="_blank"
-                className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 transition-all shadow-sm"
-                title="Documentation"
-              >
-                <FileText size={14} />
-              </a>
-
-              <button
-                onClick={handleLogin}
-                className="flex h-9 items-center gap-2 rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-4 text-[10px] font-black uppercase tracking-[0.2em] text-cyan-400 hover:bg-cyan-500/20 transition-all active:scale-95 shadow-lg shadow-cyan-500/5 ml-2"
-              >
-                {keycloak.authenticated ? 'Enter War Room' : 'Operator Login'}
-              </button>
-            </div>
+            <button
+              onClick={() => navigate('/login')}
+              className="flex items-center gap-2 px-5 h-11 rounded-2xl bg-slate-900 border border-slate-800 text-white hover:bg-slate-800 transition-all shadow-md active:scale-95"
+            >
+              <LogIn size={16} />
+              <span className="text-xs font-bold uppercase tracking-wider">Acesso Restrito</span>
+            </button>
           </div>
         </div>
       </header>
 
-      {/* Main Map Content - Edge to Edge */}
-      <main className="flex-1 relative z-10 w-full overflow-hidden">
-        <div className="w-full h-full relative">
-          {/* Full Screen Map Container */}
-          <div className="w-full h-full pt-[73px]">
-            <OperationalMap
-              data={snapshot}
-              hideFloatingPanels={true}
-              center={mapCenter}
-              zoom={mapZoom}
+      {/* Main Content Area */}
+      <main className="flex-1 max-w-6xl mx-auto w-full px-6 py-10 relative z-10">
+        
+        {/* Hero Section */}
+        <div className="mb-12 space-y-4">
+          <h2 className="text-4xl font-black text-slate-900 tracking-tight leading-tight max-w-2xl">
+            Centro de Informações <br />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">Oficiais e Emergenciais</span>
+          </h2>
+          <p className="text-slate-500 max-w-xl text-lg font-medium leading-relaxed">
+            Acompanhe em tempo real notificações filtradas de fontes oficiais e veículos de notícia confiáveis.
+          </p>
+        </div>
+
+        {/* Filters Container */}
+        <div className="bg-white rounded-3xl border border-slate-200 shadow-xl shadow-slate-200/50 p-3 mb-10 flex flex-col md:flex-row items-center gap-3">
+          <div className="relative flex-1 w-full">
+            <Globe className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+            <select 
+              className="w-full h-14 pl-12 pr-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 text-sm font-semibold appearance-none cursor-pointer"
+              value={countryFilter}
+              onChange={(e) => setCountryFilter(e.target.value)}
+            >
+              <option value="">Todos os Países</option>
+              <option value="Brasil">Brasil</option>
+              <option value="USA">USA</option>
+              <option value="Spain">Spain</option>
+            </select>
+          </div>
+
+          <div className="relative flex-1 w-full">
+            <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+            <input 
+              type="text" 
+              placeholder="Filtrar por localização (ex: Minas Gerais)"
+              className="w-full h-14 pl-12 pr-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 text-sm font-semibold placeholder:text-slate-400"
+              value={locationFilter}
+              onChange={(e) => setLocationFilter(e.target.value)}
             />
           </div>
+
+          <button 
+            onClick={fetchNews}
+            className="h-14 px-8 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-bold flex items-center justify-center gap-2 transition-all active:scale-95 shadow-lg shadow-blue-200 w-full md:w-auto"
+          >
+            <Search size={18} />
+            Buscar
+          </button>
+        </div>
+
+        {/* Feed Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+          <div className="lg:col-span-2">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                Últimas Notificações
+                <span className="text-sm font-medium px-2 py-0.5 rounded-md bg-blue-50 text-blue-600">
+                  {news.length}
+                </span>
+              </h3>
+            </div>
+            <NewsFeed news={news} isLoading={isLoading} />
+          </div>
+
+          <aside className="space-y-8">
+            {/* Quick Links / Info */}
+            <div className="bg-slate-900 rounded-3xl p-8 text-white relative overflow-hidden">
+               <div className="absolute top-0 right-0 p-4 opacity-10">
+                 <Shield size={80} />
+               </div>
+               <h4 className="text-lg font-bold mb-3 relative z-10">Bases Oficiais</h4>
+               <p className="text-sm text-slate-400 mb-6 relative z-10 leading-relaxed">
+                 Nossos dados são extraídos apenas de fontes verificadas como Defesa Civil, CEMADEN e agências de clima governamentais.
+               </p>
+               <button 
+                  onClick={() => navigate('/')}
+                  className="w-full h-12 bg-white/10 hover:bg-white/20 rounded-xl text-xs font-bold uppercase tracking-widest transition-colors flex items-center justify-center gap-2"
+               >
+                 Início <ChevronRight size={14} />
+               </button>
+            </div>
+
+            {/* Newsletter / CTA */}
+            <div className="bg-white rounded-3xl border border-dashed border-slate-300 p-8">
+               <h4 className="text-slate-900 font-bold mb-2">Busca Geolocalizada</h4>
+               <p className="text-sm text-slate-500 leading-relaxed mb-4">
+                 Em breve você poderá ativar notificações em tempo real baseadas na sua posição GPS exata.
+               </p>
+               <div className="flex h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                 <div className="w-1/3 bg-blue-500 rounded-full" />
+               </div>
+               <span className="text-[10px] text-slate-400 font-black uppercase mt-2 block tracking-widest">35% Beta Testing</span>
+            </div>
+          </aside>
         </div>
       </main>
 
-      <AlertSidebar
-        alerts={sidebarAlerts.map((a: any) => ({
-          ...a,
-          description: a.description || `Alerta de ${a.source || 'sistema'}`,
-          lat: a.lat,
-          lon: a.lon
-        }))}
-        kpis={{
-          criticalAlerts: snapshot?.kpis?.criticalAlerts || 0,
-          activeTeams: snapshot?.kpis?.activeTeams || 0,
-          missingPersons: snapshot?.layers?.missingPersons?.length || 0
-        }}
-        onAlertClick={(alert) => {
-          if (alert.lat && alert.lon) {
-            setMapCenter([alert.lat, alert.lon]);
-            setMapZoom(15);
-          }
-        }}
-      />
-
-      <footer className="absolute bottom-0 left-0 right-0 z-50 px-6 py-1 flex items-center justify-between text-[8px] font-mono text-slate-600 bg-slate-950/20 pointer-events-none">
-        <span className="uppercase tracking-[0.2em]">SOS-LOCATION System • Open Source Initiative</span>
-        <span className="uppercase tracking-tight">© 2026 MG-LOCATION</span>
+      <footer className="w-full bg-white border-t border-slate-200 px-6 py-6 mt-12">
+        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+          <span className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em]">SOS-LOCATION INDEXER • 2026</span>
+          <div className="flex items-center gap-6 text-xs text-slate-500 font-medium">
+             <a href="#" className="hover:text-blue-600 transition-colors">Termos de Uso</a>
+             <a href="#" className="hover:text-blue-600 transition-colors">Privacidade</a>
+             <a href="#" className="hover:text-blue-600 transition-colors">Fontes de Dados</a>
+          </div>
+        </div>
       </footer>
     </div>
   );

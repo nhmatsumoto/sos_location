@@ -11,6 +11,7 @@ using SOSLocation.Application.Features.Incidents.Commands.CreateIncident;
 using SOSLocation.Application.Common.Behaviors;
 using MediatR;
 using SOSLocation.Infrastructure.Services.Gis.Providers;
+using SOSLocation.Infrastructure.Services.News;
 
 namespace SOSLocation.API.Extensions
 {
@@ -58,6 +59,9 @@ namespace SOSLocation.API.Extensions
             services.AddSingleton<AlertsBackgroundService>();
             services.AddSingleton<IAlertsService>(sp => sp.GetRequiredService<AlertsBackgroundService>());
             services.AddHostedService(sp => sp.GetRequiredService<AlertsBackgroundService>());
+
+            // News Indexer
+            services.AddHostedService<NewsIndexerService>();
 
             return services;
         }

@@ -14,7 +14,9 @@ const VolunteerDashboardPage = lazy(() => import('./pages/VolunteerDashboardPage
 const LogisticsPage = lazy(() => import('./pages/LogisticsPage.tsx').then((m) => ({ default: m.LogisticsPage })));
 const RiskAssessmentPage = lazy(() => import('./pages/RiskAssessmentPage.tsx').then((m) => ({ default: m.RiskAssessmentPage })));
 const SupportDashboardPage = lazy(() => import('./pages/SupportDashboardPage.tsx').then((m) => ({ default: m.SupportDashboardPage })));
+const LoginPage = lazy(() => import('./pages/LoginPage').then((m) => ({ default: m.LoginPage })));
 const OnboardingPage = lazy(() => import('./pages/OnboardingPage').then((m) => ({ default: m.OnboardingPage })));
+
 function PrivateLayout() {
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const location = useLocation();
@@ -23,16 +25,9 @@ function PrivateLayout() {
     document.documentElement.dataset.theme = theme;
   }, [theme]);
 
-  const isOnboardingComplete = localStorage.getItem('onboarding_complete') === 'true';
-
-  if (!isOnboardingComplete && location.pathname !== '/onboarding') {
-    return <Navigate to="/onboarding" replace />;
-  }
-
   // Redirection to login if not authenticated
   if (!keycloak.authenticated) {
-    keycloak.login();
-    return <LoadingScreen message="Redirecionando para o portal de acesso..." />;
+    return <Navigate to="/login" replace />;
   }
 
   const isSOS = location.pathname === '/app/sos';
@@ -46,18 +41,18 @@ function PrivateLayout() {
       >
       <Suspense fallback={<div style={{ padding: 16 }}>Carregando módulo…</div>}>
         <Routes>
-          <Route path="/app/sos" element={<SOSPage />} />
-          <Route path="/app/war-room" element={<Navigate to="/app/sos" replace />} />
-          <Route path="/app/command-center" element={<Navigate to="/app/sos" replace />} />
-          <Route path="/app/global-disasters" element={<Navigate to="/app/sos" replace />} />
-          <Route path="/app/operations" element={<Navigate to="/app/sos" replace />} />
-          <Route path="/app/settings" element={<SettingsPage />} />
-          <Route path="/app/splat-scenes/:id" element={<SplatScenePage />} />
-          <Route path="/app/splat-scenes" element={<SplatScenePage />} />
-          <Route path="/app/volunteer" element={<VolunteerDashboardPage />} />
-          <Route path="/app/logistics" element={<LogisticsPage />} />
-          <Route path="/app/risk-assessment" element={<RiskAssessmentPage />} />
-          <Route path="/app/support" element={<SupportDashboardPage />} />
+          <Route path="/sos" element={<SOSPage />} />
+          <Route path="/war-room" element={<Navigate to="/app/sos" replace />} />
+          <Route path="/command-center" element={<Navigate to="/app/sos" replace />} />
+          <Route path="/global-disasters" element={<Navigate to="/app/sos" replace />} />
+          <Route path="/operations" element={<Navigate to="/app/sos" replace />} />
+          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/splat-scenes/:id" element={<SplatScenePage />} />
+          <Route path="/splat-scenes" element={<SplatScenePage />} />
+          <Route path="/volunteer" element={<VolunteerDashboardPage />} />
+          <Route path="/logistics" element={<LogisticsPage />} />
+          <Route path="/risk-assessment" element={<RiskAssessmentPage />} />
+          <Route path="/support" element={<SupportDashboardPage />} />
           <Route path="*" element={<Navigate to="/app/sos" replace />} />
         </Routes>
       </Suspense>
@@ -69,11 +64,11 @@ function PrivateLayout() {
 export default function AppRoutes() {
   return (
     <Routes>
-      <Route path="/" element={<PublicMapPage />} />
-      <Route path="/public/map" element={<Navigate to="/" replace />} />
+      <Route path="/" element={<Suspense fallback={<LoadingScreen />}><OnboardingPage /></Suspense>} />
+      <Route path="/public/map" element={<PublicMapPage />} />
       <Route path="/public/transparency" element={<PublicIncidentDashboardPage />} />
       <Route path="/error" element={<ErrorPage />} />
-      <Route path="/onboarding" element={<Suspense fallback={<LoadingScreen />}><OnboardingPage /></Suspense>} />
+      <Route path="/login" element={<Suspense fallback={<LoadingScreen />}><LoginPage /></Suspense>} />
       <Route path="/app/*" element={<PrivateLayout />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { useThree } from '@react-three/fiber';
 import { RenderOrchestrator } from 'sos-3d-engine';
 import { useSimulationStore } from '../../store/useSimulationStore';
+import { gisApi } from '../../services/gisApi';
 
 export const EngineController: React.FC = () => {
     const { scene, camera, gl } = useThree();
@@ -9,7 +10,7 @@ export const EngineController: React.FC = () => {
     
     useEffect(() => {
         const orchestrator = RenderOrchestrator.getInstance();
-        orchestrator.init(scene, camera, gl);
+        orchestrator.init(scene, camera, gl, gisApi);
         
         return () => {
             orchestrator.dispose();
