@@ -56,7 +56,9 @@ namespace SOSLocation.Infrastructure.Services.News
                     Longitude = 139.6917,
                     PublishedAt = DateTime.UtcNow,
                     Category = "Storm",
-                    ExternalUrl = "https://www.jma.go.jp/jma/indexe.html"
+                    ExternalUrl = "https://www.jma.go.jp/jma/indexe.html",
+                    ClimateInfo = "Precipitação: 45mm/h | Vento: 60km/h",
+                    RiskScore = 72.5
                 },
                 new NewsNotification
                 {
@@ -70,13 +72,17 @@ namespace SOSLocation.Infrastructure.Services.News
                     Longitude = -46.6333,
                     PublishedAt = DateTime.UtcNow.AddHours(-1),
                     Category = "Weather",
-                    ExternalUrl = "https://portal.inmet.gov.br/"
+                    ExternalUrl = "https://portal.inmet.gov.br/",
+                    RiskScore = 45.0
                 }
             };
 
             foreach (var item in weatherItems)
             {
-                await repository.AddAsync(item);
+                if (!await repository.ExistsAsync(item.Title, item.PublishedAt))
+                {
+                    await repository.AddAsync(item);
+                }
             }
 
             _logger.LogInformation("Successfully indexed {count} weather alerts.", weatherItems.Count);

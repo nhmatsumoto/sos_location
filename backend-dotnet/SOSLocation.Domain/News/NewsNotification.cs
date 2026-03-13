@@ -15,5 +15,7 @@ namespace SOSLocation.Domain.News
         public DateTime PublishedAt { get; set; }
         public string Category { get; set; } = "General"; // e.g., Disaster, Weather, Health
         public string? ExternalUrl { get; set; }
+        public string? ClimateInfo { get; set; }
+        public double RiskScore { get; set; } // 0-100
     }
 }

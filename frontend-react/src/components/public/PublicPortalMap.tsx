@@ -1,8 +1,13 @@
-import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Circle, useMap, Pane } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
+import '../../styles/MapLayerStyles.css';
+import MarkerClusterGroup from 'react-leaflet-cluster';
 import L from 'leaflet';
 import type { NewsNotification } from '../../services/newsApi';
 import { useEffect } from 'react';
+import { Cloud, Calendar, ExternalLink, AlertTriangle } from 'lucide-react';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 // Fix Leaflet marker icons in React
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
@@ -42,27 +47,25 @@ interface PublicPortalMapProps {
 }
 
 export function PublicPortalMap({ news }: PublicPortalMapProps) {
-  const defaultCenter: [number, number] = [-15.7801, -47.9292]; // Brazil center
+  const defaultCenter: [number, number] = [-15.7801, -47.9292]; 
   
   const getCategoryStyles = (category: string) => {
     const cat = category.toLowerCase();
     switch (cat) {
       case 'flood': 
-        return { color: '#3b82f6', radius: 15000, opacity: 0.15 }; 
+        return { color: '#3b82f6', radius: 15000, opacity: 0.15, className: 'glow-pulse soft-area' }; 
       case 'earthquake': 
-        return { color: '#ef4444', radius: 40000, opacity: 0.2 }; 
+        return { color: '#ef4444', radius: 40000, opacity: 0.2, className: 'glow-pulse soft-area' }; 
       case 'wildfire': 
-        return { color: '#f97316', radius: 10000, opacity: 0.15 }; 
+        return { color: '#f97316', radius: 10000, opacity: 0.15, className: 'glow-pulse soft-area' }; 
       case 'tsunami': 
-        return { color: '#06b6d4', radius: 50000, opacity: 0.2 }; 
+        return { color: '#06b6d4', radius: 50000, opacity: 0.2, className: 'glow-pulse soft-area' }; 
       case 'storm': 
-        return { color: '#8b5cf6', radius: 25000, opacity: 0.2 }; // purple
+        return { color: '#8b5cf6', radius: 25000, opacity: 0.2, className: 'glow-pulse soft-area' }; 
       case 'weather': 
-        return { color: '#eab308', radius: 12000, opacity: 0.15 }; // yellow
-      case 'history': 
-        return { color: '#64748b', radius: 30000, opacity: 0.1 }; // slate
+        return { color: '#eab308', radius: 12000, opacity: 0.15, className: 'glow-pulse soft-area' }; 
       default: 
-        return { color: '#6366f1', radius: 20000, opacity: 0.1 };
+        return { color: '#6366f1', radius: 20000, opacity: 0.1, className: 'soft-area' };
     }
   };
 
@@ -80,67 +83,100 @@ export function PublicPortalMap({ news }: PublicPortalMapProps) {
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         
-        <AutoBounds news={news} />
-        
-        {news.map((item) => {
-          if (!item.latitude || !item.longitude) return null;
-          const styles = getCategoryStyles(item.category);
-          
-          return (
-            <div key={item.id}>
-              {/* Core Marker */}
-              <Marker position={[item.latitude, item.longitude]}>
-                <Popup className="custom-popup">
-                  <div className="p-1 min-w-[200px]">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-[10px] font-black uppercase tracking-tighter px-1.5 py-0.5 rounded bg-slate-900 text-white">
-                        {item.category}
-                      </span>
-                      <span className="text-[9px] font-bold text-slate-400">
-                        {new Date(item.publishedAt).toLocaleDateString()}
-                      </span>
-                    </div>
-                    <h4 className="font-bold text-slate-900 text-sm mb-1 leading-tight">{item.title}</h4>
-                    <p className="text-xs text-slate-500 mb-3">{item.source} • {item.location}</p>
-                    <a 
-                      href={item.externalUrl} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center justify-center w-full h-8 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[10px] font-black uppercase tracking-widest transition-colors"
-                    >
-                      Acessar Detalhes
-                    </a>
-                  </div>
-                </Popup>
-              </Marker>
-              
-              {/* Outer Glow Area */}
+        <Pane name="areas-pane" style={{ zIndex: 200 }}>
+          {news.map((item: NewsNotification) => {
+            if (!item.latitude || !item.longitude) return null;
+            const styles = getCategoryStyles(item.category);
+            return (
               <Circle 
+                key={`area-${item.id}`}
                 center={[item.latitude, item.longitude]}
                 radius={styles.radius}
                 pathOptions={{ 
                   color: styles.color,
                   fillColor: styles.color,
                   fillOpacity: styles.opacity,
-                  weight: 0
+                  weight: 1,
+                  className: styles.className
                 }}
               />
+            );
+          })}
+        </Pane>
 
-              {/* Inner Risk Core */}
-              <Circle 
-                center={[item.latitude, item.longitude]}
-                radius={styles.radius * 0.4}
-                pathOptions={{ 
-                  color: styles.color,
-                  fillColor: styles.color,
-                  fillOpacity: styles.opacity * 2.5,
-                  weight: 2,
-                  dashArray: '5, 5'
-                }}
-              />
-            </div>
-          );
-        })}
+        <AutoBounds news={news} />
+        
+        <MarkerClusterGroup
+          chunkedLoading
+          maxClusterRadius={40}
+          polygonOptions={{
+            fillColor: '#3b82f6',
+            color: '#3b82f6',
+            weight: 1,
+            opacity: 0.5,
+            fillOpacity: 0.1,
+          }}
+        >
+          {news.map((item: NewsNotification) => {
+            if (!item.latitude || !item.longitude) return null;
+            
+            return (
+              <Marker key={item.id} position={[item.latitude, item.longitude]}>
+                <Popup className="custom-popup">
+                  <div className="p-3 min-w-[240px] font-sans">
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[10px] font-black uppercase tracking-tighter px-2 py-1 rounded bg-slate-900 text-white w-fit">
+                          {item.category}
+                        </span>
+                        <div className="flex items-center gap-1 text-[10px] font-bold text-slate-400">
+                          <Calendar size={10} />
+                          {format(new Date(item.publishedAt), "dd/MM/yyyy", { locale: ptBR })}
+                        </div>
+                      </div>
+
+                      <div className={`flex items-center gap-1 px-2 py-1 rounded text-[10px] font-black border ${
+                        item.riskScore > 80 ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                        item.riskScore > 50 ? 'bg-orange-50 text-orange-700 border-orange-200' :
+                        'bg-emerald-50 text-emerald-700 border-emerald-200'
+                      }`}>
+                        <AlertTriangle size={10} />
+                        SCORE: {item.riskScore.toFixed(1)}
+                      </div>
+                    </div>
+                    
+                    <h4 className="font-bold text-slate-900 text-sm mb-2 leading-tight">{item.title}</h4>
+                    
+                    {item.climateInfo && (
+                      <div className="flex items-start gap-2 mb-3 p-2 bg-emerald-50 rounded-lg border border-emerald-100">
+                        <Cloud size={14} className="text-emerald-500 mt-0.5" />
+                        <div className="text-[10px] text-emerald-800 font-medium leading-relaxed">
+                          {item.climateInfo}
+                        </div>
+                      </div>
+                    )}
+
+                    <p className="text-[11px] text-slate-500 mb-4 leading-relaxed">{item.content}</p>
+
+                    <div className="flex items-center justify-between mt-auto pt-2 border-t border-slate-100">
+                       <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{item.source}</span>
+                       {item.externalUrl && (
+                         <a 
+                           href={item.externalUrl} 
+                           target="_blank" 
+                           rel="noopener noreferrer"
+                           className="flex items-center gap-1 text-[10px] font-black text-blue-600 hover:text-blue-700 transition-colors uppercase tracking-widest"
+                         >
+                           Detalhes <ExternalLink size={10} />
+                         </a>
+                       )}
+                    </div>
+                  </div>
+                </Popup>
+              </Marker>
+            );
+          })}
+        </MarkerClusterGroup>
       </MapContainer>
       
       {/* Map Legend/Overlay */}

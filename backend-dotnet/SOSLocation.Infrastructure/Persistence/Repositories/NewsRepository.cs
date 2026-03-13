@@ -22,7 +22,7 @@ namespace SOSLocation.Infrastructure.Persistence.Repositories
             return await _context.NewsNotifications.FindAsync(id);
         }
 
-        public async Task<IEnumerable<NewsNotification>> GetAllAsync(string? country = null, string? location = null)
+        public async Task<IEnumerable<NewsNotification>> GetAllAsync(string? country = null, string? location = null, string? timeWindow = null)
         {
             IQueryable<NewsNotification> query = _context.NewsNotifications;
 
@@ -36,7 +36,25 @@ namespace SOSLocation.Infrastructure.Persistence.Repositories
                 query = query.Where(n => n.Location.ToLower().Contains(location.ToLower()));
             }
 
+            if (!string.IsNullOrEmpty(timeWindow))
+            {
+                var now = DateTime.UtcNow;
+                query = timeWindow.ToLower() switch
+                {
+                    "live" => query.Where(n => n.PublishedAt >= now.AddHours(-24)),
+                    "week" => query.Where(n => n.PublishedAt >= now.AddDays(-7)),
+                    "month" => query.Where(n => n.PublishedAt >= now.AddDays(-30)),
+                    "year" => query.Where(n => n.PublishedAt >= now.AddDays(-365)),
+                    _ => query
+                };
+            }
+
             return await query.OrderByDescending(n => n.PublishedAt).ToListAsync();
+        }
+
+        public async Task<bool> ExistsAsync(string title, DateTime publishedAt)
+        {
+            return await _context.NewsNotifications.AnyAsync(n => n.Title == title && n.PublishedAt == publishedAt);
         }
 
         public async Task AddAsync(NewsNotification news)

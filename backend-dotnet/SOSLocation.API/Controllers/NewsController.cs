@@ -24,9 +24,10 @@ namespace SOSLocation.API.Controllers
         [HttpGet]
         public async Task<ActionResult<Result<ListResponseDto<NewsNotification>>>> GetNews(
             [FromQuery] string? country = null, 
-            [FromQuery] string? location = null)
+            [FromQuery] string? location = null,
+            [FromQuery] string? timeWindow = null)
         {
-            var news = await _newsRepository.GetAllAsync(country, location);
+            var news = await _newsRepository.GetAllAsync(country, location, timeWindow);
             var list = new List<NewsNotification>(news);
             
             return Ok(Result<ListResponseDto<NewsNotification>>.Success(new ListResponseDto<NewsNotification>

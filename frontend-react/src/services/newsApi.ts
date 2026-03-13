@@ -12,13 +12,15 @@ export interface NewsNotification {
   externalUrl?: string;
   latitude?: number;
   longitude?: number;
+  climateInfo?: string;
+  riskScore: number;
 }
 
 export const newsApi = {
-  getNews: async (country?: string, location?: string) => {
+  getNews: async (country?: string, location?: string, timeWindow?: string) => {
     try {
       const response = await apiClient.get(`/api/v1/news`, {
-        params: { country, location }
+        params: { country, location, timeWindow }
       });
       // apiClient already unwraps response.data.data, so response.data is the payload
       return response.data.items as NewsNotification[];

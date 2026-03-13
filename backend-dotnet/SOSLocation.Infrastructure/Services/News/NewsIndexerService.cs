@@ -58,7 +58,9 @@ namespace SOSLocation.Infrastructure.Services.News
                     Longitude = -51.2177,
                     PublishedAt = DateTime.UtcNow,
                     Category = "Flood",
-                    ExternalUrl = "https://www.defesacivil.rs.gov.br/"
+                    ExternalUrl = "https://www.defesacivil.rs.gov.br/",
+                    ClimateInfo = "Temp: 22°C | Umidade: 85% | Vento: 15km/h",
+                    RiskScore = 85.5
                 },
                 new NewsNotification
                 {
@@ -72,7 +74,8 @@ namespace SOSLocation.Infrastructure.Services.News
                     Longitude = 140.8694,
                     PublishedAt = DateTime.UtcNow.AddMinutes(-5),
                     Category = "Earthquake",
-                    ExternalUrl = "https://www.jma.go.jp/jma/indexe.html"
+                    ExternalUrl = "https://www.jma.go.jp/jma/indexe.html",
+                    RiskScore = 92.0
                 },
                 new NewsNotification
                 {
@@ -86,7 +89,8 @@ namespace SOSLocation.Infrastructure.Services.News
                     Longitude = -49.2648,
                     PublishedAt = DateTime.UtcNow.AddHours(-1),
                     Category = "Wildfire",
-                    ExternalUrl = "https://portal.inmet.gov.br/"
+                    ExternalUrl = "https://portal.inmet.gov.br/",
+                    RiskScore = 78.4
                 },
                 new NewsNotification
                 {
@@ -100,13 +104,17 @@ namespace SOSLocation.Infrastructure.Services.News
                     Longitude = 136.6562,
                     PublishedAt = DateTime.UtcNow.AddHours(-2),
                     Category = "Tsunami",
-                    ExternalUrl = "https://www3.nhk.or.jp/nhkworld/"
+                    ExternalUrl = "https://www3.nhk.or.jp/nhkworld/",
+                    RiskScore = 65.0
                 }
             };
 
             foreach (var news in newsItems)
             {
-                await repository.AddAsync(news);
+                if (!await repository.ExistsAsync(news.Title, news.PublishedAt))
+                {
+                    await repository.AddAsync(news);
+                }
             }
 
             // Clean up old news (simulation: older than 7 days)

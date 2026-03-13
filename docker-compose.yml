@@ -107,16 +107,12 @@ services:
   frontend:
     build:
       context: ./frontend-react
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_BASE_URL=http://backend:8000
     container_name: sos-location-web-frontend
-    working_dir: /app
-    volumes:
-      - ./frontend-react:/app
-    # CMD gerido pelo Dockerfile.dev para evitar freeze do bun install no boot
     environment:
-      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-}
-      VITE_DEV_API_TARGET: http://backend:8000
-      VITE_DEV_GIS_TARGET: http://backend:8000
+      VITE_API_BASE_URL: http://backend:8000
     ports:
       - "${FRONTEND_PORT:-8088}:8000"
     restart: unless-stopped

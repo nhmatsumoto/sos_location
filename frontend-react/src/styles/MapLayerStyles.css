@@ -1,0 +1,64 @@
+/* Map Overlay and Layer Effects */
+
+.leaflet-areas-pane {
+  z-index: 200;
+}
+
+.leaflet-lines-pane {
+  z-index: 300;
+}
+
+.leaflet-markers-pane {
+  z-index: 400;
+}
+
+/* Glow Pulse Effect */
+.glow-pulse {
+  animation: area-pulse 3s ease-in-out infinite;
+  filter: drop-shadow(0 0 4px currentColor);
+}
+
+@keyframes area-pulse {
+  0% {
+    fill-opacity: 0.1;
+    stroke-width: 1px;
+  }
+  50% {
+    fill-opacity: 0.25;
+    stroke-width: 3px;
+  }
+  100% {
+    fill-opacity: 0.1;
+    stroke-width: 1px;
+  }
+}
+
+/* Gradient-like Area */
+.soft-area {
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  transition: all 0.5s ease;
+}
+
+.soft-area:hover {
+  fill-opacity: 0.4 !important;
+  stroke-width: 4px !important;
+}
+
+/* Custom Marker Adjustments */
+.leaflet-marker-icon {
+  filter: drop-shadow(0 4px 6px rgba(0,0,0,0.2));
+}
+
+/* Custom Popups */
+.custom-popup .leaflet-popup-content-wrapper {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+  border-radius: 12px;
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+.custom-popup .leaflet-popup-tip {
+  background: rgba(255, 255, 255, 0.95);
+}

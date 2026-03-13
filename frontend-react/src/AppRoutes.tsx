@@ -1,14 +1,14 @@
 import { Suspense, lazy, useEffect, useState } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { AppShell } from './components/layout/AppShell';
-import { PublicMapPage } from './pages/PublicMapPage';
-import { ErrorPage } from './pages/ErrorPage';
 import { keycloak } from './lib/keycloak';
 import { LoadingScreen } from './components/common/LoadingScreen';
 
+// Lazy loaded pages
+const PublicMapPage = lazy(() => import('./pages/PublicMapPage').then((m) => ({ default: m.PublicMapPage })));
+const PublicIncidentDashboardPage = lazy(() => import('./pages/PublicIncidentDashboardPage').then((m) => ({ default: m.PublicIncidentDashboardPage })));
 const SOSPage = lazy(() => import('./pages/SOSPage').then((m) => ({ default: m.SOSPage })));
 const SettingsPage = lazy(() => import('./pages/SettingsPage').then((m) => ({ default: m.SettingsPage })));
-const PublicIncidentDashboardPage = lazy(() => import('./pages/PublicIncidentDashboardPage').then((m) => ({ default: m.PublicIncidentDashboardPage })));
 const SplatScenePage = lazy(() => import('./pages/SplatScenePage').then((m) => ({ default: m.SplatScenePage })));
 const VolunteerDashboardPage = lazy(() => import('./pages/VolunteerDashboardPage').then((m) => ({ default: m.VolunteerDashboardPage })));
 const LogisticsPage = lazy(() => import('./pages/LogisticsPage.tsx').then((m) => ({ default: m.LogisticsPage })));
@@ -16,6 +16,7 @@ const RiskAssessmentPage = lazy(() => import('./pages/RiskAssessmentPage.tsx').t
 const SupportDashboardPage = lazy(() => import('./pages/SupportDashboardPage.tsx').then((m) => ({ default: m.SupportDashboardPage })));
 const LoginPage = lazy(() => import('./pages/LoginPage').then((m) => ({ default: m.LoginPage })));
 const OnboardingPage = lazy(() => import('./pages/OnboardingPage').then((m) => ({ default: m.OnboardingPage })));
+const ErrorPage = lazy(() => import('./pages/ErrorPage').then((m) => ({ default: m.ErrorPage })));
 
 function PrivateLayout() {
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
@@ -65,9 +66,9 @@ export default function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<Suspense fallback={<LoadingScreen />}><OnboardingPage /></Suspense>} />
-      <Route path="/public/map" element={<PublicMapPage />} />
-      <Route path="/public/transparency" element={<PublicIncidentDashboardPage />} />
-      <Route path="/error" element={<ErrorPage />} />
+      <Route path="/public/map" element={<Suspense fallback={<LoadingScreen />}><PublicMapPage /></Suspense>} />
+      <Route path="/public/transparency" element={<Suspense fallback={<LoadingScreen />}><PublicIncidentDashboardPage /></Suspense>} />
+      <Route path="/error" element={<Suspense fallback={<LoadingScreen />}><ErrorPage /></Suspense>} />
       <Route path="/login" element={<Suspense fallback={<LoadingScreen />}><LoginPage /></Suspense>} />
       <Route path="/app/*" element={<PrivateLayout />} />
       <Route path="*" element={<Navigate to="/" replace />} />

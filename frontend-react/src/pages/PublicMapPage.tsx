@@ -12,17 +12,18 @@ export function PublicMapPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [countryFilter, setCountryFilter] = useState('');
   const [locationFilter, setLocationFilter] = useState('');
+  const [timeWindow, setTimeWindow] = useState('');
 
   const fetchNews = async () => {
     setIsLoading(true);
-    const data = await newsApi.getNews(countryFilter, locationFilter);
+    const data = await newsApi.getNews(countryFilter, locationFilter, timeWindow);
     setNews(data);
     setIsLoading(false);
   };
 
   useEffect(() => {
     fetchNews();
-  }, [countryFilter, locationFilter]);
+  }, [countryFilter, locationFilter, timeWindow]);
 
   return (
     <div className="h-screen w-full bg-slate-50 text-slate-900 flex flex-col font-sans overflow-hidden">
@@ -46,22 +47,39 @@ export function PublicMapPage() {
           </div>
 
           {/* Integrated Search Bar */}
-          <div className="flex-1 max-w-3xl flex items-center gap-2 bg-slate-100 p-1.5 rounded-2xl border border-slate-200 shadow-sm">
-            <div className="relative flex-1 group">
+          <div className="flex-1 max-w-4xl flex items-center gap-2 bg-slate-100 p-1.5 rounded-2xl border border-slate-200 shadow-sm">
+            <div className="relative flex-1 group min-w-[140px]">
               <Globe className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-hover:text-blue-500 transition-colors" size={16} />
               <select 
                 className="w-full h-11 pl-10 pr-4 bg-transparent border-none focus:ring-0 text-sm font-bold appearance-none cursor-pointer text-slate-700"
                 value={countryFilter}
                 onChange={(e) => setCountryFilter(e.target.value)}
               >
-                <option value="">Todos os Países</option>
+                <option value="">Países</option>
                 <option value="Brasil">Brasil</option>
                 <option value="Japão">Japão</option>
-                <option value="USA">USA</option>
-                <option value="Spain">Spain</option>
               </select>
             </div>
             
+            <div className="w-px h-6 bg-slate-200" />
+            
+            <div className="relative flex-1 group min-w-[140px]">
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-hover:text-blue-500 transition-colors">
+                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              </div>
+              <select 
+                className="w-full h-11 pl-10 pr-4 bg-transparent border-none focus:ring-0 text-sm font-bold appearance-none cursor-pointer text-slate-700"
+                value={timeWindow}
+                onChange={(e) => setTimeWindow(e.target.value)}
+              >
+                <option value="">Janela</option>
+                <option value="live">LIVE (24h)</option>
+                <option value="week">1 Semana</option>
+                <option value="month">1 Mês</option>
+                <option value="year">1 Ano</option>
+              </select>
+            </div>
+
             <div className="w-px h-6 bg-slate-200" />
             
             <div className="relative flex-2 group">
