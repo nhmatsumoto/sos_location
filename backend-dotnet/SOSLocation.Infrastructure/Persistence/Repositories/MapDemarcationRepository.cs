@@ -1,11 +1,13 @@
 using Microsoft.EntityFrameworkCore;
 using SOSLocation.Domain.Interfaces;
 using SOSLocation.Domain.Operations;
+using SOSLocation.Domain.Tracking;
 using SOSLocation.Infrastructure.Persistence;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Text.Json;
 
 namespace SOSLocation.Infrastructure.Persistence.Repositories
 {
@@ -20,36 +22,96 @@ namespace SOSLocation.Infrastructure.Persistence.Repositories
 
         public async Task<MapDemarcation> GetByIdAsync(Guid id)
         {
-            return await _context.Set<MapDemarcation>().FirstOrDefaultAsync(x => x.Id == id);
+            var annotation = await _context.MapAnnotations.FirstOrDefaultAsync(x => x.Id == id);
+            return annotation != null ? MapToDto(annotation) : null;
         }
 
         public async Task<IEnumerable<MapDemarcation>> ListActiveAsync()
         {
-            return await _context.Set<MapDemarcation>()
-                .Where(x => x.IsActive)
-                .OrderByDescending(x => x.CreatedAtUtc)
+            var annotations = await _context.MapAnnotations
+                .Where(x => x.RecordType == "Demarcation" && x.Status == "Active")
+                .OrderByDescending(x => x.CreatedAt)
                 .ToListAsync();
+            
+            return annotations.Select(MapToDto);
         }
 
         public async Task AddAsync(MapDemarcation demarcation)
         {
-            await _context.Set<MapDemarcation>().AddAsync(demarcation);
+            var annotation = new MapAnnotation
+            {
+                Id = Guid.NewGuid(),
+                RecordType = "Demarcation",
+                Title = demarcation.Title,
+                Lat = demarcation.Latitude,
+                Lng = demarcation.Longitude,
+                Status = "Active",
+                MetadataJson = JsonSerializer.Serialize(new {
+                    demarcation.Description,
+                    demarcation.Type,
+                    Tags = demarcation.TagsJson
+                })
+            };
+
+            await _context.MapAnnotations.AddAsync(annotation);
             await _context.SaveChangesAsync();
+            demarcation.Id = annotation.Id;
         }
 
         public async Task UpdateAsync(MapDemarcation demarcation)
         {
-            _context.Set<MapDemarcation>().Update(demarcation);
-            await _context.SaveChangesAsync();
+            var annotation = await _context.MapAnnotations.FirstOrDefaultAsync(x => x.Id == demarcation.Id);
+            if (annotation != null)
+            {
+                annotation.Title = demarcation.Title;
+                annotation.Lat = demarcation.Latitude;
+                annotation.Lng = demarcation.Longitude;
+                annotation.MetadataJson = JsonSerializer.Serialize(new {
+                    demarcation.Description,
+                    demarcation.Type,
+                    Tags = demarcation.TagsJson
+                });
+                _context.MapAnnotations.Update(annotation);
+                await _context.SaveChangesAsync();
+            }
         }
 
         public async Task DeleteAsync(Guid id)
         {
-            var demarcation = await GetByIdAsync(id);
-            if (demarcation != null)
+            var annotation = await _context.MapAnnotations.FirstOrDefaultAsync(x => x.Id == id);
+            if (annotation != null)
             {
-                demarcation.IsActive = false;
-                await UpdateAsync(demarcation);
+                annotation.Status = "Deleted";
+                await _context.SaveChangesAsync();
+            }
+        }
+
+        private MapDemarcation MapToDto(MapAnnotation annotation)
+        {
+            try 
+            {
+                var metadata = JsonSerializer.Deserialize<JsonElement>(annotation.MetadataJson);
+                return new MapDemarcation
+                {
+                    Id = annotation.Id,
+                    Title = annotation.Title,
+                    Latitude = annotation.Lat,
+                    Longitude = annotation.Lng,
+                    Description = metadata.GetProperty("Description").GetString() ?? "",
+                    Type = metadata.GetProperty("Type").GetString() ?? "",
+                    TagsJson = metadata.GetProperty("Tags").GetString() ?? "[]",
+                    IsActive = annotation.Status == "Active"
+                };
+            }
+            catch
+            {
+                return new MapDemarcation
+                {
+                    Id = annotation.Id,
+                    Title = annotation.Title,
+                    Latitude = annotation.Lat,
+                    Longitude = annotation.Lng
+                };
             }
         }
     }

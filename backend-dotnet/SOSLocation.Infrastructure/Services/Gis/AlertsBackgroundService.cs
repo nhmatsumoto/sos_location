@@ -1,6 +1,8 @@
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using SOSLocation.Domain.Common;
+using SOSLocation.Domain.Incidents;
 using SOSLocation.Domain.Interfaces;
 using System;
 using System.Collections.Generic;
@@ -94,6 +96,28 @@ namespace SOSLocation.Infrastructure.Services.Gis
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Failed to enrichment alerts with demographic data");
+            }
+
+            // Persistence
+            var repository = scope.ServiceProvider.GetRequiredService<IAttentionAlertRepository>();
+            var existingAlerts = await repository.GetAllAsync();
+            var existingIds = existingAlerts.Select(a => a.ExternalId).ToHashSet();
+
+            foreach (var extAlert in allAlerts)
+            {
+                if (!existingIds.Contains(extAlert.Id))
+                {
+                    await repository.AddAsync(new AttentionAlert
+                    {
+                        ExternalId = extAlert.Id,
+                        Title = extAlert.Title,
+                        Message = extAlert.Description,
+                        Severity = extAlert.Severity.ToLower(),
+                        Lat = extAlert.Lat ?? 0,
+                        Lng = extAlert.Lon ?? 0,
+                        CreatedAt = DateTime.UtcNow
+                    });
+                }
             }
 
             lock (_activeAlerts)

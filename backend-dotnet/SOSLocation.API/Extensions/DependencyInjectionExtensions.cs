@@ -57,6 +57,9 @@ namespace SOSLocation.API.Extensions
             // Enrichment
             services.AddHttpClient<IIbgeEnrichmentService, IbgeEnrichmentService>();
 
+            // Risk Service Proxy
+            services.AddHttpClient<SOSLocation.API.Controllers.RiskController>();
+
             // Register AlertsBackgroundService as both IAlertsService and HostedService
             services.AddSingleton<AlertsBackgroundService>();
             services.AddSingleton<IAlertsService>(sp => sp.GetRequiredService<AlertsBackgroundService>());

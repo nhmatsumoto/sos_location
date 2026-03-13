@@ -10,6 +10,19 @@ const keycloakConfig = {
 
 export const keycloak = new Keycloak(keycloakConfig);
 
+export const getRoles = () => {
+  return keycloak.realmAccess?.roles || [];
+};
+
+export const getUserInfo = () => {
+  return {
+    name: keycloak.tokenParsed?.name,
+    email: keycloak.tokenParsed?.email,
+    preferred_username: keycloak.tokenParsed?.preferred_username,
+    roles: getRoles(),
+  };
+};
+
 export const initKeycloak = async (onAuthenticatedCallback: () => void) => {
   try {
     const authenticated = await keycloak.init({
@@ -21,7 +34,7 @@ export const initKeycloak = async (onAuthenticatedCallback: () => void) => {
 
     frontendLogger.info('Keycloak initialized', { authenticated });
     if (authenticated) {
-      frontendLogger.info('Keycloak authenticated successfully');
+      frontendLogger.info('Keycloak authenticated successfully', { roles: getRoles() });
       
       // Store token for legacy/existing apiClient uses
       if (keycloak.token) {

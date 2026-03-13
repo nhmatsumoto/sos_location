@@ -10,6 +10,37 @@
 
 ---
 
+## Why SOS Location exists
+
+This project started with a personal question:
+
+*What is the real purpose of the knowledge we accumulate as engineers?*
+
+For years we learn how to build systems, scale infrastructure, design architectures and solve complex technical problems. Yet most of that knowledge ends up serving only business efficiency, digital products or corporate optimization.
+
+But the world faces bigger challenges.
+
+Natural disasters, floods, landslides and climate-related events increasingly affect communities across the planet. In many cases what is missing is not goodwill or volunteers, but tools that allow people to understand what is happening and coordinate help effectively.
+
+**SOS Location is an attempt to explore a different direction.**
+
+A direction where software engineering, mapping technologies, IoT data and real-time systems are used to:
+
+- **monitor** environmental risks
+- **map** affected areas
+- **support** search and rescue operations
+- **coordinate** volunteers and responders
+- **provide** better situational awareness during emergencies
+
+This project is built on a simple belief:
+
+> **Technology should not only optimize businesses — it should also help protect human life and the environment.**
+
+SOS Location is open.
+Anyone who believes in this idea is welcome to contribute.
+
+---
+
 ## 🎯 Our Mission
 To bridge the gap between field data and strategic coordination. SOS Location provides specialized tools for each profile in the ecosystem, ensuring that resources reach those in need precisely and quickly.
 

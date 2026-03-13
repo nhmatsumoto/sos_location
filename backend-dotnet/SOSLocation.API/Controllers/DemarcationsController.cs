@@ -29,8 +29,6 @@ namespace SOSLocation.API.Controllers
         [HttpPost]
         public async Task<ActionResult<MapDemarcation>> Create(MapDemarcation demarcation)
         {
-            demarcation.Id = Guid.NewGuid();
-            demarcation.CreatedAtUtc = DateTime.UtcNow;
             await _repository.AddAsync(demarcation);
             return CreatedAtAction(nameof(List), new { id = demarcation.Id }, demarcation);
         }
