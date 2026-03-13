@@ -180,31 +180,38 @@ export function SOSPage() {
       )}
 
       <div className="absolute inset-0 z-0">
-        <MapContainer center={mapCenter} zoom={mapZoom} zoomControl={false} style={{ height: '100%', width: '100%' }} className="tactical-map-container">
-          <TileLayer attribution='&copy; CARTO' url='https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png' />
-          <MapListener onMove={(c, z) => { setMapCenter(c); setMapZoom(z); }} />
-          <MapInteractions
-            tool={tool}
-            onPickPoint={(lat, lon) => {
-              setLastClickedCoords([lat, lon]);
-              setOpenOpsModal(true);
-            }}
-            onHover={handleMapHover}
-            areaDraft={areaDraft}
-            setAreaDraft={setAreaDraft}
-            spatialFilter={spatialFilter}
-            setSpatialFilter={setSpatialFilter}
-            onFilterComplete={() => { }}
-            onSnapshotComplete={() => { }}
-            onContextMenu={(x, y, lat, lon) => setContextMenu({ x, y, lat, lon })}
-            show3D={false}
-          />
-          <MarkerClusterGroup chunkedLoading maxClusterRadius={50}>
-            {currentDisplayEvents.map((e) => (
-              <MemoizedEventMarker key={e.id || `${e.provider}-${e.provider_event_id}`} e={e} isHovered={hoveredId === (e.id || `${e.provider}-${e.provider_event_id}`)} onHover={handleMarkerHover} onUnhover={handleMarkerUnhover} />
-            ))}
-          </MarkerClusterGroup>
-        </MapContainer>
+        {mapCenter && mapCenter[0] !== undefined && (
+          <MapContainer center={mapCenter} zoom={mapZoom} zoomControl={false} style={{ height: '100%', width: '100%' }} className="tactical-map-container">
+            <TileLayer attribution='&copy; CARTO' url='https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png' />
+            <MapListener onMove={(c, z) => { setMapCenter(c); setMapZoom(z); }} />
+            <MapInteractions
+              tool={tool}
+              onPickPoint={(lat, lon) => {
+                setLastClickedCoords([lat, lon]);
+                setOpenOpsModal(true);
+              }}
+              onHover={handleMapHover}
+              areaDraft={areaDraft}
+              setAreaDraft={setAreaDraft}
+              spatialFilter={spatialFilter}
+              setSpatialFilter={setSpatialFilter}
+              onFilterComplete={() => { }}
+              onSnapshotComplete={() => { }}
+              onContextMenu={(x, y, lat, lon) => setContextMenu({ x, y, lat, lon })}
+              show3D={false}
+            />
+            <MarkerClusterGroup chunkedLoading maxClusterRadius={50}>
+              {(currentDisplayEvents || []).map((e) => (
+                <MemoizedEventMarker key={e.id || `${e.provider}-${e.provider_event_id}`} e={e} isHovered={hoveredId === (e.id || `${e.provider}-${e.provider_event_id}`)} onHover={handleMarkerHover} onUnhover={handleMarkerUnhover} />
+              ))}
+            </MarkerClusterGroup>
+          </MapContainer>
+        )}
+        {!mapCenter && (
+          <div className="flex items-center justify-center h-full text-slate-500 font-mono text-[10px] uppercase tracking-widest bg-slate-950">
+            Aguardando sinal de geolocalização...
+          </div>
+        )}
       </div>
 
       <Modal title="CADASTRO TÁTICO DE CAMPO" open={openOpsModal} onClose={() => setOpenOpsModal(false)}>

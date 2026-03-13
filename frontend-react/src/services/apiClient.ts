@@ -109,20 +109,34 @@ export const checkBackendHealth = async () => {
 };
 
 apiClient.interceptors.request.use((config) => {
-  const url = `${config.baseURL ?? ''}${config.url ?? ''}`;
+  let baseURL = (config.baseURL || '').trim();
+  let url = (config.url || '').trim();
+
+  // Robustly prevent double /api prefix
+  // If baseURL is '/api' or ends with '/api' (with or without slash)
+  // and url starts with '/api'
+  const baseHasApi = baseURL.endsWith('/api') || baseURL.endsWith('/api/');
+  const urlHasApi = url.startsWith('/api/') || url === '/api';
+
+  if (baseHasApi && urlHasApi) {
+    config.url = url.replace(/^\/api/, '');
+    if (!config.url.startsWith('/')) config.url = '/' + config.url;
+  }
+
+  const fullUrl = `${baseURL.replace(/\/$/, '')}${config.url ?? ''}`;
   frontendLogger.debug('API request started', {
     method: config.method,
-    url: url,
+    url: fullUrl,
   });
   
   if (import.meta.env.DEV) {
-    console.debug("API CALL", url);
+    console.debug("API CALL", fullUrl);
   }
   
   const token = getSessionToken();
-  const isPublicUrl = config.url?.includes('/public/') || 
-                     config.url?.includes('/api/health') || 
-                     config.url?.includes('/api/operations/snapshot');
+  const isPublicUrl = url.includes('/public/') || 
+                     url.includes('/api/health') || 
+                     url.includes('/api/operations/snapshot');
 
   if (token) {
     config.headers = config.headers ?? {};
@@ -135,10 +149,12 @@ apiClient.interceptors.request.use((config) => {
     frontendLogger.warn('Attempting protected request without token', { url: config.url });
   }
 
+  // Support for MessagePack requests
   if (config.headers?.['Content-Type'] === 'application/x-msgpack' && config.data) {
     config.data = encode(config.data);
   }
 
+  // If the client explicitly asks for MessagePack, we must ensure we handle binary response
   const acceptHeader = config.headers?.['Accept'];
   if (typeof acceptHeader === 'string' && acceptHeader.includes('application/x-msgpack')) {
     config.responseType = 'arraybuffer';
@@ -199,15 +215,14 @@ apiClient.interceptors.response.use(
       
       notifyWithCooldown('Sessão Expirada', 'Sua sessão expirou ou é inválida. Redirecionando para novo login...');
 
-      localStorage.removeItem('sos_location_token');
       useAuthStore.getState().clearAuth();
+      localStorage.removeItem('sos_location_token');
       
+      // Force reload to clear all states and trigger keycloak re-init if needed
       setTimeout(() => {
-        const currentPath = window.location.pathname;
-        if (!currentPath.startsWith('/public') && currentPath !== '/' && currentPath !== '/error') {
-           window.location.href = '/';
-        }
+        window.location.href = '/?loggedOut=true';
       }, 2000);
+      return Promise.reject(error);
     }
 
     if (error.response?.status && error.response.status >= 500) {

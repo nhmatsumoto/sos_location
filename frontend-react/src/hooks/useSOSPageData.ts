@@ -101,7 +101,7 @@ export function useSOSPageData() {
       title: t.title,
       description: t.description || `Alerta de ${t.source}`,
       type: 'disaster_alert',
-      severity: typeof t.severity === 'number' ? t.severity : (t.severity.toLowerCase() === 'extremo' ? 5 : (t.severity.toLowerCase() === 'perigo' ? 3 : 2)),
+      severity: typeof t.severity === 'number' ? t.severity : (t.severity?.toLowerCase() === 'extremo' ? 5 : (t.severity?.toLowerCase() === 'perigo' ? 3 : 2)),
       lat: t.lat,
       lon: t.lng,
       is_gis_alert: true,
@@ -111,8 +111,8 @@ export function useSOSPageData() {
       sourceUrl: t.sourceUrl
     }));
 
-    const combined = [...events, ...mappedAlerts, ...timelineAlerts];
-    return country ? combined.filter(e => (e as any).country_code === country || e.is_gis_alert) : combined;
+    const combined = [...(events || []), ...mappedAlerts, ...timelineAlerts];
+    return country ? combined.filter(e => (e as any).country_code === country || (e as any).is_gis_alert) : combined;
   }, [events, country, gisAlerts, opsSnapshot]);
 
   const saveOps = async (opsForm: any, lastClickedCoords: [number, number] | null, setOpenOpsModal: (v: boolean) => void, setLastClickedCoords: (v: any) => void) => {

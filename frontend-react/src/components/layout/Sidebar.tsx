@@ -17,6 +17,7 @@ const navItems = [
   { to: '/app/logistics', label: 'Logística', icon: Truck },
   { to: '/app/risk-assessment', label: 'Análise de Risco', icon: ShieldAlert },
   { to: '/app/support', label: 'Apoio Financeiro', icon: Coins },
+  { to: '/map', label: 'Mapa Público SOS', icon: Globe },
   { to: '/transparency', label: 'Transparência Pública', icon: Globe },
   { to: '/app/settings', label: 'Configurações', icon: Settings },
 ];
