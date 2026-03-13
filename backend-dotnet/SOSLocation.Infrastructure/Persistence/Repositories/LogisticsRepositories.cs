@@ -5,6 +5,7 @@ using SOSLocation.Infrastructure.Persistence.Dapper;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using System;
+using System.Threading;
 
 namespace SOSLocation.Infrastructure.Persistence.Repositories
 {
@@ -13,30 +14,34 @@ namespace SOSLocation.Infrastructure.Persistence.Repositories
         private readonly DapperContext _dapperContext;
         private readonly SOSLocationDbContext _efContext;
 
+        private const string GroupColumns = "\"Id\", \"Name\", \"Status\", \"ContactInfo\", \"CreatedAt\", \"UpdatedAt\"";
+
         public RescueGroupRepository(DapperContext dapperContext, SOSLocationDbContext efContext)
         {
             _dapperContext = dapperContext;
             _efContext = efContext;
         }
 
-        public async Task<IEnumerable<RescueGroup>> GetAllAsync()
+        public async Task<IEnumerable<RescueGroup>> GetAllAsync(CancellationToken ct = default)
         {
-            var query = "SELECT * FROM \"RescueGroups\"";
+            var query = $"SELECT {GroupColumns} FROM \"RescueGroups\"";
             using var connection = _dapperContext.CreateConnection();
-            return await connection.QueryAsync<RescueGroup>(query);
+            var command = new CommandDefinition(query, cancellationToken: ct);
+            return await connection.QueryAsync<RescueGroup>(command);
         }
 
-        public async Task AddAsync(RescueGroup group)
+        public async Task AddAsync(RescueGroup group, CancellationToken ct = default)
         {
             _efContext.RescueGroups.Add(group);
-            await _efContext.SaveChangesAsync();
+            await _efContext.SaveChangesAsync(ct);
         }
 
-        public async Task<int> GetCountByStatusAsync(params string[] statuses)
+        public async Task<int> GetCountByStatusAsync(CancellationToken ct = default, params string[] statuses)
         {
             var query = "SELECT COUNT(*) FROM \"RescueGroups\" WHERE \"Status\" = ANY(@Statuses)";
             using var connection = _dapperContext.CreateConnection();
-            return await connection.ExecuteScalarAsync<int>(query, new { Statuses = statuses });
+            var command = new CommandDefinition(query, new { Statuses = statuses }, cancellationToken: ct);
+            return await connection.ExecuteScalarAsync<int>(command);
         }
     }
 
@@ -45,30 +50,34 @@ namespace SOSLocation.Infrastructure.Persistence.Repositories
         private readonly DapperContext _dapperContext;
         private readonly SOSLocationDbContext _efContext;
 
+        private const string SupplyColumns = "\"Id\", \"ItemName\", \"Quantity\", \"Status\", \"Location\", \"CreatedAt\", \"UpdatedAt\"";
+
         public SupplyLogisticsRepository(DapperContext dapperContext, SOSLocationDbContext efContext)
         {
             _dapperContext = dapperContext;
             _efContext = efContext;
         }
 
-        public async Task<IEnumerable<SupplyLogistics>> GetAllAsync()
+        public async Task<IEnumerable<SupplyLogistics>> GetAllAsync(CancellationToken ct = default)
         {
-            var query = "SELECT * FROM \"SupplyLogistics\"";
+            var query = $"SELECT {SupplyColumns} FROM \"SupplyLogistics\"";
             using var connection = _dapperContext.CreateConnection();
-            return await connection.QueryAsync<SupplyLogistics>(query);
+            var command = new CommandDefinition(query, cancellationToken: ct);
+            return await connection.QueryAsync<SupplyLogistics>(command);
         }
 
-        public async Task AddAsync(SupplyLogistics item)
+        public async Task AddAsync(SupplyLogistics item, CancellationToken ct = default)
         {
             _efContext.SupplyLogistics.Add(item);
-            await _efContext.SaveChangesAsync();
+            await _efContext.SaveChangesAsync(ct);
         }
 
-        public async Task<int> GetCountByStatusAsync(string status)
+        public async Task<int> GetCountByStatusAsync(string status, CancellationToken ct = default)
         {
             var query = "SELECT COUNT(*) FROM \"SupplyLogistics\" WHERE \"Status\" = @Status";
             using var connection = _dapperContext.CreateConnection();
-            return await connection.ExecuteScalarAsync<int>(query, new { Status = status });
+            var command = new CommandDefinition(query, new { Status = status }, cancellationToken: ct);
+            return await connection.ExecuteScalarAsync<int>(command);
         }
     }
 }

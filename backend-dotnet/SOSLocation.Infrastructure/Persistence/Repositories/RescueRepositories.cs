@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Linq;
 using System;
+using System.Threading;
 
 namespace SOSLocation.Infrastructure.Persistence.Repositories
 {
@@ -14,17 +15,20 @@ namespace SOSLocation.Infrastructure.Persistence.Repositories
         private readonly DapperContext _dapperContext;
         private readonly SOSLocationDbContext _efContext;
 
+        private const string SearchAreaColumns = "\"Id\", \"IncidentId\", \"Title\", \"Description\", \"PolyJson\", \"Status\", \"CreatedAt\", \"UpdatedAt\"";
+
         public SearchAreaRepository(DapperContext dapperContext, SOSLocationDbContext efContext)
         {
             _dapperContext = dapperContext;
             _efContext = efContext;
         }
 
-        public async Task<IEnumerable<SearchArea>> GetByIncidentIdAsync(Guid incidentId)
+        public async Task<IEnumerable<SearchArea>> GetByIncidentIdAsync(Guid incidentId, CancellationToken ct = default)
         {
-            var query = "SELECT * FROM \"SearchAreas\" WHERE \"IncidentId\" = @IncidentId";
+            var query = $"SELECT {SearchAreaColumns} FROM \"SearchAreas\" WHERE \"IncidentId\" = @IncidentId";
             using var connection = _dapperContext.CreateConnection();
-            return await connection.QueryAsync<SearchArea>(query, new { IncidentId = incidentId });
+            var command = new CommandDefinition(query, new { IncidentId = incidentId }, cancellationToken: ct);
+            return await connection.QueryAsync<SearchArea>(command);
         }
 
         public IQueryable<SearchArea> GetQueryable()
@@ -32,16 +36,16 @@ namespace SOSLocation.Infrastructure.Persistence.Repositories
             return _efContext.SearchAreas.AsQueryable();
         }
 
-        public async Task AddAsync(SearchArea area)
+        public async Task AddAsync(SearchArea area, CancellationToken ct = default)
         {
             _efContext.SearchAreas.Add(area);
-            await _efContext.SaveChangesAsync();
+            await _efContext.SaveChangesAsync(ct);
         }
 
-        public async Task UpdateAsync(SearchArea area)
+        public async Task UpdateAsync(SearchArea area, CancellationToken ct = default)
         {
             _efContext.SearchAreas.Update(area);
-            await _efContext.SaveChangesAsync();
+            await _efContext.SaveChangesAsync(ct);
         }
     }
 
@@ -50,30 +54,34 @@ namespace SOSLocation.Infrastructure.Persistence.Repositories
         private readonly DapperContext _dapperContext;
         private readonly SOSLocationDbContext _efContext;
 
+        private const string AssignmentColumns = "\"Id\", \"IncidentId\", \"ResourceId\", \"Title\", \"Details\", \"Status\", \"CreatedAt\", \"UpdatedAt\"";
+
         public AssignmentRepository(DapperContext dapperContext, SOSLocationDbContext efContext)
         {
             _dapperContext = dapperContext;
             _efContext = efContext;
         }
 
-        public async Task<IEnumerable<Assignment>> GetAllAsync()
+        public async Task<IEnumerable<Assignment>> GetAllAsync(CancellationToken ct = default)
         {
-            var query = "SELECT * FROM \"Assignments\" ORDER BY \"CreatedAt\" DESC";
+            var query = $"SELECT {AssignmentColumns} FROM \"Assignments\" ORDER BY \"CreatedAt\" DESC";
             using var connection = _dapperContext.CreateConnection();
-            return await connection.QueryAsync<Assignment>(query);
+            var command = new CommandDefinition(query, cancellationToken: ct);
+            return await connection.QueryAsync<Assignment>(command);
         }
 
-        public async Task<IEnumerable<Assignment>> GetByIncidentIdAsync(Guid incidentId)
+        public async Task<IEnumerable<Assignment>> GetByIncidentIdAsync(Guid incidentId, CancellationToken ct = default)
         {
-            var query = "SELECT * FROM \"Assignments\" WHERE \"IncidentId\" = @IncidentId";
+            var query = $"SELECT {AssignmentColumns} FROM \"Assignments\" WHERE \"IncidentId\" = @IncidentId";
             using var connection = _dapperContext.CreateConnection();
-            return await connection.QueryAsync<Assignment>(query, new { IncidentId = incidentId });
+            var command = new CommandDefinition(query, new { IncidentId = incidentId }, cancellationToken: ct);
+            return await connection.QueryAsync<Assignment>(command);
         }
 
-        public async Task AddAsync(Assignment assignment)
+        public async Task AddAsync(Assignment assignment, CancellationToken ct = default)
         {
             _efContext.Assignments.Add(assignment);
-            await _efContext.SaveChangesAsync();
+            await _efContext.SaveChangesAsync(ct);
         }
     }
 }

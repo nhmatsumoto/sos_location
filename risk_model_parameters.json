@@ -1,0 +1,7 @@
+{
+    "n_estimators": 10,
+    "max_depth": null,
+    "random_state": 42,
+    "features": ["alert_count", "humidity", "temp", "seismic_activity"],
+    "target": "risk_level"
+}

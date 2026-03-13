@@ -5,6 +5,8 @@ using SOSLocation.Infrastructure.Persistence.Dapper;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using System;
+using System.Threading;
+using System.Linq;
 
 namespace SOSLocation.Infrastructure.Persistence.Repositories
 {
@@ -13,41 +15,48 @@ namespace SOSLocation.Infrastructure.Persistence.Repositories
         private readonly DapperContext _dapperContext;
         private readonly SOSLocationDbContext _efContext;
 
+        private const string AlertColumns = "\"Id\", \"ExternalId\", \"Title\", \"Message\", \"Severity\", \"Lat\", \"Lng\", \"CreatedAt\", \"UpdatedAt\"";
+
         public AttentionAlertRepository(DapperContext dapperContext, SOSLocationDbContext efContext)
         {
             _dapperContext = dapperContext;
             _efContext = efContext;
         }
 
-        public async Task<IEnumerable<AttentionAlert>> GetAllAsync()
+        public async Task<IEnumerable<AttentionAlert>> GetAllAsync(CancellationToken ct = default)
         {
-            var query = "SELECT * FROM \"AttentionAlerts\" ORDER BY \"CreatedAt\" DESC";
+            var query = $"SELECT {AlertColumns} FROM \"AttentionAlerts\" ORDER BY \"CreatedAt\" DESC";
             using var connection = _dapperContext.CreateConnection();
-            return await connection.QueryAsync<AttentionAlert>(query);
+            var command = new CommandDefinition(query, cancellationToken: ct);
+            return await connection.QueryAsync<AttentionAlert>(command);
         }
 
-        public async Task<AttentionAlert?> GetByIdAsync(Guid id)
+        public async Task<AttentionAlert?> GetByIdAsync(Guid id, CancellationToken ct = default)
         {
-            var query = "SELECT * FROM \"AttentionAlerts\" WHERE \"Id\" = @Id";
-            using var connection = _dapperContext.CreateConnection();
-            return await connection.QuerySingleOrDefaultAsync<AttentionAlert>(query, new { Id = id });
+            // Use compiled EF query for single item lookup optimization
+            return await _efContext.GetAlertByIdCompiledAsync(id);
         }
 
-        public async Task AddAsync(AttentionAlert alert)
+        public async Task AddAsync(AttentionAlert alert, CancellationToken ct = default)
         {
             _efContext.AttentionAlerts.Add(alert);
-            await _efContext.SaveChangesAsync();
+            await _efContext.SaveChangesAsync(ct);
         }
 
-        public async Task<int> GetCountAsync(string? severity = null)
+        public async Task<int> GetCountAsync(string? severity = null, CancellationToken ct = default)
         {
             var query = "SELECT COUNT(*) FROM \"AttentionAlerts\"";
+            object parameters = new { };
+
             if (!string.IsNullOrEmpty(severity))
             {
                 query += " WHERE \"Severity\" = @Severity";
+                parameters = new { Severity = severity };
             }
+
             using var connection = _dapperContext.CreateConnection();
-            return await connection.ExecuteScalarAsync<int>(query, new { Severity = severity });
+            var command = new CommandDefinition(query, parameters, cancellationToken: ct);
+            return await connection.ExecuteScalarAsync<int>(command);
         }
     }
 }

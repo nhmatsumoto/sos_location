@@ -5,6 +5,8 @@ CMD=${1:-}
 
 case "$CMD" in
   up)
+    # Trigger backup before build/up
+    docker compose run --rm db-backup /app/backup.sh once || true
     docker compose up -d --build
     ;;
   down)
@@ -18,6 +20,8 @@ case "$CMD" in
     docker compose up -d dozzle
     ;;
   reset)
+    # Trigger backup before reset
+    docker compose run --rm db-backup /app/backup.sh once || true
     docker compose down -v --remove-orphans
     docker compose up -d --build
     ;;

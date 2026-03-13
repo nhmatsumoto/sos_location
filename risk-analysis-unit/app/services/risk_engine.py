@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 import os
+import json
 from sklearn.ensemble import RandomForestClassifier
 
 logger = logging.getLogger("RiskAnalysisUnit")
@@ -15,17 +16,44 @@ class RiskEngine:
         self.model = self._initialize_model()
         
     def _initialize_model(self):
-        # Synthetic training data: [alert_count, humidity, temp, seismic_activity] -> risk_level (0: Low, 1: Medium, 2: High, 3: Critical)
+        params_path = "/app/model_parameters.json"
+        data_path = "/app/training_data.csv"
+        
+        # Default Params
+        params = {"n_estimators": 10, "random_state": 42}
+        if os.path.exists(params_path):
+            try:
+                with open(params_path, 'r') as f:
+                    params = json.load(f)
+                logger.info(f"Loaded model parameters from {params_path}")
+            except Exception as e:
+                logger.warning(f"Failed to load parameters: {e}. Using defaults.")
+
+        # Filter RandomForest parameters
+        rf_params = {k: v for k, v in params.items() if k in ["n_estimators", "max_depth", "random_state", "min_samples_split"]}
+        model = RandomForestClassifier(**rf_params)
+
+        if os.path.exists(data_path):
+            try:
+                df = pd.read_csv(data_path)
+                features = ["alert_count", "humidity", "temp", "seismic_activity"]
+                X_train = df[features].values
+                y_train = df["risk_level"].values
+                model.fit(X_train, y_train)
+                logger.info(f"Model trained with data from {data_path}")
+                return model
+            except Exception as e:
+                logger.error(f"Failed to load training data: {e}")
+
+        # Fallback to hardcoded synthetic data if file loading fails
+        logger.warning("Falling back to hardcoded synthetic data.")
         X_train = np.array([
             [1, 80, 20, 0.01], [5, 40, 30, 0.05], [10, 20, 35, 0.1], [15, 10, 40, 0.2],
             [2, 70, 25, 0.02], [8, 30, 32, 0.08], [12, 15, 38, 0.15], [20, 5, 45, 0.3],
             [0, 90, 15, 0.00], [1, 85, 22, 0.01], [3, 50, 28, 0.04], [6, 35, 33, 0.07]
         ])
         y_train = np.array([0, 1, 2, 3, 0, 1, 2, 3, 0, 0, 1, 1])
-        
-        model = RandomForestClassifier(n_estimators=10)
         model.fit(X_train, y_train)
-        logger.info("Risk classification model trained with synthetic data.")
         return model
 
     def run_cycle(self):

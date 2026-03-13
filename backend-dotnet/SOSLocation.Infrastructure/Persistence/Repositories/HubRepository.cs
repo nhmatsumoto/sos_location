@@ -5,6 +5,7 @@ using SOSLocation.Infrastructure.Persistence.Dapper;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using System;
+using System.Threading;
 
 namespace SOSLocation.Infrastructure.Persistence.Repositories
 {
@@ -13,23 +14,26 @@ namespace SOSLocation.Infrastructure.Persistence.Repositories
         private readonly DapperContext _dapperContext;
         private readonly SOSLocationDbContext _efContext;
 
+        private const string HubColumns = "\"Id\", \"Name\", \"Location\", \"Status\", \"CreatedAt\", \"UpdatedAt\"";
+
         public HubRepository(DapperContext dapperContext, SOSLocationDbContext efContext)
         {
             _dapperContext = dapperContext;
             _efContext = efContext;
         }
 
-        public async Task<IEnumerable<EdgeHub>> GetAllAsync()
+        public async Task<IEnumerable<EdgeHub>> GetAllAsync(CancellationToken ct = default)
         {
-            var query = "SELECT * FROM \"Hubs\"";
+            var query = $"SELECT {HubColumns} FROM \"Hubs\"";
             using var connection = _dapperContext.CreateConnection();
-            return await connection.QueryAsync<EdgeHub>(query);
+            var command = new CommandDefinition(query, cancellationToken: ct);
+            return await connection.QueryAsync<EdgeHub>(command);
         }
 
-        public async Task AddAsync(EdgeHub hub)
+        public async Task AddAsync(EdgeHub hub, CancellationToken ct = default)
         {
             _efContext.Hubs.Add(hub);
-            await _efContext.SaveChangesAsync();
+            await _efContext.SaveChangesAsync(ct);
         }
     }
 }

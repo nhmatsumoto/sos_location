@@ -5,6 +5,7 @@ using SOSLocation.Domain.Missions;
 using SOSLocation.Domain.News;
 using SOSLocation.Domain.Tracking;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -16,7 +17,20 @@ namespace SOSLocation.Infrastructure.Persistence
         public SOSLocationDbContext(DbContextOptions<SOSLocationDbContext> options)
             : base(options)
         {
+            // Optimization: Disable change tracking by default for read-heavy operations if needed, 
+            // but we'll stick to explicit AsNoTracking() where necessary.
         }
+
+        private static readonly Func<SOSLocationDbContext, Guid, Task<Incident?>> _incidentByIdQuery =
+            EF.CompileAsyncQuery((SOSLocationDbContext context, Guid id) =>
+                context.Incidents.AsNoTracking().FirstOrDefault(i => i.Id == id));
+
+        private static readonly Func<SOSLocationDbContext, Guid, Task<AttentionAlert?>> _alertByIdQuery =
+            EF.CompileAsyncQuery((SOSLocationDbContext context, Guid id) =>
+                context.AttentionAlerts.AsNoTracking().FirstOrDefault(a => a.Id == id));
+
+        public Task<Incident?> GetIncidentByIdCompiledAsync(Guid id) => _incidentByIdQuery(this, id);
+        public Task<AttentionAlert?> GetAlertByIdCompiledAsync(Guid id) => _alertByIdQuery(this, id);
 
         public DbSet<Incident> Incidents { get; set; } = null!;
         public DbSet<AttentionAlert> AttentionAlerts { get; set; } = null!;
@@ -67,18 +81,19 @@ namespace SOSLocation.Infrastructure.Persistence
 
         private void UpdateTimestamps()
         {
-            var entries = ChangeTracker
-                .Entries()
-                .Where(e => e.Entity is BaseEntity && (e.State == EntityState.Added || e.State == EntityState.Modified));
+            var now = DateTime.UtcNow;
+            var addedEntries = ChangeTracker.Entries<BaseEntity>().Where(e => e.State == EntityState.Added);
+            var modifiedEntries = ChangeTracker.Entries<BaseEntity>().Where(e => e.State == EntityState.Modified);
 
-            foreach (var entityEntry in entries)
+            foreach (var entry in addedEntries)
             {
-                ((BaseEntity)entityEntry.Entity).UpdatedAt = DateTime.UtcNow;
+                entry.Entity.CreatedAt = now;
+                entry.Entity.UpdatedAt = now;
+            }
 
-                if (entityEntry.State == EntityState.Added)
-                {
-                    ((BaseEntity)entityEntry.Entity).CreatedAt = DateTime.UtcNow;
-                }
+            foreach (var entry in modifiedEntries)
+            {
+                entry.Entity.UpdatedAt = now;
             }
         }
     }

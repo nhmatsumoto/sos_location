@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Text.Json;
+using System.Threading;
 
 namespace SOSLocation.Infrastructure.Persistence.Repositories
 {
@@ -20,23 +21,27 @@ namespace SOSLocation.Infrastructure.Persistence.Repositories
             _context = context;
         }
 
-        public async Task<MapDemarcation> GetByIdAsync(Guid id)
+        public async Task<MapDemarcation?> GetByIdAsync(Guid id, CancellationToken ct = default)
         {
-            var annotation = await _context.MapAnnotations.FirstOrDefaultAsync(x => x.Id == id);
+            var annotation = await _context.MapAnnotations
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.Id == id, ct);
+
             return annotation != null ? MapToDto(annotation) : null;
         }
 
-        public async Task<IEnumerable<MapDemarcation>> ListActiveAsync()
+        public async Task<IEnumerable<MapDemarcation>> ListActiveAsync(CancellationToken ct = default)
         {
             var annotations = await _context.MapAnnotations
+                .AsNoTracking()
                 .Where(x => x.RecordType == "Demarcation" && x.Status == "Active")
                 .OrderByDescending(x => x.CreatedAt)
-                .ToListAsync();
+                .ToListAsync(ct);
             
             return annotations.Select(MapToDto);
         }
 
-        public async Task AddAsync(MapDemarcation demarcation)
+        public async Task AddAsync(MapDemarcation demarcation, CancellationToken ct = default)
         {
             var annotation = new MapAnnotation
             {
@@ -52,14 +57,14 @@ namespace SOSLocation.Infrastructure.Persistence.Repositories
                 })
             };
 
-            await _context.MapAnnotations.AddAsync(annotation);
-            await _context.SaveChangesAsync();
+            await _context.MapAnnotations.AddAsync(annotation, ct);
+            await _context.SaveChangesAsync(ct);
             demarcation.Id = annotation.Id;
         }
 
-        public async Task UpdateAsync(MapDemarcation demarcation)
+        public async Task UpdateAsync(MapDemarcation demarcation, CancellationToken ct = default)
         {
-            var annotation = await _context.MapAnnotations.FirstOrDefaultAsync(x => x.Id == demarcation.Id);
+            var annotation = await _context.MapAnnotations.FirstOrDefaultAsync(x => x.Id == demarcation.Id, ct);
             if (annotation != null)
             {
                 annotation.Title = demarcation.Title;
@@ -71,17 +76,17 @@ namespace SOSLocation.Infrastructure.Persistence.Repositories
                     Tags = demarcation.TagsJson
                 });
                 _context.MapAnnotations.Update(annotation);
-                await _context.SaveChangesAsync();
+                await _context.SaveChangesAsync(ct);
             }
         }
 
-        public async Task DeleteAsync(Guid id)
+        public async Task DeleteAsync(Guid id, CancellationToken ct = default)
         {
-            var annotation = await _context.MapAnnotations.FirstOrDefaultAsync(x => x.Id == id);
+            var annotation = await _context.MapAnnotations.FirstOrDefaultAsync(x => x.Id == id, ct);
             if (annotation != null)
             {
                 annotation.Status = "Deleted";
-                await _context.SaveChangesAsync();
+                await _context.SaveChangesAsync(ct);
             }
         }
 
