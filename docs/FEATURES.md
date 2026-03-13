@@ -2,5 +2,5 @@
 - **Busca de Cidades**: Integração com API de geocodificação para centralização rápida do mapa tático.
 - **Notificações Operacionais**: Sistema híbrido de notícias (News) e alertas críticos (Attention Alerts) processados via backend resiliente.
 - **Simulação de Fluxo**: Simulação de deslizamento em tempo real via stream SSE e visualização 3D topográfica.
-- **Gestão de Dados**: Data Hub consolidando previsões meteorológicas, alertas espaciais e transparência.
+- **Dashboard de Suporte Humanitário**: Área privada para criação de eventos de resgate, organização de equipes (Bombeiros, Exercito), gestão de fluxos de crise e distribuição inteligente de insumos.
 - **Resiliência**: Arquitetura Offline-First com sincronização binária e persistência local via IndexedDB.

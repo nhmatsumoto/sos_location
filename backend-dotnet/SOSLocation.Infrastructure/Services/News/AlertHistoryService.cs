@@ -70,7 +70,17 @@ namespace SOSLocation.Infrastructure.Services.News
 
             foreach (var item in historicalItems)
             {
-                await repository.AddAsync(item);
+                try
+                {
+                    if (!await repository.ExistsAsync(item.Title, item.PublishedAt))
+                    {
+                        await repository.AddAsync(item);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to persist historical item: {title}", item.Title);
+                }
             }
 
             _logger.LogInformation("Successfully seeded {count} historical alerts.", historicalItems.Count);

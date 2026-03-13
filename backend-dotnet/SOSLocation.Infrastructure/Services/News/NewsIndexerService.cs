@@ -111,9 +111,16 @@ namespace SOSLocation.Infrastructure.Services.News
 
             foreach (var news in newsItems)
             {
-                if (!await repository.ExistsAsync(news.Title, news.PublishedAt))
+                try
                 {
-                    await repository.AddAsync(news);
+                    if (!await repository.ExistsAsync(news.Title, news.PublishedAt))
+                    {
+                        await repository.AddAsync(news);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to persist news item: {title}", news.Title);
                 }
             }
 

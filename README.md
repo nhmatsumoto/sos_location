@@ -1,6 +1,6 @@
-# SOS Location: Resilient Operations Dashboard & Tactical Management v2.1
+# SOS Location: Resilient Operations Dashboard & Tactical Management v2.2
 
-![SOS Location Banner](https://img.shields.io/badge/SOS--Location-Resilience--v2.1-blueviolet?style=for-the-badge)
+![SOS Location Banner](https://img.shields.io/badge/SOS--Location-Resilience--v2.2-blueviolet?style=for-the-badge)
 ![Status Build](https://img.shields.io/badge/Build-Passing-success?style=for-the-badge)
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
 
@@ -50,17 +50,12 @@ To bridge the gap between field data and strategic coordination. SOS Location pr
 
 The platform is built around four primary profiles, each with dedicated functionalities:
 
-### 🏛️ Government & Civil Defense
+### 🏛️ Dashboard de Suporte Humanitário (Admin & Responder)
 *Focused on command, control, and tactical oversight.*
-- **Tactical Visualization**: Real-time operational map and event tracking.
-- **Incident Management**: Support and coordination of high-level rescue operations.
-- **Strategic Control**: Monitoring regional health and infrastructure status.
-
-### 🧡 Volunteers & NGOs
-*Focused on ground activities and community support.*
-- **Logistics & Donations**: Management of campaigns, collection points, and distribution.
-- **Field Reporting**: Registration of risk areas and missing persons.
-- **Help Requests**: Direct processing and assignment of emergency help requests.
+- **Tactical Rescue Hub**: Real-time operational map (`/app/sos`) for registering events and coordination.
+- **Team Management**: Organization of professional groups (Firefighters, Army) and volunteers (`/app/volunteer`).
+- **Crisis Flows**: Approval of logistics paths and distributing supplies based on area demand (`/app/logistics`).
+- **Financial Governance**: Management of donations and real-time audited transparency (`/app/support`).
 
 ### 🛡️ Admin & Private Sector
 *Focused on platform integrity and specialized resource allocation.*
@@ -69,7 +64,7 @@ The platform is built around four primary profiles, each with dedicated function
 
 ---
 
-## 🏗️ Resilience Architecture (v2.1)
+## 🏗️ Resilience Architecture (v2.2)
 
 ```mermaid
 graph TD

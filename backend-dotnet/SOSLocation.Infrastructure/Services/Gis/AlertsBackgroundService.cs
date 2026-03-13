@@ -105,18 +105,25 @@ namespace SOSLocation.Infrastructure.Services.Gis
 
             foreach (var extAlert in allAlerts)
             {
-                if (!existingIds.Contains(extAlert.Id))
+                try
                 {
-                    await repository.AddAsync(new AttentionAlert
+                    if (!existingIds.Contains(extAlert.Id))
                     {
-                        ExternalId = extAlert.Id,
-                        Title = extAlert.Title,
-                        Message = extAlert.Description,
-                        Severity = extAlert.Severity.ToLower(),
-                        Lat = extAlert.Lat ?? 0,
-                        Lng = extAlert.Lon ?? 0,
-                        CreatedAt = DateTime.UtcNow
-                    });
+                        await repository.AddAsync(new AttentionAlert
+                        {
+                            ExternalId = extAlert.Id,
+                            Title = extAlert.Title,
+                            Message = extAlert.Description,
+                            Severity = extAlert.Severity.ToLower(),
+                            Lat = extAlert.Lat ?? 0,
+                            Lng = extAlert.Lon ?? 0,
+                            CreatedAt = DateTime.UtcNow
+                        });
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to persist alert {id}", extAlert.Id);
                 }
             }
 

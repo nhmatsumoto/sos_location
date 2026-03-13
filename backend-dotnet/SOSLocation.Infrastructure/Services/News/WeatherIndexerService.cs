@@ -79,9 +79,16 @@ namespace SOSLocation.Infrastructure.Services.News
 
             foreach (var item in weatherItems)
             {
-                if (!await repository.ExistsAsync(item.Title, item.PublishedAt))
+                try
                 {
-                    await repository.AddAsync(item);
+                    if (!await repository.ExistsAsync(item.Title, item.PublishedAt))
+                    {
+                        await repository.AddAsync(item);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to persist weather item: {title}", item.Title);
                 }
             }
 

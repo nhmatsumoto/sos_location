@@ -26,27 +26,46 @@ export function useSOSPageData() {
   const loadData = async (isInitial = false) => {
     if (isInitial) setInitialLoading(true);
     try {
-      const all: any[] = [];
-      const resp = await getEvents({ country: country || undefined, minSeverity, page: 1, pageSize: 500 });
-      all.push(...resp.items);
-      setEvents(all);
-      
-      const dEvents = await eventsApi.list();
-      setDomainEvents(dEvents);
-      
-      const fetchedAlerts = await integrationsApi.getAlerts();
-      setAlerts(fetchedAlerts?.items || []);
-      
-      const fetchedAnnotations = await operationsApi.listMapAnnotations();
-      setMapAnnotations(fetchedAnnotations || []);
+      // 1. Core Events
+      try {
+        const resp = await getEvents({ country: country || undefined, minSeverity, page: 1, pageSize: 500 });
+        if (resp && Array.isArray(resp.items)) {
+          setEvents(resp.items);
+        }
+      } catch (e) { console.error('Error loading core events:', e); }
 
-      const activeGisAlerts = await gisApi.getActiveAlerts();
-      setGisAlerts(activeGisAlerts || []);
+      // 2. Domain Events
+      try {
+        const dEvents = await eventsApi.list();
+        if (Array.isArray(dEvents)) setDomainEvents(dEvents);
+      } catch (e) { console.error('Error loading domain events:', e); }
 
-      const opSnap = await operationsApi.snapshot();
-      setOpsSnapshot(opSnap);
-     } catch (err) {
-      console.error(err);
+      // 3. Alerts
+      try {
+        const fetchedAlerts = await integrationsApi.getAlerts();
+        setAlerts(fetchedAlerts?.items || []);
+      } catch (e) { console.error('Error loading alerts:', e); }
+
+      // 4. Map Annotations
+      try {
+        const fetchedAnnotations = await operationsApi.listMapAnnotations();
+        if (Array.isArray(fetchedAnnotations)) setMapAnnotations(fetchedAnnotations);
+      } catch (e) { console.error('Error loading annotations:', e); }
+
+      // 5. GIS Alerts
+      try {
+        const activeGisAlerts = await gisApi.getActiveAlerts();
+        if (Array.isArray(activeGisAlerts)) setGisAlerts(activeGisAlerts);
+      } catch (e) { console.error('Error loading GIS alerts:', e); }
+
+      // 6. Ops Snapshot
+      try {
+        const opSnap = await operationsApi.snapshot();
+        if (opSnap) setOpsSnapshot(opSnap);
+      } catch (e) { console.error('Error loading ops snapshot:', e); }
+      
+    } catch (err) {
+      console.error('Critical failure in loadData:', err);
     } finally {
       if (isInitial) setInitialLoading(false);
     }

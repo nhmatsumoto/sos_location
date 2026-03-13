@@ -3,6 +3,7 @@ import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { AppShell } from './components/layout/AppShell';
 import { keycloak } from './lib/keycloak';
 import { LoadingScreen } from './components/common/LoadingScreen';
+import { ProtectedRoute } from './components/auth/ProtectedRoute';
 
 // Lazy loaded pages
 const PublicMapPage = lazy(() => import('./pages/PublicMapPage.tsx').then((m) => ({ default: m.PublicMapPage })));
@@ -26,20 +27,7 @@ function PrivateLayout() {
     document.documentElement.dataset.theme = theme;
   }, [theme]);
 
-  // Redirection to login if not authenticated
-  if (!keycloak.authenticated) {
-    // Save the intended path to return here after login
-    localStorage.setItem('sos_login_redirect', location.pathname);
-    return <Navigate to="/login" replace />;
-  }
-
   const isSOS = location.pathname === '/app/sos';
-  const isAdmin = keycloak.realmAccess?.roles?.includes('admin');
-
-  // Restriction: /app/sos is only for admins
-  if (isSOS && !isAdmin) {
-    return <Navigate to="/map" replace />;
-  }
 
   return (
     <div className="animate-in fade-in duration-700 ease-out">
@@ -50,14 +38,21 @@ function PrivateLayout() {
       >
       <Suspense fallback={<div style={{ padding: 16 }} className="text-slate-500 font-bold animate-pulse">Carregando módulo de comando…</div>}>
         <Routes>
-          <Route path="/sos" element={<SOSPage />} />
-          <Route path="/settings" element={<SettingsPage />} />
-          <Route path="/splat-scenes/:id" element={<SplatScenePage />} />
-          <Route path="/splat-scenes" element={<SplatScenePage />} />
-          <Route path="/volunteer" element={<VolunteerDashboardPage />} />
-          <Route path="/logistics" element={<LogisticsPage />} />
-          <Route path="/risk-assessment" element={<RiskAssessmentPage />} />
-          <Route path="/support" element={<SupportDashboardPage />} />
+          <Route 
+            path="/sos" 
+            element={
+              <ProtectedRoute requiredRole="admin">
+                <SOSPage />
+              </ProtectedRoute>
+            } 
+          />
+          <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+          <Route path="/splat-scenes/:id" element={<ProtectedRoute><SplatScenePage /></ProtectedRoute>} />
+          <Route path="/splat-scenes" element={<ProtectedRoute><SplatScenePage /></ProtectedRoute>} />
+          <Route path="/volunteer" element={<ProtectedRoute><VolunteerDashboardPage /></ProtectedRoute>} />
+          <Route path="/logistics" element={<ProtectedRoute><LogisticsPage /></ProtectedRoute>} />
+          <Route path="/risk-assessment" element={<ProtectedRoute><RiskAssessmentPage /></ProtectedRoute>} />
+          <Route path="/support" element={<ProtectedRoute><SupportDashboardPage /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/app/sos" replace />} />
         </Routes>
       </Suspense>
