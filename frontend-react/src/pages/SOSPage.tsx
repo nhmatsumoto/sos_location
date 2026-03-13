@@ -105,6 +105,10 @@ export function SOSPage() {
         onReset={handleReset}
         activeTool={tool}
         setTool={setTool}
+        onSearchSelect={(lat, lon) => {
+          setMapCenter([lat, lon]);
+          setMapZoom(14);
+        }}
         stats={{
           activeTeams: opsSnapshot?.kpis?.activeTeams ?? '0',
           criticalAlerts: opsSnapshot?.kpis?.criticalAlerts ?? '0',

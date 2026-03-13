@@ -169,11 +169,16 @@ apiClient.interceptors.response.use(
     }
 
     // Result Pattern unwrapping (aligned with .NET Result<T>)
-    if (response.data && typeof response.data === 'object' && 'isSuccess' in response.data) {
-      if (response.data.isSuccess) {
-         response.data = response.data.data;
-      } else {
-         return Promise.reject(new Error(response.data.error || 'Server error result'));
+    // Handles both camelCase (isSuccess) and PascalCase (IsSuccess) for robustness
+    const data = response.data;
+    if (data && typeof data === 'object') {
+      const isSuccess = data.isSuccess ?? data.IsSuccess;
+      if (isSuccess !== undefined) {
+        if (isSuccess) {
+           response.data = data.data ?? data.Data;
+        } else {
+           return Promise.reject(new Error(data.error ?? data.Error ?? 'Server error result'));
+        }
       }
     }
 

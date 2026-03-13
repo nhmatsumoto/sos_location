@@ -3,7 +3,11 @@ import { Search, MapPin, Loader2 } from 'lucide-react';
 import axios from 'axios';
 import { useSimulationStore } from '../../store/useSimulationStore';
 
-export const CitySearch: React.FC = () => {
+interface CitySearchProps {
+  onSelect?: (lat: number, lon: number, displayName: string) => void;
+}
+
+export const CitySearch: React.FC<CitySearchProps> = ({ onSelect }) => {
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<any[]>([]);
@@ -31,6 +35,7 @@ export const CitySearch: React.FC = () => {
     setHeroPosition([latNum, lonNum]);
     setQuery(displayName.split(',')[0]);
     setResults([]);
+    if (onSelect) onSelect(latNum, lonNum, displayName);
   };
 
   return (

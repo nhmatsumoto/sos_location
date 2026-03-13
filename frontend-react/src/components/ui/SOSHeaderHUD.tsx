@@ -21,10 +21,11 @@ interface SOSHeaderHUDProps {
       description: string;
     };
   };
+  onSearchSelect?: (lat: number, lon: number, displayName: string) => void;
 }
 
 export const SOSHeaderHUD: React.FC<SOSHeaderHUDProps> = ({
-  country, setCountry, onReset, activeTool, setTool, stats
+  country, setCountry, onReset, activeTool, setTool, stats, onSearchSelect
 }) => {
   return (
     <div className="absolute top-0 left-0 right-0 z-50 border-b border-white/10 bg-slate-950/80 backdrop-blur-xl px-6 py-3 flex items-center justify-between pointer-events-auto">
@@ -45,7 +46,7 @@ export const SOSHeaderHUD: React.FC<SOSHeaderHUDProps> = ({
 
         <div className="h-8 w-px bg-white/10 mx-2" />
         <div className="flex items-center gap-4">
-          <CitySearch />
+          <CitySearch onSelect={onSearchSelect} />
           <CountryDropdown value={country} onChange={setCountry} />
         </div>
       </div>

@@ -2,8 +2,10 @@ using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using SOSLocation.Domain.Common;
 using SOSLocation.Application.DTOs.Alerts;
+using SOSLocation.Application.DTOs.Common;
 using SOSLocation.Application.Features.AttentionAlerts.Queries.GetAlerts;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace SOSLocation.API.Controllers
@@ -20,11 +22,16 @@ namespace SOSLocation.API.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<Result<IEnumerable<AlertDto>>>> GetAll()
+        public async Task<ActionResult<Result<ListResponseDto<AlertDto>>>> GetAll()
         {
             var query = new GetAlertsQuery();
-            var result = await _mediator.Send(query);
-            return Ok(Result<IEnumerable<AlertDto>>.Success(result));
+            var result = (await _mediator.Send(query)).ToList();
+            
+            return Ok(Result<ListResponseDto<AlertDto>>.Success(new ListResponseDto<AlertDto>
+            {
+                Items = result,
+                TotalCount = result.Count
+            }));
         }
     }
 }

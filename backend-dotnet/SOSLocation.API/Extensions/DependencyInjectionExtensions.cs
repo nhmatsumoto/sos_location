@@ -61,14 +61,14 @@ namespace SOSLocation.API.Extensions
             services.AddHttpClient<SOSLocation.API.Controllers.RiskController>();
 
             // Register AlertsBackgroundService as both IAlertsService and HostedService
-            // services.AddSingleton<AlertsBackgroundService>();
-            // services.AddSingleton<IAlertsService>(sp => sp.GetRequiredService<AlertsBackgroundService>());
-            // services.AddHostedService(sp => sp.GetRequiredService<AlertsBackgroundService>());
+            services.AddSingleton<AlertsBackgroundService>();
+            services.AddSingleton<IAlertsService>(sp => sp.GetRequiredService<AlertsBackgroundService>());
+            services.AddHostedService(sp => sp.GetRequiredService<AlertsBackgroundService>());
 
             // News & Data Indexers
-            // services.AddHostedService<NewsIndexerService>();
-            // services.AddHostedService<WeatherIndexerService>();
-            // services.AddHostedService<AlertHistoryService>();
+            services.AddHostedService<NewsIndexerService>();
+            services.AddHostedService<WeatherIndexerService>();
+            services.AddHostedService<AlertHistoryService>();
 
             return services;
         }

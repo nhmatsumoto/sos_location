@@ -34,6 +34,12 @@ function PrivateLayout() {
   }
 
   const isSOS = location.pathname === '/app/sos';
+  const isAdmin = keycloak.realmAccess?.roles?.includes('admin');
+
+  // Restriction: /app/sos is only for admins
+  if (isSOS && !isAdmin) {
+    return <Navigate to="/map" replace />;
+  }
 
   return (
     <div className="animate-in fade-in duration-700 ease-out">

@@ -33,7 +33,7 @@ export const newsApi = {
   getNewsById: async (id: string) => {
     try {
       const response = await apiClient.get(`/api/v1/news/${id}`);
-      return response.data.data as NewsNotification;
+      return response.data as NewsNotification;
     } catch (error) {
       console.error(`Failed to fetch news with id ${id}:`, error);
       return null;

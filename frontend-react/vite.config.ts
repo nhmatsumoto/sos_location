@@ -33,12 +33,7 @@ export default defineConfig(({ mode }) => {
     build: {
       chunkSizeWarningLimit: 1000,
       rollupOptions: {
-        external: ['leaflet', 'react-leaflet'],
         output: {
-          globals: {
-            leaflet: 'L',
-            'react-leaflet': 'ReactLeaflet',
-          },
           manualChunks: {
             icons: ['lucide-react'],
             three: ['three'],

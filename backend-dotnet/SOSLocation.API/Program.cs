@@ -29,6 +29,9 @@ builder.Services.AddControllers(options =>
         .Build();
     options.Filters.Add(new AuthorizeFilter(policy));
     options.Filters.Add<ResultActionFilter>();
+}).AddJsonOptions(options =>
+{
+    options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
 });
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -92,11 +95,11 @@ builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
-// using (var scope = app.Services.CreateScope())
-// {
-//     var context = scope.ServiceProvider.GetRequiredService<SOSLocationDbContext>();
-//     context.Database.Migrate();
-// }
+using (var scope = app.Services.CreateScope())
+{
+    var context = scope.ServiceProvider.GetRequiredService<SOSLocationDbContext>();
+    context.Database.Migrate();
+}
 
 
 // Web API Pipeline

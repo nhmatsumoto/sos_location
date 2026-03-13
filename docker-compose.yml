@@ -112,10 +112,12 @@ services:
       context: .
       dockerfile: ./frontend-react/Dockerfile
       args:
-        - VITE_API_BASE_URL=http://backend:8000
+        - VITE_API_BASE_URL=/api
+        - VITE_KEYCLOAK_URL=https://localhost:8080
     container_name: sos-location-web-frontend
     environment:
-      VITE_API_BASE_URL: http://backend:8000
+      VITE_API_BASE_URL: /api
+      VITE_KEYCLOAK_URL: https://localhost:8080
     ports:
       - "${FRONTEND_PORT:-8088}:8000"
     restart: unless-stopped

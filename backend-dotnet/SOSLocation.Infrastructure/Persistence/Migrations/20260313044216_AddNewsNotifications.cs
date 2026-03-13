@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -25,7 +25,9 @@ namespace SOSLocation.Infrastructure.Persistence.Migrations
                     Longitude = table.Column<double>(type: "double precision", nullable: true),
                     PublishedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     Category = table.Column<string>(type: "text", nullable: false),
-                    ExternalUrl = table.Column<string>(type: "text", nullable: true)
+                    ExternalUrl = table.Column<string>(type: "text", nullable: true),
+                    ClimateInfo = table.Column<string>(type: "text", nullable: true),
+                    RiskScore = table.Column<double>(type: "double precision", nullable: false, defaultValue: 0.0)
                 },
                 constraints: table =>
                 {
