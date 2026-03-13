@@ -1,15 +1,6 @@
-# SOS Location: Resilient Operations Dashboard & Tactical Management v2.0
+# SOS Location: Resilient Operations Dashboard & Tactical Management v2.1
 
-> [!NOTE]
-> **COMPROMISSO ÉTICO / ETHICAL COMMITMENT / 倫理的声明**
->
-> Este projeto é movido pela missão de **SALVAR VIDAS** e mitigar os impactos de desastres naturais e crises humanitárias. O uso desta plataforma para fins militares, atividades bélicas ou simulações de conflito não alinha-se com nossos valores fundamentais e propósito humanitário.
->
-> This project is driven by the mission to **SAVE LIVES** and mitigate the impacts of natural disasters and humanitarian crises. The use of this platform for military purposes, warfare activities, or conflict simulations does not align with our core values and humanitarian purpose.
->
-> このプロジェクトは、自然災害や人道危機の際に**人命を救い**、その影響を軽減するというミッションの下に運営されています。本プラットフォームを軍事目的、戦闘活動、または紛争シミュレーションに使用することは、私たちの基本原則や人道的な目的とは一致しません。
-
-![SOS Location Banner](https://img.shields.io/badge/SOS--Location-Resilience--v2.0-blueviolet?style=for-the-badge)
+![SOS Location Banner](https://img.shields.io/badge/SOS--Location-Resilience--v2.1-blueviolet?style=for-the-badge)
 ![Status Build](https://img.shields.io/badge/Build-Passing-success?style=for-the-badge)
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
 
@@ -108,8 +99,21 @@ graph TD
 
 ---
 
-**SOS Location © 2026** - Technology for Life.
-& DDD](docs/DOMAIN_SPECIFICATION.md)
+## ❤️ Our Values & Commitment
+
+> [!IMPORTANT]
+> **ETHICAL COMMITMENT / COMPROMISSO ÉTICO / 倫理的声明**
+>
+> This project is driven by the mission to **SAVE LIVES** and mitigate the impacts of natural disasters and humanitarian crises. The use of this platform for military purposes, warfare activities, or conflict simulations does not align with our core values and humanitarian purpose.
+>
+> Este projeto é movido pela missão de **SALVAR VIDAS** e mitigar os impactos de desastres naturais e crises humanitárias. O uso desta plataforma para fins militares, atividades bélicas ou simulações de conflito não alinha-se com nossos valores fundamentais e propósito humanitário.
+>
+> このプロジェクトは、自然災害や人道危機の際に**人命を救い**、その影響を軽減するというミッションの下に運営されています。本プラットフォームを軍事目的、戦闘活動、または紛争シミュレーションに使用することは、私たちの基本原則や人道的な目的とは一致しません。
+
+---
+
+## 📑 Detailed Documentation
+- 📖 [Domain & DDD](docs/DOMAIN_SPECIFICATION.md)
 - 📖 [Current Architecture](docs/ARCHITECTURE_CURRENT.md)
 - 📖 [Domain Rules](docs/DOMAIN_RULES.md)
 - ⚖️ [Transparency Policies](docs/PRIVACY_TRANSPARENCY_POLICY.md)
@@ -118,3 +122,4 @@ graph TD
 ---
 
 **SOS Location © 2026** - Developed to save lives with resilient technology.
+

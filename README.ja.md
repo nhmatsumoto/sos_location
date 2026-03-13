@@ -1,15 +1,6 @@
-# SOS Location: レジリエント・オペレーション・ダッシュボード & 戦術管理 v2.0
+# SOS Location: レジリエント・オペレーション・ダッシュボード & 戦術管理 v2.1
 
-> [!NOTE]
-> **倫理的声明 / ETHICAL COMMITMENT / COMPROMISSO ÉTICO**
->
-> このプロジェクトは、自然災害や人道危機の際に**人命を救い**、その影響を軽減するというミッションの下に運営されています。本プラットフォームを軍事目的、戦闘活動、または紛争シミュレーションに使用することは、私たちの基本原則や人道的な目的とは一致しません。
->
-> This project is driven by the mission to **SAVE LIVES** and mitigate the impacts of natural disasters and humanitarian crises. The use of this platform for military purposes, warfare activities, or conflict simulations does not align with our core values and humanitarian purpose.
->
-> Este projeto é movido pela missão de **SALVAR VIDAS** e mitigar os impactos de desastres naturais e crises humanitárias. O uso desta plataforma para fins militares, atividades bélicas ou simulações de conflito não alinha-se com nossos valores fundamentais e propósito humanitário.
-
-![SOS Location Banner](https://img.shields.io/badge/SOS--Location-Resilience--v2.0-blueviolet?style=for-the-badge)
+![SOS Location Banner](https://img.shields.io/badge/SOS--Location-Resilience--v2.1-blueviolet?style=for-the-badge)
 ![Status Build](https://img.shields.io/badge/Build-Passing-success?style=for-the-badge)
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
 
@@ -105,6 +96,19 @@ graph TD
 - `frontend-react/`: React 19 + Vite オペレーション・ダッシュボード.
 - `agents/`: 自動調整のためのAIエージェント.
 - `sos-3d-engine/`: 没入型可視化エンジン (**ステータス：研究中/一時停止**).
+
+---
+
+## ❤️ 私たちの価値観とコミットメント
+
+> [!IMPORTANT]
+> **倫理的声明 / ETHICAL COMMITMENT / COMPROMISSO ÉTICO**
+>
+> このプロジェクトは、自然災害や人道危機の際に**人命を救い**、その影響を軽減するというミッションの下に運営されています。本プラットフォームを軍事目的、戦闘活動、または紛争シミュレーションに使用することは、私たちの基本原則や人道的な目的とは一致しません。
+>
+> This project is driven by the mission to **SAVE LIVES** and mitigate the impacts of natural disasters and humanitarian crises. To use this platform for military purposes, warfare activities, or conflict simulations does not align with our core values and humanitarian purpose.
+>
+> Este projeto é movido pela missão de **SALVAR VIDAS** e mitigar os impactos de desastres naturais e crises humanitárias. O uso desta plataforma para fins militares, atividades bélicas ou simulações de conflito não alinha-se com nossos valores fundamentais e propósito humanitário.
 
 ---
 
