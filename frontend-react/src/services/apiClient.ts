@@ -3,6 +3,7 @@ import { decode, encode } from '@msgpack/msgpack';
 import { inferApiBaseUrl } from '../lib/apiBaseUrl';
 import { frontendLogger } from '../lib/logger';
 import { getSessionToken } from '../lib/authSession';
+import { useAuthStore } from '../store/authStore';
 
 let notifyError: ((title: string, message: string) => void) | null = null;
 let lastNotification = { key: '', ts: 0 };
@@ -131,17 +132,13 @@ apiClient.interceptors.request.use((config) => {
       config.headers.Authorization = `Bearer ${token}`;
     }
   } else if (!isPublicUrl) {
-    // Proactive check: if no token and not a known public URL, warn but let it through 
-    // (Keycloak initialization might still be in progress or failing silently)
     frontendLogger.warn('Attempting protected request without token', { url: config.url });
   }
 
-  // Support for MessagePack requests
   if (config.headers?.['Content-Type'] === 'application/x-msgpack' && config.data) {
     config.data = encode(config.data);
   }
 
-  // If the client explicitly asks for MessagePack, we must ensure we handle binary response
   const acceptHeader = config.headers?.['Accept'];
   if (typeof acceptHeader === 'string' && acceptHeader.includes('application/x-msgpack')) {
     config.responseType = 'arraybuffer';
@@ -158,7 +155,17 @@ apiClient.interceptors.response.use(
       status: response.status,
     });
 
-    // Automatic MessagePack decoding
+    // Capture User Metadata from Header
+    const userInfoHeader = response.headers['x-user-metadata'];
+    if (userInfoHeader) {
+      try {
+        const metadata = JSON.parse(atob(userInfoHeader));
+        useAuthStore.getState().updateUser(metadata);
+      } catch (e) {
+        frontendLogger.error('Failed to parse user metadata header', { error: e });
+      }
+    }
+
     const contentType = response.headers['content-type'];
     if (contentType && contentType.includes('application/x-msgpack') && response.data) {
       try {
@@ -168,8 +175,6 @@ apiClient.interceptors.response.use(
       }
     }
 
-    // Result Pattern unwrapping (aligned with .NET Result<T>)
-    // Handles both camelCase (isSuccess) and PascalCase (IsSuccess) for robustness
     const data = response.data;
     if (data && typeof data === 'object') {
       const isSuccess = data.isSuccess ?? data.IsSuccess;
@@ -187,28 +192,24 @@ apiClient.interceptors.response.use(
   async (error: AxiosError) => {
     const config = (error.config || {}) as RetryableConfig;
 
-    // Handle 401 Unauthorized - Session Expired or Invalid
     if (error.response?.status === 401) {
       frontendLogger.error('Session expired or unauthorized (401).', {
         url: config.url
       });
       
-      // Notify user about session expiration
       notifyWithCooldown('Sessão Expirada', 'Sua sessão expirou ou é inválida. Redirecionando para novo login...');
 
       localStorage.removeItem('sos_location_token');
+      useAuthStore.getState().clearAuth();
       
-      // Delay to allow user to see notification before redirect
       setTimeout(() => {
         const currentPath = window.location.pathname;
         if (!currentPath.startsWith('/public') && currentPath !== '/' && currentPath !== '/error') {
-           // Redirect to landing which will trigger keycloak.login() via AppRoutes/PrivateLayout
            window.location.href = '/';
         }
       }, 2000);
     }
 
-    // Handle 500+ Internal Server Errors
     if (error.response?.status && error.response.status >= 500) {
        const status = error.response.status;
        frontendLogger.error(`Server error (${status})`, { url: config.url });
@@ -218,12 +219,6 @@ apiClient.interceptors.response.use(
            `Erro no Servidor (${status})`, 
            'Ocorreu um erro interno no servidor. Nossa equipe técnica foi notificada. Por favor, tente novamente em alguns instantes.'
          );
-       }
-       
-       // Only redirect if it's a critical failure on a main page load, 
-       // otherwise let the component handle the error or show the notification.
-       if (!config.url?.includes('/api/health') && !config.url?.includes('/api/operations/snapshot')) {
-         // Optional: window.location.href = `/error?code=${error.response.status}`;
        }
     }
 

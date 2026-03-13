@@ -1,5 +1,6 @@
 import Keycloak from 'keycloak-js';
 import { frontendLogger } from './logger';
+import { useAuthStore } from '../store/authStore';
 
 // --- KEYCLOAK INITIALIZATION ---
 const keycloakConfig = {
@@ -18,9 +19,17 @@ export const getUserInfo = () => {
   return {
     name: keycloak.tokenParsed?.name,
     email: keycloak.tokenParsed?.email,
-    preferred_username: keycloak.tokenParsed?.preferred_username,
-    roles: getRoles(),
+    preferredUsername: keycloak.tokenParsed?.preferred_username,
   };
+};
+
+const syncAuthStore = () => {
+  const { setAuth } = useAuthStore.getState();
+  if (keycloak.authenticated) {
+    setAuth(true, getUserInfo(), getRoles(), keycloak.token || null);
+  } else {
+    setAuth(false, null, [], null);
+  }
 };
 
 export const initKeycloak = async (onAuthenticatedCallback: () => void) => {
@@ -33,6 +42,9 @@ export const initKeycloak = async (onAuthenticatedCallback: () => void) => {
     });
 
     frontendLogger.info('Keycloak initialized', { authenticated });
+    
+    syncAuthStore();
+
     if (authenticated) {
       frontendLogger.info('Keycloak authenticated successfully', { roles: getRoles() });
       
@@ -54,10 +66,12 @@ export const initKeycloak = async (onAuthenticatedCallback: () => void) => {
           if (refreshed) {
             frontendLogger.info('Token refreshed successfully');
             localStorage.setItem('sos_location_token', keycloak.token!);
+            syncAuthStore();
           }
         }).catch(() => {
           frontendLogger.error('Failed to refresh token');
           localStorage.setItem('sos_login_redirect', window.location.pathname);
+          useAuthStore.getState().clearAuth();
           keycloak.login();
         });
       };

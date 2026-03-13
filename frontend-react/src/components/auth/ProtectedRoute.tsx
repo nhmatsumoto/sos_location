@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { keycloak } from '../../lib/keycloak';
+import { useAuthStore } from '../../store/authStore';
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -13,18 +13,18 @@ interface ProtectedRouteProps {
  */
 export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) {
   const location = useLocation();
+  const { authenticated, roles } = useAuthStore();
 
-  if (!keycloak.authenticated) {
+  if (!authenticated) {
     // Save the current location to redirect back after successful login
     localStorage.setItem('sos_login_redirect', location.pathname);
     return <Navigate to="/login" replace />;
   }
 
   if (requiredRole) {
-    const hasRole = keycloak.realmAccess?.roles?.includes(requiredRole);
+    const hasRole = roles.includes(requiredRole);
     if (!hasRole) {
       // If user is authenticated but lacks required role, redirect to public map
-      // or a "forbidden" page. Here we follow the existing pattern of /map.
       return <Navigate to="/map" replace />;
     }
   }
