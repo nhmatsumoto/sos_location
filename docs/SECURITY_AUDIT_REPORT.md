@@ -43,6 +43,11 @@ Garantiu-se que todos os dados trafeguem de forma criptografada.
 | **Inexistência de Limite** | Média | A API pública estava aberta a scrapers ou ataques de flooding. | ✅ Corrigido |
 | **Senhas em Plaintext** | Informativa | Senhas de DB em `appsettings.json` e `docker-compose.yml`. | ⚠️ Recomendado (Secrets) |
 
+### 5. Prevenção Automática de Vazamento de Dados (Git)
+Implementamos uma política de "Zero Secrets" no repositório.
+*   **Ação**: Atualizado `.gitignore` em todos os projetos com padrões para chaves (`.pem`, `.key`), segredos de infra (`tfstate`, `service-account.json`) e arquivos de credenciais.
+*   **Geral**: Criada regra mandatória `.workflow/rules/SENSITIVE_DATA_EXPOSURE.md` para que todos os agentes validem a ausência de segredos hardcoded antes de cada commit.
+
 ---
 
 ## 🚀 Recomendações de Produção

@@ -14,7 +14,7 @@ RUN dotnet restore -p:AllowMissingPrunePackageData=true
 
 # Buildar
 COPY . .
-RUN dotnet build "SOSLocation.slnx" -c Release -o /app/build
+RUN dotnet build "SOSLocation.slnx" -c Release
 
 FROM build AS publish
 RUN dotnet publish "SOSLocation.API/SOSLocation.API.csproj" -c Release -o /app/publish /p:UseAppHost=false

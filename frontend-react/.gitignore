@@ -22,6 +22,16 @@ coverage/
 .env.*
 !.env.example
 
+# Credentials and Keys
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+credentials.json
+auth.json
+service-account.json
+
 ############################
 # Package managers
 ############################

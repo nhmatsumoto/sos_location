@@ -196,3 +196,34 @@ appsettings.Local.json
 # Rider
 .idea/
 *.sln.iml
+
+# --- SECURITY: NEVER EXPOSE SENSITIVE DATA ---
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Private Keys and Certificates
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.p7b
+*.asc
+*.gpg
+
+# Cloud & Infrastructure Secrets
+secrets/
+credentials.json
+auth.json
+*.tfstate
+*.tfvars
+*.publishsettings
+service-account.json
+
+# Local configurations
+Local.testsettings
+appsettings.Local.json
+appsettings.Development.json
+# ---------------------------------------------
