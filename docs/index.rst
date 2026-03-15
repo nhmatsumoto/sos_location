@@ -10,6 +10,8 @@ SOS Location Documentation
    api_reference
    integrations
    compliance
+   GOVERNANCE
+   TECHNOLOGY_STACK
 
 Indices and tables
 ==================

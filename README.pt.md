@@ -1,125 +1,131 @@
-# SOS Location: Dashboard de Operações Resiliente e Gestão Tática v2.1
+# SOS Location v3.1 — Plataforma Humanitária de Resposta a Desastres
 
-![SOS Location Banner](https://img.shields.io/badge/SOS--Location-Resilience--v2.1-blueviolet?style=for-the-badge)
+![SOS Location Banner](https://img.shields.io/badge/SOS--Location-3.1__Humanitarian__Operations-blueviolet?style=for-the-badge)
 ![Status Build](https://img.shields.io/badge/Build-Passing-success?style=for-the-badge)
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
 
 [English](./README.md) | [日本語](./README.ja.md) | **Português**
 
-**SOS Location** é uma plataforma de suporte à decisão resiliente projetada para cenários de catástrofe. Nosso foco é o **Dashboard de Operações**, um centro nevrálgico de alta disponibilidade que coordena múltiplos atores humanitários mesmo quando a rede global falha.
+O **SOS Location** é uma plataforma de apoio à decisão, coordenação tática e resposta operacional para cenários de desastres naturais e crises humanitárias.
+
+## 🌱 Origem do projeto
+
+Este projeto nasceu inspirado no **brumadinho_location** e amadureceu com experiências reais de engenharia e campo:
+
+- histórias e aprendizados do contexto de Brumadinho;
+- influência de iniciativas como o **PLATEAU**;
+- conversas com pesquisadores e professores;
+- uso intensivo de IA para acelerar implementação e evolução de funcionalidades;
+- experiência prática em arquitetura e desenvolvimento de software distribuído.
+
+> Para o autor, o SOS Location é um propósito de vida: **salvar vidas usando tecnologia e conhecimento técnico**.
 
 ---
 
-## 🎯 Nossa Missão
-Unir os dados de campo à coordenação estratégica. O SOS Location oferece ferramentas especializadas para cada perfil no ecossistema, garantindo que os recursos cheguem a quem precisa com precisão e agilidade.
+## 🎯 Objetivo do projeto
+
+Construir uma plataforma resiliente que integre dados geoespaciais, climáticos, logísticos e operacionais para:
+
+- reduzir tempo de resposta em emergências;
+- apoiar decisão estratégica com dados confiáveis em tempo real;
+- aumentar coordenação entre poder público, defesa civil, voluntários e sociedade;
+- manter operação mesmo com conectividade limitada (estratégia offline-first).
+
+## 🫀 Missão
+
+**Salvar vidas, reduzir danos e fortalecer a capacidade de resposta humanitária com tecnologia aberta, auditável e orientada a dados.**
 
 ---
 
-## 👥 Perfis Operacionais e Funcionalidades
+## 🧭 Governança do projeto
 
-A plataforma é estruturada em torno de quatro perfis principais:
+A governança do SOS Location segue princípios de impacto social, responsabilidade técnica e transparência:
 
-### 🏛️ Governo e Defesa Civil
-*Focado em comando, controle e supervisão tática.*
-- **Visualização Tática**: Mapa operacional em tempo real e rastreamento de eventos.
-- **Gestão de Incidentes**: Suporte e coordenação de operações de resgate de alto nível.
-- **Controle Estratégico**: Monitoramento do status de saúde e infraestrutura regional.
+- **Governança Humanitária**: decisões de produto priorizam proteção de vidas e comunidades.
+- **Governança Técnica**: arquitetura limpa, observabilidade, segurança por padrão e documentação viva.
+- **Governança de Dados**: uso responsável de fontes públicas e rastreabilidade das integrações.
+- **Governança de IA**: agentes e automações devem apoiar engenharia, qualidade e resposta operacional, sempre com supervisão humana.
 
-### 🧡 Voluntários e ONGs
-*Focado em atividades de campo e suporte à comunidade.*
-- **Gestão de Doações**: Controle de campanhas, pontos de coleta e logística de distribuição.
-- **Registro em Campo**: Mapeamento de áreas de risco e registro de pessoas desaparecidas.
-- **Pedidos de Ajuda**: Processamento direto e triagem de solicitações de emergência.
-
-### 🛡️ Admins e Setor Privado
-*Focado na integridade da plataforma e alocação de recursos especializados.*
-- **Supervisão do Ecossistema**: Gestão de usuários, permissões e saúde do sistema.
-- **Integração de Recursos**: Engajamento de recursos privados (logística, suprimentos) no esforço de socorro.
+📄 Documento detalhado: [docs/GOVERNANCE.md](docs/GOVERNANCE.md)
 
 ---
 
-## 🏗️ Arquitetura de Resiliência (v2.1)
+## 🧱 Stack tecnológica (mapeada a partir dos arquivos do repositório)
 
-```mermaid
-graph TD
-    subgraph "Interface Tática 2.1"
-        UI[PWA Dashboard de Operações] --> SPT[Scatter Plot Tático]
-        UI --> MCP[Captura de Dados em Campo]
-        UI -.-> RD[Sala 3D - Pesquisa/Pausado]
-    end
+### Frontend e experiência operacional
+- **React 19** + **TypeScript 5**
+- **Vite 7** (build/dev server)
+- **Chakra UI**, **Emotion**, **Framer Motion**
+- **Leaflet + React Leaflet + Supercluster** (mapas 2D)
+- **Three.js + React Three Fiber + Drei** (simulação/visualização 3D)
+- **Zustand**, **React Hook Form**, **Zod**
+- **i18next** (internacionalização)
+- **Keycloak JS** (autenticação no frontend)
 
-    subgraph "Motor de Resiliência (Offline-First)"
-        UI --> DB[(IndexedDB)]
-        DB --> OB[Fila Outbox]
-    end
+### Backend e domínio
+- **ASP.NET Core Web API (.NET 10)**
+- **Clean Architecture + DDD + CQRS (MediatR)**
+- **FluentValidation**
+- **Entity Framework Core 10** + **Dapper**
+- **PostgreSQL 15** + **Npgsql**
+- **SignalR** (tempo real)
+- **Serilog** (logging estruturado)
+- **Swashbuckle/Swagger** (documentação de API)
 
-    subgraph "Camadas de Conectividade"
-        EH[Edge Hub / RPi] -->|Sincronia Local| OB
-        MP[MessagePack + Zstd] -.->|Sincronia Binária| OB
-    end
+### Unidade de risco e IA aplicada
+- **Python** com **FastAPI** + **Uvicorn**
+- **Pandas**, **Scikit-learn**, **PyTorch**
+- **APScheduler** (tarefas agendadas)
 
-    subgraph "Infraestrutura Global"
-        API[.NET 10 Web API]
-        EV[Event Store / DDD]
-        API --> EV
-    end
+### Infraestrutura e operações
+- **Docker Compose** (orquestração local)
+- **Keycloak 26** (SSO / IAM)
+- **Dozzle** (observabilidade de logs em containers)
+- **PostgreSQL backups** (serviço dedicado de backup)
+- Estratégia de integração com provedores externos: **OpenTopography**, **Overpass/OSM**, **Open-Meteo**, **INMET**, **CEMADEN**, **Defesa Civil**, **IBGE**.
 
-    OB -.-> MP
-    MP -.-> API
-    EH -.->|Backhaul| API
-```
+### Agentes e habilidades de engenharia
+- Catálogo de agentes em `.workflow/agents` e `docs/agents`.
+- Skills operacionais e de desenvolvimento em `agents/skills` e `.workflow/skills`.
 
-1. **Local-first (Offline Outbox)**: Totalmente funcional sem internet; sincroniza automaticamente ao recuperar a conexão.
-2. **Protocolo Binário (MessagePack + Zstd)**: Otimizado para links de baixa largura de banda (rádio, satélite).
-3. **Event-Sourced DDD**: Trilha de auditoria completa e resolução automática de conflitos.
-4. **Edge Computing**: Suporte para hubs descentralizados em áreas isoladas.
+📄 Inventário técnico detalhado: [docs/TECHNOLOGY_STACK.md](docs/TECHNOLOGY_STACK.md)
 
 ---
 
-## 🚀 Início Rápido (Docker)
+## 🚀 Início rápido
 
 ```bash
 ./dev.sh up
 ```
-- **Dashboard de Operações**: `http://localhost:8088`
-- **API (Monitor de Saúde)**: `http://localhost:8001/api/health`
 
-### Simulação de Dados
-```bash
-./dev.sh seed
-```
-
----
-
-## 📂 Organização do Projeto
-- `backend-dotnet/`: API Web ASP.NET Core 10.
-- `frontend-react/`: Dashboard de Operações em React 19 + Vite.
-- `agents/`: Agentes de IA para coordenação automatizada.
+| Serviço | URL |
+|---|---|
+| Dashboard de Operações | http://localhost:8088 |
+| API Health | http://localhost:8001/api/health |
+| Swagger | http://localhost:8001/swagger |
+| Unidade de Risco (ML) | http://localhost:8090 |
+| Logs (Dozzle) | http://localhost:9999 |
+| Keycloak SSO | https://localhost:8080 |
 
 ---
 
-## ❤️ Nosso Compromisso e Valores
+## 📚 Documentação do projeto
+
+- [Visão, objetivo e missão](docs/VISION_AND_GOALS.md)
+- [Governança](docs/GOVERNANCE.md)
+- [Arquitetura](docs/PROJECT_ARCHITECTURE.md)
+- [Integrações externas](docs/INTEGRATIONS.md)
+- [Política de privacidade e transparência](docs/PRIVACY_TRANSPARENCY_POLICY.md)
+- [Auditoria de segurança](docs/SECURITY_AUDIT_REPORT.md)
+- [Catálogo de agentes](docs/OPS_SPECIALIST_AGENTS.md)
+
+---
+
+## ❤️ Compromisso ético
 
 > [!IMPORTANT]
-> **COMPROMISSO ÉTICO / ETHICAL COMMITMENT / 倫理的声明**
->
-> Este projeto é movido pela missão de **SALVAR VIDAS** e mitigar os impactos de desastres naturais e crises humanitárias. O uso desta plataforma para fins militares, atividades bélicas ou simulações de conflito não alinha-se com nossos valores fundamentais e propósito humanitário.
->
-> This project is driven by the mission to **SAVE LIVES** and mitigate the impacts of natural disasters and humanitarian crises. The use of this platform for military purposes, warfare activities, or conflict simulations does not align with our core values and humanitarian purpose.
->
-> このプロジェクトは、自然災害や人道危機の際に**人命を救い**、その影響を軽減するというミッションの下に運営されています。本プラットフォームを軍事目的、戦闘活動、または紛争シミュレーションに使用することは、私たちの基本原則や人道的な目的とは一致しません。
+> O SOS Location existe para **SALVAR VIDAS**. O uso para fins militares, atividades bélicas ou simulações de conflito não está alinhado com os valores humanitários do projeto.
 
 ---
 
-## 📑 Documentação Detalhada
-- 📖 [Domínio & DDD](docs/DOMAIN_SPECIFICATION.md)
-- 📖 [Requisitos e Linguagem Ubíqua](file:///home/nhmatsumoto/.gemini/antigravity/brain/99e5ff8e-f2f6-4adf-be65-0d33e9aaa49f/requirements_and_ddd.md)
-- 📖 [Arquitetura Atual](docs/ARCHITECTURE_CURRENT.md)
-- 📖 [Regras de Domínio](docs/DOMAIN_RULES.md)
-- ⚖️ [Políticas de Transparência](docs/PRIVACY_TRANSPARENCY_POLICY.md)
-- 🧪 [Plano de Testes](docs/SECURITY_TEST_CHECKLIST.md)
-
----
-
-**SOS Location © 2026** - Desenvolvido para salvar vidas com tecnologia resiliente.
-
+**SOS Location © 2026** — Construído para salvar vidas com tecnologia resiliente.
