@@ -8,5 +8,6 @@
 - **Backend Engineer**: DTOs, seed local, logs, health e erros consistentes.
 - **DevOps Localhost**: docker compose, healthchecks, scripts `dev.sh`.
 - **Vite & Proxy Specialist**: configurações de proxy, caminhos relativos de API e CORS em desenvolvimento.
+- **Governance & Mission Specialist**: mantém missão, objetivo, princípios éticos e governança documental atualizados.
 
 Use `agents/orchestrator.md` para ordem de execução.
