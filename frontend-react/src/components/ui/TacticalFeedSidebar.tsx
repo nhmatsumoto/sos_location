@@ -1,41 +1,38 @@
-import { Box, Flex, Text, HStack, Badge, Progress, Icon } from '@chakra-ui/react';
+import { Box, Flex, HStack, Badge, Progress, Icon } from '@chakra-ui/react';
 import { Zap } from 'lucide-react';
 import { NewsFeed } from '../public/NewsFeed';
-import type { NewsNotification } from '../../services/newsApi';
+import { GlassPanel } from '../atoms/GlassPanel';
+import { TacticalText } from '../atoms/TacticalText';
 
 interface TacticalFeedSidebarProps {
-  news: NewsNotification[];
+  news: any[];
   isLoading: boolean;
 }
 
+/**
+ * Tactical Feed Sidebar
+ * Unified with the Guardian Design System. Highlights live telemetry
+ * and situational awareness through a glass-morphed container.
+ */
 export function TacticalFeedSidebar({ news, isLoading }: TacticalFeedSidebarProps) {
   return (
-    <Box
+    <GlassPanel
       position="absolute"
       left={6}
-      top="112px"
+      top="120px"
       bottom={6}
       w="400px"
       zIndex={50}
       display={{ base: 'none', lg: 'flex' }}
       flexDirection="column"
-      bg="whiteAlpha.50"
-      backdropFilter="blur(20px)"
-      borderRadius="3xl"
-      border="1px solid"
-      borderColor="whiteAlpha.100"
       overflow="hidden"
-      boxShadow="2xl"
+      className="animate-panel"
     >
-      <Box p={8} pb={4} borderBottom="1px solid" borderColor="whiteAlpha.50">
+      <Box p={8} pb={4} borderBottom="1px solid" borderColor="whiteAlpha.100" bg="whiteAlpha.50">
         <Flex justify="space-between" align="center" mb={6}>
           <Box>
-            <Text fontSize="10px" fontWeight="black" color="sos.blue.400" textTransform="uppercase" letterSpacing="widest">
-              Live Intelligence
-            </Text>
-            <Text fontSize="xl" fontWeight="black" color="white" lineHeight="shorter">
-              Situation Feed
-            </Text>
+            <TacticalText variant="subheading" color="sos.blue.400">Live Intelligence</TacticalText>
+            <TacticalText variant="heading" fontSize="xl">Situation Feed</TacticalText>
           </Box>
           <Box
             p={3}
@@ -50,12 +47,11 @@ export function TacticalFeedSidebar({ news, isLoading }: TacticalFeedSidebarProp
         </Flex>
 
         <HStack spacing={2}>
-          <Badge colorScheme="sosBlue" variant="solid" fontSize="9px" px={2} borderRadius="full">
+          <Badge bg="sos.blue.500" color="white" fontSize="9px" px={2} borderRadius="full">
             LIVE_STREAM
           </Badge>
           <Badge
             variant="outline"
-            colorScheme="red"
             color="sos.red.400"
             borderColor="sos.red.500/20"
             fontSize="9px"
@@ -71,28 +67,21 @@ export function TacticalFeedSidebar({ news, isLoading }: TacticalFeedSidebarProp
         <NewsFeed news={news} isLoading={isLoading} />
       </Box>
 
-      <Box p={8} bg="whiteAlpha.50" borderTop="1px solid" borderColor="whiteAlpha.100">
+      <Box p={8} bg="whiteAlpha.20" borderTop="1px solid" borderColor="whiteAlpha.100">
         <Flex justify="space-between" mb={2}>
-          <Text fontSize="9px" color="whiteAlpha.400" fontWeight="black" textTransform="uppercase" letterSpacing="widest">
-            System Integrity
-          </Text>
-          <Text fontSize="9px" color="sos.green.400" fontWeight="black" textTransform="uppercase" letterSpacing="widest">
-            Stable
-          </Text>
+          <TacticalText variant="caption">System Integrity</TacticalText>
+          <TacticalText variant="mono" color="sos.green.400">Stable</TacticalText>
         </Flex>
-        <Progress value={92} size="xs" borderRadius="full" bg="whiteAlpha.100" colorScheme="emerald" h="4px" />
-        <Text
+        <Progress value={92} size="xs" borderRadius="full" bg="whiteAlpha.100" colorScheme="blue" h="4px" />
+        <TacticalText
           mt={4}
-          fontSize="8px"
-          color="whiteAlpha.300"
           textAlign="center"
-          fontWeight="black"
-          textTransform="uppercase"
-          letterSpacing="widest"
+          opacity={0.3}
+          letterSpacing="0.4em"
         >
-          Guardian Public Portal // V3.0
-        </Text>
+          GUARDIAN PUBLIC PORTAL // V3.0
+        </TacticalText>
       </Box>
-    </Box>
+    </GlassPanel>
   );
 }

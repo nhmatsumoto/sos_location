@@ -1,64 +1,146 @@
-import { LogIn, Shield, ArrowLeft } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { keycloak } from '../lib/keycloak';
+import { 
+  Box, 
+  Container, 
+  VStack, 
+  Circle,
+  Link as ChakraLink,
+  Divider,
+  HStack
+} from '@chakra-ui/react';
+import { LogIn, ArrowLeft, UserPlus } from 'lucide-react';
+import { Logo } from '../components/brand/Logo';
+import { useLoginPage } from '../hooks/useLoginPage';
+import { TacticalButton } from '../components/atoms/TacticalButton';
+import { TacticalText } from '../components/atoms/TacticalText';
+import { GlassPanel } from '../components/atoms/GlassPanel';
 
+/**
+ * Tactical Login Terminal
+ * The gateway to the Guardian Operating System.
+ * Redesigned with Atomic Design and premium glassmorphism.
+ */
 export function LoginPage() {
-  const navigate = useNavigate();
-
-  const handleLogin = () => {
-    localStorage.setItem('sos_onboarding_visited', 'true');
-    // If we're at /login, we probably want to go to /app/sos by default after login
-    // unless another redirect was already set by PrivateLayout
-    if (!localStorage.getItem('sos_login_redirect')) {
-      localStorage.setItem('sos_login_redirect', '/app/sos');
-    }
-    keycloak.login();
-  };
+  const { handleLogin, handleRegister, goHome } = useLoginPage();
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-6 relative overflow-hidden">
-      {/* Background Orbs */}
-      <div className="fixed top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
-        <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-blue-600/10 rounded-full blur-[150px]" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-cyan-500/10 rounded-full blur-[120px]" />
-      </div>
+    <Box 
+      minH="100vh" 
+      bg="sos.dark" 
+      color="white" 
+      display="flex" 
+      flexDirection="column" 
+      alignItems="center" 
+      justifyContent="center" 
+      p={6} 
+      position="relative" 
+      overflow="hidden"
+      className="bg-mesh animate-mesh-flow"
+    >
+      {/* Decorative Scanline */}
+      <Box 
+        position="absolute" 
+        top={0} 
+        left={0} 
+        right={0} 
+        h="1px" 
+        bg="sos.blue.500"
+        opacity={0.1}
+        className="animate-scanline" 
+        zIndex={1}
+      />
 
-      <div className="max-w-md w-full relative z-10">
-        <button 
-          onClick={() => navigate('/')}
-          className="group flex items-center gap-2 text-slate-500 hover:text-white transition-colors mb-12 text-sm font-bold uppercase tracking-widest"
+      <Container maxW="md" position="relative" zIndex={10}>
+        <TacticalButton 
+          variant="ghost" 
+          leftIcon={<ArrowLeft size={16} />}
+          mb={8}
+          onClick={goHome}
+          borderColor="transparent"
+          _hover={{ bg: 'whiteAlpha.100', borderColor: 'whiteAlpha.200' }}
         >
-          <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
           Voltar ao Início
-        </button>
+        </TacticalButton>
 
-        <div className="bg-slate-900/50 border border-slate-800 p-10 rounded-[2.5rem] backdrop-blur-xl shadow-2xl">
-          <div className="flex justify-center mb-8">
-            <div className="p-4 rounded-2xl bg-cyan-500/10 border border-cyan-500/20">
-              <Shield size={40} className="text-cyan-400" />
-            </div>
-          </div>
+        <GlassPanel 
+          p={{ base: 8, md: 10 }} 
+          borderRadius="3xl" 
+          intensity="high"
+        >
+          <VStack spacing={10} align="center">
+            
+            {/* Header Branding */}
+            <VStack spacing={4} align="center">
+              <Circle 
+                size="80px" 
+                bg="sos.blue.500/10" 
+                border="1px solid" 
+                borderColor="sos.blue.500/30"
+                className="animate-glow"
+              >
+                <Logo w="44px" h="44px" />
+              </Circle>
+              
+              <VStack spacing={1}>
+                <TacticalText variant="heading" fontSize="xl" letterSpacing="tight">
+                  Portal de Acesso
+                </TacticalText>
+                <TacticalText textAlign="center">
+                  Autenticação segura via Keycloak SSO para operadores e equipes de apoio.
+                </TacticalText>
+              </VStack>
+            </VStack>
 
-          <div className="text-center mb-10">
-            <h1 className="text-3xl font-black tracking-tight mb-3">Portal de Acesso</h1>
-            <p className="text-slate-400 text-sm leading-relaxed">
-              Autenticação segura via Keycloak SSO para operadores e equipes de campo.
-            </p>
-          </div>
+            {/* Actions */}
+            <VStack w="full" spacing={5}>
+              <TacticalButton
+                glow
+                w="full"
+                h="64px"
+                bg="sos.blue.500"
+                color="white"
+                fontSize="sm"
+                onClick={handleLogin}
+                _hover={{ bg: 'sos.blue.400', transform: 'scale(1.02)' }}
+              >
+                <LogIn size={20} style={{ marginRight: '12px' }} />
+                Entrar no Sistema
+              </TacticalButton>
 
-          <button
-            onClick={handleLogin}
-            className="w-full h-14 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black uppercase tracking-[0.2em] rounded-2xl flex items-center justify-center gap-3 transition-all active:scale-[0.98] shadow-lg shadow-cyan-500/20"
-          >
-            <LogIn size={20} />
-            Entrar no Sistema
-          </button>
+              <HStack w="full" px={4}>
+                <Divider borderColor="whiteAlpha.100" />
+                <TacticalText opacity={0.3} px={2}>OU</TacticalText>
+                <Divider borderColor="whiteAlpha.100" />
+              </HStack>
 
-          <p className="mt-8 text-center text-[10px] text-slate-600 font-mono uppercase tracking-widest">
-            Acesso Restrito • Monitoramento Ativo
-          </p>
-        </div>
-      </div>
-    </div>
+              <TacticalButton
+                w="full"
+                h="64px"
+                variant="ghost"
+                borderColor="whiteAlpha.200"
+                onClick={handleRegister}
+                _hover={{ bg: 'whiteAlpha.100', borderColor: 'whiteAlpha.400' }}
+              >
+                <UserPlus size={20} style={{ marginRight: '12px' }} />
+                Criar Nova Conta
+              </TacticalButton>
+            </VStack>
+
+            {/* Terminal Info */}
+            <Box textAlign="center" pt={4}>
+              <TacticalText variant="mono" opacity={0.4} letterSpacing="0.3em">
+                Acesso Restrito • Monitoramento Ativo
+              </TacticalText>
+            </Box>
+          </VStack>
+        </GlassPanel>
+        
+        <Box mt={10} textAlign="center">
+          <TacticalText variant="caption">
+            Problemas com o acesso?{' '}
+            <ChakraLink href="#" color="sos.blue.400">Contate o suporte tático</ChakraLink>
+          </TacticalText>
+        </Box>
+      </Container>
+    </Box>
   );
 }

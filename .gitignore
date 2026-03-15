@@ -226,4 +226,7 @@ service-account.json
 Local.testsettings
 appsettings.Local.json
 appsettings.Development.json
+
+# Backups
+infra/backups/SEED_2026[0-9]*_[0-9]*.sql
 # ---------------------------------------------

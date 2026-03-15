@@ -1,4 +1,5 @@
-import axios from 'axios';
+import { apiClient } from './apiClient';
+import { extractList } from '../lib/dataNormalization';
 
 export interface GeoPoint {
   latitude: number;
@@ -22,12 +23,16 @@ export interface GeoPoint {
 
 export const geoCentralApi = {
   getTacticalData: async (lat: number, lng: number): Promise<GeoPoint> => {
-    const response = await axios.get<GeoPoint>(`/api/v1/GeoCentral/tactical?lat=${lat}&lng=${lng}`);
+    const response = await apiClient.get<GeoPoint>(`/v1/GeoCentral/tactical`, {
+      params: { lat, lng }
+    });
     return response.data;
   },
   
   getCityScaleData: async (minLat: number, minLng: number, maxLat: number, maxLng: number): Promise<GeoPoint[]> => {
-    const response = await axios.get<GeoPoint[]>(`/api/v1/GeoCentral/city-scale?minLat=${minLat}&minLng=${minLng}&maxLat=${maxLat}&maxLng=${maxLng}`);
-    return response.data;
+    const response = await apiClient.get<GeoPoint[]>(`/v1/GeoCentral/city-scale`, {
+      params: { minLat, minLng, maxLat, maxLng }
+    });
+    return extractList<GeoPoint>(response.data);
   }
 };

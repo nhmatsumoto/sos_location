@@ -3,6 +3,7 @@ import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { AppShell } from './components/layout/AppShell';
 import { LoadingScreen } from './components/common/LoadingScreen';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
+import { Prefetcher } from './components/common/Prefetcher';
 import { useAuthStore } from './store/authStore';
 
 // Lazy loaded pages
@@ -84,7 +85,9 @@ export default function AppRoutes() {
   const hasVisitedOnboarding = localStorage.getItem('sos_onboarding_visited') === 'true';
 
   return (
-    <Routes>
+    <>
+      <Prefetcher />
+      <Routes>
       {/* Root Redirection */}
       <Route path="/" element={
         authenticated ? 
@@ -114,5 +117,6 @@ export default function AppRoutes() {
       <Route path="/error" element={<Suspense fallback={<LoadingScreen />}><ErrorPage /></Suspense>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </>
   );
 }

@@ -29,12 +29,16 @@ export default defineConfig(({ mode }) => {
       react(),
     ],
     build: {
-      chunkSizeWarningLimit: 1000,
+      chunkSizeWarningLimit: 1200,
+      minify: 'esbuild',
+      cssMinify: true,
       rollupOptions: {
         output: {
           manualChunks: {
+            vendor: ['react', 'react-dom'],
+            chakra: ['@chakra-ui/react', '@emotion/react', '@emotion/styled', 'framer-motion'],
+            three: ['three', '@react-three/fiber', '@react-three/drei'],
             icons: ['lucide-react'],
-            three: ['three'],
           },
         },
       },

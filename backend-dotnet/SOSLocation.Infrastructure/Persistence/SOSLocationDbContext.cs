@@ -61,6 +61,7 @@ namespace SOSLocation.Infrastructure.Persistence
         public DbSet<DisasterType> DisasterTypes { get; set; } = null!;
         public DbSet<MeteorologicalData> MeteorologicalData { get; set; } = null!;
         public DbSet<RiskAnalysis> RiskAnalysis { get; set; } = null!;
+        public DbSet<VolunteerTask> VolunteerTasks { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

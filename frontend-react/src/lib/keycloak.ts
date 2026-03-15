@@ -94,3 +94,7 @@ export const doLogout = () => {
   localStorage.removeItem('sos_location_token');
   keycloak.logout();
 };
+
+export const doRegister = () => {
+  keycloak.register();
+};

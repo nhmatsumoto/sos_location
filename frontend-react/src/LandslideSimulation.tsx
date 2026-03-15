@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
+import { BuildingShader } from './engine/shaders/BuildingShader';
 
 interface LandslideSimulationProps {
   sourceLat?: number;
@@ -16,6 +17,14 @@ interface TerrainGrid {
   minElevation: number;
   maxElevation: number;
   source: 'open-meteo' | 'fallback';
+}
+
+interface BuildingData {
+  id: number;
+  coordinates: [number, number][];
+  height: number;
+  levels: number;
+  type: string;
 }
 
 interface TerrainPatchProps {
@@ -46,7 +55,6 @@ const computeDegreesStep = (lat: number, radiusMeters: number, gridSize: number)
 
 const buildTerrainFallback = (gridSize: number): TerrainGrid => {
   const heights: number[] = [];
-
   for (let row = 0; row < gridSize; row += 1) {
     for (let col = 0; col < gridSize; col += 1) {
       const x = (col / (gridSize - 1) - 0.5) * 2;
@@ -97,6 +105,92 @@ const sampleGridHeight = (terrainGrid: TerrainGrid, xNorm: number, zNorm: number
 const toSceneHeight = (terrainGrid: TerrainGrid, elevation: number) => {
   const relief = Math.max(1, terrainGrid.maxElevation - terrainGrid.minElevation);
   return ((elevation - terrainGrid.minElevation) / relief) * 12 - 6;
+};
+
+// --- Urban Infrastructure Component ---
+const UrbanInfrastructure = ({ sourceLat, sourceLng, radiusMeters, terrainGrid }: { sourceLat: number, sourceLng: number, radiusMeters: number, terrainGrid: TerrainGrid }) => {
+  const [buildings, setBuildings] = useState<BuildingData[]>([]);
+  const halfExtent = Math.max(12, radiusMeters / 50);
+  
+  const material = useMemo(() => new THREE.ShaderMaterial({
+    ...BuildingShader,
+    transparent: true,
+    depthWrite: true,
+    clipping: true
+  }), []);
+
+  useEffect(() => {
+    const minLat = sourceLat - (radiusMeters / METERS_PER_DEG_LAT);
+    const maxLat = sourceLat + (radiusMeters / METERS_PER_DEG_LAT);
+    const cosLat = Math.cos(toRadians(sourceLat));
+    const minLon = sourceLng - (radiusMeters / (METERS_PER_DEG_LAT * cosLat));
+    const maxLon = sourceLng + (radiusMeters / (METERS_PER_DEG_LAT * cosLat));
+
+    fetch('/api/v1/urban/features', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ min_lat: minLat, min_lon: minLon, max_lat: maxLat, max_lon: maxLon })
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.isSuccess && data.data?.buildings) {
+        setBuildings(data.data.buildings);
+      }
+    })
+    .catch(console.error);
+  }, [sourceLat, sourceLng, radiusMeters]);
+
+  useFrame((state) => {
+    if (material.uniforms.uTime) {
+      material.uniforms.uTime.value = state.clock.elapsedTime;
+    }
+  });
+
+  const buildingMeshes = useMemo(() => {
+    return buildings.map((b) => {
+      const shape = new THREE.Shape();
+      const points = b.coordinates.map(([lat, lon], idx) => {
+          const dy = (lat - sourceLat) * METERS_PER_DEG_LAT;
+          const dx = (lon - sourceLng) * METERS_PER_DEG_LAT * Math.cos(toRadians(sourceLat));
+          
+          const sx = (dx / radiusMeters) * halfExtent;
+          const sz = -(dy / radiusMeters) * halfExtent;
+          
+          if (idx === 0) shape.moveTo(sx, sz);
+          else shape.lineTo(sx, sz);
+          
+          return new THREE.Vector2(sx, sz);
+      });
+
+      const bHeight = b.height > 0 ? b.height : (b.levels > 0 ? b.levels * 3.5 : 10);
+      const relief = Math.max(1, terrainGrid.maxElevation - terrainGrid.minElevation);
+      const sceneBHeight = (bHeight / relief) * 12;
+
+      const centerX = points.reduce((acc, p) => acc + p.x, 0) / points.length;
+      const centerZ = points.reduce((acc, p) => acc + p.y, 0) / points.length;
+      const xNorm = (centerX + halfExtent) / (halfExtent * 2);
+      const zNorm = (centerZ + halfExtent) / (halfExtent * 2);
+      const groundY = toSceneHeight(terrainGrid, sampleGridHeight(terrainGrid, xNorm, zNorm));
+
+      const extrudeSettings = {
+        steps: 1,
+        depth: sceneBHeight,
+        beveled: false
+      };
+
+      try {
+        const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+        geometry.rotateX(-Math.PI / 2);
+        // Position so base is at groundY
+        geometry.translate(0, groundY + sceneBHeight/2, 0); 
+        return <mesh key={b.id} geometry={geometry} material={material} castShadow receiveShadow />;
+      } catch (e) {
+        return null; // Skip invalid geometries
+      }
+    });
+  }, [buildings, sourceLat, sourceLng, radiusMeters, halfExtent, terrainGrid, material]);
+
+  return <group>{buildingMeshes}</group>;
 };
 
 const TerrainPatch = ({ radiusMeters, terrainGrid }: TerrainPatchProps) => {
@@ -268,14 +362,14 @@ async function fetchTopographyGrid(
 
     const response = await fetch(`https://api.opentopodata.org/v1/mapzen?${params.toString()}`, { signal });
     if (!response.ok) {
-      throw new Error('OpenTopoData indisponível para este lote.');
+      throw new Error('OpenTopoData indisponível.');
     }
 
     const data = await response.json();
     const results = data?.results as Array<{ elevation?: number }> | undefined;
 
     if (!Array.isArray(results) || results.length === 0) {
-      throw new Error('OpenTopoData sem dados para este lote.');
+      throw new Error('OpenTopoData sem dados.');
     }
 
     return results.map((item) => Number(item?.elevation) || 0);
@@ -298,14 +392,14 @@ async function fetchTopographyGrid(
       const response = await fetch(`https://api.open-meteo.com/v1/elevation?${params.toString()}`, { signal });
 
       if (!response.ok) {
-        throw new Error('Open-Meteo indisponível para este lote.');
+        throw new Error('Open-Meteo indisponível.');
       }
 
       const data = await response.json();
       const openMeteoBatch = data?.elevation as number[] | undefined;
 
       if (!Array.isArray(openMeteoBatch) || openMeteoBatch.length === 0) {
-        throw new Error('Open-Meteo sem dados para este lote.');
+        throw new Error('Open-Meteo sem dados.');
       }
 
       batch = openMeteoBatch.map((value) => Number(value) || 0);
@@ -315,10 +409,6 @@ async function fetchTopographyGrid(
     }
 
     elevations.push(...batch);
-  }
-
-  if (elevations.length !== allLat.length) {
-    throw new Error('Malha topográfica incompleta para o ponto selecionado.');
   }
 
   return {
@@ -413,13 +503,13 @@ export default function LandslideSimulation({
 
       {loadingTopography && (
         <div className="absolute inset-0 z-20 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center text-sm text-slate-200">
-          Renderizando topografia real do ponto selecionado...
+          Reconstruindo topografia e tecido urbano...
         </div>
       )}
 
-      {!loadingTopography && topographyError && (
+      {topographyError && (
         <div className="absolute top-20 left-3 z-20 max-w-[380px] bg-amber-900/70 border border-amber-600 rounded px-3 py-2 text-[11px] text-amber-100">
-          {topographyError} Usando relevo aproximado para manter a visualização ativa.
+          {topographyError} Usando relevo aproximado para esta zona.
         </div>
       )}
 
@@ -431,6 +521,8 @@ export default function LandslideSimulation({
         <color attach="background" args={['#0f172a']} />
 
         <TerrainPatch radiusMeters={localRadiusMeters} terrainGrid={terrainGrid} />
+        <UrbanInfrastructure sourceLat={sourceLat} sourceLng={sourceLng} radiusMeters={localRadiusMeters} terrainGrid={terrainGrid} />
+
         {!loadingTopography && (
           <RunoutParticles
             radiusMeters={localRadiusMeters}

@@ -1,113 +1,140 @@
 import React from 'react';
-import type { NewsNotification } from '../../services/newsApi';
-import { Calendar, MapPin, ExternalLink, Info, Trophy } from 'lucide-react';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { Calendar, MapPin, ExternalLink, Info, Award } from 'lucide-react';
+import { Box, VStack, HStack, Circle, Link, Icon, Center } from '@chakra-ui/react';
+import { useNewsFeed } from '../../hooks/useNewsFeed';
+import { TacticalText } from '../atoms/TacticalText';
+import { GlassPanel } from '../atoms/GlassPanel';
 
 interface NewsFeedProps {
-  news: NewsNotification[];
+  news: any[]; // Using any because NewsNotification might vary slightly in types
   isLoading: boolean;
 }
 
+/**
+ * Tactical News Feed
+ * Displays indexed disaster and weather reports with risk mapping.
+ * Converted from Tailwind to Chakra UI with refined design tokens.
+ */
 export const NewsFeed: React.FC<NewsFeedProps> = ({ news, isLoading }) => {
+  const { getRiskColor, getRiskBg, formatTime } = useNewsFeed();
+
   if (isLoading) {
     return (
-      <div className="space-y-4">
+      <VStack spacing={4} align="stretch">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="glass-card animate-pulse h-32 rounded-2xl border border-white/5 bg-white/5" />
+          <GlassPanel key={i} h="120px" opacity={0.5} className="animate-pulse" />
         ))}
-      </div>
+      </VStack>
     );
   }
 
   if (news.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center p-12 text-slate-500 space-y-4 text-center">
-        <div className="h-16 w-16 glass-card rounded-full flex items-center justify-center mb-2">
-           <Info size={32} className="text-slate-600" />
-        </div>
-        <p className="text-lg font-black text-slate-300">Nenhum evento detectado.</p>
-        <p className="text-sm font-medium tracking-tight text-slate-500">Tente ajustar seus filtros ou aguarde novas indexações.</p>
-      </div>
+      <Center p={12} flexDir="column">
+        <Circle size="64px" bg="whiteAlpha.100" mb={4}>
+          <Info size={32} color="gray" />
+        </Circle>
+        <TacticalText variant="heading" fontSize="md">Nenhum evento detectado</TacticalText>
+        <TacticalText variant="caption">Tente ajustar seus filtros ou aguarde novas indexações.</TacticalText>
+      </Center>
     );
   }
 
   return (
-    <div className="space-y-4 animate-fade-in">
+    <VStack spacing={4} align="stretch" className="animate-fade-in">
       {news.map((item) => (
-        <div 
-          key={item.id} 
-          className="group glass-card relative bg-white/2 hover:bg-white/5 transition-all duration-500 rounded-3xl p-6 border border-white/5 hover:border-white/10 shadow-2xl overflow-hidden"
+        <GlassPanel
+          key={item.id}
+          p={6}
+          transition="all 0.4s"
+          _hover={{ borderColor: 'sos.blue.500', transform: 'translateY(-2px)' }}
+          position="relative"
+          overflow="hidden"
         >
-          {/* Subtle Accent Glow */}
-          <div className={`absolute -top-4 -left-4 w-12 h-12 blur-2xl opacity-20 ${
-            item.category === 'Disaster' ? 'bg-rose-500/40' : 
-            item.category === 'Weather' ? 'bg-amber-500/40' : 'bg-blue-500/40'
-          }`} />
+          {/* Subtle Category Accent */}
+          <Box
+            position="absolute"
+            top="-16px"
+            left="-16px"
+            w="48px"
+            h="48px"
+            borderRadius="full"
+            filter="blur(24px)"
+            opacity={0.2}
+            bg={getRiskColor(item.riskScore || 50)}
+          />
 
-          <div className="space-y-4">
-            <div className="flex justify-between items-start gap-4">
-               <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                     <span className={`h-1.5 w-1.5 rounded-full ${
-                        item.riskScore > 80 ? 'bg-rose-500' :
-                        item.riskScore > 50 ? 'bg-orange-500' : 'bg-emerald-500'
-                     } shadow-[0_0_8px_currentColor]`} />
-                     <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">{item.category}</span>
-                  </div>
-                  <h3 className="text-base font-black text-white leading-tight group-hover:text-blue-400 transition-colors">
-                    {item.title}
-                  </h3>
-               </div>
-               
-               <div className="flex flex-col items-end gap-2 shrink-0">
-                  <span className="text-[9px] font-black px-2.5 py-1 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20 uppercase tracking-widest">
+          <VStack align="stretch" spacing={4}>
+            <HStack justify="space-between" align="flex-start">
+              <VStack align="flex-start" spacing={1}>
+                <HStack spacing={2}>
+                  <Circle size="6px" bg={getRiskColor(item.riskScore || 50)} boxShadow={`0 0 8px ${getRiskColor(item.riskScore || 50)}`} />
+                  <TacticalText variant="subheading" fontSize="8px" letterSpacing="0.2em">
+                    {item.category || 'EVENTO'}
+                  </TacticalText>
+                </HStack>
+                <TacticalText variant="heading" fontSize="sm" color="white" lineHeight="shorter">
+                  {item.title}
+                </TacticalText>
+              </VStack>
+
+              <VStack align="flex-end" spacing={2} flexShrink={0}>
+                <Box px={2.5} py={1} bg="sos.blue.500/10" borderRadius="lg" border="1px solid" borderColor="sos.blue.500/20">
+                  <TacticalText variant="mono" fontSize="9px" color="sos.blue.400">
                     {item.source}
-                  </span>
-                  <div className={`text-[11px] font-black px-2 py-0.5 rounded-lg border flex items-center gap-1 ${
-                    item.riskScore > 80 ? 'bg-rose-500/10 text-rose-400 border-rose-500/20' :
-                    item.riskScore > 50 ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' :
-                    'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                  }`}>
-                    <Trophy size={10} className="opacity-60" />
-                    {item.riskScore.toFixed(0)}%
-                  </div>
-               </div>
-            </div>
+                  </TacticalText>
+                </Box>
+                <HStack 
+                  px={2} 
+                  py={0.5} 
+                  bg={getRiskBg(item.riskScore || 0)} 
+                  borderRadius="lg" 
+                  border="1px solid" 
+                  borderColor={`${getRiskColor(item.riskScore || 0)}/20`}
+                >
+                  <Icon as={Award} size={10} color={getRiskColor(item.riskScore || 0)} />
+                  <TacticalText variant="mono" fontSize="10px" color={getRiskColor(item.riskScore || 0)}>
+                    {(item.riskScore || 0).toFixed(0)}%
+                  </TacticalText>
+                </HStack>
+              </VStack>
+            </HStack>
 
-            <p className="text-slate-400 line-clamp-2 text-[13px] leading-relaxed font-medium">
-              {item.content}
-            </p>
+            <TacticalText color="whiteAlpha.700" noOfLines={2} fontSize="xs" lineHeight="relaxed">
+              {item.description || item.content}
+            </TacticalText>
 
-            <div className="flex items-center justify-between pt-2 border-t border-white/5">
-               <div className="flex items-center gap-4 text-[10px] font-bold text-slate-500">
-                  <div className="flex items-center gap-1.5">
-                    <MapPin size={12} className="text-slate-600" />
-                    <span>{item.location}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Calendar size={12} className="text-slate-600" />
-                    <span className="tabular-nums opacity-60">
-                      {format(new Date(item.publishedAt), "HH:mm", { locale: ptBR })}
-                    </span>
-                  </div>
-               </div>
+            <HStack justify="space-between" pt={2} borderTop="1px solid" borderColor="whiteAlpha.100">
+               <HStack spacing={4}>
+                  <HStack spacing={1.5}>
+                    <MapPin size={12} color="gray" />
+                    <TacticalText fontSize="9px">{item.location || 'Coordenada Local'}</TacticalText>
+                  </HStack>
+                  <HStack spacing={1.5}>
+                    <Calendar size={12} color="gray" />
+                    <TacticalText fontSize="9px" color="whiteAlpha.400">
+                      {item.publishedAt ? formatTime(item.publishedAt) : '--:--'}
+                    </TacticalText>
+                  </HStack>
+               </HStack>
 
                {item.externalUrl && (
-                 <a 
+                 <Link 
                    href={item.externalUrl} 
-                   target="_blank" 
-                   rel="noopener noreferrer"
-                   className="h-8 w-8 rounded-full bg-white/5 hover:bg-white/10 border border-white/5 flex items-center justify-center text-slate-400 hover:text-white transition-all active:scale-90"
-                   title="Abrir Fonte"
+                   isExternal 
+                   p={2} 
+                   borderRadius="full" 
+                   bg="whiteAlpha.50" 
+                   _hover={{ bg: 'whiteAlpha.100', color: 'white' }} 
+                   transition="all 0.2s"
                  >
-                   <ExternalLink size={14} />
-                 </a>
+                   <ExternalLink size={14} color="gray" />
+                 </Link>
                )}
-            </div>
-          </div>
-        </div>
+            </HStack>
+          </VStack>
+        </GlassPanel>
       ))}
-    </div>
+    </VStack>
   );
 };

@@ -177,3 +177,17 @@ export function summarizeWeather(data: OpenMeteoResponse) {
     maxWind: windNumbers.length ? Math.max(...windNumbers) : null,
   };
 }
+
+export async function getCurrentWeather(lat: number, lon: number): Promise<{ temp: number; humidity: number; windSpeed: number; code: number }> {
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code&timezone=auto`;
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Failed to fetch current weather');
+    const json = await response.json();
+    const cur = json.current;
+    return {
+      temp: cur.temperature_2m,
+      humidity: cur.relative_humidity_2m,
+      windSpeed: cur.wind_speed_10m,
+      code: cur.weather_code
+    };
+}

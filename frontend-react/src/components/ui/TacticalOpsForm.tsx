@@ -1,4 +1,6 @@
-import { VStack, SimpleGrid, Button, Text, FormControl, FormLabel, Input } from '@chakra-ui/react';
+import { VStack, SimpleGrid, FormControl, FormLabel, Input } from '@chakra-ui/react';
+import { TacticalButton } from '../atoms/TacticalButton';
+import { TacticalText } from '../atoms/TacticalText';
 
 interface TacticalOpsFormProps {
   opsForm: any;
@@ -6,6 +8,10 @@ interface TacticalOpsFormProps {
   onSave: () => void;
 }
 
+/**
+ * Tactical Operations Form
+ * Refined with the premium Tactical Design System.
+ */
 export function TacticalOpsForm({ opsForm, setOpsForm, onSave }: TacticalOpsFormProps) {
   const modes = [
     { id: 'voluntario', label: 'Voluntário' },
@@ -18,45 +24,52 @@ export function TacticalOpsForm({ opsForm, setOpsForm, onSave }: TacticalOpsForm
   ];
 
   return (
-    <VStack spacing={4} p={6} align="stretch" bg="sos.dark" borderRadius="2xl">
+    <VStack spacing={6} p={2} align="stretch">
       <SimpleGrid columns={2} spacing={3}>
         {modes.map((mode) => (
-          <Button
+          <TacticalButton
             key={mode.id}
             onClick={() => setOpsForm({ ...opsForm, recordType: mode.id as any })}
             h="60px"
-            variant="outline"
+            variant="unstyled"
             borderColor={opsForm.recordType === mode.id ? 'sos.blue.500' : 'whiteAlpha.100'}
             bg={opsForm.recordType === mode.id ? 'whiteAlpha.100' : 'transparent'}
-            color={opsForm.recordType === mode.id ? 'white' : 'whiteAlpha.600'}
-            _hover={{ borderColor: 'sos.blue.400', bg: 'whiteAlpha.50' }}
-            borderRadius="xl"
+            opacity={opsForm.recordType === mode.id ? 1 : 0.6}
+            _hover={{ borderColor: 'sos.blue.400', bg: 'whiteAlpha.50', opacity: 1 }}
           >
-            <Text fontSize="9px" fontWeight="black" textTransform="uppercase" letterSpacing="widest">
-              {mode.label}
-            </Text>
-          </Button>
+            {mode.label}
+          </TacticalButton>
         ))}
       </SimpleGrid>
+
       <FormControl>
-        <FormLabel fontSize="9px" fontWeight="black" color="whiteAlpha.500" textTransform="uppercase" letterSpacing="widest" ml={1}>
-          Descrição do Registro
+        <FormLabel ml={1} mb={2}>
+          <TacticalText variant="subheading">Descrição do Registro</TacticalText>
         </FormLabel>
         <Input
           placeholder="Digite os detalhes da operação..."
           value={opsForm.incidentTitle}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => setOpsForm({ ...opsForm, incidentTitle: e.target.value })}
           bg="whiteAlpha.50"
+          backdropFilter="blur(10px)"
           borderColor="whiteAlpha.100"
           fontSize="xs"
           borderRadius="xl"
-          h="50px"
-          _focus={{ borderColor: 'sos.blue.500' }}
+          h="56px"
+          _focus={{ borderColor: 'sos.blue.500', bg: 'whiteAlpha.100' }}
         />
       </FormControl>
-      <Button onClick={onSave} variant="tactical" w="full" h="56px">
+
+      <TacticalButton 
+        glow 
+        onClick={onSave} 
+        bg="sos.blue.500" 
+        h="64px" 
+        fontSize="sm"
+        _hover={{ bg: 'sos.blue.400', transform: 'scale(1.02)' }}
+      >
         REGISTRAR NO MAPA TÁTICO
-      </Button>
+      </TacticalButton>
     </VStack>
   );
 }

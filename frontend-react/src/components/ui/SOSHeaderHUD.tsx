@@ -1,12 +1,15 @@
 import React from 'react';
 import { ShieldAlert, Crosshair, MousePointer2, MapPin, Camera, Activity, Users, PackageOpen, CloudRain, Globe, LogOut } from 'lucide-react';
-import { Box, Flex, HStack, Text, IconButton, Button, Divider, Tooltip, Circle, Icon } from '@chakra-ui/react';
-import { useNavigate } from 'react-router-dom';
-import { useAuthStore } from '../../store/authStore';
+import { Box, Flex, HStack, VStack, IconButton, Divider, Tooltip } from '@chakra-ui/react';
 import { CitySearch } from './CitySearch';
 import { CountryDropdown } from './CountryDropdown';
 import { ToolButton } from './ToolButton';
 import { Logo } from '../brand/Logo';
+import { useSOSHeaderHUD } from '../../hooks/useSOSHeaderHUD';
+import { TacticalButton } from '../atoms/TacticalButton';
+import { TacticalText } from '../atoms/TacticalText';
+import { TacticalStat } from '../molecules/TacticalStat';
+import { GlassPanel } from '../atoms/GlassPanel';
 
 interface SOSHeaderHUDProps {
   country: string;
@@ -29,19 +32,18 @@ interface SOSHeaderHUDProps {
   onSearchSelect?: (lat: number, lon: number, displayName: string) => void;
 }
 
+/**
+ * SOS Header HUD
+ * The primary dashboard control bar. Redesigned with precise atoms and modules
+ * for a unified Tactical Design System.
+ */
 export const SOSHeaderHUD: React.FC<SOSHeaderHUDProps> = ({
   country, setCountry, onReset, activeTool, setTool, stats, onSearchSelect
 }) => {
-  const navigate = useNavigate();
-  const { clearAuth, user } = useAuthStore();
-
-  const handleLogout = () => {
-    clearAuth();
-    navigate('/login');
-  };
+  const { user, handleLogout, goToPublicMap } = useSOSHeaderHUD();
 
   return (
-    <Box
+    <GlassPanel
       position="absolute"
       top={4}
       left={4}
@@ -49,15 +51,10 @@ export const SOSHeaderHUD: React.FC<SOSHeaderHUDProps> = ({
       zIndex={50}
       px={6}
       h="80px"
-      bg="rgba(15, 23, 42, 0.6)"
-      backdropFilter="blur(24px)"
       borderRadius="full"
-      border="1px solid"
-      borderColor="whiteAlpha.100"
       display="flex"
       alignItems="center"
       justifyContent="space-between"
-      boxShadow="2xl"
     >
       {/* Brand & Search Section */}
       <HStack spacing={6}>
@@ -66,14 +63,14 @@ export const SOSHeaderHUD: React.FC<SOSHeaderHUDProps> = ({
             <Logo w="24px" h="24px" color="white" />
           </Box>
           <Box>
-            <Text fontSize="xs" fontWeight="black" color="white" textTransform="uppercase" letterSpacing="widest" lineHeight="shorter">
-              SOS <Text as="span" color="sos.red.500">GUARDIAN</Text>
-            </Text>
+            <TacticalText variant="heading" color="white">
+              SOS <Box as="span" color="sos.red.500">GUARDIAN</Box>
+            </TacticalText>
             <HStack spacing={1.5} align="center" opacity={0.6}>
               <Box w={1.5} h={1.5} borderRadius="full" bg="sos.green.500" />
-              <Text fontSize="9px" fontWeight="bold" color="whiteAlpha.700" fontFamily="mono" textTransform="uppercase" letterSpacing="wider">
+              <TacticalText variant="mono">
                 {user?.preferredUsername || 'OPERATOR'} // PRO
-              </Text>
+              </TacticalText>
             </HStack>
           </Box>
         </Flex>
@@ -85,44 +82,34 @@ export const SOSHeaderHUD: React.FC<SOSHeaderHUDProps> = ({
           <CountryDropdown value={country} onChange={setCountry} />
         </HStack>
 
-        <Button 
-          variant="ghost" 
-          leftIcon={<Globe size={16} />} 
-          size="sm" 
-          fontSize="10px" 
-          fontWeight="black" 
-          color="sos.blue.400" 
-          textTransform="uppercase" 
-          letterSpacing="widest"
-          onClick={() => navigate('/map')}
-          _hover={{ bg: 'sos.blue.500/10' }}
+        <TacticalButton 
+          h="36px" 
+          px={4} 
+          leftIcon={<Globe size={14} />} 
+          onClick={goToPublicMap}
+          variant="ghost"
+          borderColor="transparent"
+          _hover={{ bg: 'sos.blue.500/10', borderColor: 'sos.blue.500/20' }}
         >
-          Ir para Mapa Público
-        </Button>
+          MAPA PÚBLICO
+        </TacticalButton>
       </HStack>
 
       {/* Center Section: KPIs */}
-      <HStack spacing={10} px={8} py={2.5} bg="whiteAlpha.50" borderRadius="2xl" border="1px solid" borderColor="whiteAlpha.100" display={{ base: 'none', '2xl': 'flex' }}>
-        {[
-          { label: 'Equipes', value: stats?.activeTeams, icon: Users, color: 'sos.blue.400' },
-          { label: 'Alertas', value: stats?.criticalAlerts, icon: Activity, color: 'sos.red.400' },
-          { label: 'Logística', value: stats?.supplies, icon: PackageOpen, color: 'sos.green.400' },
-          { label: 'Buscas', value: stats?.missingPersons, icon: MapPin, color: 'orange.400' }
-        ].map((kpi, idx) => (
-          <HStack key={idx} spacing={4}>
-            <Circle size="40px" bg="whiteAlpha.100">
-               <Icon as={kpi.icon} size={18} color={kpi.color} />
-            </Circle>
-            <Box>
-              <Text fontSize="8px" fontWeight="black" color="whiteAlpha.500" textTransform="uppercase" letterSpacing="widest" mb={0.5}>
-                {kpi.label}
-              </Text>
-              <Text fontSize="md" fontWeight="black" color="white" lineHeight="none">
-                {kpi.value || '0'}
-              </Text>
-            </Box>
-          </HStack>
-        ))}
+      <HStack 
+        spacing={8} 
+        px={8} 
+        py={2} 
+        bg="whiteAlpha.50" 
+        borderRadius="2xl" 
+        border="1px solid" 
+        borderColor="whiteAlpha.100" 
+        display={{ base: 'none', '2xl': 'flex' }}
+      >
+        <TacticalStat label="Equipes" value={stats?.activeTeams || 0} icon={Users} color="sos.blue.400" />
+        <TacticalStat label="Alertas" value={stats?.criticalAlerts || 0} icon={Activity} color="sos.red.400" />
+        <TacticalStat label="Logística" value={stats?.supplies || 0} icon={PackageOpen} color="sos.green.400" />
+        <TacticalStat label="Buscas" value={stats?.missingPersons || 0} icon={MapPin} color="orange.400" />
       </HStack>
 
       {/* Right Section: Tools & Account */}
@@ -130,14 +117,12 @@ export const SOSHeaderHUD: React.FC<SOSHeaderHUDProps> = ({
         {/* Climate */}
         <HStack spacing={3} bg="whiteAlpha.50" px={4} py={3} borderRadius="2xl" border="1px solid" borderColor="whiteAlpha.100" display={{ base: 'none', lg: 'flex' }}>
           <CloudRain size={16} color="#4FD1C5" />
-          <Box>
-            <Text fontSize="8px" fontWeight="black" color="whiteAlpha.500" textTransform="uppercase" letterSpacing="widest" mb={0.5}>
-              Ambiente
-            </Text>
-            <Text fontSize="xs" fontWeight="black" color="white" lineHeight="none">
+          <VStack align="flex-start" spacing={0}>
+            <TacticalText variant="caption">AMBIENTE</TacticalText>
+            <TacticalText variant="heading" fontSize="xs" letterSpacing="normal">
               {stats?.climate?.temp ?? '24'}°C
-            </Text>
-          </Box>
+            </TacticalText>
+          </VStack>
         </HStack>
 
         <HStack spacing={1.5} p={1.5} bg="whiteAlpha.50" borderRadius="2xl" border="1px solid" borderColor="whiteAlpha.100">
@@ -174,6 +159,6 @@ export const SOSHeaderHUD: React.FC<SOSHeaderHUDProps> = ({
           </Tooltip>
         </HStack>
       </HStack>
-    </Box>
+    </GlassPanel>
   );
 };

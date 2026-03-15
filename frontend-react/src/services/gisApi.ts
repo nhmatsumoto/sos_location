@@ -1,4 +1,5 @@
 import { apiClient } from './apiClient';
+import { gisCache as persistentCache } from '../lib/cache';
 
 export interface ActiveAlert {
   id: string;
@@ -15,20 +16,30 @@ export interface ActiveAlert {
   };
 }
 
-// Simple in-memory cache for GIS data
-const gisCache = new Map<string, { data: any; timestamp: number }>();
-const CACHE_TTL = 300000; // 5 minutes
+// Memory cache as L1, IndexedDB as L2
+const memoryCache = new Map<string, { data: any; timestamp: number }>();
+const CACHE_TTL = 1000 * 60 * 60 * 24; // 24 hours for persistent data
 
-const getFromCache = (key: string) => {
-  const cached = gisCache.get(key);
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+const getFromCache = async (key: string) => {
+  // Check L1
+  const cached = memoryCache.get(key);
+  if (cached && Date.now() - cached.timestamp < 1000 * 60 * 5) { // 5 min L1
     return cached.data;
   }
+  
+  // Check L2 (Persistent)
+  const persistent = await persistentCache.get(key, CACHE_TTL);
+  if (persistent) {
+    memoryCache.set(key, { data: persistent, timestamp: Date.now() });
+    return persistent;
+  }
+  
   return null;
 };
 
-const setInCache = (key: string, data: any) => {
-  gisCache.set(key, { data, timestamp: Date.now() });
+const setInCache = async (key: string, data: any) => {
+  memoryCache.set(key, { data, timestamp: Date.now() });
+  await persistentCache.set(key, data);
 };
 
 // Pending requests pool to avoid duplicate concurrent calls
@@ -38,7 +49,7 @@ export const gisApi = {
   getElevationGrid: async (minLat: number, minLon: number, maxLat: number, maxLon: number, resolution: number = 128) => {
     const cacheKey = `dem_${minLat.toFixed(4)}_${minLon.toFixed(4)}_${maxLat.toFixed(4)}_${maxLon.toFixed(4)}_${resolution}`;
     
-    const cached = getFromCache(cacheKey);
+    const cached = await getFromCache(cacheKey);
     if (cached) return cached;
 
     if (pendingRequests.has(cacheKey)) return pendingRequests.get(cacheKey);
@@ -53,7 +64,7 @@ export const gisApi = {
           resolution
         });
         const data = response.data.data;
-        setInCache(cacheKey, data);
+        await setInCache(cacheKey, data);
         return data;
       } catch (error) {
         console.error("Failed to fetch SRTM elevation grid:", error);
@@ -70,7 +81,7 @@ export const gisApi = {
   getUrbanFeatures: async (minLat: number, minLon: number, maxLat: number, maxLon: number) => {
     const cacheKey = `urban_${minLat.toFixed(4)}_${minLon.toFixed(4)}_${maxLat.toFixed(4)}_${maxLon.toFixed(4)}`;
     
-    const cached = getFromCache(cacheKey);
+    const cached = await getFromCache(cacheKey);
     if (cached) return cached;
 
     if (pendingRequests.has(cacheKey)) return pendingRequests.get(cacheKey);
@@ -84,7 +95,7 @@ export const gisApi = {
           max_lon: maxLon
         });
         const data = response.data.data;
-        setInCache(cacheKey, data);
+        await setInCache(cacheKey, data);
         return data;
       } catch (error) {
         console.error("Failed to fetch Urban Features:", error);
@@ -110,7 +121,7 @@ export const gisApi = {
 
   getVegetationData: async (minLat: number, minLon: number, maxLat: number, maxLon: number) => {
     const cacheKey = `veg_${minLat.toFixed(4)}_${minLon.toFixed(4)}_${maxLat.toFixed(4)}_${maxLon.toFixed(4)}`;
-    const cached = getFromCache(cacheKey);
+    const cached = await getFromCache(cacheKey);
     if (cached) return cached;
 
     try {
@@ -121,7 +132,7 @@ export const gisApi = {
         max_lon: maxLon
       });
       const data = response.data.data;
-      setInCache(cacheKey, data);
+      await setInCache(cacheKey, data);
       return data;
     } catch (error) {
       console.error("Failed to fetch Vegetation Data:", error);
@@ -131,7 +142,7 @@ export const gisApi = {
 
   getSoilData: async (minLat: number, minLon: number, maxLat: number, maxLon: number) => {
     const cacheKey = `soil_${minLat.toFixed(4)}_${minLon.toFixed(4)}_${maxLat.toFixed(4)}_${maxLon.toFixed(4)}`;
-    const cached = getFromCache(cacheKey);
+    const cached = await getFromCache(cacheKey);
     if (cached) return cached;
 
     try {
@@ -142,7 +153,7 @@ export const gisApi = {
         max_lon: maxLon
       });
       const data = response.data.data;
-      setInCache(cacheKey, data);
+      await setInCache(cacheKey, data);
       return data;
     } catch (error) {
       console.error("Failed to fetch Soil Data:", error);

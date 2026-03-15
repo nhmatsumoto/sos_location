@@ -1,131 +1,106 @@
-# SOS Location v3.1 — Humanitarian Disaster Response Platform
+# SOS Location v3.5 — The Guardian Beacon
 
-![SOS Location Banner](https://img.shields.io/badge/SOS--Location-3.1__Humanitarian__Operations-blueviolet?style=for-the-badge)
-![Status Build](https://img.shields.io/badge/Build-Passing-success?style=for-the-badge)
-![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
+![SOS Location Banner](https://img.shields.io/badge/SOS--Location-3.5__City--Scale__GIS-blueviolet?style=for-the-badge)
+![Purpose](https://img.shields.io/badge/Purpose-Saving--Lives-red?style=for-the-badge)
+![Built with AI](https://img.shields.io/badge/Built--with-AI--Assistance-0096ff?style=for-the-badge)
 
 **English** | [Português](./README.pt.md) | [日本語](./README.ja.md)
 
-**SOS Location** is a decision-support and tactical coordination platform for disaster response and humanitarian operations.
+> "This project is my purpose in life: to save lives using the knowledge I have. It is the synthesis of years of architectural experience and an intensive, daily collaboration with Generative AI to reach city-scale precision." — *Author's Vision*
 
-## 🌱 Project origin
-
-This project was inspired by **brumadinho_location** and evolved through practical engineering and field-learning inputs:
-
-- lessons from Brumadinho-related response contexts;
-- references from initiatives such as **PLATEAU**;
-- conversations with researchers and professors;
-- intensive AI-assisted coding for implementation speed;
-- software architecture and distributed systems experience.
-
-> For the author, SOS Location is a life purpose: **saving lives through technology and knowledge**.
+**SOS Location** is a resilient, city-scale decision-support platform. Born from the legacy of `brumadinho_location`, it combines professional software architecture with state-of-the-art AI code synthesis to bridge the gap between field reality and strategic command.
 
 ---
 
-## 🎯 Project objective
+## 🌟 Vision & Mission
 
-Build a resilient platform that unifies geospatial, climate, logistics, and operational data to:
+### Our Purpose
+Born from the legacy of `brumadinho_location`, this project is a personal mission fueled by the synthesis of professional architecture and **intensive AI collaboration**. Inspired by large-scale urban digital twin projects like **Project PLATEAU** (Japan), and conversations with researchers, professors, and field specialists, SOS Location aims to be the "Guardian Beacon" in the darkest hours.
 
-- reduce emergency response time;
-- support strategic decisions with trustworthy real-time data;
-- improve coordination among government, civil defense, volunteers, and communities;
-- keep critical operations running even under poor connectivity (offline-first strategy).
-
-## 🫀 Mission
-
-**Save lives, reduce disaster impact, and strengthen humanitarian response capacity through open, auditable, and data-driven technology.**
+### Mission
+To provide first responders with a "High-Definition Tactical View" of disaster zones. By using AI to leverage billions of data points into actionable 3D environments, we ensure that every second counts when every life is at stake.
 
 ---
 
-## 🧭 Governance
+## 🛠️ Technology Stack (Full Spectrum)
 
-SOS Location governance is based on social impact, technical accountability, and transparency:
-
-- **Humanitarian Governance**: product decisions prioritize life protection and community resilience.
-- **Technical Governance**: clean architecture, observability, secure defaults, and living documentation.
-- **Data Governance**: responsible use of public sources and integration traceability.
-- **AI Governance**: agents and automations support engineering and operations under human supervision.
-
-📄 Detailed document: [docs/GOVERNANCE.md](docs/GOVERNANCE.md)
-
----
-
-## 🧱 Technology stack (inferred from repository files)
-
-### Frontend and operations UX
-- **React 19** + **TypeScript 5**
-- **Vite 7**
-- **Chakra UI**, **Emotion**, **Framer Motion**
-- **Leaflet + React Leaflet + Supercluster** (2D maps)
-- **Three.js + React Three Fiber + Drei** (3D simulation)
-- **Zustand**, **React Hook Form**, **Zod**
+### Frontend (Tactical HUD & 3D WebGL)
+- **Core:** React 19 (Strict Mode) + TypeScript 5.7+
+- **Build Tool:** Vite 7.0 (Ultra-fast HMR)
+- **UI System:** Chakra UI v3 (Custom "Guardian" Theme)
+- **State Management:** Zustand 5.0 (Atomic state)
+- **Mapping:** React Leaflet + Leaflet.markercluster
+- **Visualization:** Three.js (WebGL 2.0 Shaders for 3D City Rendering)
+- **Icons:** Lucide React
+- **Validation:** Zod
 - **i18next** (localization)
-- **Keycloak JS** (frontend auth)
 
-### Backend and domain
-- **ASP.NET Core Web API (.NET 10)**
-- **Clean Architecture + DDD + CQRS (MediatR)**
-- **FluentValidation**
-- **Entity Framework Core 10** + **Dapper**
-- **PostgreSQL 15** + **Npgsql**
-- **SignalR**
-- **Serilog**
-- **Swagger (Swashbuckle)**
+### Backend (Clean Architecture & Real-Time)
+- **Runtime:** .NET 10.0 (ASP.NET Core)
+- **Pattern:** Clean Architecture + CQRS (MediatR)
+- **ORM:** Entity Framework Core 10 (Npgsql)
+- **Real-Time:** SignalR (Live updates for alerts and missions)
+- **Logging:** Serilog (Structured logging to Console/File)
+- **Validation:** FluentValidation
+- **Docs:** Swagger/OpenAPI (Swashbuckle)
 
-### Risk/AI service
-- **Python** with **FastAPI** + **Uvicorn**
-- **Pandas**, **Scikit-learn**, **PyTorch**
-- **APScheduler**
+### Database & Security
+- **Engine:** PostgreSQL 15 + PostGIS (Spatial queries)
+- **SSO/IAM:** Keycloak 26.0 (OpenID Connect / OAuth2)
+- **Caching:** In-Memory + PostGIS Indexing
 
-### Infrastructure and operations
-- **Docker Compose**
-- **Keycloak 26**
-- **Dozzle** (container log observability)
-- Dedicated DB backup service
-- External integrations: **OpenTopography**, **Overpass/OSM**, **Open-Meteo**, **INMET**, **CEMADEN**, **Defesa Civil**, **IBGE**.
+### AI & Risk Intelligence (ML Unit)
+- **Core:** Python 3.11+
+- **Framework:** FastAPI
+- **Libraries:** PyTorch (Neural Risk Models), Scikit-learn, Pandas
+- **Strategy:** Intensive use of Generative AI for code synthesis, unit testing, and GIS data normalization.
 
-### Agents and skills for engineering orchestration
-- Agent catalog under `.workflow/agents` and `docs/agents`.
-- Skills under `agents/skills` and `.workflow/skills`.
-
-📄 Detailed inventory: [docs/TECHNOLOGY_STACK.md](docs/TECHNOLOGY_STACK.md)
+### Infrastructure & DevOps
+- **Containerization:** Docker & Docker Compose
+- **Monitoring:** Dozzle (Real-time log viewer)
+- **Data Pipeline:** Custom Indexer Services for GIS, Weather, and News.
 
 ---
 
-## 🚀 Getting started
-
-```bash
-./dev.sh up
-```
-
-| Service | URL |
-|---|---|
-| Operations Dashboard | http://localhost:8088 |
-| API Health | http://localhost:8001/api/health |
-| Swagger | http://localhost:8001/swagger |
-| Risk ML Unit | http://localhost:8090 |
-| Logs (Dozzle) | http://localhost:9999 |
-| Keycloak SSO | https://localhost:8080 |
+## 🗺️ City-Scale GIS Integration (v3.5)
+We reconstruct entire cities using cross-border open data:
+- **Topography:** OpenTopography (SRTMGL1) — 30m Global DEM.
+- **Urban Fabric:** OpenStreetMap via Overpass API (3D Buildings, Road networks).
+- **Climate:** Open-Meteo API (Real-time METAR-like weather).
+- **Population:** IBGE API (Brasil) & GSI/MLIT (Japan) for cadastral enrichment.
 
 ---
 
-## 📚 Project documentation
+## 🏛️ Governance
+This project follows a **Sovereign Humanitarian** governance model. Decisions are guided by:
+1. **Humanity First:** All features must directly or indirectly serve life-saving efforts.
+2. **Resilience:** Systems must function under partial network failure (Synthetic bypasses).
+3. **Neutrality:** Open-source core, avoiding vendor lock-in of data sources.
+4. **Transparency:** Public dashboards for accountability during crises.
 
-- [Vision, objective, mission](docs/VISION_AND_GOALS.md)
-- [Governance](docs/GOVERNANCE.md)
-- [Architecture](docs/PROJECT_ARCHITECTURE.md)
-- [External integrations](docs/INTEGRATIONS.md)
-- [Privacy and transparency policy](docs/PRIVACY_TRANSPARENCY_POLICY.md)
-- [Security audit](docs/SECURITY_AUDIT_REPORT.md)
-- [Specialist agents catalog](docs/OPS_SPECIALIST_AGENTS.md)
-
----
-
-## ❤️ Ethical commitment
-
-> [!IMPORTANT]
-> SOS Location exists to **SAVE LIVES**. Use for military purposes, warfare activities, or conflict simulations is not aligned with the project's humanitarian values.
+See [GOVERNANCE.md](./docs/GOVERNANCE.md) for detailed protocols.
 
 ---
 
-**SOS Location © 2026** — Built to save lives with resilient technology.
+## 📂 Internal Roadmap
+- [x] Phase 1-7: Core Infrastructure & Tactical UI
+- [x] Phase 8: GIS & Climate Refactor (Real API Integration)
+- [ ] Phase 9: Full WebGL City Component (Active Development)
+- [ ] Phase 10: Multi-Agency Deployment Cluster
+
+---
+
+## ❤️ Credits & Inspiration
+- **Inspired by:** `brumadinho_location` original concept.
+- **Architectural Reference:** Project PLATEAU (Digital Twin Japan).
+- **Development Tooling:** Antigravity AI, Gemini 2.0 Research.
+- **Collaboration:** Insights from researchers, professors, and field specialists.
+
+---
+
+## ⚖️ License & Ethics
+
+> [!CAUTION]
+> This platform is **NOT** for military use. It is strictly for humanitarian, civil defense, and environmental protection purposes.
+
+**SOS Location © 2026** — *Protecting the future with knowledge and technology.*

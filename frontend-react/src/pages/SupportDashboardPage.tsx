@@ -1,151 +1,177 @@
-import { useEffect, useState } from 'react';
-import { Heart, DollarSign, Wallet, RefreshCw, BarChart3 } from 'lucide-react';
-import { supportApi, type Campaign, type Donation, type Expense } from '../services/supportApi';
+import { Heart, DollarSign, Wallet, RefreshCw, BarChart3, TrendingUp, History } from 'lucide-react';
 import { LoadingOverlay } from '../components/ui/LoadingOverlay';
-import { useNotifications } from '../context/NotificationsContext';
+import { 
+  Box, 
+  Flex, 
+  HStack, 
+  VStack, 
+  SimpleGrid, 
+  Badge,
+  Icon,
+  Divider
+} from '@chakra-ui/react';
+import { useSupportDashboard } from '../hooks/useSupportDashboard';
+import { GlassPanel } from '../components/atoms/GlassPanel';
+import { TacticalText } from '../components/atoms/TacticalText';
+import { TacticalButton } from '../components/atoms/TacticalButton';
+import { TacticalStat } from '../components/molecules/TacticalStat';
 
+/**
+ * Support & Transparency Dashboard
+ * Unified Ledger for humanitarian aid, financial tracking, and accountability.
+ * Refactored with the Guardian Tactical Design System.
+ */
 export function SupportDashboardPage() {
-  const [loading, setLoading] = useState(false);
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [donations, setDonations] = useState<Donation[]>([]);
-  const [expenses, setExpenses] = useState<Expense[]>([]);
-  
-  // In a real app, this would come from a URL param or context
-  const incidentId = '00000000-0000-0000-0000-000000000000'; 
-
-  const { pushNotice } = useNotifications();
-
-  const load = async () => {
-    setLoading(true);
-    try {
-      const [c, d, e] = await Promise.all([
-        supportApi.getCampaigns(incidentId),
-        supportApi.getDonations(incidentId),
-        supportApi.getExpenses(incidentId)
-      ]);
-      setCampaigns(c);
-      setDonations(d);
-      setExpenses(e);
-    } catch {
-      pushNotice({ 
-        type: 'error', 
-        title: 'Sincronização Falhou', 
-        message: 'Não foi possível carregar os dados financeiros do incidente.' 
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    void load();
-  }, []);
-
-  const totalDonations = donations.reduce((acc, d) => acc + d.amount, 0);
-  const totalExpenses = expenses.reduce((acc, e) => acc + e.amount, 0);
-  const balance = totalDonations - totalExpenses;
+  const { 
+    campaigns, 
+    donations, 
+    expenses, 
+    loading, 
+    financialSummary, 
+    actions 
+  } = useSupportDashboard();
 
   return (
-    <div className="space-y-6 p-6">
-      <header className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2">
-            <Heart className="text-rose-400" /> Fluxo de Apoio e Transparência
-          </h1>
-          <p className="text-slate-400">Monitoramento de campanhas de arrecadação e prestação de contas.</p>
-        </div>
-        <button 
-          onClick={() => void load()} 
-          className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-sm text-slate-100 hover:bg-slate-700"
-        >
-          <RefreshCw size={16} className={loading ? 'animate-spin' : ''} /> Atualizar Transparência
-        </button>
-      </header>
+    <Box p={8} h="calc(100vh - 80px)" overflowY="auto" className="custom-scrollbar">
+      {loading && <LoadingOverlay message="Auditando Ledger de Transparência..." />}
 
-      {loading && <LoadingOverlay message="Auditando registros financeiros..." />}
+      {/* Header Shell */}
+      <Flex align="center" justify="space-between" mb={10}>
+        <VStack align="flex-start" spacing={1}>
+          <HStack spacing={3}>
+            <Box p={2.5} bg="sos.red.500" borderRadius="xl">
+              <Heart size={24} color="white" />
+            </Box>
+            <TacticalText variant="heading" fontSize="2xl">Apoio e Transparência</TacticalText>
+          </HStack>
+          <TacticalText>Monitoramento de fluxo financeiro e prestação de contas humanitária.</TacticalText>
+        </VStack>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <div className="rounded-xl border border-slate-800 bg-emerald-500/5 p-6 border-l-4 border-l-emerald-500">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-xs font-medium text-emerald-400 uppercase">Total Arrecadado</p>
-              <p className="text-2xl font-bold text-white">R$ {totalDonations.toLocaleString()}</p>
-            </div>
-            <DollarSign className="text-emerald-500" />
-          </div>
-        </div>
-        <div className="rounded-xl border border-slate-800 bg-rose-500/5 p-6 border-l-4 border-l-rose-500">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-xs font-medium text-rose-400 uppercase">Total de Despesas</p>
-              <p className="text-2xl font-bold text-white">R$ {totalExpenses.toLocaleString()}</p>
-            </div>
-            <Wallet className="text-rose-500" />
-          </div>
-        </div>
-        <div className="rounded-xl border border-slate-800 bg-cyan-500/5 p-6 border-l-4 border-l-cyan-500">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-xs font-medium text-cyan-400 uppercase">Saldo em Conta</p>
-              <p className="text-2xl font-bold text-white">R$ {balance.toLocaleString()}</p>
-            </div>
-            <BarChart3 className="text-cyan-500" />
-          </div>
-        </div>
-      </div>
+        <TacticalButton leftIcon={<RefreshCw size={16} />} onClick={actions.loadData} isLoading={loading}>
+          Atualizar Balanço
+        </TacticalButton>
+      </Flex>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <section className="space-y-4">
-          <h2 className="text-sm font-bold text-slate-300 uppercase tracking-widest">Campanhas Ativas</h2>
-          <div className="space-y-3">
-            {campaigns.map(c => (
-              <div key={c.id} className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
-                <div className="flex justify-between items-center mb-2">
-                  <h3 className="font-semibold text-slate-100">{c.title}</h3>
-                  <span className="text-[10px] font-bold bg-cyan-500/20 text-cyan-400 px-2 py-0.5 rounded uppercase">{c.status}</span>
-                </div>
-                <div className="w-full h-2 bg-slate-800 rounded-full mb-2 overflow-hidden">
-                  <div 
-                    className="h-full bg-cyan-500" 
-                    style={{ width: `${Math.min((c.currentAmount / c.targetAmount) * 100, 100)}%` }}
-                  />
-                </div>
-                <div className="flex justify-between text-xs text-slate-400">
-                  <span>R$ {c.currentAmount.toLocaleString()}</span>
-                  <span>Meta: R$ {c.targetAmount.toLocaleString()}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
+      {/* Financial Telemetry Grid */}
+      <SimpleGrid columns={{ base: 1, md: 3 }} spacing={6} mb={10}>
+        <GlassPanel p={6} borderLeft="4px solid" borderColor="sos.green.500">
+          <TacticalStat 
+            label="Total Arrecadado" 
+            value={`R$ ${financialSummary.totalDonations.toLocaleString()}`} 
+            icon={DollarSign} 
+            color="sos.green.400" 
+          />
+        </GlassPanel>
+        <GlassPanel p={6} borderLeft="4px solid" borderColor="sos.red.500">
+          <TacticalStat 
+            label="Despesas de Campo" 
+            value={`R$ ${financialSummary.totalExpenses.toLocaleString()}`} 
+            icon={Wallet} 
+            color="sos.red.400" 
+          />
+        </GlassPanel>
+        <GlassPanel p={6} borderLeft="4px solid" borderColor="sos.blue.500">
+          <TacticalStat 
+            label="Saldo Operacional" 
+            value={`R$ ${financialSummary.balance.toLocaleString()}`} 
+            icon={BarChart3} 
+            color="sos.blue.400" 
+          />
+        </GlassPanel>
+      </SimpleGrid>
 
-        <section className="space-y-4">
-          <h2 className="text-sm font-bold text-slate-300 uppercase tracking-widest">Extrato de Movimentação</h2>
-          <div className="rounded-xl border border-slate-800 bg-slate-900/40 overflow-hidden text-xs">
-            <div className="grid grid-cols-3 bg-slate-800/50 p-3 font-bold text-slate-400">
-              <span>Descrição</span>
-              <span className="text-center">Categoria</span>
-              <span className="text-right">Valor</span>
-            </div>
-            <div className="divide-y divide-slate-800">
-              {expenses.map(e => (
-                <div key={e.id} className="grid grid-cols-3 p-3 text-slate-300 hover:bg-slate-800/20">
-                  <span>{e.description}</span>
-                  <span className="text-center text-slate-500">{e.category}</span>
-                  <span className="text-right text-rose-400 font-mono">- R$ {e.amount.toLocaleString()}</span>
-                </div>
-              ))}
-              {donations.map(d => (
-                <div key={d.id} className="grid grid-cols-3 p-3 text-slate-300 hover:bg-slate-800/20">
-                  <span>Doação: {d.donorName}</span>
-                  <span className="text-center text-slate-500">Receita</span>
-                  <span className="text-right text-emerald-400 font-mono">+ R$ {d.amount.toLocaleString()}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-      </div>
-    </div>
+      <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={8}>
+        
+        {/* Active Campaigns - Left */}
+        <VStack align="stretch" spacing={6}>
+          <HStack spacing={3} px={2}>
+            <Icon as={TrendingUp} color="sos.blue.400" />
+            <TacticalText variant="subheading">Campanhas Táticas Ativas</TacticalText>
+          </HStack>
+          
+          <VStack spacing={4} align="stretch">
+            {campaigns.length === 0 ? (
+              <GlassPanel p={10} textAlign="center" borderStyle="dashed">
+                <TacticalText opacity={0.3}>NENHUMA CAMPANHA EM CURSO</TacticalText>
+              </GlassPanel>
+            ) : (
+              campaigns.map(c => (
+                <GlassPanel key={c.id} p={5}>
+                  <Flex justify="space-between" align="center" mb={4}>
+                    <TacticalText variant="heading" fontSize="sm">{c.title}</TacticalText>
+                    <Badge variant="subtle" bg="sos.blue.500/10" color="sos.blue.400" fontSize="9px">
+                      {c.status?.toUpperCase()}
+                    </Badge>
+                  </Flex>
+                  
+                  <Box w="full" bg="whiteAlpha.100" borderRadius="full" h="6px" mb={3} overflow="hidden">
+                    <Box 
+                      h="full" 
+                      bg="sos.blue.400" 
+                      boxShadow="0 0 10px rgba(6, 182, 212, 0.4)"
+                      w={`${Math.min((c.currentAmount / c.targetAmount) * 100, 100)}%`} 
+                    />
+                  </Box>
+                  
+                  <Flex justify="space-between">
+                    <TacticalText variant="mono" fontSize="10px">R$ {c.currentAmount.toLocaleString()}</TacticalText>
+                    <TacticalText variant="caption">Alvo: R$ {c.targetAmount.toLocaleString()}</TacticalText>
+                  </Flex>
+                </GlassPanel>
+              ))
+            )}
+          </VStack>
+        </VStack>
+
+        {/* Financial Flow History - Right */}
+        <VStack align="stretch" spacing={6}>
+          <HStack spacing={3} px={2}>
+            <Icon as={History} color="sos.blue.400" />
+            <TacticalText variant="subheading">Extrato de Movimentação</TacticalText>
+          </HStack>
+
+          <GlassPanel overflow="hidden">
+            <VStack align="stretch" spacing={0} divider={<Divider borderColor="whiteAlpha.50" />}>
+              <Box bg="whiteAlpha.50" p={4}>
+                <SimpleGrid columns={3} spacing={4}>
+                  <TacticalText variant="caption">DESCRIÇÃO</TacticalText>
+                  <TacticalText variant="caption" textAlign="center">PROTOCOLO</TacticalText>
+                  <TacticalText variant="caption" textAlign="right">VALOR</TacticalText>
+                </SimpleGrid>
+              </Box>
+
+              <Box maxH="400px" overflowY="auto" className="custom-scrollbar">
+                {expenses.map(e => (
+                  <Box key={e.id} p={4} _hover={{ bg: 'whiteAlpha.20' }} transition="all 0.2s">
+                    <SimpleGrid columns={3} spacing={4} alignItems="center">
+                      <TacticalText fontSize="xs">{e.description}</TacticalText>
+                      <TacticalText fontSize="10px" color="whiteAlpha.400" textAlign="center" textTransform="uppercase">
+                        {e.category}
+                      </TacticalText>
+                      <TacticalText variant="mono" fontSize="xs" color="sos.red.400" textAlign="right">
+                        - R$ {e.amount.toLocaleString()}
+                      </TacticalText>
+                    </SimpleGrid>
+                  </Box>
+                ))}
+                {donations.map(d => (
+                  <Box key={d.id} p={4} _hover={{ bg: 'whiteAlpha.20' }} transition="all 0.2s">
+                    <SimpleGrid columns={3} spacing={4} alignItems="center">
+                      <TacticalText fontSize="xs">Doação: {d.donorName}</TacticalText>
+                      <TacticalText fontSize="10px" color="whiteAlpha.400" textAlign="center" textTransform="uppercase">
+                        RECURSO
+                      </TacticalText>
+                      <TacticalText variant="mono" fontSize="xs" color="sos.green.400" textAlign="right">
+                        + R$ {d.amount.toLocaleString()}
+                      </TacticalText>
+                    </SimpleGrid>
+                  </Box>
+                ))}
+              </Box>
+            </VStack>
+          </GlassPanel>
+        </VStack>
+      </SimpleGrid>
+    </Box>
   );
 }

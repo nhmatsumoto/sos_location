@@ -55,7 +55,7 @@ export function PublicPortalMap({ news }: PublicPortalMapProps) {
                 id={item.id}
                 latitude={item.latitude}
                 longitude={item.longitude}
-                category={item.category}
+                category={item.category || 'EVENTO'}
               />
             );
           })}
