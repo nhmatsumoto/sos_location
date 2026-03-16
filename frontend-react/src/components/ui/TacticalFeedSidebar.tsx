@@ -7,6 +7,7 @@ import { TacticalText } from '../atoms/TacticalText';
 interface TacticalFeedSidebarProps {
   news: any[];
   isLoading: boolean;
+  onSelect?: (item: any) => void;
 }
 
 /**
@@ -14,7 +15,7 @@ interface TacticalFeedSidebarProps {
  * Unified with the Guardian Design System. Highlights live telemetry
  * and situational awareness through a glass-morphed container.
  */
-export function TacticalFeedSidebar({ news, isLoading }: TacticalFeedSidebarProps) {
+export function TacticalFeedSidebar({ news, isLoading, onSelect }: TacticalFeedSidebarProps) {
   return (
     <GlassPanel
       position="absolute"
@@ -64,7 +65,7 @@ export function TacticalFeedSidebar({ news, isLoading }: TacticalFeedSidebarProp
       </Box>
 
       <Box flex={1} overflowY="auto" px={6} py={6} className="custom-scrollbar">
-        <NewsFeed news={news} isLoading={isLoading} />
+        <NewsFeed news={news} isLoading={isLoading} onSelect={onSelect} />
       </Box>
 
       <Box p={8} bg="whiteAlpha.20" borderTop="1px solid" borderColor="whiteAlpha.100">

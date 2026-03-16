@@ -4,7 +4,7 @@ import { useAuthStore } from '../store/authStore';
 
 // --- KEYCLOAK INITIALIZATION ---
 const keycloakConfig = {
-  url: import.meta.env.VITE_KEYCLOAK_URL || 'https://localhost:8080',
+  url: import.meta.env.VITE_KEYCLOAK_URL || 'http://localhost:8080',
   realm: import.meta.env.VITE_KEYCLOAK_REALM || 'sos-location',
   clientId: import.meta.env.VITE_KEYCLOAK_CLIENT_ID || 'sos-location-frontend'
 };

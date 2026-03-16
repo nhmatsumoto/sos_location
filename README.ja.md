@@ -1,6 +1,6 @@
-# SOS Location: レジリエント・オペレーション・ダッシュボード & 戦術管理 v2.1
+# SOS Location: レジリエント・オペレーション・ダッシュボード & 戦術管理 v2.0.0
 
-![SOS Location Banner](https://img.shields.io/badge/SOS--Location-Resilience--v2.1-blueviolet?style=for-the-badge)
+![SOS Location Banner](https://img.shields.io/badge/SOS--Location-Resilience--v2.0.0-blueviolet?style=for-the-badge)
 ![Status Build](https://img.shields.io/badge/Build-Passing-success?style=for-the-badge)
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
 
@@ -38,11 +38,11 @@
 
 ---
 
-## 🏗️ レジリエンス・アーキテクチャ (v2.1)
+## 🏗️ レジリエンス・アーキテクチャ (v2.0.0)
 
 ```mermaid
 graph TD
-    subgraph "戦術적UI 2.1"
+    subgraph "戦術적UI 2.0.0"
         UI[PWA オペレーション・ダッシュボード] --> SPT[戦術的散布図]
         UI --> MCP[現場データキャプチャ]
         UI -.-> RD[3Dルーム - 研究中/一時停止]

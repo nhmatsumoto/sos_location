@@ -18,6 +18,15 @@ export interface NewsNotification {
   riskScore?: number;
   content?: string;
   externalUrl?: string;
+  
+  // Tactical Operational Data
+  areaKm2?: number;
+  estimatedCost?: string;
+  emergencyLevel?: number; // 1-5 scale
+  involvedAgencies?: string[];
+  lastUpdate?: string;
+  status?: 'Active' | 'Contained' | 'Resolved';
+
   climateInfo?: {
     temperature?: number;
     humidity?: number;

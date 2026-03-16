@@ -27,7 +27,7 @@ import { TacticalText } from '../components/atoms/TacticalText';
  */
 export function PublicMapPage() {
   const navigate = useNavigate();
-  const { news, isLoading, filters } = usePublicMapPage();
+  const { news, isLoading, filters, setSelectedEvent, selectedEvent } = usePublicMapPage();
 
   return (
     <Box h="100vh" w="full" bg="sos.dark" color="white" overflow="hidden" position="relative">
@@ -95,11 +95,11 @@ export function PublicMapPage() {
 
       <Flex as="main" h="full" w="full">
         {/* News Feed - Left Side */}
-        <TacticalFeedSidebar news={news} isLoading={isLoading} />
+        <TacticalFeedSidebar news={news} isLoading={isLoading} onSelect={setSelectedEvent} />
 
         {/* Global GIS Visualizer */}
         <Box flex={1} position="relative">
-          <PublicPortalMap news={news} />
+          <PublicPortalMap news={news} selectedEvent={selectedEvent} />
           
           {/* HUD Map Controls */}
           <VStack position="absolute" bottom={10} right={10} zIndex={50} spacing={3}>

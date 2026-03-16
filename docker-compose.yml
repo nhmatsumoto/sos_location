@@ -47,15 +47,15 @@ services:
       [
         "start-dev",
         "--import-realm",
-        "--https-certificate-file=/opt/keycloak/data/certs/server.crt.pem",
-        "--https-certificate-key-file=/opt/keycloak/data/certs/server.key.pem",
+        "--http-enabled=true",
+        "--hostname-strict=false"
       ]
     environment:
       KC_HEALTH_ENABLED: "true"
-      KC_HTTPS_PORT: 8443
+      KC_HTTP_PORT: 8080
       # KC_HOSTNAME: localhost
       # KC_HOSTNAME_STRICT: "false"
-      KC_HTTP_ENABLED: "false"
+      KC_HTTP_ENABLED: "true"
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
     volumes:
@@ -63,9 +63,9 @@ services:
       - ./infra/keycloak/theme/sos-theme:/opt/keycloak/themes/sos-theme:ro
       - ./infra/certs:/opt/keycloak/data/certs:ro
     ports:
-      - "${KEYCLOAK_PORT:-8080}:8443"
+      - "${KEYCLOAK_PORT:-8080}:8080"
     healthcheck:
-      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8443"]
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/8080"]
       interval: 15s
       timeout: 5s
       retries: 20
@@ -78,12 +78,14 @@ services:
       context: ./backend-dotnet
       dockerfile: Dockerfile
     container_name: sos-location-api-backend-net
+    labels:
+      - "version=2.0.0"
     restart: unless-stopped
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:8000
       - ConnectionStrings__DefaultConnection=Host=postgres;Database=sos_location;Username=sos_location_user;Password=sos_location_password
-      - Keycloak__Authority=https://keycloak:8443/realms/sos-location
+      - Keycloak__Authority=http://keycloak:8080/realms/sos-location
       - Keycloak__Audience=sos-location-frontend
       - Keycloak__RequireHttpsMetadata=false
       - ExternalIntegrations__InmetUrl=${INMET_URL:-https://apiprevmet3.inmet.gov.br/avisos/ativos}
@@ -116,11 +118,13 @@ services:
       dockerfile: ./frontend-react/Dockerfile
       args:
         - VITE_API_BASE_URL=/api
-        - VITE_KEYCLOAK_URL=https://localhost:8080
+        - VITE_KEYCLOAK_URL=http://localhost:8080
     container_name: sos-location-web-frontend
+    labels:
+      - "version=2.0.0"
     environment:
       VITE_API_BASE_URL: /api
-      VITE_KEYCLOAK_URL: https://localhost:8080
+      VITE_KEYCLOAK_URL: http://localhost:8080
     ports:
       - "${FRONTEND_PORT:-8088}:8000"
     restart: unless-stopped
@@ -161,6 +165,8 @@ services:
       context: ./risk-analysis-unit
       dockerfile: Dockerfile
     container_name: sos-location-ml-risk-unit
+    labels:
+      - "version=2.0.0"
     restart: unless-stopped
     environment:
       - INTERNAL_API_URL=http://backend:8000

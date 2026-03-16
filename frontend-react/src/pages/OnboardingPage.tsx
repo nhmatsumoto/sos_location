@@ -250,7 +250,7 @@ export function OnboardingPage() {
         <Container maxW="container.xl">
           <HStack justify="space-between" wrap="wrap" spacing={4}>
             <Text fontSize="10px" color="whiteAlpha.400" fontFamily="mono" textTransform="uppercase" letterSpacing="widest">
-              © 2026 SOS Location • City-Scale Intelligence • v3.5
+              © 2026 SOS Location • City-Scale Intelligence • v2.0.0
             </Text>
             
             <HStack spacing={6}>

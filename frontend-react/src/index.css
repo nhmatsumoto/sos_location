@@ -173,6 +173,7 @@ body,
   animation: scanline 4s linear infinite;
 }
 
+
 .alert-marker {
   position: relative;
   display: flex;
@@ -277,6 +278,48 @@ body,
   -webkit-text-fill-color: transparent;
   font-family: var(--font-display);
   font-weight: 900;
+}
+
+:root {
+  --glow-cyan: 199 89% 48%;
+  --glow-green: 142 70% 45%;
+  --fluor-green: #39FF14;
+  --fluor-blue: #00E5FF;
+}
+
+.map-3d-perspective {
+  perspective: 2500px;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #020617;
+  transition: perspective 1s ease;
+}
+
+.map-3d-content {
+  width: 100%;
+  height: 100%;
+  transform: rotateX(25deg) translateY(-2%) scale(1.1);
+  transform-style: preserve-3d;
+  transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 50px 100px -20px rgba(0,0,0,0.8);
+}
+
+/* Micro perspective for closer views */
+.map-micro-focus .map-3d-content {
+  transform: rotateX(5deg) translateY(0) scale(1);
+}
+
+.map-3d-perspective:hover .map-3d-content {
+  /* Dynamic interaction: slightly flatten on hover to help reading */
+  transform: rotateX(15deg) translateY(0) scale(1.05);
+}
+
+/* Intense Fluorescent Glows - REMOVED for clarity */
+
+/* Fix for Leaflet in 3D: Pointer events might need careful handling if rotation is too aggressive */
+.leaflet-container {
+  background: #0A0B10 !important;
 }
 
 .custom-scrollbar::-webkit-scrollbar {

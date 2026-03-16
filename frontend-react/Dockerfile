@@ -15,6 +15,8 @@ RUN rm -rf public/docs && mkdir -p public/docs
 
 ARG VITE_API_BASE_URL="http://localhost:8001"
 ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
+ARG VITE_KEYCLOAK_URL="http://localhost:8080"
+ENV VITE_KEYCLOAK_URL=${VITE_KEYCLOAK_URL}
 RUN bun run build
 
 # Etapa 2: Servir os arquivos minificados usando Nginx para suporte a SPA

@@ -1,6 +1,6 @@
-# SOS Location v3.5 — The Guardian Beacon
+# SOS Location v2.0.0 — The Guardian Beacon
 
-![SOS Location Banner](https://img.shields.io/badge/SOS--Location-3.5__City--Scale__GIS-blueviolet?style=for-the-badge)
+![SOS Location Banner](https://img.shields.io/badge/SOS--Location-2.0.0__City--Scale__GIS-blueviolet?style=for-the-badge)
 ![Purpose](https://img.shields.io/badge/Purpose-Saving--Lives-red?style=for-the-badge)
 ![Built with AI](https://img.shields.io/badge/Built--with-AI--Assistance-0096ff?style=for-the-badge)
 
@@ -62,7 +62,7 @@ To provide first responders with a "High-Definition Tactical View" of disaster z
 
 ---
 
-## 🗺️ City-Scale GIS Integration (v3.5)
+## 🗺️ City-Scale GIS Integration (v2.0.0)
 We reconstruct entire cities using cross-border open data:
 - **Topography:** OpenTopography (SRTMGL1) — 30m Global DEM.
 - **Urban Fabric:** OpenStreetMap via Overpass API (3D Buildings, Road networks).

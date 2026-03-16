@@ -14,7 +14,7 @@ namespace SOSLocation.API.Controllers
 {
     [ApiController]
     [Route("api/integrations/alerts")]
-    [Authorize]
+    [AllowAnonymous]
     public class AttentionAlertsController : ControllerBase
     {
         private readonly IMediator _mediator;

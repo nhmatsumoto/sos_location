@@ -61,6 +61,7 @@ namespace SOSLocation.API.Extensions
             services.AddHttpClient<IAlertProvider, InmetAlertProvider>();
             services.AddHttpClient<IAlertProvider, DefesaCivilAlertProvider>();
             services.AddHttpClient<IAlertProvider, CemadenAlertProvider>();
+            services.AddHttpClient<IAlertProvider, JmaAlertProvider>();
 
             // Enrichment
             services.AddHttpClient<IIbgeEnrichmentService, IbgeEnrichmentService>();

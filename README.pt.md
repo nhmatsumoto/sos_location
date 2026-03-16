@@ -1,6 +1,6 @@
-# SOS Location v3.1 — Plataforma Humanitária de Resposta a Desastres
+# SOS Location v2.0.0 — Plataforma Humanitária de Resposta a Desastres
 
-![SOS Location Banner](https://img.shields.io/badge/SOS--Location-3.1__Humanitarian__Operations-blueviolet?style=for-the-badge)
+![SOS Location Banner](https://img.shields.io/badge/SOS--Location-2.0.0__Humanitarian__Operations-blueviolet?style=for-the-badge)
 ![Status Build](https://img.shields.io/badge/Build-Passing-success?style=for-the-badge)
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
 

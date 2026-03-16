@@ -88,10 +88,37 @@ export class WebGLRenderer {
     this.gl.vertexAttribPointer(location, size, type, normalized, stride, offset);
   }
 
+  public createTexture(image: HTMLImageElement | HTMLCanvasElement): WebGLTexture {
+    const texture = this.gl.createTexture();
+    if (!texture) throw new Error('Could not create texture.');
+
+    this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
+    this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.RGBA, this.gl.RGBA, this.gl.UNSIGNED_BYTE, image);
+    
+    // Default to point sampling for precise GIS intensity reading
+    this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.NEAREST);
+    this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.NEAREST);
+    this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, this.gl.CLAMP_TO_EDGE);
+    this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.CLAMP_TO_EDGE);
+
+    return texture;
+  }
+
+  public bindTexture(texture: WebGLTexture, unit: number = 0) {
+    this.gl.activeTexture(this.gl.TEXTURE0 + unit);
+    this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
+  }
+
   public setUniformMatrix4(name: string, matrix: Float32Array) {
     if (!this.program) throw new Error('No program in use.');
     const location = this.gl.getUniformLocation(this.program, name);
     this.gl.uniformMatrix4fv(location, false, matrix);
+  }
+
+  public setUniform1i(name: string, val: number) {
+    if (!this.program) throw new Error('No program in use.');
+    const location = this.gl.getUniformLocation(this.program, name);
+    this.gl.uniform1i(location, val);
   }
 
   public setUniform1f(name: string, val: number) {
@@ -104,6 +131,12 @@ export class WebGLRenderer {
     if (!this.program) throw new Error('No program in use.');
     const location = this.gl.getUniformLocation(this.program, name);
     this.gl.uniform2f(location, x, y);
+  }
+
+  public setUniform3f(name: string, x: number, y: number, z: number) {
+    if (!this.program) throw new Error('No program in use.');
+    const location = this.gl.getUniformLocation(this.program, name);
+    this.gl.uniform3f(location, x, y, z);
   }
 
   public setUniform4f(name: string, x: number, y: number, z: number, w: number) {

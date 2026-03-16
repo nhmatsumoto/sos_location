@@ -1,95 +1,101 @@
 {
   "DisasterTypes": [
-    { "Name": "Enchente", "Code": "FLOOD", "Description": "Eventos de inundação", "Icon": "flood", "Color": "#0000FF" },
-    { "Name": "Terremoto", "Code": "EARTHQUAKE", "Description": "Eventos sísmicos", "Icon": "landscape", "Color": "#8B4513" },
-    { "Name": "Deslizamento", "Code": "LANDSLIDE", "Description": "Deslizamentos de terra", "Icon": "terrain", "Color": "#654321" },
-    { "Name": "Tempestade", "Code": "STORM", "Description": "Clima severo", "Icon": "thunderstorm", "Color": "#808080" },
-    { "Name": "Incêndio", "Code": "FIRE", "Description": "Incêndios florestais", "Icon": "local_fire_department", "Color": "#FF4500" }
+    {
+      "Id": "6f9478f2-d9e2-4114-8785-3e284a1d4b61",
+      "Name": "Inundação",
+      "Code": "FLOOD",
+      "Description": "Alagamentos e inundações graduais ou bruscas.",
+      "Icon": "flood",
+      "Color": "#3498db"
+    },
+    {
+      "Id": "f784521a-2831-4b2a-9125-14f7d2f8a1c3",
+      "Name": "Deslizamento",
+      "Code": "LANDSLIDE",
+      "Description": "Movimentação de massa em encostas e taludes.",
+      "Icon": "landslide",
+      "Color": "#e67e22"
+    },
+    {
+      "Id": "a2b3c4d5-e6f7-4890-a1b2-c3d4e5f6a7b8",
+      "Name": "Incêndio Florestal",
+      "Code": "WILDFIRE",
+      "Description": "Focos de incêndio em áreas de vegetação.",
+      "Icon": "fire",
+      "Color": "#e74c3c"
+    },
+    {
+      "Id": "b1c2d3e4-f5a6-4789-b0c1-d2e3f4a5b6c7",
+      "Name": "Tempestade",
+      "Code": "STORM",
+      "Description": "Ventos fortes e chuvas intensas.",
+      "Icon": "thunderstorm",
+      "Color": "#9b59b6"
+    }
   ],
   "Incidents": [
     {
-      "Name": "Enchente em Ubá",
-      "Type": "Flood",
+      "Id": "d1e2f3a4-b5c6-4789-a0b1-c2d3e4f5a6b7",
+      "Name": "Operação RS - Porto Alegre",
+      "Type": "FLOOD",
       "Status": "active",
-      "Region": "Zona da Mata",
       "Country": "Brasil",
-      "Lat": -21.1215,
-      "Lon": -42.9427,
-      "StartsAt": "2026-03-14T00:00:00Z"
-    },
-    {
-      "Name": "Deslizamento Juiz de Fora",
-      "Type": "Landslide",
-      "Status": "monitoring",
-      "Region": "Zona da Mata",
-      "Country": "Brasil",
-      "Lat": -21.7595,
-      "Lon": -43.3502,
-      "StartsAt": "2026-03-13T00:00:00Z"
+      "Region": "Rio Grande do Sul",
+      "Lat": -30.0346,
+      "Lon": -51.2177,
+      "StartsAt": "2026-03-01T08:00:00Z"
     }
   ],
   "News": [
     {
-      "Title": "Alerta de Chuvas Fortes",
-      "Content": "Previsão de chuvas intensas para o sudeste do Brasil.",
-      "Source": "MetSul",
+      "Id": "e1f2a3b4-c5d6-4789-b0c1-d2e3f4a5b6c7",
+      "Title": "Alerta de Monitoramento SOS Location",
+      "Content": "Sistema de localização de ajuda SOS Location configurado e operacional para monitoramento de desastres em tempo real.",
+      "Source": "SOS Location System",
       "Country": "Brasil",
-      "Location": "Sudeste",
-      "PublishedAt": "2026-03-15T09:00:00Z",
-      "Category": "Storm",
-      "RiskScore": 85.0
+      "Location": "Nacional",
+      "PublishedAt": "2026-03-16T10:00:00Z",
+      "Category": "System",
+      "RiskScore": 10.0
     }
   ],
   "Weather": [
     {
-      "LocationName": "Ubá",
-      "Latitude": -21.1215,
-      "Longitude": -42.9427,
+      "LocationName": "Porto Alegre",
+      "Latitude": -30.0346,
+      "Longitude": -51.2177,
       "Temperature": 24.5,
       "Humidity": 82.0,
       "WindSpeed": 15.0,
-      "Condition": "Rainy",
-      "CapturedAt": "2026-03-15T09:00:00Z"
-    }
-  ],
-  "RiskAnalysis": [
-    {
-      "LocationName": "Ubá",
-      "Latitude": -21.1215,
-      "Longitude": -42.9427,
-      "Score": 78.5,
-      "Level": "High",
-      "AnalysisDate": "2026-03-15T09:00:00Z"
+      "Condition": "Cloudy",
+      "CapturedAt": "2026-03-16T09:00:00Z"
     }
   ],
   "DisasterEvents": [
     {
-      "Id": "97815f92-0697-448a-8530-81f1e944449f",
-      "Provider": "INMET",
-      "ProviderEventId": "INMET-1",
+      "Id": "a1b2c3d4-e5f6-4789-a0b1-c2d3e4f5a6b7",
+      "Provider": "SYS_MASTER",
       "EventType": "FLOOD",
       "Severity": 4,
-      "Title": "Alerta de Enchente em Ubá",
-      "Description": "Risco alto de inundação nas áreas ribeirinhas.",
-      "Lat": -21.1215,
-      "Lon": -42.9427,
+      "Title": "Monitoramento Hidrológico Ativo",
+      "Description": "Nível dos rios em monitoramento crítico nas bacias hidrográficas do Sul.",
+      "StartAt": "2026-03-16T00:00:00Z",
+      "Lat": -30.03,
+      "Lon": -51.22,
       "CountryCode": "BR",
-      "CountryName": "Brasil",
-      "SourceUrl": "https://portal.inmet.gov.br"
-    },
+      "CountryName": "Brasil"
+    }
+  ],
+  "RiskAnalysis": [
     {
-      "Id": "b1a2c3d4-e5f6-4a5b-8c7d-8e9f0a1b2c3d",
-      "Provider": "Cemaden",
-      "ProviderEventId": "CEMADEN-1",
-      "EventType": "LANDSLIDE",
-      "Severity": 5,
-      "Title": "Risco de Deslizamento em Juiz de Fora",
-      "Description": "Movimentação de massa detectada em encostas.",
-      "Lat": -21.7595,
-      "Lon": -43.3502,
-      "CountryCode": "BR",
-      "CountryName": "Brasil",
-      "SourceUrl": "https://www.cemaden.gov.br"
+      "Id": "b2c3d4e5-f6a7-4890-b1c2-d3e4f5a6b7c8",
+      "Latitude": -30.0346,
+      "Longitude": -51.2177,
+      "LocationName": "Porto Alegre",
+      "Score": 85.5,
+      "Level": "Critical",
+      "FactorsJson": "{\"rainfall\": \"high\", \"soil_saturation\": 0.92, \"elevation\": \"low\"}",
+      "AnalysisDate": "2026-03-16T12:00:00Z"
     }
   ]
 }

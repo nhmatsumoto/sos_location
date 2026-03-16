@@ -1,0 +1,116 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: sos-location-db-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-sos_location}
+      POSTGRES_USER: ${POSTGRES_USER:-sos_location_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sos_location_user} -d ${POSTGRES_DB:-sos_location}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sos-location-network
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    container_name: sos-location-sso-keycloak
+    restart: unless-stopped
+    command: [ "start", "--import-realm", "--proxy-headers=x-forwarded" ]
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-sos_location}
+      KC_DB_USERNAME: ${POSTGRES_USER:-sos_location_user}
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD}
+      KC_HOSTNAME: ${KEYCLOAK_HOSTNAME}
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      KC_HEALTH_ENABLED: "true"
+      KC_HTTP_ENABLED: "true"
+    volumes:
+      - ./infra/keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+      - ./infra/keycloak/theme/sos-theme:/opt/keycloak/themes/sos-theme:ro
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -f http://localhost:8080/health/live || exit 1" ]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    networks:
+      - sos-location-network
+
+  backend:
+    build:
+      context: ./backend-dotnet
+      dockerfile: Dockerfile
+    container_name: sos-location-api-backend-net
+    restart: unless-stopped
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8000
+      - ConnectionStrings__DefaultConnection=Host=postgres;Database=${POSTGRES_DB:-sos_location};Username=${POSTGRES_USER:-sos_location_user};Password=${POSTGRES_PASSWORD}
+      - Keycloak__Authority=https://${KEYCLOAK_HOSTNAME}/realms/sos-location
+      - Keycloak__Audience=sos-location-frontend
+      - Keycloak__RequireHttpsMetadata=true
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/api/health" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - sos-location-network
+
+  frontend:
+    build:
+      context: .
+      dockerfile: ./frontend-react/Dockerfile
+      args:
+        - VITE_API_BASE_URL=/api
+        - VITE_KEYCLOAK_URL=https://${KEYCLOAK_HOSTNAME}
+    container_name: sos-location-web-frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_started
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8000" ]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+    networks:
+      - sos-location-network
+
+  risk-analysis:
+    build:
+      context: ./risk-analysis-unit
+      dockerfile: Dockerfile
+    container_name: sos-location-ml-risk-unit
+    restart: unless-stopped
+    environment:
+      - INTERNAL_API_URL=http://backend:8000
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./risk_model_parameters.json:/app/model_parameters.json:ro
+      - ./risk_training_data.csv:/app/training_data.csv:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - sos-location-network
+
+volumes:
+  postgres_data:
+
+
+networks:
+  sos-location-network:
+    driver: bridge

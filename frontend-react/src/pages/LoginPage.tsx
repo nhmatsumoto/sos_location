@@ -87,6 +87,16 @@ export function LoginPage() {
                 <TacticalText textAlign="center">
                   Autenticação segura via Keycloak SSO para operadores e equipes de apoio.
                 </TacticalText>
+
+                {/* Secure Context Warning */}
+                {!window.isSecureContext && window.location.hostname === '0.0.0.0' && (
+                  <Box p={3} bg="red.900/40" border="1px solid" borderColor="red.500/50" borderRadius="xl" mt={4}>
+                    <TacticalText fontSize="xs" color="red.200" textAlign="center">
+                      ⚠ <strong>CONTEÚDO NÃO SEGURO:</strong> O navegador bloqueia a autenticação em 0.0.0.0. 
+                      Utilize <strong>localhost:8088</strong> ou <strong>127.0.0.1:8088</strong> para prosseguir.
+                    </TacticalText>
+                  </Box>
+                )}
               </VStack>
             </VStack>
 
