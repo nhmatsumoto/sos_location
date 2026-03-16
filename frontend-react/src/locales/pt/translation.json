@@ -28,6 +28,56 @@
       "finish": "Finalizar"
     }
   },
+  "nav": {
+    "monitor": "Monitoramento Tático",
+    "hotspots": "Hotspots de Calor",
+    "missing": "Pessoas Desaparecidas",
+    "approval": "Aprovação Tática",
+    "reports": "Relatos de Campo",
+    "searched": "Áreas Vasculhadas",
+    "rescue": "Suporte e Resgate",
+    "incidents": "Incidentes Ativos",
+    "simulations": "Simulações",
+    "datahub": "Data Hub",
+    "integrations": "Integrações",
+    "global": "Desastres Globais",
+    "volunteer": "Voluntários",
+    "logistics": "Logística",
+    "risk": "Análise de Risco",
+    "support": "Suporte Financeiro",
+    "sources": "Fontes de Dados",
+    "map": "Mapa Público",
+    "settings": "Configurações",
+    "logout": "Encerrar Sessão",
+    "internal": "Operações",
+    "public": "Acesso Público",
+    "status": "STATUS OPERACIONAL"
+  },
+  "intel": {
+    "surveillance": "SISTEMA DE SURVEILLANCE",
+    "encrypted": "CRIPTOGRAFADO // AO VIVO",
+    "telemetry": "TELEMETRIA DE CAMPO"
+  },
+  "sos": {
+    "warroom": "Painel de Comando",
+    "initializing": "Iniciando Sistemas de Defesa...",
+    "syncing": "Sincronizando Dados Satelitais...",
+    "tools": {
+      "inspect": "Inspecionar",
+      "point": "Marcar Ponto",
+      "area": "Área de Risco",
+      "snapshot": "Captura de Tela"
+    },
+    "actions": {
+      "reset": "Centralizar Mapa"
+    },
+    "feed": {
+      "title": "Fluxo de Comando",
+      "alerts": "ALERTAS",
+      "critical": "Críticos",
+      "telemetry": "Status da Telemetria"
+    }
+  },
   "common": {
     "loading": "Carregando...",
     "error": "Ocorreu um erro"

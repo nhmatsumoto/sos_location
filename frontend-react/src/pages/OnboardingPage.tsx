@@ -44,7 +44,7 @@ export function OnboardingPage() {
   return (
     <Box 
       minH="100vh" 
-      bg="slate.950" 
+      bg="sos.dark" 
       color="white" 
       position="relative" 
       overflow="hidden"

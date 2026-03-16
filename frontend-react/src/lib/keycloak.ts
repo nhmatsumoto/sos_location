@@ -12,7 +12,9 @@ const keycloakConfig = {
 export const keycloak = new Keycloak(keycloakConfig);
 
 export const getRoles = () => {
-  return keycloak.realmAccess?.roles || [];
+  const realmRoles = keycloak.realmAccess?.roles || [];
+  const clientRoles = keycloak.resourceAccess?.[keycloakConfig.clientId]?.roles || [];
+  return Array.from(new Set([...realmRoles, ...clientRoles]));
 };
 
 export const getUserInfo = () => {

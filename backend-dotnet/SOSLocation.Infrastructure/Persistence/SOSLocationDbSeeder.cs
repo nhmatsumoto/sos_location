@@ -80,6 +80,13 @@ namespace SOSLocation.Infrastructure.Persistence
                     context.RiskAnalysis.AddRange(seedData.RiskAnalysis);
                     context.SaveChanges();
                 }
+
+                // Seed DataSources
+                if (!context.DataSources.Any() && seedData.DataSources != null)
+                {
+                    context.DataSources.AddRange(seedData.DataSources);
+                    context.SaveChanges();
+                }
             }
             catch (Exception)
             {
@@ -95,6 +102,7 @@ namespace SOSLocation.Infrastructure.Persistence
             public List<MeteorologicalData>? Weather { get; set; }
             public List<RiskAnalysis>? RiskAnalysis { get; set; }
             public List<DisasterEvent>? DisasterEvents { get; set; }
+            public List<DataSource>? DataSources { get; set; }
         }
     }
 }

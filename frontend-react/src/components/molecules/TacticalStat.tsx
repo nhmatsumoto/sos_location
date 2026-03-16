@@ -16,13 +16,32 @@ interface TacticalStatProps {
  */
 export function TacticalStat({ label, value, unit, icon, color = 'sos.blue.400' }: TacticalStatProps) {
   return (
-    <VStack align="start" spacing={1} p={3} bg="whiteAlpha.50" borderRadius="xl" border="1px solid" borderColor="whiteAlpha.100" minW="140px">
-      <HStack spacing={2} color={color}>
-        <Icon as={icon} boxSize="12px" />
-        <TacticalText variant="caption" color={color}>{label}</TacticalText>
+    <VStack 
+      align="start" 
+      spacing={1} 
+      minW="120px" 
+      position="relative"
+    >
+      <HStack spacing={2} color={color} opacity={0.8}>
+        <Icon as={icon} boxSize="10px" />
+        <TacticalText 
+          variant="caption" 
+          color={color} 
+          fontSize="9px" 
+          fontWeight="black" 
+          letterSpacing="0.1em"
+        >
+          {label.toUpperCase()}
+        </TacticalText>
       </HStack>
-      <HStack align="baseline" spacing={1} mt={1}>
-        <TacticalText fontSize="lg" fontWeight="black" color="white">
+      <HStack align="baseline" spacing={1}>
+        <TacticalText 
+          variant="mono"
+          fontSize="xl" 
+          fontWeight="bold" 
+          color="white"
+          textShadow={`0 0 10px ${color}33`}
+        >
           {value}
         </TacticalText>
         {unit && (

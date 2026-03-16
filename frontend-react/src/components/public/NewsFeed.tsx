@@ -1,5 +1,7 @@
 import React from 'react';
 import { Calendar, MapPin, ExternalLink, Info, Award } from 'lucide-react';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { Box, VStack, HStack, Circle, Link, Icon, Center } from '@chakra-ui/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNewsFeed } from '../../hooks/useNewsFeed';
@@ -18,7 +20,7 @@ interface NewsFeedProps {
  * Converted from Tailwind to Chakra UI with refined design tokens.
  */
 export const NewsFeed: React.FC<NewsFeedProps> = ({ news, isLoading, onSelect }) => {
-  const { getRiskColor, getRiskBg, formatTime } = useNewsFeed();
+  const { getRiskColor, getRiskBg } = useNewsFeed();
 
   if (isLoading) {
     return (
@@ -73,16 +75,16 @@ export const NewsFeed: React.FC<NewsFeedProps> = ({ news, isLoading, onSelect })
                 borderRadius="full"
                 filter="blur(24px)"
                 opacity={0.2}
-                bg={getRiskColor(item.riskScore || 50)}
+                bg={getRiskColor(item.riskScore || 50, item.category)}
               />
 
               <VStack align="stretch" spacing={4}>
                 <HStack justify="space-between" align="flex-start">
                   <VStack align="flex-start" spacing={1}>
                     <HStack spacing={2}>
-                      <Circle size="6px" bg={getRiskColor(item.riskScore || 50)} boxShadow={`0 0 8px ${getRiskColor(item.riskScore || 50)}`} />
+                      <Circle size="6px" bg={getRiskColor(item.riskScore || 50, item.category)} boxShadow={`0 0 8px ${getRiskColor(item.riskScore || 50, item.category)}`} />
                       <TacticalText variant="subheading" fontSize="8px" letterSpacing="0.2em">
-                        {item.category || 'EVENTO'}
+                        {item.category || 'EVENTO'} // {item.status || 'ACTIVE'}
                       </TacticalText>
                     </HStack>
                     <TacticalText variant="heading" fontSize="sm" color="white" lineHeight="shorter">
@@ -99,22 +101,39 @@ export const NewsFeed: React.FC<NewsFeedProps> = ({ news, isLoading, onSelect })
                     <HStack 
                       px={2} 
                       py={0.5} 
-                      bg={getRiskBg(item.riskScore || 0)} 
+                      bg={getRiskBg(item.riskScore || 0, item.category)} 
                       borderRadius="lg" 
                       border="1px solid" 
-                      borderColor={`${getRiskColor(item.riskScore || 0)}/20`}
+                      borderColor={`${getRiskColor(item.riskScore || 0, item.category)}/20`}
                     >
-                      <Icon as={Award} size={10} color={getRiskColor(item.riskScore || 0)} />
-                      <TacticalText variant="mono" fontSize="10px" color={getRiskColor(item.riskScore || 0)}>
-                        {(item.riskScore || 0).toFixed(0)}%
+                      <Icon as={Award} size={10} color={getRiskColor(item.riskScore || 0, item.category)} />
+                      <TacticalText variant="mono" fontSize="10px" color={getRiskColor(item.riskScore || 0, item.category)}>
+                        LVL {(item.emergencyLevel || Math.ceil((item.riskScore || 0) / 20))}
                       </TacticalText>
                     </HStack>
                   </VStack>
                 </HStack>
 
-                <TacticalText color="whiteAlpha.700" noOfLines={2} fontSize="xs" lineHeight="relaxed">
+                <TacticalText color="whiteAlpha.700" noOfLines={3} fontSize="xs" lineHeight="relaxed">
                   {item.description || item.content}
                 </TacticalText>
+
+                {/* Tactical Metrics Row */}
+                <HStack spacing={3} py={1}>
+                  {item.areaKm2 && (
+                    <Box px={2} py={0.5} bg="whiteAlpha.50" borderRadius="md" border="1px solid" borderColor="whiteAlpha.100">
+                      <TacticalText fontSize="9px" color="whiteAlpha.600">AREA: {item.areaKm2}km²</TacticalText>
+                    </Box>
+                  )}
+                  {item.estimatedCost && (
+                    <Box px={2} py={0.5} bg="whiteAlpha.50" borderRadius="md" border="1px solid" borderColor="whiteAlpha.100">
+                      <TacticalText fontSize="9px" color="whiteAlpha.600">COST: {item.estimatedCost}</TacticalText>
+                    </Box>
+                  )}
+                  <Box px={2} py={0.5} bg="whiteAlpha.50" borderRadius="md" border="1px solid" borderColor="whiteAlpha.100">
+                    <TacticalText fontSize="9px" color="whiteAlpha.600">SCORE: {(item.riskScore || 0).toFixed(0)}%</TacticalText>
+                  </Box>
+                </HStack>
 
                 <HStack justify="space-between" pt={2} borderTop="1px solid" borderColor="whiteAlpha.100">
                    <HStack spacing={4}>
@@ -125,7 +144,7 @@ export const NewsFeed: React.FC<NewsFeedProps> = ({ news, isLoading, onSelect })
                       <HStack spacing={1.5}>
                         <Calendar size={12} color="gray" />
                         <TacticalText fontSize="9px" color="whiteAlpha.400">
-                          {item.publishedAt || item.at ? formatTime(item.publishedAt || item.at) : '--:--'}
+                          {item.publishedAt || item.at ? format(new Date(item.publishedAt || item.at), "dd/MM HH:mm", { locale: ptBR }) : '--/-- --:--'}
                         </TacticalText>
                       </HStack>
                    </HStack>

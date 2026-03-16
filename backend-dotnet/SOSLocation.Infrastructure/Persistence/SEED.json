@@ -97,5 +97,61 @@
       "FactorsJson": "{\"rainfall\": \"high\", \"soil_saturation\": 0.92, \"elevation\": \"low\"}",
       "AnalysisDate": "2026-03-16T12:00:00Z"
     }
+  ],
+  "DataSources": [
+    {
+      "Id": "1a2b3c4d-5e6f-4a0b-1c2d-3e4f5a6b7c8d",
+      "Name": "GDACS - Global Disaster Alert",
+      "Type": "News",
+      "ProviderType": "RSS",
+      "BaseUrl": "https://www.gdacs.org/xml/rss.xml",
+      "FrequencyMinutes": 15,
+      "IsActive": true
+    },
+    {
+      "Id": "2b3c4d5e-6f7a-4b1c-2d3e-4f5a6b7c8d9e",
+      "Name": "ReliefWeb - Global Humanitarian",
+      "Type": "News",
+      "ProviderType": "JsonApi",
+      "BaseUrl": "https://api.reliefweb.int/v1/reports",
+      "FrequencyMinutes": 60,
+      "IsActive": true
+    },
+    {
+      "Id": "3c4d5e6f-7a8b-4c2d-3e4f-5a6b7c8d9e0f",
+      "Name": "USGS - Worldwide Earthquakes",
+      "Type": "News",
+      "ProviderType": "JsonApi",
+      "BaseUrl": "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson",
+      "FrequencyMinutes": 10,
+      "IsActive": true
+    },
+    {
+      "Id": "4d5e6f7a-8b9c-4d3e-4f5a-6b7c8d9e0f1a",
+      "Name": "NOAA - National Weather News",
+      "Type": "Weather",
+      "ProviderType": "RSS",
+      "BaseUrl": "https://www.weather.gov/news/rss.xml",
+      "FrequencyMinutes": 30,
+      "IsActive": true
+    },
+    {
+      "Id": "5e6f7a8b-9c0d-4e4f-5a6b-7c8d9e0f1a2b",
+      "Name": "INMET - Avisos Brasil",
+      "Type": "Weather",
+      "ProviderType": "RSS",
+      "BaseUrl": "https://portal.inmet.gov.br/noticias/rss",
+      "FrequencyMinutes": 60,
+      "IsActive": true
+    },
+    {
+      "Id": "6f7a8b9c-0d1e-4f5g-6a7b-8c9d0e1f2a3b",
+      "Name": "JMA - Japan Meteorological Agency",
+      "Type": "Weather",
+      "ProviderType": "RSS",
+      "BaseUrl": "https://www.jma.go.jp/bosai/rss/jma.rss",
+      "FrequencyMinutes": 15,
+      "IsActive": true
+    }
   ]
 }

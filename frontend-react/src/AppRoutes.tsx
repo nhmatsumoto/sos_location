@@ -30,6 +30,8 @@ const IntegrationsPage = lazy(() => import('./pages/IntegrationsPage.tsx').then(
 const MissingPersonsPage = lazy(() => import('./pages/MissingPersonsPage.tsx').then((m) => ({ default: m.MissingPersonsPage })));
 const GlobalDisastersPage = lazy(() => import('./pages/GlobalDisastersPage.tsx').then((m) => ({ default: m.GlobalDisastersPage })));
 
+const TacticalAdminPage = lazy(() => import('./pages/TacticalAdminPage.tsx'));
+
 /**
  * PrivateLayout wraps protected routes with the AppShell.
  */
@@ -69,6 +71,7 @@ function PrivateLayout() {
             <Route path="/app/integrations" element={<ProtectedRoute><IntegrationsPage /></ProtectedRoute>} />
             <Route path="/app/missing-persons" element={<ProtectedRoute><MissingPersonsPage /></ProtectedRoute>} />
             <Route path="/app/global-disasters" element={<ProtectedRoute><GlobalDisastersPage /></ProtectedRoute>} />
+            <Route path="/app/tactical-approval" element={<ProtectedRoute requiredRole="admin"><TacticalAdminPage /></ProtectedRoute>} />
             <Route path="*" element={<Navigate to="/app/sos" replace />} />
           </Routes>
         </Suspense>

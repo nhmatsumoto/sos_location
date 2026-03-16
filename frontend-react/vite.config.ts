@@ -2,6 +2,8 @@ import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import { visualizer } from 'rollup-plugin-visualizer'
+import compression from 'vite-plugin-compression'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -9,6 +11,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const devApiTarget = env.VITE_DEV_API_TARGET || 'http://localhost:8001'
+  const isProd = mode === 'production'
 
   return {
     resolve: {
@@ -27,18 +30,44 @@ export default defineConfig(({ mode }) => {
     },
     plugins: [
       react(),
-    ],
+      isProd && compression({
+        algorithm: 'brotliCompress',
+        ext: '.br',
+      }),
+      isProd && compression({
+        algorithm: 'gzip',
+        ext: '.gz',
+      }),
+      visualizer({
+        filename: 'dist/stats.html',
+        gzipSize: true,
+        brotliSize: true,
+      }) as any,
+    ].filter(Boolean),
     build: {
       chunkSizeWarningLimit: 1200,
       minify: 'esbuild',
       cssMinify: true,
+      sourcemap: false,
+      reportCompressedSize: false, // Speed up build by skipping compression reporting in logs
       rollupOptions: {
         output: {
-          manualChunks: {
-            vendor: ['react', 'react-dom'],
-            chakra: ['@chakra-ui/react', '@emotion/react', '@emotion/styled', 'framer-motion'],
-            three: ['three', '@react-three/fiber', '@react-three/drei'],
-            icons: ['lucide-react'],
+          manualChunks: (id) => {
+            if (id.includes('node_modules')) {
+              // three.js has NO React dependency — safe to isolate
+              if (id.includes('/three/')) {
+                return 'three';
+              }
+              // lucide-react is also safe to isolate (no hooks)
+              if (id.includes('lucide-react')) {
+                return 'icons';
+              }
+              // Everything else (react, react-dom, chakra, leaflet, @react-three, etc.)
+              // stays together in 'vendor' to guarantee a SINGLE React instance.
+              // Splitting React-dependent libs into separate chunks duplicates React
+              // and causes "Cannot read properties of undefined (reading 'useLayoutEffect')".
+              return 'vendor';
+            }
           },
         },
       },

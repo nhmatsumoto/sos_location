@@ -11,17 +11,24 @@ export function MapAutoBounds({ news }: MapAutoBoundsProps) {
   const map = useMap();
 
   useEffect(() => {
-    if (news.length === 0) return;
+    const safeNews = Array.isArray(news) ? news : [];
+    if (safeNews.length === 0) return;
+    let mounted = true;
 
     const bounds = L.latLngBounds(
-      news
+      safeNews
         .filter((n) => n.latitude && n.longitude)
         .map((n) => [n.latitude!, n.longitude!] as [number, number])
     );
 
-    if (bounds.isValid()) {
-      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 12 });
+    if (bounds.isValid() && mounted) {
+      try {
+        map.fitBounds(bounds, { padding: [50, 50], maxZoom: 12 });
+      } catch (_) {
+        // suppress stale animation on unmount
+      }
     }
+    return () => { mounted = false; };
   }, [news, map]);
 
   return null;

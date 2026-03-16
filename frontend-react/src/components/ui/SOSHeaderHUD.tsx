@@ -32,6 +32,8 @@ interface SOSHeaderHUDProps {
   onSearchSelect?: (lat: number, lon: number, displayName: string) => void;
 }
 
+import { useTranslation } from 'react-i18next';
+
 /**
  * SOS Header HUD
  * The primary dashboard control bar. Redesigned with precise atoms and modules
@@ -41,6 +43,7 @@ export const SOSHeaderHUD: React.FC<SOSHeaderHUDProps> = ({
   country, setCountry, onReset, activeTool, setTool, stats, onSearchSelect
 }) => {
   const { user, handleLogout, goToPublicMap } = useSOSHeaderHUD();
+  const { t } = useTranslation();
 
   return (
     <GlassPanel
@@ -48,7 +51,7 @@ export const SOSHeaderHUD: React.FC<SOSHeaderHUDProps> = ({
       top={4}
       left={4}
       right={4}
-      zIndex={50}
+      zIndex={150}
       px={6}
       h="80px"
       borderRadius="full"
@@ -59,15 +62,15 @@ export const SOSHeaderHUD: React.FC<SOSHeaderHUDProps> = ({
       {/* Brand & Search Section */}
       <HStack spacing={6}>
         <Flex align="center" gap={3}>
-          <Box p={2.5} bg="sos.blue.500" borderRadius="xl" boxShadow="lg">
+          <Box p={2.5} bg="sos.blue.500" borderRadius="xl" boxShadow="lg" className="animate-glow">
             <Logo w="24px" h="24px" color="white" />
           </Box>
           <Box>
-            <TacticalText variant="heading" color="white">
+            <TacticalText variant="heading" color="white" fontSize="lg">
               SOS <Box as="span" color="sos.red.500">GUARDIAN</Box>
             </TacticalText>
             <HStack spacing={1.5} align="center" opacity={0.6}>
-              <Box w={1.5} h={1.5} borderRadius="full" bg="sos.green.500" />
+              <Box w={1.5} h={1.5} borderRadius="full" bg="sos.green.500" className="animate-pulse" />
               <TacticalText variant="mono">
                 {user?.preferredUsername || 'OPERATOR'} // PRO
               </TacticalText>
@@ -91,7 +94,7 @@ export const SOSHeaderHUD: React.FC<SOSHeaderHUDProps> = ({
           borderColor="transparent"
           _hover={{ bg: 'sos.blue.500/10', borderColor: 'sos.blue.500/20' }}
         >
-          MAPA PÚBLICO
+          {t('nav.map')}
         </TacticalButton>
       </HStack>
 
@@ -106,34 +109,23 @@ export const SOSHeaderHUD: React.FC<SOSHeaderHUDProps> = ({
         borderColor="whiteAlpha.100" 
         display={{ base: 'none', '2xl': 'flex' }}
       >
-        <TacticalStat label="Equipes" value={stats?.activeTeams || 0} icon={Users} color="sos.blue.400" />
-        <TacticalStat label="Alertas" value={stats?.criticalAlerts || 0} icon={Activity} color="sos.red.400" />
-        <TacticalStat label="Logística" value={stats?.supplies || 0} icon={PackageOpen} color="sos.green.400" />
-        <TacticalStat label="Buscas" value={stats?.missingPersons || 0} icon={MapPin} color="orange.400" />
+        <TacticalStat label={t('nav.logistics')} value={stats?.activeTeams || 0} icon={Users} color="sos.blue.400" />
+        <TacticalStat label={t('nav.incidents')} value={stats?.criticalAlerts || 0} icon={Activity} color="sos.red.400" />
+        <TacticalStat label={t('nav.logistics')} value={stats?.supplies || 0} icon={PackageOpen} color="sos.green.400" />
+        <TacticalStat label={t('nav.missing')} value={stats?.missingPersons || 0} icon={MapPin} color="orange.400" />
       </HStack>
 
       {/* Right Section: Tools & Account */}
       <HStack spacing={4}>
-        {/* Climate */}
-        <HStack spacing={3} bg="whiteAlpha.50" px={4} py={3} borderRadius="2xl" border="1px solid" borderColor="whiteAlpha.100" display={{ base: 'none', lg: 'flex' }}>
-          <CloudRain size={16} color="#4FD1C5" />
-          <VStack align="flex-start" spacing={0}>
-            <TacticalText variant="caption">AMBIENTE</TacticalText>
-            <TacticalText variant="heading" fontSize="xs" letterSpacing="normal">
-              {stats?.climate?.temp ?? '24'}°C
-            </TacticalText>
-          </VStack>
-        </HStack>
-
         <HStack spacing={1.5} p={1.5} bg="whiteAlpha.50" borderRadius="2xl" border="1px solid" borderColor="whiteAlpha.100">
-          <ToolButton active={activeTool === 'inspect'} onClick={() => setTool('inspect')} icon={<MousePointer2 size={18} />} label="Inspecionar" hideLabel />
-          <ToolButton active={activeTool === 'point'} onClick={() => setTool('point')} icon={<MapPin size={18} />} label="Marcar Ponto" hideLabel />
-          <ToolButton active={activeTool === 'area'} onClick={() => setTool('area')} icon={<ShieldAlert size={18} />} label="Área de Risco" hideLabel />
-          <ToolButton active={activeTool === 'snapshot'} onClick={() => setTool('snapshot')} icon={<Camera size={18} />} label="Captura" hideLabel />
+          <ToolButton active={activeTool === 'inspect'} onClick={() => setTool('inspect')} icon={<MousePointer2 size={18} />} label={t('sos.tools.inspect') || 'Inspecionar'} hideLabel />
+          <ToolButton active={activeTool === 'point'} onClick={() => setTool('point')} icon={<MapPin size={18} />} label={t('sos.tools.point') || 'Ponto'} hideLabel />
+          <ToolButton active={activeTool === 'area'} onClick={() => setTool('area')} icon={<ShieldAlert size={18} />} label={t('sos.tools.area') || 'Área'} hideLabel />
+          <ToolButton active={activeTool === 'snapshot'} onClick={() => setTool('snapshot')} icon={<Camera size={18} />} label={t('sos.tools.snapshot') || 'Captura'} hideLabel />
         </HStack>
 
         <HStack spacing={2}>
-          <Tooltip label="Centralizar Mapa">
+          <Tooltip label={t('sos.actions.reset') || 'Centralizar'}>
             <IconButton
               icon={<Crosshair size={20} />}
               aria-label="Reset Map"
@@ -144,7 +136,7 @@ export const SOSHeaderHUD: React.FC<SOSHeaderHUDProps> = ({
               h="44px"
             />
           </Tooltip>
-          <Tooltip label="Encerrar Sessão">
+          <Tooltip label={t('nav.logout')}>
             <IconButton
               icon={<LogOut size={20} />}
               aria-label="Logout"

@@ -88,13 +88,20 @@ export function LoginPage() {
                   Autenticação segura via Keycloak SSO para operadores e equipes de apoio.
                 </TacticalText>
 
-                {/* Secure Context Warning */}
-                {!window.isSecureContext && window.location.hostname === '0.0.0.0' && (
-                  <Box p={3} bg="red.900/40" border="1px solid" borderColor="red.500/50" borderRadius="xl" mt={4}>
-                    <TacticalText fontSize="xs" color="red.200" textAlign="center">
-                      ⚠ <strong>CONTEÚDO NÃO SEGURO:</strong> O navegador bloqueia a autenticação em 0.0.0.0. 
-                      Utilize <strong>localhost:8088</strong> ou <strong>127.0.0.1:8088</strong> para prosseguir.
-                    </TacticalText>
+                {/* Secure Context Warning - Critical for Keycloak/WebCrypto */}
+                {(!window.isSecureContext || window.location.hostname === '0.0.0.0') && (
+                  <Box p={4} bg="red.900/60" border="2px solid" borderColor="red.500" borderRadius="2xl" mt={4} boxShadow="0 0 20px rgba(255,0,0,0.2)">
+                    <VStack spacing={2}>
+                      <TacticalText fontSize="xs" color="red.100" fontWeight="black" textAlign="center">
+                        ⚠ AMBIENTE NÃO SEGURO DETECTADO
+                      </TacticalText>
+                      <TacticalText fontSize="10px" color="whiteAlpha.800" textAlign="center">
+                        O navegador bloqueia a engine de criptografia (Web Crypto API) em conexões não seguras ou via IP/0.0.0.0.
+                      </TacticalText>
+                      <TacticalText fontSize="11px" color="white" fontWeight="bold" textAlign="center" p={2} bg="whiteAlpha.100" borderRadius="md" w="full">
+                        USE: localhost:8088
+                      </TacticalText>
+                    </VStack>
                   </Box>
                 )}
               </VStack>

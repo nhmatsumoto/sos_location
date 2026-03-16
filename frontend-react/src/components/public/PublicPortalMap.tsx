@@ -5,16 +5,14 @@ import '../../styles/MapLayerStyles.css';
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import L from 'leaflet';
 import type { NewsNotification } from '../../services/newsApi';
-import { Box } from '@chakra-ui/react';
-
-// Atomic Components
-import { MapAutoBounds } from '../ui/MapAutoBounds';
-import { WebGLSimulationLayer } from '../map/WebGLSimulationLayer';
-import { MapArea } from '../ui/MapArea';
+import { Box, VStack, HStack, Badge, Text, Divider } from '@chakra-ui/react';
+import { tacticalIntelApi } from '../../services/tacticalIntelApi';
+import type { OperationalPoint } from '../../services/tacticalIntelApi';
+import { MapContextMenu } from '../map/MapContextMenu';
 import { IntelPopupContent } from '../ui/IntelPopupContent';
 import { HazardMatrixLegend } from '../ui/HazardMatrixLegend';
-import { TacticalStateBoundaries } from '../map/TacticalStateBoundaries';
-import { TacticalLocalBoundaries } from '../map/TacticalLocalBoundaries';
+import { MapArea } from '../ui/MapArea';
+import { MapAutoBounds } from '../ui/MapAutoBounds';
 
 // Fix Leaflet marker icons in React
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
@@ -28,6 +26,30 @@ L.Icon.Default.mergeOptions({
   shadowUrl: markerShadow,
 });
 
+const getTacticalIcon = (category?: string, index?: number) => {
+  const cat = (category || '').toLowerCase();
+  let color = '#3182ce'; // Default blue
+  
+  if (cat.match(/war|conflict|guerra/)) color = '#FF0000';
+  else if (cat.match(/flood|enchente|rain|chuva/)) color = '#2b6cb0';
+  else if (cat.match(/earthquake|terremoto|tsunami/)) color = '#e53e3e';
+  else if (cat.match(/humanitarian|crise/)) color = '#ecc94b';
+  else if (cat.match(/heat|calor/)) color = '#dd6b20';
+  else if (cat.match(/storm|hurricane|furação/)) color = '#805ad5';
+
+  return L.divIcon({
+    className: 'tactical-marker-container',
+    html: `
+      <div class="tactical-marker-pulse" style="background-color: ${color}44;"></div>
+      <div class="tactical-marker-core" style="background-color: ${color}; border: 2px solid white; box-shadow: 0 0 15px ${color};">
+        ${index !== undefined ? `<span class="marker-index">${index + 1}</span>` : ''}
+      </div>
+    `,
+    iconSize: [24, 24],
+    iconAnchor: [12, 12]
+  });
+};
+
 interface PublicPortalMapProps {
   news: NewsNotification[];
   selectedEvent?: NewsNotification | null;
@@ -35,21 +57,38 @@ interface PublicPortalMapProps {
 
 export function PublicPortalMap({ news, selectedEvent }: PublicPortalMapProps) {
   const [zoomLevel, setZoomLevel] = useState(4);
-  const [selectedStateId, setSelectedStateId] = useState<string | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ x: number, y: number, coords: [number, number] } | null>(null);
+  const [opPoints, setOpPoints] = useState<OperationalPoint[]>([]);
   const defaultCenter: [number, number] = [-15.793889, -47.882778];
 
-  // Logic for dynamic 3D perspective based on zoom (Macro vs Micro)
-  const isMicroView = zoomLevel > 6 || !!selectedStateId || !!selectedEvent;
+  useEffect(() => {
+    const loadPoints = async () => {
+      try {
+        const data = await tacticalIntelApi.getPoints();
+        setOpPoints(Array.isArray(data) ? data : []);
+      } catch (e) {
+        console.error("Failed to load operational points", e);
+      }
+    };
+    loadPoints();
+    const interval = setInterval(loadPoints, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Guard: ensure news is always an array before sorting (API may return null/object)
+  const safeNews = Array.isArray(news) ? news : [];
+  const sortedNews = [...safeNews].sort((a, b) =>
+    new Date(a.at ?? 0).getTime() - new Date(b.at ?? 0).getTime()
+  );
 
   return (
     <Box h="full" w="full" bg="sos.dark" position="relative" zIndex={0}>
-      <div className={`map-3d-perspective ${isMicroView ? 'map-micro-focus' : ''}`}>
+      <div className={`map-3d-perspective ${zoomLevel > 6 ? 'map-micro-focus' : ''}`}>
         <div className="map-3d-content">
           <MapContainer 
             center={defaultCenter} 
             zoom={4} 
             style={{ height: '100%', width: '100%', background: '#0A0B10' }}
-            scrollWheelZoom={true}
             zoomControl={false}
           >
             <TileLayer
@@ -59,13 +98,15 @@ export function PublicPortalMap({ news, selectedEvent }: PublicPortalMapProps) {
             
             <MapEventTracker 
               setZoom={setZoomLevel} 
-              onBackgroundClick={() => setSelectedStateId(null)} 
+              onContextMenu={(e) => setContextMenu({ x: e.originalEvent.clientX, y: e.originalEvent.clientY, coords: [e.latlng.lat, e.latlng.lng] })}
             />
             
             <MapSelectedEventFocuser event={selectedEvent} />
+            <MapAutoBounds news={news} />
 
             <Pane name="areas-pane" style={{ zIndex: 200 }}>
-              {news.map((item: NewsNotification) => {
+              {sortedNews.map((item) => {
+                if (!item) return null;
                 const lat = item.latitude || (item as any).lat;
                 const lng = item.longitude || (item as any).lng;
                 if (!lat || !lng) return null;
@@ -75,35 +116,25 @@ export function PublicPortalMap({ news, selectedEvent }: PublicPortalMapProps) {
                     id={item.id}
                     latitude={lat}
                     longitude={lng}
-                    category={item.category || 'EVENTO'}
+                    category={item.category || ''}
                   />
                 );
               })}
             </Pane>
-    
-            <TacticalStateBoundaries 
-              selectedStateId={selectedStateId} 
-              onStateSelect={setSelectedStateId} 
-            />
-            <TacticalLocalBoundaries onSelect={setSelectedStateId} />
-            <MapAutoBounds news={news} />
-    
-          {/* Next-Gen WebGL GIS Layer */}
-          <WebGLSimulationLayer 
-            minLat={-21.2} 
-            minLng={-43.0} 
-            maxLat={-21.0} 
-            maxLng={-42.8} 
-          />
             
             <MarkerClusterGroup chunkedLoading maxClusterRadius={40}>
-              {news.map((item: NewsNotification) => {
+              {sortedNews.map((item, idx) => {
+                if (!item) return null;
                 const lat = item.latitude || (item as any).lat;
                 const lng = item.longitude || (item as any).lng;
                 if (!lat || !lng) return null;
-                
+
                 return (
-                  <Marker key={item.id} position={[lat, lng]}>
+                  <Marker 
+                    key={item.id} 
+                    position={[lat, lng]} 
+                    icon={getTacticalIcon(item.category, idx)}
+                  >
                     <Popup className="guardian-popup">
                       <IntelPopupContent item={item} />
                     </Popup>
@@ -111,61 +142,92 @@ export function PublicPortalMap({ news, selectedEvent }: PublicPortalMapProps) {
                 );
               })}
             </MarkerClusterGroup>
+
+            {/* Tactical Operational Points */}
+            <Pane name="op-points-pane" style={{ zIndex: 600 }}>
+              {opPoints.map((point, index) => (
+                <Marker 
+                  key={point.id} 
+                  position={[point.latitude, point.longitude]}
+                  icon={L.divIcon({
+                    className: 'tactical-marker-container',
+                    html: `
+                      <div class="tactical-pulse ${point.type.toLowerCase()}"></div>
+                      <div class="tactical-marker-id">${index + 1}</div>
+                    `,
+                    iconSize: [32, 32],
+                    iconAnchor: [16, 16]
+                  })}
+                >
+                  <Popup className="guardian-popup">
+                    <VStack align="stretch" spacing={2} p={1}>
+                      <HStack justify="space-between">
+                         <Badge colorScheme="blue" variant="solid" fontSize="10px">{point.type.toUpperCase()}</Badge>
+                         <Text fontSize="10px" color="whiteAlpha.500">#{index + 1}</Text>
+                      </HStack>
+                      <Text fontWeight="black" fontSize="xs">{point.title}</Text>
+                      <Text fontSize="10px" color="whiteAlpha.700">{point.description}</Text>
+                      <Divider borderColor="whiteAlpha.200" />
+                      <Text fontSize="8px" color="whiteAlpha.500" fontFamily="mono">
+                         COORD: {point.latitude.toFixed(4)}, {point.longitude.toFixed(4)}
+                      </Text>
+                    </VStack>
+                  </Popup>
+                </Marker>
+              ))}
+            </Pane>
           </MapContainer>
         </div>
       </div>
       
-      {/* Tactical Map Overlay */}
-      <Box 
-        position="absolute" 
-        bottom={8} 
-        left={8} 
-        zIndex={40} 
-        display={{ base: 'none', md: 'block' }}
-      >
+      {contextMenu && (
+        <MapContextMenu 
+          x={contextMenu.x} 
+          y={contextMenu.y} 
+          lat={contextMenu.coords[0]}
+          lng={contextMenu.coords[1]}
+          onClose={() => setContextMenu(null)} 
+        />
+      )}
+
+      <Box position="absolute" bottom={8} left={8} zIndex={40} display={{ base: 'none', md: 'block' }}>
         <HazardMatrixLegend />
       </Box>
     </Box>
   );
 }
 
-/**
- * Helpler component to sync Leaflet events with React state
- */
-function MapEventTracker({ setZoom, onBackgroundClick }: { setZoom: (z: number) => void, onBackgroundClick: () => void }) {
+function MapEventTracker({ setZoom, onContextMenu }: { 
+  setZoom: (z: number) => void, 
+  onContextMenu: (e: L.LeafletMouseEvent) => void
+}) {
   useMapEvents({
     zoomend: (e) => {
       setZoom(e.target.getZoom());
     },
-    click: (e) => {
-      // If clicking background (not a marker or layer), reset selection
-      if (e.originalEvent.target && (e.originalEvent.target as any).classList.contains('leaflet-container')) {
-        onBackgroundClick();
-      }
+    contextmenu: (e) => {
+      onContextMenu(e);
     }
   });
   return null;
 }
 
-/**
- * Jump to event location with tactical high-speed animation
- */
 function MapSelectedEventFocuser({ event }: { event: NewsNotification | null | undefined }) {
   const map = useMap();
-
   useEffect(() => {
+    let mounted = true;
     if (event) {
       const lat = event.latitude || (event as any).lat;
       const lng = event.longitude || (event as any).lng;
-      if (lat && lng) {
-        map.flyTo([lat, lng], 10, {
-          animate: true,
-          duration: 1.5, // High speed jump
-          easeLinearity: 0.1
-        });
+      if (lat && lng && mounted) {
+        try {
+          map.flyTo([lat, lng], 10, { animate: true, duration: 1.5 });
+        } catch (_) {
+          // Map may have been unmounted — suppress stale animation errors
+        }
       }
     }
+    return () => { mounted = false; };
   }, [event, map]);
-
   return null;
 }

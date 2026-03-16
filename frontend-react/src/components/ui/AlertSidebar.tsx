@@ -30,6 +30,8 @@ interface AlertSidebarProps {
   };
 }
 
+import { useTranslation } from 'react-i18next';
+
 /**
  * Alert Sidebar (Command Feed)
  * Displays a live encrypted stream of tactical alerts.
@@ -37,20 +39,19 @@ interface AlertSidebarProps {
  */
 export const AlertSidebar: React.FC<AlertSidebarProps> = ({ alerts, onAlertClick, open = true, kpis }) => {
   const { determineSeverity, formatTimestamp } = useAlertSidebar();
+  const { t } = useTranslation();
 
   if (!open) return null;
 
   return (
     <GlassPanel
-      position="absolute"
-      top="120px"
-      left={6}
-      bottom={6}
-      w="340px"
-      zIndex={40}
       display="flex"
       flexDirection="column"
       overflow="hidden"
+      w="full"
+      h="full"
+      intensity="medium"
+      variant="tactical"
       className="animate-panel"
     >
       {/* Header */}
@@ -61,12 +62,12 @@ export const AlertSidebar: React.FC<AlertSidebarProps> = ({ alerts, onAlertClick
               <Bell size={18} color="white" />
             </Box>
             <Box>
-              <TacticalText variant="heading">Command Feed</TacticalText>
-              <TacticalText variant="mono">ENCRYPTED // LIVE</TacticalText>
+              <TacticalText variant="heading">{t('sos.feed.title') || 'Command Feed'}</TacticalText>
+              <TacticalText variant="mono">{t('intel.encrypted')}</TacticalText>
             </Box>
           </HStack>
-          <Badge bg="sos.red.500" color="white" borderRadius="full" px={2} fontSize="10px">
-            {alerts.length} ALERTS
+          <Badge bg="sos.red.500" color="white" borderRadius="md" px={2} fontSize="9px" border="1px solid" borderColor="whiteAlpha.200">
+            {alerts.length} {t('sos.feed.alerts') || 'ALERTS'}
           </Badge>
         </Flex>
       </Box>
@@ -75,11 +76,11 @@ export const AlertSidebar: React.FC<AlertSidebarProps> = ({ alerts, onAlertClick
       {kpis && (
         <SimpleGrid columns={3} spacing={3} p={4} borderBottom="1px solid" borderColor="whiteAlpha.100">
           {[
-            { val: kpis.criticalAlerts, label: 'Crítico', color: 'sos.red.400' },
-            { val: kpis.activeTeams, label: 'Equipes', color: 'sos.blue.400' },
-            { val: kpis.missingPersons, label: 'Buscas', color: 'orange.400' }
+            { val: kpis.criticalAlerts, label: t('sos.feed.critical'), color: 'sos.red.400' },
+            { val: kpis.activeTeams, label: t('nav.logistics'), color: 'sos.blue.400' },
+            { val: kpis.missingPersons, label: t('nav.missing'), color: 'orange.400' }
           ].map((kpiItem, idx) => (
-            <VStack key={idx} spacing={0.5} p={3} bg="whiteAlpha.50" borderRadius="2xl" border="1px solid" borderColor="whiteAlpha.100" transition="all 0.2s" _hover={{ bg: 'whiteAlpha.100' }}>
+            <VStack key={idx} spacing={0.5} p={3} bg="whiteAlpha.50" borderRadius="xl" border="1px solid" borderColor="whiteAlpha.100" transition="all 0.3s" _hover={{ bg: 'whiteAlpha.100', transform: 'scale(1.02)' }}>
               <TacticalText variant="heading" fontSize="md" color={kpiItem.color}>{kpiItem.val}</TacticalText>
               <TacticalText variant="caption">{kpiItem.label}</TacticalText>
             </VStack>
@@ -114,10 +115,10 @@ export const AlertSidebar: React.FC<AlertSidebarProps> = ({ alerts, onAlertClick
       {/* Footer / Telemetry */}
       <Box p={4} bg="whiteAlpha.50" borderTop="1px solid" borderColor="whiteAlpha.100">
         <HStack justify="space-between" mb={2}>
-          <TacticalText variant="caption">Telemetry Status</TacticalText>
+          <TacticalText variant="caption">{t('sos.feed.telemetry') || 'Telemetry Status'}</TacticalText>
           <TacticalText variant="mono" color="sos.green.400">SECURE_LINK</TacticalText>
         </HStack>
-        <Box h="4px" w="full" bg="whiteAlpha.100" borderRadius="full" overflow="hidden">
+        <Box h="2px" w="full" bg="whiteAlpha.100" borderRadius="full" overflow="hidden">
           <Box h="full" w="92%" bg="sos.blue.500" borderRadius="full" className="animate-pulse" />
         </Box>
       </Box>

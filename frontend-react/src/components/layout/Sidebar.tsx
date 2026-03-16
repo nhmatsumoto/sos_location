@@ -7,45 +7,53 @@ import { useAuthStore } from '../../store/authStore';
 import { doLogout } from '../../lib/keycloak';
 
 const navItems = [
-  { to: '/app/sos', label: 'Monitor SOS', icon: Radar },
-  { to: '/app/hotspots', label: 'Hotspots', icon: AlertTriangle },
-  { to: '/app/missing-persons', label: 'Desaparecidos', icon: Users },
-  { to: '/app/reports', label: 'Relatos', icon: FileWarning },
-  { to: '/app/searched-areas', label: 'Áreas Buscadas', icon: Search },
-  { to: '/app/rescue-support', label: 'Suporte ao Resgate', icon: LifeBuoy },
-  { to: '/app/incidents', label: 'Ocorrências / Evidências', icon: Activity },
-  { to: '/app/simulations', label: 'Simulações', icon: BarChart3 },
-  { to: '/app/data-hub', label: 'Data Hub', icon: Layers3 },
-  { to: '/app/integrations', label: 'Integrações', icon: PlugZap },
-  { to: '/app/global-disasters', label: 'Eventos Globais', icon: Globe },
-  { to: '/app/volunteer', label: 'Dashboard Voluntário', icon: Heart },
-  { to: '/app/logistics', label: 'Logística', icon: Truck },
-  { to: '/app/risk-assessment', label: 'Análise de Risco', icon: ShieldAlert },
-  { to: '/app/support', label: 'Apoio Financeiro', icon: Coins },
-  { to: '/app/admin/sources', label: 'Gestão de Fontes', icon: Cog },
-  { to: '/map', label: 'Mapa Público SOS', icon: Globe },
-  { to: '/transparency', label: 'Transparência Pública', icon: Globe },
-  { to: '/app/settings', label: 'Configurações', icon: Settings },
+  { to: '/app/sos', label: 'nav.monitor', icon: Radar },
+  { to: '/app/hotspots', label: 'nav.hotspots', icon: AlertTriangle },
+  { to: '/app/missing-persons', label: 'nav.missing', icon: Users },
+  { to: '/app/tactical-approval', label: 'nav.approval', icon: ShieldAlert, admin: true },
+  { to: '/app/reports', label: 'nav.reports', icon: FileWarning },
+  { to: '/app/searched-areas', label: 'nav.searched', icon: Search },
+  { to: '/app/rescue-support', label: 'nav.rescue', icon: LifeBuoy },
+  { to: '/app/incidents', label: 'nav.incidents', icon: Activity },
+  { to: '/app/simulations', label: 'nav.simulations', icon: BarChart3 },
+  { to: '/app/data-hub', label: 'nav.datahub', icon: Layers3 },
+  { to: '/app/integrations', label: 'nav.integrations', icon: PlugZap },
+  { to: '/app/global-disasters', label: 'nav.global', icon: Globe },
+  { to: '/app/volunteer', label: 'nav.volunteer', icon: Heart },
+  { to: '/app/logistics', label: 'nav.logistics', icon: Truck },
+  { to: '/app/risk-assessment', label: 'nav.risk', icon: ShieldAlert },
+  { to: '/app/support', label: 'nav.support', icon: Coins },
+  { to: '/app/admin/sources', label: 'nav.sources', icon: Cog, admin: true },
+  { to: '/map', label: 'nav.map', icon: Globe },
+  { to: '/app/settings', label: 'nav.settings', icon: Settings },
 ];
+
+import { useTranslation } from 'react-i18next';
 
 export const Sidebar = memo(function Sidebar(props: BoxProps) {
   const location = useLocation();
-  const { authenticated } = useAuthStore();
+  const { authenticated, roles } = useAuthStore();
+  const { t } = useTranslation();
 
-  const { internalItems, publicItems } = useMemo(() => ({
-    internalItems: navItems.filter(i => i.to.startsWith('/app')),
-    publicItems: navItems.filter(i => !i.to.startsWith('/app'))
-  }), []);
+  const isAdmin = roles.includes('admin');
+
+  const { internalItems, publicItems } = useMemo(() => {
+    const filtered = navItems.filter(item => !item.admin || isAdmin);
+    return {
+      internalItems: filtered.filter(i => i.to.startsWith('/app')),
+      publicItems: filtered.filter(i => !i.to.startsWith('/app'))
+    };
+  }, [isAdmin]);
 
   return (
     <Box 
       as="aside" 
-      bg="whiteAlpha.50" 
+      bg="rgba(10, 11, 16, 0.4)" 
       p={4} 
       borderRadius="xl" 
       border="1px solid" 
       borderColor="whiteAlpha.100"
-      backdropFilter="blur(16px)"
+      backdropFilter="blur(24px)"
       boxShadow="2xl"
       overflowY="auto"
       display="flex"
@@ -54,13 +62,13 @@ export const Sidebar = memo(function Sidebar(props: BoxProps) {
     >
       <Box mb={6}>
         <LogoFull />
-        <Text fontSize="10px" color="whiteAlpha.500" mt={2} fontWeight="bold" textTransform="uppercase" letterSpacing="widest">
-          Terminal de Comando
+        <Text fontSize="10px" color="sos.blue.400" mt={2} fontWeight="black" textTransform="uppercase" letterSpacing="widest">
+          {t('intel.surveillance')}
         </Text>
       </Box>
 
       <VStack spacing={1} align="stretch" as="nav" flex={1}>
-        <Text fontSize="10px" color="whiteAlpha.400" fontWeight="black" mb={1} ml={3} textTransform="uppercase">Interno</Text>
+        <Text fontSize="10px" color="whiteAlpha.400" fontWeight="black" mb={1} ml={3} textTransform="uppercase">{t('nav.internal') || 'INTERNO'}</Text>
         {internalItems.map((item) => {
           const Icon = item.icon;
           const active = location.pathname === item.to;
@@ -87,13 +95,13 @@ export const Sidebar = memo(function Sidebar(props: BoxProps) {
               borderColor={active ? "sos.blue.400" : "transparent"}
             >
               <Icon size={14} color={active ? "white" : "sos.blue.500"} />
-              <Text fontWeight={active ? "bold" : "medium"}>{item.label}</Text>
+              <Text fontWeight={active ? "bold" : "medium"}>{t(item.label)}</Text>
             </Link>
           );
         })}
 
         <Divider borderColor="whiteAlpha.100" my={2} />
-        <Text fontSize="10px" color="whiteAlpha.400" fontWeight="black" mb={1} ml={3} textTransform="uppercase">Acesso Público</Text>
+        <Text fontSize="10px" color="whiteAlpha.400" fontWeight="black" mb={1} ml={3} textTransform="uppercase">{t('nav.public') || 'PUBLIC'}</Text>
         {publicItems.map((item) => {
           const Icon = item.icon;
           const active = location.pathname === item.to;
@@ -117,7 +125,7 @@ export const Sidebar = memo(function Sidebar(props: BoxProps) {
               }}
             >
               <Icon size={14} color="whiteAlpha.500" />
-              <Text fontWeight="medium">{item.label}</Text>
+              <Text fontWeight="medium">{t(item.label)}</Text>
             </Link>
           );
         })}
@@ -135,16 +143,16 @@ export const Sidebar = memo(function Sidebar(props: BoxProps) {
             onClick={doLogout}
             fontSize="xs"
           >
-            Encerrar Sessão
+            {t('nav.logout') || 'Encerrar Sessão'}
           </Button>
         )}
 
         <Box p={3} borderRadius="md" bg="blackAlpha.400" border="1px solid" borderColor="whiteAlpha.100">
-          <Text fontSize="xs" fontWeight="bold" color="whiteAlpha.800" mb={1}>
-            Operação: Ativa
+          <Text fontSize="10px" fontWeight="black" color="sos.blue.400" mb={1} letterSpacing="widest">
+            {t('nav.status') || 'OP_STATUS'}
           </Text>
-          <Text fontSize="2xs" color="whiteAlpha.600">
-            Sistema de gestão de crise operacional.
+          <Text fontSize="2xs" color="whiteAlpha.600" lineHeight="tight">
+            GUARDIAN_NET_V3_CONNECTED_NODE_ALPHA
           </Text>
         </Box>
       </VStack>

@@ -28,6 +28,56 @@
       "finish": "Finish"
     }
   },
+  "nav": {
+    "monitor": "Tactical Monitor",
+    "hotspots": "Heat Hotspots",
+    "missing": "Missing Persons",
+    "approval": "Tactical Approval",
+    "reports": "Field Reports",
+    "searched": "Searched Areas",
+    "rescue": "Rescue Support",
+    "incidents": "Active Incidents",
+    "simulations": "Simulations",
+    "datahub": "Data Hub",
+    "integrations": "Integrations",
+    "global": "Global Disasters",
+    "volunteer": "Volunteers",
+    "logistics": "Logistics",
+    "risk": "Risk Assessment",
+    "support": "Financial Support",
+    "sources": "Data Sources",
+    "map": "Public Map",
+    "settings": "Settings",
+    "logout": "Logout",
+    "internal": "Operations",
+    "public": "Public Access",
+    "status": "OPERATIONAL STATUS"
+  },
+  "intel": {
+    "surveillance": "SURVEILLANCE SYSTEM",
+    "encrypted": "ENCRYPTED // LIVE",
+    "telemetry": "FIELD TELEMETRY"
+  },
+  "sos": {
+    "warroom": "Command Center",
+    "initializing": "Initializing Defense Systems...",
+    "syncing": "Syncing Satellite Data...",
+    "tools": {
+      "inspect": "Inspect",
+      "point": "Mark Point",
+      "area": "Risk Area",
+      "snapshot": "Capture Screen"
+    },
+    "actions": {
+      "reset": "Reset Map"
+    },
+    "feed": {
+      "title": "Command Feed",
+      "alerts": "ALERTS",
+      "critical": "Critical",
+      "telemetry": "Telemetry Status"
+    }
+  },
   "common": {
     "loading": "Loading...",
     "error": "An error occurred"

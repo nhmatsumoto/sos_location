@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
+import { doLogout } from '../lib/keycloak';
 
 /**
  * Hook for SOSHeaderHUD logic
@@ -7,11 +8,10 @@ import { useAuthStore } from '../store/authStore';
  */
 export function useSOSHeaderHUD() {
   const navigate = useNavigate();
-  const { clearAuth, user } = useAuthStore();
+  const { user } = useAuthStore();
 
   const handleLogout = () => {
-    clearAuth();
-    navigate('/login');
+    doLogout();
   };
 
   const goToPublicMap = () => {

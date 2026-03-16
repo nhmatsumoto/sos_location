@@ -1,0 +1,108 @@
+# Guardian Tactical System - Production Stack Overrides
+# Optimized for Security, Resource Management and Performance
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: sos-location-db-postgres-prod
+    restart: always
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          memory: 256M
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+    networks:
+      - sos-location-network
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    container_name: sos-location-sso-keycloak-prod
+    command: ["start", "--import-realm", "--proxy-headers=x-forwarded"]
+    restart: always
+    environment:
+      - KC_DB=postgres
+      - KC_DB_URL=jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      - KC_DB_USERNAME=${POSTGRES_USER}
+      - KC_DB_PASSWORD=${POSTGRES_PASSWORD}
+      - KC_HOSTNAME=${KEYCLOAK_HOSTNAME}
+      - KEYCLOAK_ADMIN=${KEYCLOAK_ADMIN}
+      - KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD}
+      - KC_HEALTH_ENABLED=true
+      - KC_HTTP_ENABLED=true
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+    volumes:
+      - ./infra/keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+      - ./infra/keycloak/theme/sos-theme:/opt/keycloak/themes/sos-theme:ro
+    networks:
+      - sos-location-network
+
+  backend:
+    build:
+      context: ./backend-dotnet
+      dockerfile: Dockerfile
+    container_name: sos-location-api-backend-prod
+    restart: always
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8000
+      - ConnectionStrings__DefaultConnection=Host=postgres;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}
+      - Keycloak__Authority=https://${KEYCLOAK_HOSTNAME}/realms/sos-location
+      - Keycloak__Audience=sos-location-frontend
+      - Keycloak__RequireHttpsMetadata=true
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+    networks:
+      - sos-location-network
+
+  frontend:
+    build:
+      context: .
+      dockerfile: ./frontend-react/Dockerfile
+      args:
+        - VITE_API_BASE_URL=/api
+        - VITE_KEYCLOAK_URL=https://${KEYCLOAK_HOSTNAME}
+    container_name: sos-location-web-frontend-prod
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    networks:
+      - sos-location-network
+
+  risk-analysis:
+    build:
+      context: ./risk-analysis-unit
+      dockerfile: Dockerfile
+    container_name: sos-location-ml-risk-unit-prod
+    restart: always
+    environment:
+      - INTERNAL_API_URL=http://backend:8000
+      - PYTHONUNBUFFERED=1
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+    networks:
+      - sos-location-network
+
+volumes:
+  postgres_prod_data:
+
+networks:
+  sos-location-network:
+    driver: bridge

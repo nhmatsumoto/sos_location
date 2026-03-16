@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { MapPin, Plus, Minus, LogIn } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { PublicPortalMap } from '../components/public/PublicPortalMap';
@@ -9,9 +10,9 @@ import {
   HStack, 
   VStack, 
   IconButton, 
-  Portal,
-  Tooltip
+  Portal
 } from '@chakra-ui/react';
+import { useAuthStore } from '../store/authStore';
 
 // Atomic & Hooks
 import { TacticalFeedSidebar } from '../components/ui/TacticalFeedSidebar';
@@ -19,6 +20,9 @@ import { PublicFilterBar } from '../components/ui/PublicFilterBar';
 import { usePublicMapPage } from '../hooks/usePublicMapPage';
 import { GlassPanel } from '../components/atoms/GlassPanel';
 import { TacticalText } from '../components/atoms/TacticalText';
+import { TacticalButton } from '../components/atoms/TacticalButton';
+
+import { TacticalLoader } from '../components/ui/TacticalLoader';
 
 /**
  * Public Map Terminal
@@ -27,7 +31,18 @@ import { TacticalText } from '../components/atoms/TacticalText';
  */
 export function PublicMapPage() {
   const navigate = useNavigate();
+  const { authenticated } = useAuthStore();
   const { news, isLoading, filters, setSelectedEvent, selectedEvent } = usePublicMapPage();
+  const [showLoader, setShowLoader] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowLoader(false);
+    }, 2500); // 2.5s minimum splash logic
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (showLoader) return <TacticalLoader />;
 
   return (
     <Box h="100vh" w="full" bg="sos.dark" color="white" overflow="hidden" position="relative">
@@ -61,6 +76,8 @@ export function PublicMapPage() {
               setCountryFilter={filters.setCountryFilter}
               locationFilter={filters.locationFilter}
               setLocationFilter={filters.setLocationFilter}
+              timeWindow={filters.timeWindow}
+              setTimeWindow={filters.setTimeWindow}
             />
 
             {/* Side Tools */}
@@ -76,18 +93,19 @@ export function PublicMapPage() {
                 boxShadow="none"
                 p={0}
               />
-              <Tooltip label="Efetuar Acesso Profissional">
-                <IconButton
-                  aria-label="Login"
-                  icon={<LogIn size={20} />}
-                  variant="tactical"
-                  onClick={() => navigate('/login')}
-                  h="50px"
-                  w="50px"
-                  borderRadius="2xl"
-                  _hover={{ transform: 'scale(1.05)' }}
-                />
-              </Tooltip>
+              <TacticalButton
+                variant="tactical"
+                leftIcon={<LogIn size={18} />}
+                onClick={() => navigate(authenticated ? '/app/sos' : '/login')}
+                h="50px"
+                px={{ base: 4, md: 6 }}
+                borderRadius="2xl"
+                _hover={{ transform: 'scale(1.02)' }}
+              >
+                <Box as="span" display={{ base: 'none', sm: 'inline' }}>
+                  {authenticated ? 'PAINEL DE COMANDO' : 'ACESSAR COMANDO'}
+                </Box>
+              </TacticalButton>
             </HStack>
           </GlassPanel>
         </Box>
