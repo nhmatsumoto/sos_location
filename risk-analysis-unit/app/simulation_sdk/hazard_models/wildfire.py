@@ -8,8 +8,8 @@ def run(inputs: Dict, sensors_count: int) -> Dict:
     terrain = inputs.get("terrain", {})
     urban = inputs.get("urban", {})
 
-    wind_speed = float(meteo.get("wind_speed_kmh", 12))
-    humidity = float(meteo.get("humidity", 45))
+    wind_speed = float(meteo.get("wind_speed_kmh") or meteo.get("current", {}).get("wind_speed_10m") or meteo.get("wind_speed") or 12)
+    humidity = float(meteo.get("humidity") or meteo.get("current", {}).get("relative_humidity_2m") or 45)
     fuel_index = float(terrain.get("fuel_index", 0.6))
     vegetation_pressure = float(terrain.get("deforestation_pressure", 0.3))
     urban_density = float(urban.get("density", 0.5))

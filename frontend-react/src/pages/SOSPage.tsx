@@ -1,5 +1,5 @@
 import { useMemo, useState, Fragment } from 'react';
-import { MapContainer, TileLayer } from 'react-leaflet';
+import { TacticalMap } from '../components/features/map/TacticalMap';
 import { Modal } from '../components/ui/Modal';
 import { CommandDock } from '../components/ui/CommandDock';
 
@@ -22,7 +22,7 @@ import {
   Box, VStack, Center, Spinner, IconButton
 } from '@chakra-ui/react';
 import { TacticalText } from '../components/atoms/TacticalText';
-import { Bell, BellOff, BarChart2, Plus, Minus } from 'lucide-react';
+import { Plus, Minus } from 'lucide-react';
 
 /**
  * SOS War Room — Guardian Clarity v3
@@ -170,23 +170,10 @@ export function SOSPage() {
       <Box position="absolute" inset={0} zIndex={0}>
         {states.mapCenter ? (
           <Box position="relative" h="full" w="full">
-            <MapContainer
+            <TacticalMap
               center={states.mapCenter}
               zoom={states.mapZoom}
-              zoomControl={false}
-              style={{ height: '100%', width: '100%' }}
             >
-              <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-                url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-                zIndex={1}
-              />
-              {/* Added labels layer for better orientation since nolabels was too empty */}
-              <TileLayer
-                url="https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png"
-                zIndex={10}
-                opacity={0.8}
-              />
               <MapListener onMove={(c, z) => { actions.setMapCenter(c); actions.setMapZoom(z); }} />
               <MapInteractions 
                 tool={states.tool} 
@@ -226,7 +213,7 @@ export function SOSPage() {
                   </Fragment>
                 );
               })}
-            </MapContainer>
+            </TacticalMap>
 
             {/* Tactical Zoom Overlay (Repositioned to bottom-right to avoid HUD overlap) */}
             <Box position="absolute" bottom="84px" right={6} zIndex={130}>

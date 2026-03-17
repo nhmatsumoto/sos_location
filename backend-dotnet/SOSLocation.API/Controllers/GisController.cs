@@ -82,6 +82,9 @@ namespace SOSLocation.API.Controllers
                 TotalCount = alerts.Count
             }));
         }
+
+        // Removido para TerrainController
+
     }
 
     public class GisAreaRequest

@@ -8,7 +8,8 @@ def run(inputs: Dict, sensors_count: int) -> Dict:
     terrain = inputs.get("terrain", {})
     urban = inputs.get("urban", {})
 
-    rain_mm_h = float(meteo.get("rain_mm_h", 35))
+    # Map multiple possible keys for real data compatibility
+    rain_mm_h = float(meteo.get("rain_mm_h") or meteo.get("current", {}).get("precipitation") or meteo.get("precipitation") or 35)
     slope = float(terrain.get("mean_slope", 0.08))
     drainage_capacity = float(urban.get("drainage_capacity", 0.5))
     impermeable_ratio = float(urban.get("impermeable_ratio", 0.6))

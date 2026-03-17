@@ -7,6 +7,8 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
+using SOSLocation.Application.DTOs.Simulation;
+
 namespace SOSLocation.Infrastructure.Services.Gis.Providers
 {
     public class OverpassProvider : IGisDataProvider
@@ -81,10 +83,10 @@ namespace SOSLocation.Infrastructure.Services.Gis.Providers
             var elements = root.GetProperty("elements");
 
             var nodes = new Dictionary<long, (double lat, double lon)>();
-            var buildingsList = new List<object>();
-            var highwaysList = new List<object>();
-            var forestList = new List<object>();
-            var waterList = new List<object>();
+            var buildingsList = new List<GisFeatureDto>();
+            var highwaysList = new List<GisFeatureDto>();
+            var forestList = new List<GisFeatureDto>();
+            var waterways = new List<GisFeatureDto>();
 
             foreach (var element in elements.EnumerateArray())
             {
@@ -123,52 +125,67 @@ namespace SOSLocation.Infrastructure.Services.Gis.Providers
                             var levels = 1;
                             if (tags.TryGetProperty("height", out var hProp)) double.TryParse(hProp.GetString(), out height);
                             if (tags.TryGetProperty("building:levels", out var lProp)) int.TryParse(lProp.GetString(), out levels);
-                            buildingsList.Add(new { id, coordinates, height, levels, type = "building" });
+                            buildingsList.Add(new GisFeatureDto { Id = id, Coordinates = coordinates, Height = height, Levels = levels, Type = "building" });
                         }
                         else if (tags.TryGetProperty("highway", out var hType))
                         {
-                            highwaysList.Add(new { id, coordinates, type = hType.GetString(), category = "highway" });
+                            highwaysList.Add(new GisFeatureDto { Id = id, Coordinates = coordinates, Type = hType.GetString() ?? "road", Category = "highway" });
                         }
-                        else if (tags.TryGetProperty("waterway", out var wType) || tags.TryGetProperty("natural", out var nTag) && nTag.GetString() == "water")
+                        else if (tags.TryGetProperty("waterway", out var wType) || (tags.TryGetProperty("natural", out var nTag) && nTag.GetString() == "water"))
                         {
-                            waterList.Add(new { id, coordinates, type = "waterway" });
+                            waterways.Add(new GisFeatureDto { Id = id, Coordinates = coordinates, Type = "waterway" });
                         }
                         else if (tags.TryGetProperty("natural", out var n) && (n.GetString() == "forest" || n.GetString() == "wood") ||
                                  (tags.TryGetProperty("landuse", out var l) && (l.GetString() == "forest" || l.GetString() == "grass" || l.GetString() == "park")))
                         {
                             if (coordinates.Count < 3) continue;
-                            forestList.Add(new { id, coordinates, type = "vegetation" });
+                            forestList.Add(new GisFeatureDto { Id = id, Coordinates = coordinates, Type = "vegetation" });
                         }
                     }
                 }
             }
 
-            return new { buildings = buildingsList, highways = highwaysList, forests = forestList, waterways = waterList };
+            return new UrbanDataResponse { Buildings = buildingsList, Highways = highwaysList, Forests = forestList, Waterways = waterways };
         }
 
-        private object GenerateSyntheticBuildings(double minLat, double minLon, double maxLat, double maxLon)
+        private UrbanDataResponse GenerateSyntheticBuildings(double minLat, double minLon, double maxLat, double maxLon)
         {
-            var items = new List<object>();
-            var rnd = new Random((int)(minLat * 1000));
+            var buildings = new List<GisFeatureDto>();
+            var highways = new List<GisFeatureDto>();
+            var rnd = new Random((int)(minLat * 1000 + minLon * 1000));
 
             int rows = 12;
             int cols = 12;
             double latStep = (maxLat - minLat) / rows;
             double lonStep = (maxLon - minLon) / cols;
 
-            for (int i = 0; i < rows; i++)
-            {
-                double lat = minLat + i * latStep;
-                items.Add(new
-                {
-                    id = rnd.Next(2000000, 2999999),
-                    coordinates = new[] { new[] { lat, minLon }, new[] { lat, maxLon } },
-                    type = "residential",
-                    category = "highway"
-                });
+            for (int i = 0; i < rows; i++) {
+                for (int j = 0; j < cols; j++) {
+                    double lat = minLat + i * latStep + (latStep * 0.2);
+                    double lon = minLon + j * lonStep + (lonStep * 0.2);
+                    
+                    if (rnd.NextDouble() > 0.3) {
+                        var size = 0.0005 * (rnd.NextDouble() * 0.5 + 0.5);
+                        buildings.Add(new GisFeatureDto {
+                            Id = rnd.NextInt64(),
+                            Coordinates = new List<double[]> {
+                                new[] { lat, lon },
+                                new[] { lat + size, lon },
+                                new[] { lat + size, lon + size },
+                                new[] { lat, lon + size },
+                                new[] { lat, lon }
+                            },
+                            Levels = rnd.Next(1, 10),
+                            Type = "building"
+                        });
+                    }
+
+                    if (j == 0) highways.Add(new GisFeatureDto { Id = rnd.NextInt64(), Coordinates = new List<double[]> { new[] { lat, minLon }, new[] { lat, maxLon } }, Type = "residential" });
+                    if (i == 0) highways.Add(new GisFeatureDto { Id = rnd.NextInt64(), Coordinates = new List<double[]> { new[] { minLat, lon }, new[] { maxLat, lon } }, Type = "residential" });
+                }
             }
 
-            return new { buildings = items, highways = new List<object>(), forests = new List<object>() };
+            return new UrbanDataResponse { Buildings = buildings, Highways = highways };
         }
     }
 }

@@ -35,8 +35,6 @@ interface MapToolsSidebarProps {
   catastropheEventForm: any;
   setCatastropheEventForm: (form: any) => void;
   handleAddCatastropheEvent: (e: React.FormEvent) => void;
-  mapMode: string;
-  setMapMode: (mode: 'tactical' | 'topographic') => void;
   flowForm: any;
   setFlowForm: (form: any) => void;
   handleRunFlow: (e: React.FormEvent) => void;
@@ -69,7 +67,7 @@ export const MapToolsSidebar: React.FC<MapToolsSidebarProps> = (props) => {
     donationTasks, donationForm, setDonationForm, handleDonationSubmit,
     catastrophes, selectedCatastropheId, setSelectedCatastropheId,
     activeCatastrophe, catastropheEventForm, setCatastropheEventForm,
-    handleAddCatastropheEvent, mapMode, setMapMode, flowForm, setFlowForm,
+    handleAddCatastropheEvent, flowForm, setFlowForm,
     handleRunFlow, runningFlow, flowError, flowResult, selectedIncidentPoint,
     ENABLE_SIMULATION, splatForm, setSplatForm, handleSplatUpload,
     splatUploading, splatError, setShowMissingModal,
@@ -85,10 +83,6 @@ export const MapToolsSidebar: React.FC<MapToolsSidebarProps> = (props) => {
             <Flame className="w-3 h-3" /> Catástrofe (modo operacional)
           </h2>
           <p className="text-[11px] text-slate-400 mb-2">Painel operacional do menu Hotspots: foco em resgate e marcações no mapa.</p>
-          <div className="flex items-center gap-2 mb-3">
-            <button type="button" onClick={() => setMapMode('tactical')} className={`text-xs px-2 py-1 rounded border ${mapMode === 'tactical' ? 'bg-cyan-600 border-cyan-400 text-white' : 'border-slate-600 text-slate-300'}`}>Mapa tático</button>
-            <button type="button" onClick={() => setMapMode('topographic')} className={`text-xs px-2 py-1 rounded border ${mapMode === 'topographic' ? 'bg-cyan-600 border-cyan-400 text-white' : 'border-slate-600 text-slate-300'}`}>Mapa topográfico</button>
-          </div>
 
           <div className="space-y-2 mb-3">
             <p className="text-[11px] text-slate-400">Catástrofes em tempo real</p>

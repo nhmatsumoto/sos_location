@@ -18,14 +18,15 @@ interface CityScaleWebGLProps {
   heightMapUrl?: string; 
   topoMapUrl?: string;   
   layers?: {
-    particles: boolean;
-    streets: boolean;
-    buildings: boolean;
-    topography: boolean;
-    vegetation: boolean;
-    terrain: boolean;
-    satellite: boolean;
-    aiStructural: boolean;
+    particles?: boolean;
+    streets?: boolean;
+    buildings?: boolean;
+    topography?: boolean;
+    vegetation?: boolean;
+    terrain?: boolean;
+    satellite?: boolean;
+    aiStructural?: boolean;
+    polygons?: boolean;
   };
   simData?: {
     type: string;
@@ -43,12 +44,12 @@ interface CityScaleWebGLProps {
 export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({ 
   centerLat, 
   centerLng, 
-  heightMapUrl = '/assets/gis/heightmap.png',
-  topoMapUrl = '/assets/gis/heightmap.png',
+  heightMapUrl: propHeightMapUrl,
+  topoMapUrl: propTopoMapUrl,
   layers = { 
     particles: true, streets: true, buildings: true, 
     topography: true, vegetation: true, terrain: true,
-    satellite: false, aiStructural: true 
+    satellite: false, aiStructural: true, polygons: true 
   },
   simData = { 
     type: 'FLOOD', 
@@ -64,6 +65,18 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rendererRef = useRef<WebGLRenderer | null>(null);
+  
+  // Dynamic GIS Assets based on current selection
+  const bbox = resultData?.bbox || [centerLat - 0.02, centerLng - 0.02, centerLat + 0.02, centerLng + 0.02];
+  const dynamicHeightmap = `/api/v1/terrain/heightmap?north=${bbox[2]}&south=${bbox[0]}&east=${bbox[3]}&west=${bbox[1]}`;
+  const dynamicSatellite = `/api/v1/terrain/satellite?north=${bbox[2]}&south=${bbox[0]}&east=${bbox[3]}&west=${bbox[1]}`;
+  
+  const heightMapUrl = propHeightMapUrl || dynamicHeightmap;
+  const topoMapUrl = propTopoMapUrl || '/assets/gis/heightmap.png';
+  const satelliteMapUrl = dynamicSatellite;
+
+  const [buildingCount, setBuildingCount] = React.useState(0);
+  const [dataReady, setDataReady] = React.useState(false);
 
   // Camera State
   const cam = useRef({
@@ -185,7 +198,7 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
         return [x, z];
     };
 
-    // --- BUFFERS ---
+    // --- BUFFERS (GEOMETRY) ---
     const topoGridSize = simData.resolution || 128;
     const terrainVertices: number[] = [];
     const terrainIndices: number[] = [];
@@ -209,16 +222,14 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
     const terrainVBO = renderer.createBuffer(new Float32Array(terrainVertices));
     const terrainIBO = renderer.createBuffer(new Uint16Array(terrainIndices), gl.ELEMENT_ARRAY_BUFFER);
 
-    // HIGHWAYS & WATERWAYS (Lines)
+    // HIGHWAYS & WATERWAYS (Linear Overlay)
     const highwayVertices: number[] = [];
     if (resultData?.urbanFeatures?.highways) {
         resultData.urbanFeatures.highways.forEach((h: any) => {
             h.coordinates.forEach((c: [number, number], idx: number) => {
                 const [x, z] = mapPos(c[0], c[1]);
                 highwayVertices.push(x, 0, z);
-                if (idx > 0 && idx < h.coordinates.length - 1) {
-                    highwayVertices.push(x, 0, z); // Duplicate for gl.LINES
-                }
+                if (idx > 0 && idx < h.coordinates.length - 1) highwayVertices.push(x, 0, z);
             });
         });
     }
@@ -230,60 +241,74 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
             w.coordinates.forEach((c: [number, number], idx: number) => {
                 const [x, z] = mapPos(c[0], c[1]);
                 waterLineVertices.push(x, 0, z);
-                if (idx > 0 && idx < w.coordinates.length - 1) {
-                    waterLineVertices.push(x, 0, z);
-                }
+                if (idx > 0 && idx < w.coordinates.length - 1) waterLineVertices.push(x, 0, z);
             });
         });
     }
     const waterwayVBO = renderer.createBuffer(new Float32Array(waterLineVertices));
 
-    // INFRASTRUCTURE (Buildings)
-    const infraVertices: number[] = [];
-    if (resultData?.urbanFeatures?.buildings && resultData.urbanFeatures.buildings.length > 0) {
+    // INFRASTRUCTURE (INSTANCED)
+    // Unit Cube: 30 vertices (5 faces, no bottom)
+    const unitCube = new Float32Array([
+      -0.5,0,0.5, 0.5,0,0.5, 0.5,1,0.5, -0.5,0,0.5, 0.5,1,0.5, -0.5,1,0.5, // Front
+      -0.5,0,-0.5, -0.5,1,-0.5, 0.5,1,-0.5, -0.5,0,-0.5, 0.5,1,-0.5, 0.5,0,-0.5, // Back
+      -0.5,1,0.5, -0.5,1,-0.5, 0.5,1,-0.5, -0.5,1,0.5, 0.5,1,-0.5, 0.5,1,0.5, // Top
+      -0.5,0,-0.5, -0.5,0,0.5, -0.5,1,0.5, -0.5,0,-0.5, -0.5,1,0.5, -0.5,1,-0.5, // Left
+       0.5,0,-0.5,  0.5,1,-0.5, 0.5,1,0.5,  0.5,0,-0.5, 0.5,1,0.5,  0.5,0,0.5  // Right
+    ]);
+    const cubeVBO = renderer.createBuffer(unitCube);
+
+    const instances: number[] = [];
+    const maxLevels = 35; 
+    const buildHScale = 0.8;
+
+    if (resultData?.urbanFeatures?.buildings?.length > 0) {
         resultData.urbanFeatures.buildings.forEach((b: any) => {
-           const [x, z] = mapPos(b.coordinates[0][0], b.coordinates[0][1]);
-           const u = (x + 100) / 200;
-           const v = (z + 100) / 200;
-           infraVertices.push(x, 0, z, u, v);
-           infraVertices.push(x, b.levels || 1, z, u, v);
+            const [x, z] = mapPos(b.coordinates[0][0], b.coordinates[0][1]);
+            const levels = Math.min(maxLevels, b.levels || 1);
+            instances.push(x, z, levels * buildHScale, levels);
         });
     } else {
-        const buildGridSize = Math.floor(topoGridSize * 0.94);
-        const density = (simData.urbanDensity || 50) / 100;
-        for(let z = 0; z < buildGridSize; z++) {
-            for(let x = 0; x < buildGridSize; x++) {
-                const noise = Math.abs(Math.sin(x * 12.9898 + z * 78.233) * 43758.5453) % 1.0;
-                if (noise > density) continue;
-                const xPos = (x / buildGridSize) * 200 - 100;
-                const zPos = (z / buildGridSize) * 200 - 100;
-                infraVertices.push(xPos, 0, zPos, x / buildGridSize, z / buildGridSize);
-                infraVertices.push(xPos, 1, zPos, x / buildGridSize, z / buildGridSize);
-            }
+        const grid = 48; // Faster synthetic generation
+        for(let z=0; z<grid; z++) for(let x=0; x<grid; x++) {
+            const noise = Math.abs(Math.sin(x*12.98 + z*78.23)*43758.54)%1.0;
+            if (noise > (simData.urbanDensity/100)) continue;
+            const h = 1.0 + noise * 12.0;
+            instances.push((x/grid)*200-100, (z/grid)*200-100, h, h/buildHScale);
         }
     }
-    const infraVBO = renderer.createBuffer(new Float32Array(infraVertices));
+    const instanceVBO = renderer.createBuffer(new Float32Array(instances));
+    const count = instances.length / 4;
+    
+    // Track stats without triggering re-render if identical
+    setBuildingCount(prev => prev !== count ? count : prev);
+    setDataReady(!!resultData);
 
-    // Particles
-    const particleCount = 100000;
-    const particlesData: number[] = [];
-    for(let i=0; i<particleCount; i++) particlesData.push(Math.random()*100-50, Math.random()*30, Math.random()*100-50);
-    const particleVBO = renderer.createBuffer(new Float32Array(particlesData));
+    // PARTICLES (OPTIMIZED)
+    const particleCount = 60000;
+    const pData = new Float32Array(particleCount * 3);
+    for(let i=0; i<pData.length; i+=3) {
+        pData[i] = Math.random()*200-100;
+        pData[i+1] = Math.random()*50;
+        pData[i+2] = Math.random()*200-100;
+    }
+    const particleVBO = renderer.createBuffer(pData);
 
     let isMounted = true;
     
     // TEXTURES
     const createDataTexture = (grid: number[][]) => {
         const tex = gl.createTexture()!;
-        const width = grid[0].length;
-        const height = grid.length;
-        const data = new Float32Array(width * height);
-        for(let y=0; y<height; y++) for(let x=0; x<width; x++) data[y * width + x] = grid[y][x] / 100.0;
-        
+        const h = grid.length;
+        const w = grid[0].length;
+        const data = new Float32Array(w * h);
+        for(let y=0; y<h; y++) for(let x=0; x<w; x++) data[y * w + x] = grid[y][x] / 100.0;
         gl.bindTexture(gl.TEXTURE_2D, tex);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.R32F, width, height, 0, gl.RED, gl.FLOAT, data);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.R32F, w, h, 0, gl.RED, gl.FLOAT, data);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
         return tex;
     };
 
@@ -304,71 +329,64 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
     };
 
     const heightTexture = loadTexture(heightMapUrl);
-    const topoTexture = resultData?.elevationGrid ? createDataTexture(resultData.elevationGrid) : loadTexture(topoMapUrl);
+    const satelliteTexture = loadTexture(satelliteMapUrl);
+    const topoTexture = (resultData?.elevationGrid && resultData.elevationGrid.length > 0) 
+        ? createDataTexture(resultData.elevationGrid) 
+        : loadTexture(topoMapUrl);
 
     let frameId: number;
     let startTime = Date.now();
 
-    const updateCamera = () => {
-        // Compute relative eye position from angles for Orbit mode
-        const orbitPos = [
-            cam.current.target[0] + cam.current.distance * Math.cos(cam.current.pitch) * Math.sin(cam.current.yaw),
-            cam.current.target[1] + cam.current.distance * Math.sin(cam.current.pitch),
-            cam.current.target[2] + cam.current.distance * Math.cos(cam.current.pitch) * Math.cos(cam.current.yaw)
-        ] as [number, number, number];
-        
-        cam.current.pos = orbitPos;
+    const render = () => {
+      if (!isMounted || !canvasRef.current) return;
+      
+      const time = (Date.now() - startTime) / 1000;
+      const reveal = Math.min(1.0, time / 2.0); 
 
-        // Optional: Maintain keyboard navigation if focused on fly mode
-        const speed = cam.current.speed * (cam.current.distance * 0.01);
+      // 1. Update Camera (Movement & Orbit)
+      if (cam.current.keys.size > 0) {
+        const moveSpeed = cam.current.speed * (cam.current.distance * 0.004);
         const forward = GISMath.normalize(GISMath.subtract(cam.current.target, cam.current.pos));
         const right = GISMath.normalize(GISMath.cross([0, 1, 0], forward));
+        
+        if (cam.current.keys.has('KeyW')) cam.current.target = GISMath.add(cam.current.target, GISMath.scale(forward, moveSpeed)) as any;
+        if (cam.current.keys.has('KeyS')) cam.current.target = GISMath.add(cam.current.target, GISMath.scale(forward, -moveSpeed)) as any;
+        if (cam.current.keys.has('KeyA')) cam.current.target = GISMath.add(cam.current.target, GISMath.scale(right, moveSpeed)) as any;
+        if (cam.current.keys.has('KeyD')) cam.current.target = GISMath.add(cam.current.target, GISMath.scale(right, -moveSpeed)) as any;
+      }
 
-        if (cam.current.keys.has('KeyW')) { 
-            cam.current.pos = GISMath.add(cam.current.pos, GISMath.scale(forward, speed)) as [number, number, number];
-            cam.current.target = GISMath.add(cam.current.target, GISMath.scale(forward, speed)) as [number, number, number];
-        }
-        if (cam.current.keys.has('KeyS')) { 
-            cam.current.pos = GISMath.add(cam.current.pos, GISMath.scale(forward, -speed)) as [number, number, number];
-            cam.current.target = GISMath.add(cam.current.target, GISMath.scale(forward, -speed)) as [number, number, number];
-        }
-        if (cam.current.keys.has('KeyA')) { 
-            cam.current.pos = GISMath.add(cam.current.pos, GISMath.scale(right, speed)) as [number, number, number];
-            cam.current.target = GISMath.add(cam.current.target, GISMath.scale(right, speed)) as [number, number, number];
-        }
-        if (cam.current.keys.has('KeyD')) { 
-            cam.current.pos = GISMath.add(cam.current.pos, GISMath.scale(right, -speed)) as [number, number, number];
-            cam.current.target = GISMath.add(cam.current.target, GISMath.scale(right, -speed)) as [number, number, number];
-        }
-    };
+      const orbitPos = [
+          cam.current.target[0] + cam.current.distance * Math.cos(cam.current.pitch) * Math.sin(cam.current.yaw),
+          cam.current.target[1] + cam.current.distance * Math.sin(cam.current.pitch),
+          cam.current.target[2] + cam.current.distance * Math.cos(cam.current.pitch) * Math.cos(cam.current.yaw)
+      ] as [number, number, number];
+      cam.current.pos = orbitPos;
 
-    const render = () => {
-      updateCamera();
-      const time = (Date.now() - startTime) / 1000;
-      if (!canvasRef.current) return;
       const { width, height } = canvasRef.current;
       renderer.setViewport(width, height);
-      renderer.clear(0.04, 0.05, 0.08, 1.0);
-      const aspect = width / height;
-      const projectionMatrix = GISMath.perspective(45 * Math.PI / 180, aspect, 0.1, 3000);
+      renderer.clear(0.01, 0.02, 0.04, 1.0);
+      
+      const projectionMatrix = GISMath.perspective(45 * Math.PI / 180, width/height, 0.1, 5000);
       const viewMatrix = GISMath.lookAt(cam.current.pos, cam.current.target, [0, 1, 0]);
       const modelMatrix = new Float32Array([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]);
 
-      // Soil Color based on geology
       const soilType = resultData?.soil?.type || "Clay";
-      const soilColor = soilType.includes("Clay") ? [0.4, 0.2, 0.1] : [0.3, 0.3, 0.2];
+      const soilColor = soilType.includes("Clay") ? [0.35, 0.15, 0.08] : [0.25, 0.25, 0.18];
 
-      // 1. Terrain
-      if (layers.terrain || layers.topography) {
+      // Layer Rendering
+      if (layers.terrain) {
         renderer.useProgram(terrainProgram);
         renderer.setUniformMatrix4('u_projectionMatrix', projectionMatrix);
         renderer.setUniformMatrix4('u_viewMatrix', viewMatrix);
         renderer.setUniformMatrix4('u_modelMatrix', modelMatrix);
-        renderer.setUniform1f('u_topoScale', 35.0);
+        renderer.setUniform1f('u_topoScale', 40.0);
+        renderer.setUniform1f('u_reveal', reveal);
         renderer.setUniform3f('u_soilColor', soilColor[0], soilColor[1], soilColor[2]);
         renderer.bindTexture(topoTexture, 0);
         renderer.setUniform1i('u_topoMap', 0);
         renderer.setUniform1i('u_satelliteMode', layers.satellite ? 1 : 0);
+        renderer.bindTexture(satelliteTexture, 3);
+        renderer.setUniform1i('u_satelliteMap', 3);
         gl.bindBuffer(gl.ARRAY_BUFFER, terrainVBO);
         renderer.setAttribute('a_position', 3, gl.FLOAT, false, 8 * 4, 0);
         renderer.setAttribute('a_normal', 3, gl.FLOAT, false, 8 * 4, 3 * 4);
@@ -377,42 +395,50 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
         gl.drawElements(gl.TRIANGLES, terrainIndices.length, gl.UNSIGNED_SHORT, 0);
       }
 
-      // 2. Highways & Waterways
+      if (layers.buildings) {
+        renderer.useProgram(infraProgram);
+        renderer.setUniformMatrix4('u_projectionMatrix', projectionMatrix);
+        renderer.setUniformMatrix4('u_viewMatrix', viewMatrix);
+        renderer.setUniformMatrix4('u_modelMatrix', modelMatrix);
+        renderer.setUniform1f('u_topoScale', 40.0);
+        renderer.setUniform1f('u_time', time);
+        renderer.setUniform1f('u_reveal', reveal);
+        renderer.setUniform1i('u_aiMode', layers.aiStructural ? 1 : 0);
+        renderer.bindTexture(topoTexture, 1);
+        renderer.setUniform1i('u_topoMap', 1);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, cubeVBO);
+        renderer.setAttribute('a_position', 3, gl.FLOAT, false, 0, 0);
+        gl.bindBuffer(gl.ARRAY_BUFFER, instanceVBO);
+        renderer.setAttribute('a_instanceData', 4, gl.FLOAT, false, 0, 0);
+        gl.vertexAttribDivisor(renderer.getAttribLocation('a_instanceData'), 1);
+        gl.drawArraysInstanced(gl.TRIANGLES, 0, 30, count);
+        gl.vertexAttribDivisor(renderer.getAttribLocation('a_instanceData'), 0);
+      }
+
       if (layers.streets && highwayVertices.length > 0) {
           renderer.useProgram(highwayProgram);
           renderer.setUniformMatrix4('u_projectionMatrix', projectionMatrix);
           renderer.setUniformMatrix4('u_viewMatrix', viewMatrix);
           renderer.setUniformMatrix4('u_modelMatrix', modelMatrix);
-          renderer.setUniform1f('u_topoScale', 35.0);
+          renderer.setUniform1f('u_topoScale', 40.0);
+          renderer.setUniform1f('u_reveal', reveal);
           renderer.bindTexture(topoTexture, 0);
           renderer.setUniform1i('u_topoMap', 0);
           gl.bindBuffer(gl.ARRAY_BUFFER, highwayVBO);
-          renderer.setAttribute('a_position', 3, gl.FLOAT, false, 3 * 4, 0);
+          renderer.setAttribute('a_position', 3, gl.FLOAT, false, 0, 0);
           gl.drawArrays(gl.LINES, 0, highwayVertices.length / 3);
       }
-      if (waterLineVertices.length > 0) {
-          renderer.useProgram(waterwayProgram);
-          renderer.setUniformMatrix4('u_projectionMatrix', projectionMatrix);
-          renderer.setUniformMatrix4('u_viewMatrix', viewMatrix);
-          renderer.setUniformMatrix4('u_modelMatrix', modelMatrix);
-          renderer.setUniform1f('u_topoScale', 35.0);
-          renderer.setUniform1f('u_time', time);
-          renderer.bindTexture(topoTexture, 0);
-          renderer.setUniform1i('u_topoMap', 0);
-          gl.bindBuffer(gl.ARRAY_BUFFER, waterwayVBO);
-          renderer.setAttribute('a_position', 3, gl.FLOAT, false, 3 * 4, 0);
-          gl.drawArrays(gl.LINES, 0, waterLineVertices.length / 3);
-      }
 
-      // 3. Flood Water
       if (simData.type === 'FLOOD') {
         renderer.useProgram(waterProgram);
         renderer.setUniformMatrix4('u_projectionMatrix', projectionMatrix);
         renderer.setUniformMatrix4('u_viewMatrix', viewMatrix);
         renderer.setUniformMatrix4('u_modelMatrix', modelMatrix);
-        renderer.setUniform1f('u_waterLevel', simData.waterLevel || 2.0);
-        renderer.setUniform1f('u_topoScale', 35.0);
+        renderer.setUniform1f('u_waterLevel', simData.waterLevel);
+        renderer.setUniform1f('u_topoScale', 40.0);
         renderer.setUniform1f('u_time', time);
+        renderer.setUniform1f('u_reveal', reveal);
         renderer.bindTexture(topoTexture, 0);
         renderer.setUniform1i('u_topoMap', 0);
         gl.bindBuffer(gl.ARRAY_BUFFER, terrainVBO);
@@ -422,59 +448,32 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
         gl.drawElements(gl.TRIANGLES, terrainIndices.length, gl.UNSIGNED_SHORT, 0);
       }
 
-      // 4. Infrastructure
-      if (layers.buildings) {
-        renderer.useProgram(infraProgram);
-        renderer.setUniformMatrix4('u_projectionMatrix', projectionMatrix);
-        renderer.setUniformMatrix4('u_viewMatrix', viewMatrix);
-        renderer.setUniformMatrix4('u_modelMatrix', modelMatrix);
-        renderer.setUniform1f('u_heightScale', 2.5);
-        renderer.setUniform1f('u_topoScale', 35.0);
-        renderer.setUniform1f('u_urbanDensity', (simData.urbanDensity || 50) / 100);
-        renderer.setUniform1f('u_time', time);
-        renderer.setUniform1i('u_aiMode', layers.aiStructural ? 1 : 0);
-        renderer.bindTexture(heightTexture, 0);
-        renderer.setUniform1i('u_heightMap', 0);
-        renderer.bindTexture(topoTexture, 1);
-        renderer.setUniform1i('u_topoMap', 1);
-        gl.bindBuffer(gl.ARRAY_BUFFER, infraVBO);
-        renderer.setAttribute('a_position', 3, gl.FLOAT, false, 5 * 4, 0);
-        renderer.setAttribute('a_texCoord', 2, gl.FLOAT, false, 5 * 4, 3 * 4);
-        gl.drawArrays(gl.POINTS, 0, infraVertices.length / 5);
-      }
-
-      // 5. Particles & Vegetation
       if (layers.particles) {
         renderer.useProgram(particleProgram);
         renderer.setUniformMatrix4('u_projectionMatrix', projectionMatrix);
         renderer.setUniformMatrix4('u_viewMatrix', viewMatrix);
         renderer.setUniform1f('u_time', time);
+        renderer.setUniform1f('u_reveal', reveal);
         renderer.setUniform1i('u_type', simData.type === 'TORNADO' ? 1 : 0);
-        
-        // New: Atmospheric Physics
         renderer.setUniform1f('u_windSpeed', (simData as any).windSpeed || 10.0);
         renderer.setUniform1f('u_windDirection', (simData as any).windDirection || 0.0);
         renderer.setUniform1f('u_pressure', (simData as any).pressure || 1013.0);
-        
         gl.bindBuffer(gl.ARRAY_BUFFER, particleVBO);
-        renderer.setAttribute('a_position', 3, gl.FLOAT, false, 3 * 4, 0);
+        renderer.setAttribute('a_position', 3, gl.FLOAT, false, 0, 0);
         gl.drawArrays(gl.POINTS, 0, particleCount);
       }
+
       if (layers.vegetation) {
         renderer.useProgram(vegProgram);
         renderer.setUniformMatrix4('u_projectionMatrix', projectionMatrix);
         renderer.setUniformMatrix4('u_viewMatrix', viewMatrix);
         renderer.setUniformMatrix4('u_modelMatrix', modelMatrix);
-        renderer.setUniform1f('u_urbanDensity', (simData.urbanDensity || 50) / 100);
-        
-        // New: Vegetation Data from GIS
-        const vegDensity = resultData?.vegetation?.ndvi_mean || 0.4;
-        renderer.setUniform1f('u_vegIntensity', vegDensity);
-        
-        gl.bindBuffer(gl.ARRAY_BUFFER, infraVBO);
-        renderer.setAttribute('a_position', 3, gl.FLOAT, false, 5 * 4, 0);
-        renderer.setAttribute('a_uv', 2, gl.FLOAT, false, 5 * 4, 3 * 4);
-        gl.drawArrays(gl.POINTS, 0, infraVertices.length / 5);
+        renderer.setUniform1f('u_vegIntensity', (simData as any).intensity / 100.0);
+        renderer.setUniform1f('u_reveal', reveal);
+        gl.bindBuffer(gl.ARRAY_BUFFER, terrainVBO);
+        renderer.setAttribute('a_position', 3, gl.FLOAT, false, 8 * 4, 0);
+        renderer.setAttribute('a_uv', 2, gl.FLOAT, false, 8 * 4, 6 * 4);
+        gl.drawArrays(gl.POINTS, 0, terrainVertices.length / 8);
       }
 
       frameId = requestAnimationFrame(render);
@@ -484,16 +483,34 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
     return () => {
       isMounted = false;
       cancelAnimationFrame(frameId);
-      gl.deleteBuffer(terrainVBO); gl.deleteBuffer(terrainIBO); gl.deleteBuffer(infraVBO); gl.deleteBuffer(particleVBO);
-      gl.deleteBuffer(highwayVBO); gl.deleteBuffer(waterwayVBO);
-      gl.deleteTexture(heightTexture); gl.deleteTexture(topoTexture);
+      gl.deleteBuffer(terrainVBO); gl.deleteBuffer(terrainIBO); gl.deleteBuffer(instanceVBO); gl.deleteBuffer(cubeVBO);
+      gl.deleteBuffer(particleVBO); gl.deleteBuffer(highwayVBO); gl.deleteBuffer(waterwayVBO);
+      gl.deleteTexture(heightTexture); gl.deleteTexture(topoTexture); gl.deleteTexture(satelliteTexture);
       gl.deleteProgram(terrainProgram); gl.deleteProgram(infraProgram); gl.deleteProgram(vegProgram); gl.deleteProgram(waterProgram);
       gl.deleteProgram(particleProgram); gl.deleteProgram(highwayProgram); gl.deleteProgram(waterwayProgram);
     };
-  }, [centerLat, centerLng, heightMapUrl, topoMapUrl, layers, simData, resultData]);
+  }, [centerLat, centerLng, JSON.stringify(layers), JSON.stringify(simData), resultData, heightMapUrl, topoMapUrl, satelliteMapUrl]);
 
   return (
-    <Box w="full" h="full" bg="#030508" overflow="hidden" cursor="crosshair">
+    <Box w="full" h="full" bg="#030508" overflow="hidden" cursor="crosshair" position="relative">
+      {/* Simulation Info Overlay */}
+      <Box 
+        position="absolute" top={4} left={4} zIndex={10} 
+        bg="rgba(0,10,20,0.7)" p={3} borderRadius="md" 
+        border="1px solid rgba(0,255,255,0.2)" backdropFilter="blur(8px)"
+        fontFamily="monospace" pointerEvents="none"
+      >
+        <div style={{ color: '#00ffff', fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }}>
+          HYDRA CORE v3.5 // CONTEXT_ENGINE
+        </div>
+        <div style={{ color: '#fff', fontSize: '10px', opacity: 0.8 }}>
+          LOC: {centerLat.toFixed(4)}, {centerLng.toFixed(4)}<br/>
+          DATA: {dataReady ? 'DYNAMIC_GIS_READY' : 'STATIC_ASSET_MODE'}<br/>
+          OBJECTS: {buildingCount} UNITS<br/>
+          ATMOS: {simData.pressure} hPa // {simData.intensity}%
+        </div>
+      </Box>
+
       <canvas 
         ref={canvasRef} 
         style={{ width: '100%', height: '100%', display: 'block' }} 

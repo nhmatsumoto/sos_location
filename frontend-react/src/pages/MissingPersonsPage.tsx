@@ -24,7 +24,6 @@ import {
   UserPlus, 
   MapPin, 
   RefreshCw,
-  Filter,
   FileDown
 } from 'lucide-react';
 import { GlassPanel } from '../components/atoms/GlassPanel';
@@ -33,20 +32,7 @@ import { TacticalButton } from '../components/atoms/TacticalButton';
 import { missingPersonsApi, type MissingPersonApi } from '../services/missingPersonsApi';
 import { resolveApiUrl } from '../lib/apiBaseUrl';
 import { useNotifications } from '../context/NotificationsContext';
-import { MapContainer, TileLayer } from 'react-leaflet';
-import L from 'leaflet';
-
-// Fix for default leaflet icons
-import markerIcon from 'leaflet/dist/images/marker-icon.png';
-import markerShadow from 'leaflet/dist/images/marker-shadow.png';
-
-const DefaultIcon = L.icon({
-    iconUrl: markerIcon,
-    shadowUrl: markerShadow,
-    iconSize: [25, 41],
-    iconAnchor: [12, 41]
-});
-L.Marker.prototype.options.icon = DefaultIcon;
+import { TacticalMap } from '../components/features/map/TacticalMap';
 
 export function MissingPersonsPage() {
   const [rows, setRows] = useState<MissingPersonApi[]>([]);
@@ -188,17 +174,10 @@ export function MissingPersonsPage() {
 
               {/* MINI PREVIEW MAP */}
               <GlassPanel p={0} flex={1} minH="300px" overflow="hidden" position="relative">
-                 <Box position="absolute" top={4} left={4} zIndex={1000} bg="rgba(8,8,15,0.85)" px={3} py={1} borderRadius="full" border="1px solid" borderColor="whiteAlpha.200">
-                    <TacticalText variant="mono" fontSize="10px">ZONAS_DE_ÚLTIMO_CONTATO</TacticalText>
-                 </Box>
-                 <MapContainer 
-                   center={[-20.91, -42.98]} 
-                   zoom={13} 
-                   style={{ height: '300px', width: '100%', filter: 'grayscale(0.8) invert(0.9) hue-rotate(180deg) brightness(0.6)' }}
-                 >
-                   <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                   {/* Here we would add markers for missing persons if they had lat/lon */}
-                 </MapContainer>
+                 <TacticalMap 
+                    center={[-20.91, -42.98]} 
+                    zoom={13} 
+                 />
               </GlassPanel>
            </VStack>
 
@@ -208,7 +187,7 @@ export function MissingPersonsPage() {
                  <Flex justify="space-between" align="center">
                     <TacticalText variant="subheading">BASE_DE_DADOS_ATUALIZADA</TacticalText>
                     <HStack spacing={2} px={3} py={1} bg="sos.blue.500" borderRadius="md">
-                       <Icon as={Filter} size={12} color="white" />
+                       <Icon pos="relative" top="-1px" as={Users} size={12} color="white" />
                        <TacticalText variant="mono" fontSize="10px" color="white">FILTRAR_REGISTROS</TacticalText>
                     </HStack>
                  </Flex>
@@ -271,4 +250,3 @@ export function MissingPersonsPage() {
     </Box>
   );
 }
-

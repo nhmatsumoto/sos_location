@@ -130,8 +130,6 @@ export function useOperationalState() {
     splat: false
   });
 
-  const [mapMode, setMapMode] = useState<'tactical' | 'topographic'>('tactical');
-  const tacticalMapEnabled = mapMode === 'tactical';
 
   const activeCatastrophe = useMemo(
     () => catastrophes.find((item) => item.id === selectedCatastropheId) ?? null,
@@ -384,8 +382,6 @@ export function useOperationalState() {
     mapOverlayRef,
     floatingPanelPositions, setFloatingPanelPositions,
     dockedPanels, setDockedPanels,
-    mapMode, setMapMode,
-    tacticalMapEnabled,
     activeCatastrophe,
     loadNews,
     loadAttentionAlerts,

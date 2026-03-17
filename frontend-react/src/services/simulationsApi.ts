@@ -25,6 +25,14 @@ export interface SimulationRequest {
   maxLat: number;
   maxLon: number;
   resolution: number;
+  // Phase 3 Configuration
+  intensity?: number;
+  duration?: number;
+  waterLevel?: number;
+  windSpeed?: number;
+  pressure?: number;
+  geologyIndex?: number;
+  temp?: number;
 }
 
 export const simulationsApi = {
@@ -33,6 +41,14 @@ export const simulationsApi = {
    */
   async runSimulation(payload: SimulationRequest) {
     const response = await apiClient.post<{ data: SimulationResult }>('/api/simulation/run', payload);
+    return response.data.data;
+  },
+
+  /**
+   * Triggers the full Urban Geoprocessing Pipeline (Phase 02: INDEXING)
+   */
+  async indexUrbanPipeline(payload: Omit<SimulationRequest, 'scenarioType' | 'resolution'>) {
+    const response = await apiClient.post<{ data: SimulationResult }>('/api/v1/urban/pipeline', payload);
     return response.data.data;
   },
 
