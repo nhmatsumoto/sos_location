@@ -8,7 +8,7 @@ import type { NewsNotification } from '../../services/newsApi';
 import { Box, VStack, HStack, Badge, Text, Divider } from '@chakra-ui/react';
 import { tacticalIntelApi } from '../../services/tacticalIntelApi';
 import type { OperationalPoint } from '../../services/tacticalIntelApi';
-import { MapContextMenu } from '../map/MapContextMenu';
+import { MapContextMenu } from '../features/map/MapContextMenu';
 import { IntelPopupContent } from '../ui/IntelPopupContent';
 import { HazardMatrixLegend } from '../ui/HazardMatrixLegend';
 import { MapArea } from '../ui/MapArea';

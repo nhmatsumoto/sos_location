@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { LayerControl } from '../components/maps/LayerControl';
-import { MapPanel } from '../components/maps/MapPanel';
+import { LayerControl } from '../components/features/maps/LayerControl';
+import { MapPanel } from '../components/features/maps/MapPanel';
 import { dataHubApi } from '../services/dataHubApi';
 import { operationsApi, type OperationsSnapshot } from '../services/operationsApi';
 import { useNotifications } from '../context/NotificationsContext';

@@ -112,54 +112,66 @@ export const Topbar = memo(function Topbar({ theme, onToggleTheme, notificationC
   return (
     <Box 
       as="header" 
-      px={6} 
-      py={4} 
-      bg="rgba(10, 11, 16, 0.4)" 
-      backdropFilter="blur(24px)" 
-      borderBottom="1px solid" 
-      borderColor="whiteAlpha.100" 
-      boxShadow="xl"
+      px={5} 
+      py={3} 
+      bg="rgba(8, 8, 15, 0.85)" 
+      backdropFilter="blur(24px) saturate(180%)" 
+      border="1px solid rgba(255,255,255,0.10)" 
+      borderRadius="2xl"
+      boxShadow="0 4px 24px rgba(0,0,0,0.4)"
+      m={4}
+      mb={0}
       position="relative"
       zIndex={100}
     >
-      <Flex direction={{ base: 'column', xl: 'row' }} justify="space-between" align={{ base: 'stretch', xl: 'center' }} gap={4}>
-        <HStack spacing={4} wrap="wrap">
-          <Box borderRight="1px solid" borderColor="whiteAlpha.200" pr={4}>
-            <Text fontSize="18px" fontWeight="900" bgGradient="linear(to-r, sos.blue.400, white)" bgClip="text" letterSpacing="tighter">
-              GUARDIAN_NET
-            </Text>
-            <Text fontSize="8px" fontWeight="black" color="whiteAlpha.400" mt={-1}>
-              TACTICAL COMMAND CENTER V3.0
-            </Text>
-          </Box>
+      <Flex justify="space-between" align="center" gap={4}>
+        <HStack spacing={6}>
+          <HStack spacing={3} borderRight="1px solid" borderColor="whiteAlpha.200" pr={6}>
+            <Box p={2} bg="sos.blue.500" borderRadius="xl" boxShadow="0 0 12px rgba(0,122,255,0.3)">
+                <Text fontSize="14px" fontWeight="900" color="white" letterSpacing="widest">G</Text>
+            </Box>
+            <Box display={{ base: 'none', md: 'block' }}>
+              <Text fontSize="16px" fontWeight="900" color="white" letterSpacing="tighter">
+                GUARDIAN<Box as="span" color="sos.blue.400">_EXT</Box>
+              </Text>
+              <Text fontSize="8px" fontWeight="black" color="whiteAlpha.400" mt={-1} letterSpacing="widest">
+                SYSTEM_NODE_OPERATOR
+              </Text>
+            </Box>
+          </HStack>
           
-          <Select 
-            size="sm" 
-            maxW="250px" 
-            variant="filled"
-            bg="whiteAlpha.50" 
-            borderColor="whiteAlpha.100"
-            color="white"
-            borderRadius="md"
-            _hover={{ bg: 'whiteAlpha.100' }}
-            cursor="pointer"
-          >
-            <option style={{ background: '#0A0B10' }}>OPERATIONAL: SECTOR BRAVO_01</option>
-            <option style={{ background: '#0A0B10' }}>OPERATIONAL: SECTOR ALPHA_04</option>
-          </Select>
+          <HStack spacing={3} display={{ base: 'none', lg: 'flex' }}>
+            <Select 
+              size="sm" 
+              variant="unstyled"
+              maxW="220px" 
+              color="whiteAlpha.700"
+              fontSize="xs"
+              fontWeight="bold"
+              _hover={{ color: 'white' }}
+              cursor="pointer"
+              icon={<Bolt size={10} />}
+            >
+              <option style={{ background: '#0A0B10' }}>SECTOR: BRAVO_01</option>
+              <option style={{ background: '#0A0B10' }}>SECTOR: ALPHA_04</option>
+            </Select>
 
-          <InputGroup size="sm" maxW="300px">
-            <InputLeftElement pointerEvents="none">
-              <Search size={14} color="gray" />
-            </InputLeftElement>
-            <Input 
-              placeholder="INTEL_SEARCH..." 
-              bg="whiteAlpha.50" 
-              border="none"
-              _placeholder={{ color: 'whiteAlpha.400' }}
-              _focus={{ bg: 'whiteAlpha.100', boxShadow: '0 0 0 1px #3b82f6' }}
-            />
-          </InputGroup>
+            <InputGroup size="sm" maxW="240px">
+              <InputLeftElement pointerEvents="none">
+                <Search size={14} color="gray" />
+              </InputLeftElement>
+              <Input 
+                placeholder="SEARCH_INTEL..." 
+                bg="whiteAlpha.50" 
+                border="1px solid"
+                borderColor="whiteAlpha.100"
+                borderRadius="lg"
+                fontSize="xs"
+                _placeholder={{ color: 'whiteAlpha.400' }}
+                _focus={{ bg: 'whiteAlpha.100', borderColor: 'sos.blue.500' }}
+              />
+            </InputGroup>
+          </HStack>
         </HStack>
 
         <HStack spacing={4}>

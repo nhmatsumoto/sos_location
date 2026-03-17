@@ -11,8 +11,8 @@ import type {
   FlowSimulationResponse, SelectedPanel, MapDemarcation
 } from '../types';
 import { iconCritical, iconFlood, iconLandslide } from '../icons';
-import { MapFocusController } from './map/MapFocusController';
-import { MapClickSelector } from './map/MapClickSelector';
+import { MapFocusController } from './features/map/MapFocusController';
+import { MapClickSelector } from './features/map/MapClickSelector';
 
 interface OperationalMapProps {
   tacticalMapEnabled: boolean;

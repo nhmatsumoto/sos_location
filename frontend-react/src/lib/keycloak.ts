@@ -56,10 +56,14 @@ export const initKeycloak = async (onAuthenticatedCallback: () => void) => {
       }
       
       // Handle post-login redirect
+      // Use window.location.replace (not replaceState) so React Router picks up the new URL
       const redirectPath = localStorage.getItem('sos_login_redirect');
-      if (redirectPath) {
+      if (redirectPath && window.location.pathname !== redirectPath) {
         localStorage.removeItem('sos_login_redirect');
-        window.history.replaceState({}, '', redirectPath);
+        window.location.replace(redirectPath);
+        return; // Stop execution — page will reload to the new path
+      } else {
+        localStorage.removeItem('sos_login_redirect');
       }
       
       // Token refresh logic

@@ -35,6 +35,7 @@ namespace SOSLocation.Application.DTOs.Simulation
         public object? UrbanFeatures { get; set; }
         public object? Climate { get; set; }
         public object? Soil { get; set; }
+        public object? Vegetation { get; set; }
         public DateTime GeneratedAt { get; set; }
     }
 }

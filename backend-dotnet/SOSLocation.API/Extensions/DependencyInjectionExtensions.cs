@@ -48,20 +48,20 @@ namespace SOSLocation.API.Extensions
             // GIS Configuration
             services.Configure<GisOptions>(configuration.GetSection("ExternalIntegrations"));
 
-            // GIS Data Providers (Modular Architecture)
-            services.AddHttpClient<IGisDataProvider, OpenTopographyProvider>();
-            services.AddHttpClient<IGisDataProvider, OverpassProvider>();
-            services.AddHttpClient<IGisDataProvider, OpenMeteoProvider>();
+            // GIS Data Providers (Resilient Modular Architecture)
+            services.AddHttpClient<IGisDataProvider, OpenTopographyProvider>().AddStandardResilienceHandler();
+            services.AddHttpClient<IGisDataProvider, OverpassProvider>().AddStandardResilienceHandler();
+            services.AddHttpClient<IGisDataProvider, OpenMeteoProvider>().AddStandardResilienceHandler();
 
             // GIS Facade
             services.AddScoped<IGisService, GisService>();
             services.AddScoped<IGeoCentralService, GeoCentralService>();
 
-            // Alert Providers
-            services.AddHttpClient<IAlertProvider, InmetAlertProvider>();
-            services.AddHttpClient<IAlertProvider, DefesaCivilAlertProvider>();
-            services.AddHttpClient<IAlertProvider, CemadenAlertProvider>();
-            services.AddHttpClient<IAlertProvider, JmaAlertProvider>();
+            // Alert Providers (Resilient)
+            services.AddHttpClient<IAlertProvider, InmetAlertProvider>().AddStandardResilienceHandler();
+            services.AddHttpClient<IAlertProvider, DefesaCivilAlertProvider>().AddStandardResilienceHandler();
+            services.AddHttpClient<IAlertProvider, CemadenAlertProvider>().AddStandardResilienceHandler();
+            services.AddHttpClient<IAlertProvider, JmaAlertProvider>().AddStandardResilienceHandler();
 
             // Enrichment
             services.AddHttpClient<IIbgeEnrichmentService, IbgeEnrichmentService>();

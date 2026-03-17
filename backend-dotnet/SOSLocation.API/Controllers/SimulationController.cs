@@ -86,8 +86,9 @@ namespace SOSLocation.API.Controllers
             var urbanTask   = _gisService.FetchUrbanFeaturesAsync(req.MinLat, req.MinLon, req.MaxLat, req.MaxLon);
             var climateTask = _gisService.FetchClimateDataAsync(req.MinLat, req.MinLon, req.MaxLat, req.MaxLon);
             var soilTask    = _gisService.FetchSoilDataAsync(req.MinLat, req.MinLon, req.MaxLat, req.MaxLon);
+            var vegTask     = _gisService.FetchVegetationDataAsync(req.MinLat, req.MinLon, req.MaxLat, req.MaxLon);
 
-            await Task.WhenAll(demTask, urbanTask, climateTask, soilTask);
+            await Task.WhenAll(demTask, urbanTask, climateTask, soilTask, vegTask);
 
             var result = new SimulationResultDto
             {
@@ -100,6 +101,7 @@ namespace SOSLocation.API.Controllers
                 UrbanFeatures = await urbanTask,
                 Climate       = await climateTask,
                 Soil          = await soilTask,
+                Vegetation    = await vegTask,
                 GeneratedAt   = DateTime.UtcNow
             };
 

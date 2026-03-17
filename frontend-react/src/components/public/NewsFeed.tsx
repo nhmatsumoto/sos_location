@@ -1,12 +1,16 @@
 import React from 'react';
-import { Calendar, MapPin, ExternalLink, Info, Award } from 'lucide-react';
+import { Calendar, MapPin, ExternalLink, Info, Award, Crosshair } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Box, VStack, HStack, Circle, Link, Icon, Center } from '@chakra-ui/react';
+import { 
+  Box, VStack, HStack, Circle, Link, Icon, Center, Flex, Tooltip, 
+  Badge, IconButton 
+} from '@chakra-ui/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNewsFeed } from '../../hooks/useNewsFeed';
 import { TacticalText } from '../atoms/TacticalText';
 import { GlassPanel } from '../atoms/GlassPanel';
+import { TacticalButton } from '../atoms/TacticalButton';
 
 interface NewsFeedProps {
   news: any[]; 
@@ -14,11 +18,6 @@ interface NewsFeedProps {
   onSelect?: (item: any) => void;
 }
 
-/**
- * Tactical News Feed
- * Displays indexed disaster and weather reports with risk mapping.
- * Converted from Tailwind to Chakra UI with refined design tokens.
- */
 export const NewsFeed: React.FC<NewsFeedProps> = ({ news, isLoading, onSelect }) => {
   const { getRiskColor, getRiskBg } = useNewsFeed();
 
@@ -26,7 +25,7 @@ export const NewsFeed: React.FC<NewsFeedProps> = ({ news, isLoading, onSelect })
     return (
       <VStack spacing={4} align="stretch">
         {[1, 2, 3].map((i) => (
-          <GlassPanel key={i} h="120px" opacity={0.5} className="animate-pulse" />
+          <GlassPanel key={i} h="140px" opacity={0.5} className="animate-pulse" />
         ))}
       </VStack>
     );
@@ -45,123 +44,121 @@ export const NewsFeed: React.FC<NewsFeedProps> = ({ news, isLoading, onSelect })
   }
 
   return (
-    <VStack spacing={4} align="stretch">
+    <VStack spacing={5} align="stretch">
       <AnimatePresence initial={false}>
         {news.map((item) => (
           <motion.div
             key={item.id}
-            initial={{ opacity: 0, x: -20, scale: 0.95 }}
-            animate={{ opacity: 1, x: 0, scale: 1 }}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95 }}
-            transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
+            transition={{ duration: 0.3 }}
           >
             <GlassPanel
-              p={6}
-              cursor="pointer"
-              transition="all 0.4s"
-              _hover={{ borderColor: 'sos.blue.500', transform: 'translateX(4px)', bg: 'whiteAlpha.100' }}
-              _active={{ transform: 'scale(0.98)' }}
-              onClick={() => onSelect?.(item)}
+              p={5}
+              cursor="default"
+              transition="all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
+              _hover={{ 
+                borderColor: 'sos.blue.500', 
+                bg: 'whiteAlpha.100',
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)'
+              }}
               position="relative"
               overflow="hidden"
+              borderLeft="4px solid"
+              borderLeftColor={getRiskColor(item.riskScore || 50, item.category)}
             >
-              {/* Subtle Category Accent */}
-              <Box
-                position="absolute"
-                top="-16px"
-                left="-16px"
-                w="48px"
-                h="48px"
-                borderRadius="full"
-                filter="blur(24px)"
-                opacity={0.2}
-                bg={getRiskColor(item.riskScore || 50, item.category)}
-              />
-
               <VStack align="stretch" spacing={4}>
-                <HStack justify="space-between" align="flex-start">
-                  <VStack align="flex-start" spacing={1}>
+                {/* Header Information */}
+                <Flex justify="space-between" align="flex-start">
+                  <VStack align="flex-start" spacing={1.5} flex={1}>
                     <HStack spacing={2}>
-                      <Circle size="6px" bg={getRiskColor(item.riskScore || 50, item.category)} boxShadow={`0 0 8px ${getRiskColor(item.riskScore || 50, item.category)}`} />
-                      <TacticalText variant="subheading" fontSize="8px" letterSpacing="0.2em">
-                        {item.category || 'EVENTO'} // {item.status || 'ACTIVE'}
+                      <Badge 
+                        bg={getRiskBg(item.riskScore || 50, item.category)} 
+                        color={getRiskColor(item.riskScore || 50, item.category)}
+                        fontSize="8px"
+                        px={2}
+                        borderRadius="sm"
+                        fontWeight="bold"
+                        letterSpacing="1px"
+                      >
+                       {item.category || 'EVENTO'}
+                      </Badge>
+                      <TacticalText variant="mono" fontSize="9px" color="whiteAlpha.400">
+                        {item.status || 'ACTIVE'}
                       </TacticalText>
                     </HStack>
-                    <TacticalText variant="heading" fontSize="sm" color="white" lineHeight="shorter">
+                    <TacticalText variant="heading" fontSize="md" color="white" lineHeight="1.2">
                       {item.title}
                     </TacticalText>
                   </VStack>
 
-                  <VStack align="flex-end" spacing={2} flexShrink={0}>
-                    <Box px={2.5} py={1} bg="sos.blue.500/10" borderRadius="lg" border="1px solid" borderColor="sos.blue.500/20">
-                      <TacticalText variant="mono" fontSize="9px" color="sos.blue.400">
-                        {item.source}
-                      </TacticalText>
-                    </Box>
-                    <HStack 
-                      px={2} 
-                      py={0.5} 
-                      bg={getRiskBg(item.riskScore || 0, item.category)} 
-                      borderRadius="lg" 
-                      border="1px solid" 
-                      borderColor={`${getRiskColor(item.riskScore || 0, item.category)}/20`}
-                    >
-                      <Icon as={Award} size={10} color={getRiskColor(item.riskScore || 0, item.category)} />
-                      <TacticalText variant="mono" fontSize="10px" color={getRiskColor(item.riskScore || 0, item.category)}>
-                        LVL {(item.emergencyLevel || Math.ceil((item.riskScore || 0) / 20))}
-                      </TacticalText>
-                    </HStack>
-                  </VStack>
-                </HStack>
+                  <Box alignSelf="flex-start">
+                    <Tooltip label={`Risco: ${item.riskScore || 0}%`}>
+                      <HStack 
+                        px={3} 
+                        py={1.5} 
+                        bg="whiteAlpha.50" 
+                        borderRadius="xl" 
+                        border="1px solid" 
+                        borderColor="whiteAlpha.100"
+                      >
+                        <Icon as={Award} size={12} color={getRiskColor(item.riskScore || 0, item.category)} />
+                        <TacticalText variant="mono" fontSize="12px" fontWeight="bold">
+                          LVL {(item.emergencyLevel || Math.ceil((item.riskScore || 0) / 20))}
+                        </TacticalText>
+                      </HStack>
+                    </Tooltip>
+                  </Box>
+                </Flex>
 
-                <TacticalText color="whiteAlpha.700" noOfLines={3} fontSize="xs" lineHeight="relaxed">
+                <TacticalText color="whiteAlpha.800" noOfLines={2} fontSize="xs" lineHeight="1.5">
                   {item.description || item.content}
                 </TacticalText>
 
-                {/* Tactical Metrics Row */}
-                <HStack spacing={3} py={1}>
-                  {item.areaKm2 && (
-                    <Box px={2} py={0.5} bg="whiteAlpha.50" borderRadius="md" border="1px solid" borderColor="whiteAlpha.100">
-                      <TacticalText fontSize="9px" color="whiteAlpha.600">AREA: {item.areaKm2}km²</TacticalText>
-                    </Box>
-                  )}
-                  {item.estimatedCost && (
-                    <Box px={2} py={0.5} bg="whiteAlpha.50" borderRadius="md" border="1px solid" borderColor="whiteAlpha.100">
-                      <TacticalText fontSize="9px" color="whiteAlpha.600">COST: {item.estimatedCost}</TacticalText>
-                    </Box>
-                  )}
-                  <Box px={2} py={0.5} bg="whiteAlpha.50" borderRadius="md" border="1px solid" borderColor="whiteAlpha.100">
-                    <TacticalText fontSize="9px" color="whiteAlpha.600">SCORE: {(item.riskScore || 0).toFixed(0)}%</TacticalText>
-                  </Box>
-                </HStack>
+                {/* Tactical Metrics & Info */}
+                <HStack spacing={4} justify="space-between" align="center">
+                  <VStack align="flex-start" spacing={1}>
+                    <HStack spacing={1.5}>
+                      <MapPin size={10} color="#007AFF" />
+                      <TacticalText fontSize="9px" color="whiteAlpha.600">
+                        {item.latitude ? `${item.latitude.toFixed(4)}, ${item.longitude?.toFixed(4)}` : 'REGIONAL_ZONE'}
+                      </TacticalText>
+                    </HStack>
+                    <HStack spacing={1.5}>
+                      <Calendar size={10} color="gray" />
+                      <TacticalText fontSize="9px" color="whiteAlpha.400">
+                        {item.publishedAt || item.at ? format(new Date(item.publishedAt || item.at), "dd/MM HH:mm", { locale: ptBR }) : '--/-- --:--'}
+                      </TacticalText>
+                    </HStack>
+                  </VStack>
 
-                <HStack justify="space-between" pt={2} borderTop="1px solid" borderColor="whiteAlpha.100">
-                   <HStack spacing={4}>
-                      <HStack spacing={1.5}>
-                        <MapPin size={12} color="gray" />
-                        <TacticalText fontSize="9px">{item.latitude ? `${item.latitude.toFixed(4)}, ${item.longitude?.toFixed(4)}` : 'Coordenada Local'}</TacticalText>
-                      </HStack>
-                      <HStack spacing={1.5}>
-                        <Calendar size={12} color="gray" />
-                        <TacticalText fontSize="9px" color="whiteAlpha.400">
-                          {item.publishedAt || item.at ? format(new Date(item.publishedAt || item.at), "dd/MM HH:mm", { locale: ptBR }) : '--/-- --:--'}
-                        </TacticalText>
-                      </HStack>
-                   </HStack>
-
-                   {item.externalUrl && (
-                     <Link 
-                       href={item.externalUrl} 
-                       isExternal 
-                       p={2} 
-                       borderRadius="full" 
-                       bg="whiteAlpha.50" 
-                       _hover={{ bg: 'whiteAlpha.100', color: 'white' }} 
-                       transition="all 0.2s"
-                     >
-                       <ExternalLink size={14} color="gray" />
-                     </Link>
-                   )}
+                  <HStack spacing={2}>
+                    {item.externalUrl && (
+                      <IconButton
+                        as={Link}
+                        href={item.externalUrl}
+                        isExternal
+                        aria-label="External Link"
+                        icon={<ExternalLink size={14} />}
+                        size="sm"
+                        variant="ghost"
+                        borderRadius="lg"
+                        _hover={{ bg: 'whiteAlpha.100', color: 'sos.blue.300' }}
+                      />
+                    )}
+                    <TacticalButton
+                      variant="tactical"
+                      size="xs"
+                      h="32px"
+                      px={4}
+                      leftIcon={<Crosshair size={12} />}
+                      onClick={() => onSelect?.(item)}
+                      borderRadius="lg"
+                    >
+                      LOCALIZAR
+                    </TacticalButton>
+                  </HStack>
                 </HStack>
               </VStack>
             </GlassPanel>

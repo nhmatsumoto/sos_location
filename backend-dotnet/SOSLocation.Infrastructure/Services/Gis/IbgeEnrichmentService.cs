@@ -51,15 +51,15 @@ namespace SOSLocation.Infrastructure.Services.Gis
 
         public async Task EnrichAlertsAsync(IEnumerable<ExternalAlert> alerts)
         {
-            foreach (var alert in alerts)
+            await Parallel.ForEachAsync(alerts, new ParallelOptions { MaxDegreeOfParallelism = 5 }, async (alert, _) =>
             {
                 var cityName = ExtractCityName(alert);
-                if (string.IsNullOrEmpty(cityName)) continue;
+                if (string.IsNullOrEmpty(cityName)) return;
 
                 if (_cache.TryGetValue(cityName, out var cached))
                 {
                     alert.AffectedPopulation = cached.Pop;
-                    continue;
+                    return;
                 }
 
                 // 1. Try IBGE API
@@ -75,7 +75,7 @@ namespace SOSLocation.Infrastructure.Services.Gis
 
                 _cache.TryAdd(cityName, (pop, string.Empty));
                 alert.AffectedPopulation = pop;
-            }
+            });
         }
 
         private async Task<long> FetchPopulationFromIbgeAsync(string cityName)

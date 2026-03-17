@@ -116,7 +116,8 @@ export function useSOSPageData() {
         severity: a.severity === 'Atenção' ? 2 : (a.severity === 'Perigo' ? 3 : 5),
         lat, lon,
         is_gis_alert: true,
-        source: a.source
+        source: a.source,
+        polygon: a.polygon // Pass the full polygon geometry
       };
     });
 
@@ -135,7 +136,12 @@ export function useSOSPageData() {
       sourceUrl: t.sourceUrl
     }));
 
-    const combined = [...(events || []), ...mappedAlerts, ...timelineAlerts];
+    const combined = [...(events || []), ...mappedAlerts, ...timelineAlerts].filter(e => 
+      e && typeof e.lat === 'number' && (typeof e.lon === 'number' || typeof e.lng === 'number')
+    ).map(e => ({
+      ...e,
+      lon: e.lon ?? (e as any).lng // Harmonize to lon for EventMarker
+    }));
     return country ? combined.filter(e => (e as any).country_code === country || (e as any).is_gis_alert) : combined;
   }, [events, country, gisAlerts, opsSnapshot]);
 

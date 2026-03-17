@@ -2,9 +2,9 @@ import { Link } from 'react-router-dom';
 import { Sparkles } from 'lucide-react';
 import { useRescueTasks } from './hooks/useRescueTasks';
 import { useRescueFiltersStore } from './store/rescueFiltersStore';
-import { RescueKpiCards } from './components/rescue/RescueKpiCards';
-import { RescueTaskForm } from './components/rescue/RescueTaskForm';
-import { RescueTaskTable } from './components/rescue/RescueTaskTable';
+import { RescueKpiCards } from './components/features/rescue/RescueKpiCards';
+import { RescueTaskForm } from './components/features/rescue/RescueTaskForm';
+import { RescueTaskTable } from './components/features/rescue/RescueTaskTable';
 import type { RescueTaskInput } from './types/rescue';
 
 export default function RescueOpsPage() {

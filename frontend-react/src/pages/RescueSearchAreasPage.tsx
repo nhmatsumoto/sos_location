@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Polygon } from 'react-leaflet';
 import { useParams } from 'react-router-dom';
-import { MapPanel } from '../components/maps/MapPanel';
+import { MapPanel } from '../components/features/maps/MapPanel';
 import { modulesApi } from '../services/modulesApi';
 
 export function RescueSearchAreasPage() {

@@ -9,7 +9,7 @@ import {
   Power,
   RefreshCw
 } from 'lucide-react';
-import { VolunteerTaskCard } from '../components/volunteer/VolunteerTaskCard';
+import { VolunteerTaskCard } from '../components/features/volunteer/VolunteerTaskCard';
 import { 
   Box, 
   Flex, 
@@ -39,7 +39,7 @@ export function VolunteerDashboardPage() {
   const { tasks, stats, isOnline, loading, refreshing, actions } = useVolunteerDashboard();
 
   return (
-    <Flex direction="column" h="calc(100vh - 80px)" gap={6} p={8} overflow="hidden">
+    <Flex direction="column" h="100%" gap={6} p={8} overflow="hidden">
       
       {/* Tactical Status Header */}
       <GlassPanel p={5} display="flex" alignItems="center" justifyContent="space-between" flexDir={{ base: 'column', md: 'row' }} gap={6}>

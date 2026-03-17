@@ -13,7 +13,16 @@ import {
   Slider,
   SliderTrack,
   SliderFilledTrack,
-  SliderThumb
+  SliderThumb,
+  Switch,
+  SimpleGrid,
+  Tabs,
+  TabList,
+  TabPanels,
+  Tab,
+  TabPanel,
+  Select,
+  Badge
 } from '@chakra-ui/react';
 import { 
   Activity, 
@@ -28,7 +37,15 @@ import {
   CloudRain,
   Timer,
   ChevronRight,
-  Database
+  Database,
+  Search,
+  Thermometer,
+  Waves,
+  Mountain,
+  Eye,
+  EyeOff,
+  CloudLightning,
+  Boxes
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -40,20 +57,43 @@ import { TacticalButton } from '../components/atoms/TacticalButton';
 import { TacticalStat } from '../components/molecules/TacticalStat';
 import { EventTimeline } from '../components/ui/EventTimeline';
 import { useSimulationsController } from '../hooks/useSimulationsController';
+import { CitySearch } from '../components/ui/CitySearch';
+import { MiniMapPicker } from '../components/ui/MiniMapPicker';
 
 type SimStep = 'CONFIG' | 'ENGINE';
 
 /**
- * Guardian Simulation Engine v2.0.0 - City Scale Pure WebGL
- * High-fidelity GIS simulation for disaster risk prediction.
- * Uses pure WebGL 2.0 with layered raster/vector data processing.
+ * Guardian Simulation Engine v3.0.0 — "HYDRA CORE"
+ * Fully controllable macro-scale GIS disaster simulation.
  */
 export function SimulationsPage() {
   const [activeStep, setActiveStep] = useState<SimStep>('CONFIG');
+  const [disasterType, setDisasterType] = useState('FLOOD');
+  
+  // Advanced Simulation State
   const [config, setConfig] = useState({
+    pressure: 1013,
+    precipitation: 45,
+    windSpeed: 120,
+    waterLevel: 5,
+    eventWindow: 24,
+    geologyIndex: 2.5,
     intensity: 75,
     duration: 120,
-    engineMode: 'HYBRID_SOLVER'
+    resolution: 120, // New: Mesh resolution (polygon count)
+    urbanDensity: 0.65, // New: Amount of buildings to generate
+  });
+
+  // Layer Visibility State
+  const [layers, setLayers] = useState({
+    particles: true,
+    streets: true,
+    buildings: true,
+    topography: true,
+    vegetation: true,
+    terrain: true,
+    satellite: false,
+    aiStructural: true,
   });
 
   const {
@@ -68,14 +108,24 @@ export function SimulationsPage() {
     actions.runSimulation();
   };
 
+  const toggleLayer = (key: keyof typeof layers) => {
+    setLayers(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
   return (
-    <Box h="100vh" w="100vw" position="relative" overflow="hidden" bg="sos.dark">
-      {/* City-Scale Pure WebGL Visualizer (Background Layer) */}
+    <Box h="100%" w="100%" position="relative" overflow="hidden" bg="sos.dark">
+      {/* Simulation Renderer (Background) */}
       <Box position="absolute" inset={0} zIndex={0}>
-        <CityScaleWebGL centerLat={numericLat} centerLng={numericLng} />
+        <CityScaleWebGL 
+          centerLat={numericLat} 
+          centerLng={numericLng} 
+          layers={layers}
+          simData={{ type: disasterType, ...config }}
+          resultData={resultData}
+        />
       </Box>
 
-      {/* --- TOP HUD: MISSION BANNER --- */}
+      {/* --- COMMAND HUD: TOP BANNER --- */}
       <Box 
         position="absolute" 
         top={0} 
@@ -89,271 +139,295 @@ export function SimulationsPage() {
         <Flex justify="space-between" align="center">
           <HStack spacing={6}>
             <VStack align="start" spacing={0}>
-              <TacticalText variant="caption" color="sos.blue.400" letterSpacing="0.3em">MISSION_CONTROL_ID: #SIM-X82</TacticalText>
+              <TacticalText variant="caption" color="sos.blue.400" letterSpacing="0.3em">CORE_ENGINE: HYDRA_V3</TacticalText>
               <HStack>
-                 <TacticalText variant="heading" fontSize="xl">HYDRA_ENGINE</TacticalText>
-                 <Box px={2} py={0.5} bg="whiteAlpha.100" borderRadius="md" border="1px solid" borderColor="whiteAlpha.200">
-                    <TacticalText variant="mono" fontSize="9px" color="whiteAlpha.600">v2.0.{activeStep === 'CONFIG' ? '0-SETUP' : 'PRO'}</TacticalText>
-                 </Box>
+                 <TacticalText variant="heading" fontSize="xl">Módulo de Simulação</TacticalText>
+                 <Badge variant="solid" bg="sos.blue.500" fontSize="9px">PRO_VERSION</Badge>
               </HStack>
             </VStack>
             <Divider orientation="vertical" h="40px" borderColor="whiteAlpha.300" />
-            <HStack spacing={8}>
-              <VStack align="start" spacing={1}>
-                <TacticalText variant="caption" color="whiteAlpha.400">WORKFLOW_SEQUENCE</TacticalText>
-                <HStack spacing={2}>
-                   <Box boxSize="6px" borderRadius="full" bg={activeStep === 'CONFIG' ? 'sos.blue.500' : 'whiteAlpha.400'} />
-                   <TacticalText fontSize="9px" color={activeStep === 'CONFIG' ? 'white' : 'whiteAlpha.400'} fontWeight="bold">01 CONFIG</TacticalText>
-                   <Icon as={ChevronRight} size={10} color="whiteAlpha.200" />
-                   <Box boxSize="6px" borderRadius="full" bg={activeStep === 'ENGINE' ? 'sos.blue.500' : 'whiteAlpha.400'} />
-                   <TacticalText fontSize="9px" color={activeStep === 'ENGINE' ? 'white' : 'whiteAlpha.400'} fontWeight="bold">02 ENGINE</TacticalText>
-                </HStack>
-              </VStack>
+            <HStack spacing={3}>
+               <VStack align="start" spacing={1}>
+                  <TacticalText variant="caption" color="whiteAlpha.400">COORDENADAS_OPERACIONAIS</TacticalText>
+                  <TacticalText variant="mono" fontSize="xs">LAT: {numericLat.toFixed(4)} // LNG: {numericLng.toFixed(4)}</TacticalText>
+               </VStack>
             </HStack>
           </HStack>
 
           <HStack spacing={4}>
-             <Tooltip label="Network Latency">
-               <HStack spacing={1} opacity={0.6}>
-                 <Icon as={Zap} size={10} color="yellow.400" />
-                 <TacticalText variant="mono" fontSize="9px">12ms</TacticalText>
-               </HStack>
-             </Tooltip>
-             <Divider orientation="vertical" h="24px" borderColor="whiteAlpha.200" />
-             <IconButton 
-               aria-label="Toggle Config" 
-               icon={<Settings size={16} />} 
+             <TacticalButton 
                variant="ghost" 
-               color={activeStep === 'CONFIG' ? 'sos.blue.400' : 'whiteAlpha.600'}
+               leftIcon={<Settings size={16} />} 
                onClick={() => setActiveStep('CONFIG')}
-             />
+               color={activeStep === 'CONFIG' ? 'sos.blue.400' : 'whiteAlpha.600'}
+             >
+               CONFIGURAÇÕES
+             </TacticalButton>
+             <Divider orientation="vertical" h="24px" borderColor="whiteAlpha.200" />
+             <HStack spacing={2} px={3} py={1} bg="whiteAlpha.50" borderRadius="full">
+                <Box boxSize="8px" bg="sos.green.500" borderRadius="full" className="animate-pulse" />
+                <TacticalText variant="mono" fontSize="10px">SYSTEM_ONLINE</TacticalText>
+             </HStack>
           </HStack>
         </Flex>
       </Box>
 
-      {/* --- STEP 1: CONFIGURATION PANEL --- */}
+      {/* --- PANEL: CONFIGURATION (LEFT DRAWER STYLE) --- */}
       {activeStep === 'CONFIG' && (
-        <Center position="absolute" inset={0} zIndex={100} bg="blackAlpha.700" backdropFilter="blur(8px)">
-          <VStack w="640px" spacing={6}>
-             <GlassPanel p={10} flexDirection="column" w="full" intensity="high" border="1px solid" borderColor="sos.blue.500/30">
-                <Box mb={8} textAlign="center">
-                  <Icon as={Database} size={40} color="sos.blue.400" mb={4} />
-                  <TacticalText variant="heading" fontSize="xl" letterSpacing="0.4em" mb={2}>SIMULATION_PARAMETERS</TacticalText>
-                  <TacticalText color="whiteAlpha.500">Defina as variáveis para o cálculo de inundação em larga escala</TacticalText>
-                </Box>
+        <Box 
+          position="absolute" 
+          left={6} 
+          top="100px" 
+          bottom={6} 
+          w="480px" 
+          zIndex={100}
+        >
+          <GlassPanel h="full" p={0} depth="raised" flexDirection="column" overflow="hidden">
+             <Box p={6} borderBottom="1px solid" borderColor="whiteAlpha.100" bg="whiteAlpha.50">
+               <TacticalText variant="heading" fontSize="md">Setup de Simulação</TacticalText>
+               <TacticalText variant="caption" mt={1}>Calibre as variáveis ambientais e urbanas</TacticalText>
+             </Box>
 
-                <Grid templateColumns="repeat(2, 1fr)" gap={8} w="full">
-                  <VStack align="stretch" spacing={5}>
-                    <Box>
-                      <TacticalText variant="subheading" mb={4} color="sos.blue.400" fontSize="10px">GEO_COORDINATES</TacticalText>
-                      <VStack spacing={4}>
-                        <Box w="full">
-                           <TacticalText variant="caption" mb={2}>LATITUDE</TacticalText>
-                           <Input 
-                             value={lat} 
-                             onChange={(e) => setLat(e.target.value)} 
-                             bg="whiteAlpha.50" 
-                             borderColor="whiteAlpha.100" 
-                             fontSize="xs"
-                             fontFamily="mono"
-                             color="sos.blue.200"
-                           />
-                        </Box>
-                        <Box w="full">
-                           <TacticalText variant="caption" mb={2}>LONGITUDE</TacticalText>
-                           <Input 
-                             value={lng} 
-                             onChange={(e) => setLng(e.target.value)} 
-                             bg="whiteAlpha.50" 
-                             borderColor="whiteAlpha.100" 
-                             fontSize="xs"
-                             fontFamily="mono"
-                             color="sos.blue.200"
-                           />
-                        </Box>
-                      </VStack>
-                    </Box>
-                  </VStack>
+             <Tabs variant="unstyled" flex={1} display="flex" flexDirection="column">
+               <TabList px={4} bg="whiteAlpha.50" borderBottom="1px solid" borderColor="whiteAlpha.100">
+                 <ConfigTab icon={MapPin} label="Geografia" />
+                 <ConfigTab icon={CloudLightning} label="Ambiente" />
+                 <ConfigTab icon={Layers} label="Camadas" />
+               </TabList>
 
-                  <VStack align="stretch" spacing={5}>
-                     <Box>
-                        <TacticalText variant="subheading" mb={4} color="sos.blue.400" fontSize="10px">ENGINE_STRENGTH</TacticalText>
-                        <VStack spacing={6} align="stretch">
-                           <Box>
-                              <Flex justify="space-between" mb={2}>
-                                 <HStack spacing={2}><Icon as={CloudRain} size={12} color="whiteAlpha.600" /><TacticalText variant="caption">RAIN_INTENSITY</TacticalText></HStack>
-                                 <TacticalText variant="mono" color="sos.blue.400">{config.intensity}%</TacticalText>
-                              </Flex>
-                              <Slider value={config.intensity} onChange={(v) => setConfig(c => ({...c, intensity: v}))}>
-                                 <SliderTrack bg="whiteAlpha.100"><SliderFilledTrack bg="sos.blue.500" /></SliderTrack>
-                                 <SliderThumb boxSize={3} bg="white" />
-                              </Slider>
-                           </Box>
-                           <Box>
-                              <Flex justify="space-between" mb={2}>
-                                 <HStack spacing={2}><Icon as={Timer} size={12} color="whiteAlpha.600" /><TacticalText variant="caption">STORM_DURATION</TacticalText></HStack>
-                                 <TacticalText variant="mono" color="sos.blue.400">{config.duration} MIN</TacticalText>
-                              </Flex>
-                              <Slider min={30} max={480} value={config.duration} onChange={(v) => setConfig(c => ({...c, duration: v}))}>
-                                 <SliderTrack bg="whiteAlpha.100"><SliderFilledTrack bg="sos.blue.500" /></SliderTrack>
-                                 <SliderThumb boxSize={3} bg="white" />
-                              </Slider>
-                           </Box>
-                        </VStack>
-                     </Box>
-                  </VStack>
-                </Grid>
+               <TabPanels flex={1} overflowY="auto" className="custom-scrollbar">
+                 {/* Page 1: Geography */}
+                 <TabPanel p={6}>
+                    <VStack spacing={6} align="stretch">
+                       <Box>
+                         <TacticalText variant="subheading" mb={4}>BUSCAR LOCALIZAÇÃO</TacticalText>
+                         <CitySearch onSelect={(la, lo) => { setLat(String(la)); setLng(String(lo)); }} />
+                       </Box>
+                       
+                       <Box>
+                         <TacticalText variant="subheading" mb={4}>SELEÇÃO VISUAL (MAPA 2D)</TacticalText>
+                         <MiniMapPicker 
+                           lat={numericLat} 
+                           lng={numericLng} 
+                           onChange={(la, lo) => { setLat(la.toFixed(6)); setLng(lo.toFixed(6)); }} 
+                         />
+                         <HStack justify="space-between" mt={4}>
+                            <VStack align="start" spacing={0}>
+                               <TacticalText variant="caption">LATITUDE_RAW</TacticalText>
+                               <TacticalText variant="mono" color="sos.blue.400">{numericLat}</TacticalText>
+                            </VStack>
+                            <VStack align="end" spacing={0}>
+                               <TacticalText variant="caption">LONGITUDE_RAW</TacticalText>
+                               <TacticalText variant="mono" color="sos.blue.400">{numericLng}</TacticalText>
+                            </VStack>
+                         </HStack>
+                       </Box>
+                    </VStack>
+                 </TabPanel>
 
-                <Divider borderColor="whiteAlpha.100" my={10} />
+                 {/* Page 2: Environment */}
+                 <TabPanel p={6}>
+                    <VStack spacing={6} align="stretch">
+                       <Box>
+                         <TacticalText variant="subheading" mb={4}>TIPO DE EVENTO</TacticalText>
+                         <Select 
+                           value={disasterType} 
+                           onChange={(e) => setDisasterType(e.target.value)}
+                           bg="whiteAlpha.50"
+                           borderColor="whiteAlpha.100"
+                           fontSize="xs"
+                           h="52px"
+                           borderRadius="xl"
+                         >
+                           <option value="FLOOD">Inundação / Enchente</option>
+                           <option value="TORNADO">Evento Ciclônico (Tornado)</option>
+                           <option value="MUDSLIDE">Deslizamento de Terra</option>
+                         </Select>
+                       </Box>
 
-                <TacticalButton 
-                  w="full" 
-                  h="64px" 
-                  glow 
-                  onClick={handleStartSimulation}
-                  leftIcon={<Icon as={Play} size={18} />}
-                >
-                  INITIALIZE_HYDRA_SOLVER
-                </TacticalButton>
-             </GlassPanel>
-             <TacticalText variant="mono" fontSize="9px" opacity={0.3}>ENCRYPTION_LAYER_6_STATUS_ACTIVE // SECURITY_BYPASS: FALSE</TacticalText>
-          </VStack>
-        </Center>
+                       <ConfigSlider 
+                         label="Pressão Atmosférica" 
+                         value={config.pressure} 
+                         unit="hPa" 
+                         min={950} max={1050} 
+                         onChange={(v) => setConfig(c => ({...c, pressure: v}))} 
+                       />
+                       <ConfigSlider 
+                         label="Precipitação (Chuva)" 
+                         value={config.precipitation} 
+                         unit="mm/h" 
+                         min={0} max={200} 
+                         onChange={(v) => setConfig(c => ({...c, precipitation: v}))} 
+                       />
+                       <ConfigSlider 
+                         label="Nível da Água / Volume" 
+                         value={config.waterLevel} 
+                         unit="m" 
+                         min={0} max={20} 
+                         onChange={(v) => setConfig(c => ({...c, waterLevel: v}))} 
+                       />
+                       <ConfigSlider 
+                          label="Janela de Evento" 
+                          value={config.eventWindow} 
+                          unit="h" 
+                          min={1} max={72} 
+                          onChange={(v: number) => setConfig(c => ({...c, eventWindow: v}))} 
+                        />
+
+                        <Divider borderColor="whiteAlpha.100" />
+                        <TacticalText variant="subheading" color="sos.blue.400">QUALIDADE DA MALHA (GPU)</TacticalText>
+                        
+                        <ConfigSlider 
+                          label="Resolução da Topografia" 
+                          value={config.resolution} 
+                          unit="vtx" 
+                          min={20} max={400} 
+                          onChange={(v: number) => setConfig(c => ({...c, resolution: v}))} 
+                        />
+                        <ConfigSlider 
+                          label="Densidade de Edificações" 
+                          value={config.urbanDensity} 
+                          unit="%" 
+                          min={0} max={100} 
+                          onChange={(v: number) => setConfig(c => ({...c, urbanDensity: v}))} 
+                        />
+                    </VStack>
+                 </TabPanel>
+
+                 {/* Page 3: Rendering Layers */}
+                 <TabPanel p={6}>
+                   <VStack spacing={4} align="stretch">
+                      <LayerToggle label="Simulação de Partículas" active={layers.particles} onToggle={() => toggleLayer('particles')} />
+                      <LayerToggle label="Rede de Ruas" active={layers.streets} onToggle={() => toggleLayer('streets')} />
+                      <LayerToggle label="Massas Urbanas (Prédios)" active={layers.buildings} onToggle={() => toggleLayer('buildings')} />
+                      <LayerToggle label="Topografia e Relevo" active={layers.topography} onToggle={() => toggleLayer('topography')} />
+                      <LayerToggle label="Zonas de Mata / Floresta" active={layers.vegetation} onToggle={() => toggleLayer('vegetation')} />
+                      <LayerToggle label="Replicador Estrutural IA" active={layers.aiStructural} onToggle={() => toggleLayer('aiStructural')} />
+                      <LayerToggle label="Imagens de Satélite" active={layers.satellite} onToggle={() => toggleLayer('satellite')} />
+                   </VStack>
+                 </TabPanel>
+               </TabPanels>
+
+               <Box p={6} borderTop="1px solid" borderColor="whiteAlpha.100">
+                  <TacticalButton 
+                    w="full" h="64px" bg="sos.blue.500" glow
+                    leftIcon={<Icon as={Play} size={18} />}
+                    onClick={handleStartSimulation}
+                  >
+                    INICIALIZAR MOTOR HYDRA
+                  </TacticalButton>
+               </Box>
+             </Tabs>
+          </GlassPanel>
+        </Box>
       )}
 
-      {/* --- STEP 2: SIMULATION ENGINE HUD --- */}
+      {/* --- ENGINE VIEW: RESULTS & TELEMETRY --- */}
       {activeStep === 'ENGINE' && (
-        <>
-          <VStack 
-            position="absolute" 
-            top="80px" 
-            left={6} 
-            bottom={10} 
-            w="340px" 
-            zIndex={10} 
-            spacing={4} 
-            alignItems="stretch"
-          >
-            <GlassPanel p={5} intensity="high" flexDirection="column">
-              <HStack mb={4} justify="space-between">
-                <TacticalText variant="subheading" color="sos.blue.400">Visual Feed Calibration</TacticalText>
-                <Icon as={Layers} size={14} color="whiteAlpha.300" />
-              </HStack>
-              
-              <VStack spacing={4} align="stretch" px={2} py={2}>
-                 <VStack align="stretch" spacing={2} p={3} bg="whiteAlpha.100" borderRadius="xl">
-                    <TacticalText variant="mono" fontSize="9px" color="whiteAlpha.400">RENDER_PIPELINE</TacticalText>
-                    <TacticalText variant="heading" fontSize="xs" letterSpacing="0.1em">WEBGL_2.0_PURE_CORE</TacticalText>
-                    <HStack justify="space-between" mt={2}>
-                       <TacticalText fontSize="8px" color="whiteAlpha.500">GPU_LOAD</TacticalText>
-                       <TacticalText variant="mono" color="sos.blue.400" fontSize="9px">42.8%</TacticalText>
-                    </HStack>
-                 </VStack>
-              </VStack>
-            </GlassPanel>
-
-            <GlassPanel flex={1} p={5} intensity="medium" flexDirection="column" overflow="hidden">
-              <HStack mb={4} justify="space-between">
-                <TacticalText variant="subheading" color="sos.blue.400">Operational Log</TacticalText>
-                <Icon as={Activity} size={14} color="whiteAlpha.300" />
-              </HStack>
-              <Box flex={1} overflowY="auto" className="custom-scrollbar" pr={2}>
-                <EventTimeline steps={streamSteps} />
-                {streamSteps.length === 0 && !isSimulating && (
-                  <Center h="full" flexDirection="column" opacity={0.3}>
-                    <Icon as={Activity} size={30} mb={3} />
-                    <TacticalText variant="mono">PENDING_TELEMETRY...</TacticalText>
-                  </Center>
-                )}
-              </Box>
-            </GlassPanel>
-          </VStack>
-
-          <Box 
-            position="absolute" 
-            bottom={6} 
-            left="360px" 
-            right={6} 
-            zIndex={10}
-          >
-            <GlassPanel p={4} intensity="high" alignItems="center" justifyContent="space-between">
-              <HStack spacing={6}>
-                <HStack spacing={3}>
-                  <TacticalButton 
-                    onClick={actions.runSimulation} 
-                    glow={isSimulating}
-                    leftIcon={<Icon as={Play} size={14} />}
-                    h="54px"
-                    px={8}
-                    minW="200px"
-                  >
-                    Execute Analysis
-                  </TacticalButton>
-                  <TacticalButton 
-                    onClick={() => setActiveStep('CONFIG')} 
-                    variant="outline"
-                    leftIcon={<Icon as={RefreshCw} size={14} />}
-                    h="54px"
-                    borderColor="whiteAlpha.200"
-                    _hover={{ bg: 'whiteAlpha.100' }}
-                  >
-                    Reset Configuration
-                  </TacticalButton>
+        <Box 
+          position="absolute" 
+          right={6} 
+          top="100px" 
+          bottom={6} 
+          w="380px" 
+          zIndex={100}
+        >
+          <VStack h="full" spacing={6} align="stretch">
+             <GlassPanel p={6} depth="raised" flexDirection="column">
+                <HStack mb={6} justify="space-between">
+                   <TacticalText variant="heading" fontSize="xs">TELEMETRIA_EM_TEMPO_REAL</TacticalText>
+                   <Box boxSize="8px" bg="sos.red.500" borderRadius="full" className="animate-pulse" />
                 </HStack>
                 
-                <Divider orientation="vertical" h="40px" borderColor="whiteAlpha.200" />
-                
-                {resultData ? (
-                  <HStack spacing={4}>
-                    <TacticalStat 
-                      label="Area Affected" 
-                      value={(resultData?.estimatedAffectedAreaM2 / 1_000).toFixed(1)} 
-                      unit="K-M2" 
-                      icon={MapPin} 
-                      color="sos.blue.300" 
-                    />
-                    <TacticalStat 
-                      label="Max Depth" 
-                      value={resultData?.maxDepth || 0} 
-                      unit="METERS" 
-                      icon={Wind} 
-                      color="orange.300" 
-                    />
-                    <TacticalStat 
-                      label="Risk Severity" 
-                      value="CRITICAL" 
-                      icon={AlertTriangle} 
-                      color="sos.red.400" 
-                    />
-                  </HStack>
-                ) : (
-                  <HStack spacing={8} px={4}>
-                    <VStack align="start" spacing={0} opacity={0.4}>
-                      <TacticalText variant="caption">ENGINE_READY</TacticalText>
-                      <TacticalText variant="mono" fontSize="xs">AWAITING_COMMAND_EXECUTION</TacticalText>
-                    </VStack>
-                  </HStack>
-                )}
-              </HStack>
-              
-              <HStack spacing={4}>
-                <Box textAlign="right" mr={2}>
-                   <TacticalText variant="caption" color="whiteAlpha.400">TELEMETRY_SYNC</TacticalText>
-                   <TacticalText variant="mono" fontSize="xs" color="sos.blue.400">OK // RADAR_ACTIVE</TacticalText>
+                <SimpleGrid columns={2} spacing={4}>
+                   <TelemetryItem label="CARGA_GPU" value="62%" />
+                   <TelemetryItem label="PARTÍCULAS" value="48k" />
+                   <TelemetryItem label="POLÍGONOS" value="1.2M" />
+                   <TelemetryItem label="FLUXO_H2O" value="12m/s" />
+                </SimpleGrid>
+
+                <Box mt={8}>
+                   <TacticalText variant="caption" mb={2}>PROGRESSO DA SIMULAÇÃO</TacticalText>
+                   <Box h="4px" w="full" bg="whiteAlpha.100" borderRadius="full" overflow="hidden">
+                      <Box h="full" w="45%" bg="sos.blue.500" boxShadow="0 0 10px #007AFF" />
+                   </Box>
                 </Box>
-                <Divider orientation="vertical" h="32px" borderColor="whiteAlpha.200" />
-                <VStack align="end" spacing={0}>
-                  <TacticalText variant="caption" color="whiteAlpha.400">LATENCY_CORE</TacticalText>
-                  <TacticalText variant="mono" fontSize="xs">240 TFLOPS</TacticalText>
-                </VStack>
-                <Box p={3} bg="whiteAlpha.100" borderRadius="full" border="1px solid" borderColor="whiteAlpha.200">
-                   <Icon as={Activity} size={20} color="sos.blue.400" />
-                </Box>
-              </HStack>
-            </GlassPanel>
-          </Box>
-        </>
+             </GlassPanel>
+
+             <GlassPanel flex={1} p={6} depth="base" flexDirection="column" overflow="hidden">
+               <TacticalText variant="subheading" mb={4} color="sos.blue.400">Log de Processamento</TacticalText>
+               <Box flex={1} overflowY="auto" className="custom-scrollbar" pr={2}>
+                 <EventTimeline steps={streamSteps} />
+               </Box>
+             </GlassPanel>
+
+             <TacticalButton variant="outline" borderColor="whiteAlpha.200" onClick={() => setActiveStep('CONFIG')}>
+                RECONFIGURAR ENGINE
+             </TacticalButton>
+          </VStack>
+        </Box>
       )}
+
+      {/* Background Stats HUD */}
+      <Box position="absolute" bottom={8} left={8} zIndex={10}>
+         <HStack spacing={4}>
+            <GlassPanel px={4} py={3} depth="base" align="center">
+               <Icon as={Wind} color="sos.blue.400" mr={2} size={14} />
+               <TacticalText variant="mono" fontSize="xs">{config.windSpeed} km/h</TacticalText>
+            </GlassPanel>
+            <GlassPanel px={4} py={3} depth="base" align="center">
+               <Icon as={Thermometer} color="orange.400" mr={2} size={14} />
+               <TacticalText variant="mono" fontSize="xs">{config.pressure} hPa</TacticalText>
+            </GlassPanel>
+            <GlassPanel px={4} py={3} depth="base" align="center">
+               <Icon as={Waves} color="cyan.400" mr={2} size={14} />
+               <TacticalText variant="mono" fontSize="xs">WATER_LEVEL: +{config.waterLevel}m</TacticalText>
+            </GlassPanel>
+         </HStack>
+      </Box>
     </Box>
   );
 }
+
+// Internal Helper Components
+const ConfigTab = ({ icon: Icon, label }: any) => (
+  <Tab 
+    _selected={{ color: 'sos.blue.400', borderBottomColor: 'sos.blue.400' }} 
+    py={4} px={6} fontSize="xs" fontWeight="bold" letterSpacing="0.1em"
+  >
+    <HStack spacing={2}>
+       <Icon size={14} />
+       <TacticalText variant="caption" color="inherit">{label}</TacticalText>
+    </HStack>
+  </Tab>
+);
+
+const ConfigSlider = ({ label, value, unit, min, max, onChange }: any) => (
+  <Box>
+    <Flex justify="space-between" mb={2}>
+      <TacticalText variant="caption">{label}</TacticalText>
+      <TacticalText variant="mono" color="sos.blue.400">{value} {unit}</TacticalText>
+    </Flex>
+    <Slider min={min} max={max} value={value} onChange={onChange}>
+      <SliderTrack bg="whiteAlpha.100"><SliderFilledTrack bg="sos.blue.500" /></SliderTrack>
+      <SliderThumb boxSize={3} bg="white" />
+    </Slider>
+  </Box>
+);
+
+const LayerToggle = ({ label, active, onToggle }: any) => (
+  <Flex justify="space-between" align="center" p={3} bg="whiteAlpha.50" borderRadius="xl">
+    <HStack spacing={3}>
+       <Icon as={active ? Eye : EyeOff} size={14} color={active ? "sos.blue.400" : "whiteAlpha.300"} />
+       <TacticalText variant="caption">{label}</TacticalText>
+    </HStack>
+    <Switch isChecked={active} onChange={onToggle} colorScheme="blue" size="sm" />
+  </Flex>
+);
+
+const TelemetryItem = ({ label, value }: any) => (
+  <VStack align="start" spacing={0} p={3} bg="whiteAlpha.50" borderRadius="xl" border="1px solid" borderColor="whiteAlpha.100">
+     <TacticalText variant="caption" fontSize="9px" opacity={0.4}>{label}</TacticalText>
+     <TacticalText variant="mono" fontSize="md" color="white">{value}</TacticalText>
+  </VStack>
+);

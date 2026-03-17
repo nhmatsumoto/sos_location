@@ -43,18 +43,36 @@ function PrivateLayout() {
     document.documentElement.dataset.theme = theme;
   }, [theme]);
 
-  const isSOS = location.pathname === '/app/sos';
+  // Pages that need full-viewport layout (tactical variant = NavigationRail + no grid padding)
+  const TACTICAL_ROUTES = [
+    '/app/sos',
+    '/app/simulations',
+    '/app/volunteer',
+    '/app/global-disasters',
+    '/app/tactical-approval',
+    '/app/logistics',
+    '/app/risk-assessment',
+    '/app/hotspots',
+    '/app/incidents',
+    '/app/reports',
+    '/app/searched-areas',
+    '/app/rescue-support',
+    '/app/data-hub',
+    '/app/integrations',
+    '/app/missing-persons'
+  ];
+  const isTactical = TACTICAL_ROUTES.includes(location.pathname);
 
   return (
     <div className="animate-in fade-in duration-700 ease-out">
       <AppShell 
         theme={theme} 
         onToggleTheme={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
-        variant={isSOS ? 'tactical' : 'default'}
+        variant={isTactical ? 'tactical' : 'default'}
       >
         <Suspense fallback={<div style={{ padding: 16 }} className="text-slate-500 font-bold animate-pulse text-center">Iniciando painel de comando...</div>}>
           <Routes>
-            <Route path="/app/sos" element={<ProtectedRoute requiredRole="admin"><SOSPage /></ProtectedRoute>} />
+            <Route path="/app/sos" element={<ProtectedRoute><SOSPage /></ProtectedRoute>} />
             <Route path="/app/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
             <Route path="/app/volunteer" element={<ProtectedRoute><VolunteerDashboardPage /></ProtectedRoute>} />
             <Route path="/app/logistics" element={<ProtectedRoute><LogisticsPage /></ProtectedRoute>} />

@@ -82,6 +82,9 @@ namespace SOSLocation.Infrastructure.Services.Gis.Providers
 
             var nodes = new Dictionary<long, (double lat, double lon)>();
             var buildingsList = new List<object>();
+            var highwaysList = new List<object>();
+            var forestList = new List<object>();
+            var waterList = new List<object>();
 
             foreach (var element in elements.EnumerateArray())
             {
@@ -124,19 +127,23 @@ namespace SOSLocation.Infrastructure.Services.Gis.Providers
                         }
                         else if (tags.TryGetProperty("highway", out var hType))
                         {
-                            buildingsList.Add(new { id, coordinates, type = hType.GetString(), category = "highway" });
+                            highwaysList.Add(new { id, coordinates, type = hType.GetString(), category = "highway" });
+                        }
+                        else if (tags.TryGetProperty("waterway", out var wType) || tags.TryGetProperty("natural", out var nTag) && nTag.GetString() == "water")
+                        {
+                            waterList.Add(new { id, coordinates, type = "waterway" });
                         }
                         else if (tags.TryGetProperty("natural", out var n) && (n.GetString() == "forest" || n.GetString() == "wood") ||
                                  (tags.TryGetProperty("landuse", out var l) && (l.GetString() == "forest" || l.GetString() == "grass" || l.GetString() == "park")))
                         {
                             if (coordinates.Count < 3) continue;
-                            buildingsList.Add(new { id, coordinates, type = "vegetation" });
+                            forestList.Add(new { id, coordinates, type = "vegetation" });
                         }
                     }
                 }
             }
 
-            return new { buildings = buildingsList, highways = new List<object>(), forests = new List<object>() };
+            return new { buildings = buildingsList, highways = highwaysList, forests = forestList, waterways = waterList };
         }
 
         private object GenerateSyntheticBuildings(double minLat, double minLon, double maxLat, double maxLon)

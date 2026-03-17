@@ -17,8 +17,8 @@ import { RiskAreaModal } from './components/Modals/RiskAreaModal';
 import { UploadModal } from './components/Modals/UploadModal';
 import { CatastropheModal } from './components/Modals/CatastropheModal';
 import { DemarcationModal } from './components/Modals/DemarcationModal';
-import { DraggablePanel } from './components/map/DraggablePanel';
-import { LocalConditionsPanel } from './components/map/LocalConditionsPanel';
+import { DraggablePanel } from './components/features/map/DraggablePanel';
+import { LocalConditionsPanel } from './components/features/map/LocalConditionsPanel';
 
 // Lazy Components
 const LandslideSimulation = lazy(() => import('./LandslideSimulation'));

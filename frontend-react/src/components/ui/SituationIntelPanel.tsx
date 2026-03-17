@@ -1,6 +1,6 @@
 import { Box, VStack, HStack, Flex, Badge, Icon, Divider, Progress } from '@chakra-ui/react';
 import { Crosshair, MapPin, Activity, Users, DollarSign, Clock } from 'lucide-react';
-import { DraggablePanel } from '../map/DraggablePanel';
+import { DraggablePanel } from '../features/map/DraggablePanel';
 import { TacticalText } from '../atoms/TacticalText';
 
 interface SituationIntelPanelProps {

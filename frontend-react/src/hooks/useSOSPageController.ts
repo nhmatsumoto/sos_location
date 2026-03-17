@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import type { ToolMode } from '../components/map/MapInteractions';
+import type { ToolMode } from '../components/features/map/MapInteractions';
 
 /**
  * Controller Hook for SOSPage
@@ -68,11 +68,27 @@ export function useSOSPageController(saveOpsFn: any) {
       intelPanelOpen, liveOpsPanelOpen, cursorCoords, contextMenu
     },
     actions: {
-      setHoveredId, setMapCenter, setMapZoom, setLastClickedCoords, setTool,
-      setAreaDraft, setSpatialFilter, setOpenOpsModal, setOpsForm,
-      setIntelPanelOpen, setLiveOpsPanelOpen, setCursorCoords, setContextMenu,
-      handleMarkerHover, handleMarkerUnhover, handleMapHover, handleQuickAction,
-      resetMap, executeSaveOps
+      setHoveredId, 
+      setMapCenter: (c: [number, number]) => {
+        if (c && !isNaN(c[0]) && !isNaN(c[1])) setMapCenter(c);
+      },
+      setMapZoom, 
+      setLastClickedCoords, 
+      setTool,
+      setAreaDraft, 
+      setSpatialFilter, 
+      setOpenOpsModal, 
+      setOpsForm,
+      setIntelPanelOpen, 
+      setLiveOpsPanelOpen, 
+      setCursorCoords, 
+      setContextMenu,
+      handleMarkerHover, 
+      handleMarkerUnhover, 
+      handleMapHover, 
+      handleQuickAction,
+      resetMap, 
+      executeSaveOps
     }
   };
 }

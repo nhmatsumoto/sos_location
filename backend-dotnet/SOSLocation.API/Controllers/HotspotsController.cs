@@ -40,14 +40,35 @@ namespace SOSLocation.API.Controllers
 
             return Ok(areas.Select(a => {
                 var meta = ParseMeta(a.MetadataJson);
+                var score = 50.0;
+                if (meta.TryGetValue("score", out var sObj) && sObj != null)
+                {
+                    if (sObj is JsonElement je) score = je.GetDouble();
+                    else try { score = Convert.ToDouble(sObj); } catch { }
+                }
+
+                var type = "Risco Geral";
+                if (meta.TryGetValue("type", out var tObj) && tObj != null)
+                {
+                    if (tObj is JsonElement je) type = je.GetString() ?? type;
+                    else type = tObj.ToString() ?? type;
+                }
+
+                var affected = 0;
+                if (meta.TryGetValue("estimatedAffected", out var eaObj) && eaObj != null)
+                {
+                    if (eaObj is JsonElement je) affected = je.GetInt32();
+                    else try { affected = Convert.ToInt32(eaObj); } catch { }
+                }
+
                 return new {
                     id = a.Id.ToString(),
                     lat = a.Lat,
                     lng = a.Lng,
-                    score = meta.TryGetValue("score", out var s) ? Convert.ToDouble(s?.ToString()) : 50.0,
-                    type = meta.TryGetValue("type", out var t) ? t?.ToString() : "Risco Geral",
+                    score,
+                    type,
                     urgency = a.Severity,
-                    estimatedAffected = meta.TryGetValue("estimatedAffected", out var ea) ? Convert.ToInt32(ea?.ToString()) : 0
+                    estimatedAffected = affected
                 };
             }));
         }
@@ -57,6 +78,8 @@ namespace SOSLocation.API.Controllers
             _context.MapAnnotations.AddRange(new List<MapAnnotation>
             {
                 new MapAnnotation {
+                    ExternalId = "HS-UBA-01",
+                    Title = "Zona de Risco: Morro do Querosene",
                     RecordType = "hotspot",
                     Lat = -21.115, Lng = -42.930,
                     Severity = "critical",
@@ -64,6 +87,8 @@ namespace SOSLocation.API.Controllers
                     MetadataJson = JsonSerializer.Serialize(new { score = 92.5, type = "Deslizamento", estimatedAffected = 150 })
                 },
                 new MapAnnotation {
+                    ExternalId = "HS-UBA-02",
+                    Title = "Área de Inundação: Beira Rio",
                     RecordType = "hotspot",
                     Lat = -21.125, Lng = -42.950,
                     Severity = "high",
