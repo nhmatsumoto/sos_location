@@ -13,6 +13,10 @@ monitoring, and humanitarian coordination across **Brazil** and **Japan**.
 | [OpenStreetMap / Overpass](https://overpass-api.de) | Buildings, Roads, Parks | Global | `OverpassProvider` |
 | [GSI Japan Tiles](https://cyberjapandata.gsi.go.jp) | Topo tiles | Japan | Planned |
 | [Kokudo Suuchi](https://nlftp.mlit.go.jp) | Shapefiles, Cadastre | Japan | Planned |
+| [Atlas Registry (SOS)](/api/integrations/atlas/sources) | Curated multi-source registry | Global | `IntegrationsController` |
+| [OpenTopography Catalog](https://portal.opentopography.org/apidocs/#/Public/getOtCatalog) | DEM dataset catalog | Global | `IntegrationsController` |
+| [GeoSampa SBC](https://geosampa.prefeitura.sp.gov.br/PaginasPublicas/_SBC.aspx) | Urban cadastre layers | São Paulo (BR) | Planned ingestion |
+| [INDE Visualizador](https://visualizador.inde.gov.br/) | Official BR SDI layers | Brazil | Planned ingestion |
 
 ---
 

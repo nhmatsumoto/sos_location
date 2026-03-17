@@ -74,6 +74,126 @@ namespace SOSLocation.API.Controllers
 
         // ─── SATELLITE ────────────────────────────────────────────────────────────
 
+        [HttpGet("atlas/sources")]
+        [OutputCache(PolicyName = "CacheLongLived")]
+        public IActionResult GetAtlasSources()
+        {
+            var sources = new[]
+            {
+                new
+                {
+                    id = "gsi-japan-tiles",
+                    name = "GSI Japan Map Tiles",
+                    category = "basemap-terrain",
+                    endpoint = "https://maps.gsi.go.jp/",
+                    coverage = "Japan",
+                    authRequired = false,
+                    riskModelUsage = "contexto topográfico e validação visual de áreas de risco",
+                    scene3dUsage = "texturas e camadas base para navegação tática"
+                },
+                new
+                {
+                    id = "qgis-api",
+                    name = "QGIS API Documentation",
+                    category = "processing-framework",
+                    endpoint = "https://api.qgis.org/api/",
+                    coverage = "Global",
+                    authRequired = false,
+                    riskModelUsage = "pipeline de geoprocessamento para extração de features",
+                    scene3dUsage = "pré-processamento de vetores e raster para render"
+                },
+                new
+                {
+                    id = "geosampa-sbc",
+                    name = "GeoSampa SBC",
+                    category = "municipal-cadastre",
+                    endpoint = "https://geosampa.prefeitura.sp.gov.br/PaginasPublicas/_SBC.aspx",
+                    coverage = "São Paulo (BR)",
+                    authRequired = false,
+                    riskModelUsage = "dados urbanos e cadastrais para exposição/vulnerabilidade",
+                    scene3dUsage = "footprints urbanos para extrusão de edificações"
+                },
+                new
+                {
+                    id = "opentopography-catalog",
+                    name = "OpenTopography Public Catalog",
+                    category = "dem-elevation",
+                    endpoint = "https://portal.opentopography.org/apidocs/#/Public/getOtCatalog",
+                    coverage = "Global",
+                    authRequired = false,
+                    riskModelUsage = "altimetria e declividade para modelos de risco",
+                    scene3dUsage = "malha de terreno e LOD topográfico"
+                },
+                new
+                {
+                    id = "inde-br",
+                    name = "Visualizador INDE",
+                    category = "national-spatial-data-infrastructure",
+                    endpoint = "https://visualizador.inde.gov.br/",
+                    coverage = "Brasil",
+                    authRequired = false,
+                    riskModelUsage = "camadas oficiais e metadados para calibração de cenário",
+                    scene3dUsage = "camadas de referência para alinhamento cartográfico"
+                },
+                new
+                {
+                    id = "nasa-earthdata-token",
+                    name = "NASA Earthdata User Tokens (Docs)",
+                    category = "credentials",
+                    endpoint = "https://urs.earthdata.nasa.gov/documentation/for_users/user_token",
+                    coverage = "Global",
+                    authRequired = true,
+                    riskModelUsage = "acesso a produtos satelitais avançados",
+                    scene3dUsage = "stream de mosaicos e dados de elevação/superfície"
+                }
+            };
+
+            return Ok(new
+            {
+                source = "Atlas Integration Registry",
+                items = sources,
+                cacheHit = false
+            });
+        }
+
+        [HttpGet("atlas/opentopography/catalog")]
+        [OutputCache(PolicyName = "Cache5Min")]
+        public async Task<IActionResult> GetAtlasOpenTopographyCatalog()
+        {
+            try
+            {
+                var client = _httpClientFactory.CreateClient();
+                var response = await client.GetAsync("https://portal.opentopography.org/API/otCatalog");
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var payload = await response.Content.ReadFromJsonAsync<object>();
+                    return Ok(new
+                    {
+                        source = "OpenTopography Public API",
+                        endpoint = "https://portal.opentopography.org/API/otCatalog",
+                        data = payload,
+                        cacheHit = false
+                    });
+                }
+
+                _logger.LogWarning("OpenTopography catalog responded with status code {statusCode}", response.StatusCode);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to fetch OpenTopography catalog from Atlas integration.");
+            }
+
+            return Ok(new
+            {
+                source = "OpenTopography Public API (fallback)",
+                endpoint = "https://portal.opentopography.org/API/otCatalog",
+                data = Array.Empty<object>(),
+                note = "Não foi possível consultar o catálogo em tempo real. Verifique disponibilidade externa ou política de rede.",
+                cacheHit = false
+            });
+        }
+
         [HttpGet("satellite/layers")]
         [OutputCache(PolicyName = "CacheLongLived")]
         public IActionResult GetSatelliteLayers()
@@ -193,6 +313,7 @@ namespace SOSLocation.API.Controllers
         // ─── ALERTS INTELLIGENCE ──────────────────────────────────────────────────
 
         [HttpGet("alerts/intelligence")]
+        [HttpGet("/api/alerts/intelligence")]
         [OutputCache(PolicyName = "Cache1Min")]
         public IActionResult GetAlertsIntelligence(
             [FromQuery] string? city = null,
