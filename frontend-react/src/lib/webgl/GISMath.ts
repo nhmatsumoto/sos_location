@@ -65,16 +65,24 @@ export class GISMath {
     return out;
   }
 
-  private static subtract(a: number[], b: number[]): number[] {
+  static subtract(a: number[], b: number[]): number[] {
     return [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
   }
 
-  private static normalize(v: number[]): number[] {
+  static add(a: number[], b: number[]): number[] {
+    return [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
+  }
+
+  static scale(v: number[], s: number): number[] {
+    return [v[0] * s, v[1] * s, v[2] * s];
+  }
+
+  static normalize(v: number[]): number[] {
     const len = Math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
     return len > 0 ? [v[0] / len, v[1] / len, v[2] / len] : [0, 0, 0];
   }
 
-  private static cross(a: number[], b: number[]): number[] {
+  static cross(a: number[], b: number[]): number[] {
     return [
       a[1] * b[2] - a[2] * b[1],
       a[2] * b[0] - a[0] * b[2],
@@ -82,7 +90,7 @@ export class GISMath {
     ];
   }
 
-  private static dot(a: number[], b: number[]): number {
+  static dot(a: number[], b: number[]): number {
     return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
   }
 }

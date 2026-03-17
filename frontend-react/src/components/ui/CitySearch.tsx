@@ -4,7 +4,7 @@ import axios from 'axios';
 import { useSimulationStore } from '../../store/useSimulationStore';
 
 interface CitySearchProps {
-  onSelect?: (lat: number, lon: number, displayName: string) => void;
+  onSelect?: (lat: number, lon: number, displayName: string, bbox?: string[]) => void;
 }
 
 export const CitySearch: React.FC<CitySearchProps> = ({ onSelect }) => {
@@ -29,13 +29,13 @@ export const CitySearch: React.FC<CitySearchProps> = ({ onSelect }) => {
     }
   };
 
-  const selectCity = (lat: string, lon: string, displayName: string) => {
+  const selectCity = (lat: string, lon: string, displayName: string, bbox?: string[]) => {
     const latNum = parseFloat(lat);
     const lonNum = parseFloat(lon);
     setHeroPosition([latNum, lonNum]);
     setQuery(displayName.split(',')[0]);
     setResults([]);
-    if (onSelect) onSelect(latNum, lonNum, displayName);
+    if (onSelect) onSelect(latNum, lonNum, displayName, bbox);
   };
 
   return (
@@ -58,7 +58,7 @@ export const CitySearch: React.FC<CitySearchProps> = ({ onSelect }) => {
           {results.map((res: any) => (
             <button
               key={res.place_id}
-              onClick={() => selectCity(res.lat, res.lon, res.display_name)}
+              onClick={() => selectCity(res.lat, res.lon, res.display_name, res.boundingbox)}
               className="w-full text-left px-4 py-3 hover:bg-cyan-500/10 border-b border-white/5 last:border-0 transition-colors group/item"
             >
               <div className="flex items-start gap-3">

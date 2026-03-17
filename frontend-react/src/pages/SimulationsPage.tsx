@@ -45,9 +45,10 @@ import {
   Eye,
   EyeOff,
   CloudLightning,
-  Boxes
+  Boxes,
+  type LucideIcon
 } from 'lucide-react';
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 // Atomic Components
 import { CityScaleWebGL } from '../components/ui/CityScaleWebGL';
@@ -75,6 +76,7 @@ export function SimulationsPage() {
     pressure: 1013,
     precipitation: 45,
     windSpeed: 120,
+    windDirection: 45, // New: Wind angle in degrees
     waterLevel: 5,
     eventWindow: 24,
     geologyIndex: 2.5,
@@ -96,6 +98,8 @@ export function SimulationsPage() {
     aiStructural: true,
   });
 
+  const [bbox, setBbox] = useState<number[] | undefined>(undefined);
+
   const {
     lat, setLat, lng, setLng,
     resultData, streamSteps, isSimulating,
@@ -105,8 +109,28 @@ export function SimulationsPage() {
 
   const handleStartSimulation = () => {
     setActiveStep('ENGINE');
-    actions.runSimulation();
+    actions.runSimulation(disasterType.toLowerCase(), config.resolution, bbox);
   };
+
+  const handleCitySelect = (la: number, lo: number, name: string, b?: string[]) => {
+    setLat(String(la)); 
+    setLng(String(lo)); 
+    if (b) {
+      // Nominatim format is [miny, maxy, minx, maxx] -> [minLat, maxLat, minLon, maxLon]
+      // Wait, Nominatim returns: ["40.477399", "40.917577", "-74.25909", "-73.7001809"]
+      // Actually it is [south, north, west, east]
+      const nb = [parseFloat(b[0]), parseFloat(b[2]), parseFloat(b[1]), parseFloat(b[3])];
+      setBbox(nb);
+    } else {
+      setBbox(undefined);
+    }
+  };
+
+  useEffect(() => {
+    if (bbox) {
+       handleStartSimulation();
+    }
+  }, [bbox]);
 
   const toggleLayer = (key: keyof typeof layers) => {
     setLayers(prev => ({ ...prev, [key]: !prev[key] }));
@@ -179,11 +203,11 @@ export function SimulationsPage() {
           left={6} 
           top="100px" 
           bottom={6} 
-          w="480px" 
+          w="400px" 
           zIndex={100}
         >
           <GlassPanel h="full" p={0} depth="raised" flexDirection="column" overflow="hidden">
-             <Box p={6} borderBottom="1px solid" borderColor="whiteAlpha.100" bg="whiteAlpha.50">
+             <Box p={4} borderBottom="1px solid" borderColor="whiteAlpha.100" bg="whiteAlpha.50">
                <TacticalText variant="heading" fontSize="md">Setup de Simulação</TacticalText>
                <TacticalText variant="caption" mt={1}>Calibre as variáveis ambientais e urbanas</TacticalText>
              </Box>
@@ -201,7 +225,7 @@ export function SimulationsPage() {
                     <VStack spacing={6} align="stretch">
                        <Box>
                          <TacticalText variant="subheading" mb={4}>BUSCAR LOCALIZAÇÃO</TacticalText>
-                         <CitySearch onSelect={(la, lo) => { setLat(String(la)); setLng(String(lo)); }} />
+                         <CitySearch onSelect={handleCitySelect} />
                        </Box>
                        
                        <Box>
@@ -250,21 +274,35 @@ export function SimulationsPage() {
                          value={config.pressure} 
                          unit="hPa" 
                          min={950} max={1050} 
-                         onChange={(v) => setConfig(c => ({...c, pressure: v}))} 
+                         onChange={(v: number) => setConfig(c => ({...c, pressure: v}))} 
                        />
                        <ConfigSlider 
                          label="Precipitação (Chuva)" 
                          value={config.precipitation} 
                          unit="mm/h" 
                          min={0} max={200} 
-                         onChange={(v) => setConfig(c => ({...c, precipitation: v}))} 
+                         onChange={(v: number) => setConfig(c => ({...c, precipitation: v}))} 
+                       />
+                       <ConfigSlider 
+                         label="Velocidade do Vento" 
+                         value={config.windSpeed} 
+                         unit="km/h" 
+                         min={0} max={250} 
+                         onChange={(v: number) => setConfig(c => ({...c, windSpeed: v}))} 
+                       />
+                       <ConfigSlider 
+                         label="Direção do Vento" 
+                         value={config.windDirection} 
+                         unit="°" 
+                         min={0} max={360} 
+                         onChange={(v: number) => setConfig(c => ({...c, windDirection: v}))} 
                        />
                        <ConfigSlider 
                          label="Nível da Água / Volume" 
                          value={config.waterLevel} 
                          unit="m" 
                          min={0} max={20} 
-                         onChange={(v) => setConfig(c => ({...c, waterLevel: v}))} 
+                         onChange={(v: number) => setConfig(c => ({...c, waterLevel: v}))} 
                        />
                        <ConfigSlider 
                           label="Janela de Evento" 
@@ -281,7 +319,7 @@ export function SimulationsPage() {
                           label="Resolução da Topografia" 
                           value={config.resolution} 
                           unit="vtx" 
-                          min={20} max={400} 
+                          min={20} max={1024} 
                           onChange={(v: number) => setConfig(c => ({...c, resolution: v}))} 
                         />
                         <ConfigSlider 
@@ -340,10 +378,10 @@ export function SimulationsPage() {
                 </HStack>
                 
                 <SimpleGrid columns={2} spacing={4}>
-                   <TelemetryItem label="CARGA_GPU" value="62%" />
-                   <TelemetryItem label="PARTÍCULAS" value="48k" />
-                   <TelemetryItem label="POLÍGONOS" value="1.2M" />
-                   <TelemetryItem label="FLUXO_H2O" value="12m/s" />
+                   <TelemetryItem label="VENTO_ATM" value={`${config.windSpeed}km/h`} />
+                   <TelemetryItem label="PRESSÃO_HPA" value={`${config.pressure}`} />
+                   <TelemetryItem label="MALHA_GPU" value={`${config.resolution} vtx`} />
+                   <TelemetryItem label="DENSIDADE" value={`${(config.urbanDensity * 100).toFixed(0)}%`} />
                 </SimpleGrid>
 
                 <Box mt={8}>
@@ -390,7 +428,12 @@ export function SimulationsPage() {
 }
 
 // Internal Helper Components
-const ConfigTab = ({ icon: Icon, label }: any) => (
+interface ConfigTabProps {
+  icon: LucideIcon;
+  label: string;
+}
+
+const ConfigTab = ({ icon: Icon, label }: ConfigTabProps) => (
   <Tab 
     _selected={{ color: 'sos.blue.400', borderBottomColor: 'sos.blue.400' }} 
     py={4} px={6} fontSize="xs" fontWeight="bold" letterSpacing="0.1em"
@@ -402,7 +445,16 @@ const ConfigTab = ({ icon: Icon, label }: any) => (
   </Tab>
 );
 
-const ConfigSlider = ({ label, value, unit, min, max, onChange }: any) => (
+interface ConfigSliderProps {
+  label: string;
+  value: number;
+  unit: string;
+  min: number;
+  max: number;
+  onChange: (v: number) => void;
+}
+
+const ConfigSlider = ({ label, value, unit, min, max, onChange }: ConfigSliderProps) => (
   <Box>
     <Flex justify="space-between" mb={2}>
       <TacticalText variant="caption">{label}</TacticalText>
@@ -415,7 +467,13 @@ const ConfigSlider = ({ label, value, unit, min, max, onChange }: any) => (
   </Box>
 );
 
-const LayerToggle = ({ label, active, onToggle }: any) => (
+interface LayerToggleProps {
+  label: string;
+  active: boolean;
+  onToggle: () => void;
+}
+
+const LayerToggle = ({ label, active, onToggle }: LayerToggleProps) => (
   <Flex justify="space-between" align="center" p={3} bg="whiteAlpha.50" borderRadius="xl">
     <HStack spacing={3}>
        <Icon as={active ? Eye : EyeOff} size={14} color={active ? "sos.blue.400" : "whiteAlpha.300"} />
@@ -425,7 +483,12 @@ const LayerToggle = ({ label, active, onToggle }: any) => (
   </Flex>
 );
 
-const TelemetryItem = ({ label, value }: any) => (
+interface TelemetryItemProps {
+  label: string;
+  value: string;
+}
+
+const TelemetryItem = ({ label, value }: TelemetryItemProps) => (
   <VStack align="start" spacing={0} p={3} bg="whiteAlpha.50" borderRadius="xl" border="1px solid" borderColor="whiteAlpha.100">
      <TacticalText variant="caption" fontSize="9px" opacity={0.4}>{label}</TacticalText>
      <TacticalText variant="mono" fontSize="md" color="white">{value}</TacticalText>

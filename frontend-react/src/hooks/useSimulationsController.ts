@@ -25,13 +25,27 @@ export function useSimulationsController() {
   const numericLat = useMemo(() => Number(lat), [lat]);
   const numericLng = useMemo(() => Number(lng), [lng]);
 
-  const runSimulation = async () => {
+  const runSimulation = async (scenarioType: string = 'landslide', resolution: number = 128, bbox?: number[]) => {
     setIsSimulating(true);
     try {
-      const payload = await simulationsApi.runFlow({ lat: numericLat, lng: numericLng });
+      let finalBbox = bbox;
+      if (!finalBbox) {
+         // Fallback: Compute a ~2-3km box around the point for local high-res context
+         const span = 0.012; 
+         finalBbox = [numericLat - span, numericLng - span, numericLat + span, numericLng + span];
+      }
+
+      const payload = await simulationsApi.runSimulation({
+        scenarioType,
+        minLat: finalBbox[0],
+        minLon: finalBbox[1],
+        maxLat: finalBbox[2],
+        maxLon: finalBbox[3],
+        resolution
+      });
       setResultData(payload);
-    } catch {
-      console.error("Simulation engine failed.");
+    } catch (err) {
+      console.error("Simulation engine failed to fetch real GIS context.", err);
     } finally {
       setIsSimulating(false);
     }

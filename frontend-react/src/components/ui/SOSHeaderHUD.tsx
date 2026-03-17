@@ -30,7 +30,7 @@ interface SOSHeaderHUDProps {
   activeTool: string;
   setTool: (tool: any) => void;
   stats?: Stats;
-  onSearchSelect?: (lat: number, lon: number, displayName: string) => void;
+  onSearchSelect?: (lat: number, lon: number, displayName: string, bbox?: string[]) => void;
   // Panel Toggles
   alertPanelOpen: boolean;
   onToggleAlerts: () => void;

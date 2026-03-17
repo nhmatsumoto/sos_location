@@ -68,6 +68,8 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
   // Camera State
   const cam = useRef({
     pos: [120, 100, 120] as [number, number, number],
+    target: [0, 0, 0] as [number, number, number],
+    distance: 250,
     yaw: -Math.PI / 4,
     pitch: -Math.PI / 6,
     speed: 1.5,
@@ -75,7 +77,15 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
   });
 
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => cam.current.keys.add(e.code);
+    const handleKeyDown = (e: KeyboardEvent) => {
+        cam.current.keys.add(e.code);
+        
+        // Blender-style Focus (Numpad . or Period)
+        if (e.code === 'NumpadDecimal' || e.code === 'Period') {
+            cam.current.target = [0, 0, 0];
+            cam.current.distance = 250;
+        }
+    };
     const handleKeyUp = (e: KeyboardEvent) => cam.current.keys.delete(e.code);
     
     let isDragging = false;
@@ -86,16 +96,48 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
         isDragging = true;
         lastX = e.clientX;
         lastY = e.clientY;
+        
+        // Prevent browser auto-scroll on MMB
+        if (e.button === 1) e.preventDefault();
     };
     const handleMouseUp = () => isDragging = false;
+
     const handleMouseMove = (e: MouseEvent) => {
         if (!isDragging) return;
         const dx = e.clientX - lastX;
         const dy = e.clientY - lastY;
         lastX = e.clientX;
         lastY = e.clientY;
-        cam.current.yaw -= dx * 0.005;
-        cam.current.pitch = Math.max(-1.5, Math.min(1.5, cam.current.pitch - dy * 0.005));
+
+        // Middle Mouse (button 1) Orbit / Pan logic
+        if (e.button === 1 || e.which === 2) {
+            if (e.shiftKey) {
+                // Blender-style Pan (Shift + MMB)
+                const right = GISMath.normalize(GISMath.cross([0, 1, 0], GISMath.subtract(cam.current.pos, cam.current.target)));
+                const up = GISMath.normalize(GISMath.cross(GISMath.subtract(cam.current.pos, cam.current.target), right));
+                
+                const factor = cam.current.distance * 0.001;
+                const moveX = GISMath.scale(right, -dx * factor);
+                const moveY = GISMath.scale(up, dy * factor);
+                
+                cam.current.target = GISMath.add(cam.current.target, GISMath.add(moveX, moveY)) as [number, number, number];
+            } else {
+                // Blender-style Orbit (MMB)
+                cam.current.yaw -= dx * 0.005;
+                cam.current.pitch = Math.max(-1.5, Math.min(1.5, cam.current.pitch - dy * 0.005));
+            }
+        } 
+        // Legacy drag if someone doesn't have a middle mouse
+        else if (e.button === 0) {
+            cam.current.yaw -= dx * 0.005;
+            cam.current.pitch = Math.max(-1.5, Math.min(1.5, cam.current.pitch - dy * 0.005));
+        }
+    };
+
+    const handleWheel = (e: WheelEvent) => {
+        e.preventDefault();
+        const delta = e.deltaY * 0.1;
+        cam.current.distance = Math.max(5, Math.min(1500, cam.current.distance + delta));
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -103,6 +145,7 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
     window.addEventListener('mousedown', handleMouseDown);
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('wheel', handleWheel, { passive: false });
 
     return () => {
         window.removeEventListener('keydown', handleKeyDown);
@@ -110,6 +153,7 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
         window.removeEventListener('mousedown', handleMouseDown);
         window.removeEventListener('mousemove', handleMouseMove);
         window.removeEventListener('mouseup', handleMouseUp);
+        window.removeEventListener('wheel', handleWheel);
     };
   }, []);
 
@@ -221,7 +265,7 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
     const infraVBO = renderer.createBuffer(new Float32Array(infraVertices));
 
     // Particles
-    const particleCount = 25000;
+    const particleCount = 100000;
     const particlesData: number[] = [];
     for(let i=0; i<particleCount; i++) particlesData.push(Math.random()*100-50, Math.random()*30, Math.random()*100-50);
     const particleVBO = renderer.createBuffer(new Float32Array(particlesData));
@@ -266,15 +310,36 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
     let startTime = Date.now();
 
     const updateCamera = () => {
-        const speed = cam.current.speed;
-        const forward = [Math.cos(cam.current.pitch) * Math.sin(cam.current.yaw), Math.sin(cam.current.pitch), Math.cos(cam.current.pitch) * Math.cos(cam.current.yaw)];
-        const right = [Math.sin(cam.current.yaw - Math.PI / 2), 0, Math.cos(cam.current.yaw - Math.PI / 2)];
-        if (cam.current.keys.has('KeyW')) { cam.current.pos[0] += forward[0] * speed; cam.current.pos[1] += forward[1] * speed; cam.current.pos[2] += forward[2] * speed; }
-        if (cam.current.keys.has('KeyS')) { cam.current.pos[0] -= forward[0] * speed; cam.current.pos[1] -= forward[1] * speed; cam.current.pos[2] -= forward[2] * speed; }
-        if (cam.current.keys.has('KeyA')) { cam.current.pos[0] += right[0] * speed; cam.current.pos[2] += right[2] * speed; }
-        if (cam.current.keys.has('KeyD')) { cam.current.pos[0] -= right[0] * speed; cam.current.pos[2] -= right[2] * speed; }
-        if (cam.current.keys.has('Space')) cam.current.pos[1] += speed;
-        if (cam.current.keys.has('ShiftLeft')) cam.current.pos[1] -= speed;
+        // Compute relative eye position from angles for Orbit mode
+        const orbitPos = [
+            cam.current.target[0] + cam.current.distance * Math.cos(cam.current.pitch) * Math.sin(cam.current.yaw),
+            cam.current.target[1] + cam.current.distance * Math.sin(cam.current.pitch),
+            cam.current.target[2] + cam.current.distance * Math.cos(cam.current.pitch) * Math.cos(cam.current.yaw)
+        ] as [number, number, number];
+        
+        cam.current.pos = orbitPos;
+
+        // Optional: Maintain keyboard navigation if focused on fly mode
+        const speed = cam.current.speed * (cam.current.distance * 0.01);
+        const forward = GISMath.normalize(GISMath.subtract(cam.current.target, cam.current.pos));
+        const right = GISMath.normalize(GISMath.cross([0, 1, 0], forward));
+
+        if (cam.current.keys.has('KeyW')) { 
+            cam.current.pos = GISMath.add(cam.current.pos, GISMath.scale(forward, speed)) as [number, number, number];
+            cam.current.target = GISMath.add(cam.current.target, GISMath.scale(forward, speed)) as [number, number, number];
+        }
+        if (cam.current.keys.has('KeyS')) { 
+            cam.current.pos = GISMath.add(cam.current.pos, GISMath.scale(forward, -speed)) as [number, number, number];
+            cam.current.target = GISMath.add(cam.current.target, GISMath.scale(forward, -speed)) as [number, number, number];
+        }
+        if (cam.current.keys.has('KeyA')) { 
+            cam.current.pos = GISMath.add(cam.current.pos, GISMath.scale(right, speed)) as [number, number, number];
+            cam.current.target = GISMath.add(cam.current.target, GISMath.scale(right, speed)) as [number, number, number];
+        }
+        if (cam.current.keys.has('KeyD')) { 
+            cam.current.pos = GISMath.add(cam.current.pos, GISMath.scale(right, -speed)) as [number, number, number];
+            cam.current.target = GISMath.add(cam.current.target, GISMath.scale(right, -speed)) as [number, number, number];
+        }
     };
 
     const render = () => {
@@ -286,8 +351,7 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
       renderer.clear(0.04, 0.05, 0.08, 1.0);
       const aspect = width / height;
       const projectionMatrix = GISMath.perspective(45 * Math.PI / 180, aspect, 0.1, 3000);
-      const lookTarget = [cam.current.pos[0] + Math.cos(cam.current.pitch) * Math.sin(cam.current.yaw), cam.current.pos[1] + Math.sin(cam.current.pitch), cam.current.pos[2] + Math.cos(cam.current.pitch) * Math.cos(cam.current.yaw)];
-      const viewMatrix = GISMath.lookAt(cam.current.pos, lookTarget, [0, 1, 0]);
+      const viewMatrix = GISMath.lookAt(cam.current.pos, cam.current.target, [0, 1, 0]);
       const modelMatrix = new Float32Array([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]);
 
       // Soil Color based on geology
@@ -386,6 +450,12 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
         renderer.setUniformMatrix4('u_viewMatrix', viewMatrix);
         renderer.setUniform1f('u_time', time);
         renderer.setUniform1i('u_type', simData.type === 'TORNADO' ? 1 : 0);
+        
+        // New: Atmospheric Physics
+        renderer.setUniform1f('u_windSpeed', (simData as any).windSpeed || 10.0);
+        renderer.setUniform1f('u_windDirection', (simData as any).windDirection || 0.0);
+        renderer.setUniform1f('u_pressure', (simData as any).pressure || 1013.0);
+        
         gl.bindBuffer(gl.ARRAY_BUFFER, particleVBO);
         renderer.setAttribute('a_position', 3, gl.FLOAT, false, 3 * 4, 0);
         gl.drawArrays(gl.POINTS, 0, particleCount);
@@ -396,6 +466,11 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
         renderer.setUniformMatrix4('u_viewMatrix', viewMatrix);
         renderer.setUniformMatrix4('u_modelMatrix', modelMatrix);
         renderer.setUniform1f('u_urbanDensity', (simData.urbanDensity || 50) / 100);
+        
+        // New: Vegetation Data from GIS
+        const vegDensity = resultData?.vegetation?.ndvi_mean || 0.4;
+        renderer.setUniform1f('u_vegIntensity', vegDensity);
+        
         gl.bindBuffer(gl.ARRAY_BUFFER, infraVBO);
         renderer.setAttribute('a_position', 3, gl.FLOAT, false, 5 * 4, 0);
         renderer.setAttribute('a_uv', 2, gl.FLOAT, false, 5 * 4, 3 * 4);

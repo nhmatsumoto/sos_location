@@ -216,27 +216,55 @@ uniform float u_waterLevel;
 uniform float u_topoScale;
 uniform float u_time;
 out float v_depth;
+out vec2 v_uv;
+out vec3 v_worldPos;
 
 void main() {
+    v_uv = a_uv;
     vec4 topoData = texture(u_topoMap, a_uv);
     float terrainHeight = topoData.r * u_topoScale;
-    float surfaceHeight = u_waterLevel + sin(a_position.x * 0.2 + u_time) * 0.15;
+    
+    float wave1 = sin(a_position.x * 0.4 + u_time * 1.5) * 0.12;
+    float wave2 = cos(a_position.z * 0.3 + u_time * 1.2) * 0.08;
+    float surfaceHeight = u_waterLevel + wave1 + wave2;
+    
     float finalHeight = max(surfaceHeight, terrainHeight);
     v_depth = surfaceHeight - terrainHeight;
     vec4 pos = u_modelMatrix * vec4(a_position.x, finalHeight, a_position.z, 1.0);
+    v_worldPos = pos.xyz;
     gl_Position = u_projectionMatrix * u_viewMatrix * pos;
 }
 `,
     FS: `#version 300 es
 precision highp float;
 in float v_depth;
+in vec2 v_uv;
+in vec3 v_worldPos;
+uniform float u_time;
 out vec4 outColor;
+
 void main() {
-    if (v_depth <= 0.0) discard;
-    vec3 shallowColor = vec3(0.0, 0.6, 1.0);
-    vec3 deepColor = vec3(0.0, 0.1, 0.3);
-    vec3 color = mix(shallowColor, deepColor, clamp(v_depth / 5.0, 0.0, 1.0));
-    outColor = vec4(color, 0.7);
+    if (v_depth <= 0.01) discard;
+    
+    vec3 shallowColor = vec3(0.0, 0.45, 0.7);
+    vec3 deepColor = vec3(0.02, 0.08, 0.18);
+    vec3 color = mix(shallowColor, deepColor, clamp(v_depth / 8.0, 0.0, 1.0));
+    
+    // Wave pattern for highlights
+    vec2 waveUV = v_uv * 40.0 + u_time * 0.4;
+    float waves = sin(waveUV.x + sin(waveUV.y)) * 0.5 + 0.5;
+    waves *= pow(1.0 - abs(sin(u_time * 0.2)), 2.0); // temporal flickering
+    
+    // Specular highlight (fake)
+    vec3 lightDir = normalize(vec3(0.5, 1.0, 0.3));
+    float spec = pow(max(0.0, waves), 32.0);
+    color += vec3(0.5, 0.8, 1.0) * spec * clamp(v_depth, 0.0, 1.0);
+    
+    // Foam near edges
+    float foam = smoothstep(0.4, 0.0, v_depth);
+    color = mix(color, vec3(0.8, 0.9, 1.0), foam * 0.3 * (0.8 + 0.2 * sin(u_time * 4.0)));
+
+    outColor = vec4(color, 0.75);
 }
 `
   },
@@ -248,24 +276,40 @@ uniform mat4 u_projectionMatrix;
 uniform mat4 u_viewMatrix;
 uniform float u_time;
 uniform int u_type;
+uniform float u_windSpeed;
+uniform float u_windDirection;
+uniform float u_pressure;
+
 out float v_life;
 
 void main() {
     vec3 pos = a_position;
-    if (u_type == 1) {
-       float h = pos.y / 20.0;
-       float angle = u_time * (8.0 + h * 5.0) + pos.x * 10.0;
-       float radius = h * 6.0 + sin(u_time * 2.0) * 0.5;
+    float windFactor = u_windSpeed * 0.1;
+    float rad = u_windDirection * 0.0174533; // degrees to radians
+    vec2 windDir = vec2(cos(rad), sin(rad));
+    float pressureFactor = (1013.0 - u_pressure) * 0.05;
+
+    if (u_type == 1) { // TORNADO (Cyclone)
+       float h = pos.y / 25.0;
+       float swirlFreq = 6.0 + pressureFactor;
+       float angle = u_time * (swirlFreq + h * 4.0) + pos.x * 5.0;
+       float radius = h * (8.0 + windFactor) + sin(u_time * 2.0) * 0.5;
+       
        pos.x = cos(angle) * radius;
        pos.z = sin(angle) * radius;
-       pos.x += sin(u_time * 0.5) * 5.0;
-       pos.z += cos(u_time * 0.5) * 5.0;
-    } else {
-       pos.y = mod(pos.y - u_time * 15.0, 30.0);
+       pos.x += windDir.x * (5.0 + windFactor) + sin(u_time * 0.3) * 2.0;
+       pos.z += windDir.y * (5.0 + windFactor) + cos(u_time * 0.3) * 2.0;
+       pos.y += sin(u_time * 0.5) * 2.0;
+    } else { // FLOOD/RAIN
+       // Rainfall influenced by wind direction
+       pos.x += windDir.x * windFactor * (1.0 + pos.y * 0.1);
+       pos.z += windDir.y * windFactor * (1.0 + pos.y * 0.1);
+       pos.y = mod(pos.y - u_time * (15.0 + windFactor), 40.0);
     }
+    
     gl_Position = u_projectionMatrix * u_viewMatrix * vec4(pos, 1.0);
-    gl_PointSize = u_type == 1 ? 3.5 : 1.5;
-    v_life = pos.y / 30.0;
+    gl_PointSize = u_type == 1 ? (3.0 + windFactor * 0.1) : 1.5;
+    v_life = pos.y / 40.0;
 }
 `,
     FS: `#version 300 es
@@ -273,7 +317,7 @@ precision highp float;
 in float v_life;
 out vec4 outColor;
 void main() {
-    outColor = vec4(0.5, 0.8, 1.0, 0.8 * (1.0 - v_life));
+    outColor = vec4(0.6, 0.85, 1.0, 0.7 * (1.0 - v_life));
 }
 `
   },
@@ -286,25 +330,30 @@ uniform mat4 u_projectionMatrix;
 uniform mat4 u_viewMatrix;
 uniform mat4 u_modelMatrix;
 uniform float u_urbanDensity;
+uniform float u_vegIntensity;
 out float v_density;
 
 void main() {
     float density = fract(sin(dot(a_uv, vec2(12.9898, 78.233))) * 43758.5453);
     v_density = density;
-    float height = density * 2.5; 
+    float height = density * (2.0 + u_vegIntensity * 3.0); 
     gl_Position = u_projectionMatrix * u_viewMatrix * u_modelMatrix * vec4(a_position.x, height, a_position.z, 1.0);
 }
 `,
     FS: `#version 300 es
 precision highp float;
 in float v_density;
-uniform float u_urbanDensity;
+uniform float u_vegIntensity;
 out vec4 outColor;
 void main() {
-    float threshold = 0.8 - (u_urbanDensity * 0.4); 
+    float threshold = 0.9 - (u_vegIntensity * 0.6); 
     if (v_density < threshold) discard;
-    vec3 leafColor = mix(vec3(0.05, 0.1, 0.05), vec3(0.1, 0.2, 0.1), v_density);
-    outColor = vec4(leafColor, 1.0);
+    
+    vec3 forestColor = vec3(0.02, 0.12, 0.04);
+    vec3 lightLeaf = vec3(0.15, 0.35, 0.1);
+    vec3 leafColor = mix(forestColor, lightLeaf, v_density);
+    
+    outColor = vec4(leafColor, 0.9);
 }
 `
   }
