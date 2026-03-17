@@ -46,6 +46,8 @@ Este catálogo organiza as skills por domínio para orquestração com agentes e
 - `civil-engineering-infrastructure`
 - `supply-chain-operations`
 - `rescue-emergency-operations`
+- `multi-hazard-simulation-sdk`
+- `coastal-tsunami-modeling`
 
 ## Qualidade
 - `automated-testing-pyramid`
