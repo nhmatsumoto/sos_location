@@ -58,6 +58,17 @@ export interface SatelliteLayerDto {
   timeSupport?: string;
 }
 
+export interface AtlasSourceDto {
+  id: string;
+  name: string;
+  category: string;
+  endpoint: string;
+  coverage: string;
+  authRequired: boolean;
+  riskModelUsage: string;
+  scene3dUsage: string;
+}
+
 export const integrationsApi = {
   async getWeatherForecast(lat: number, lon: number, days = 3) {
     const response = await apiClient.get<WeatherForecastDto>('/integrations/weather/forecast', { params: { lat, lon, days } });
@@ -87,6 +98,16 @@ export const integrationsApi = {
     const response = await apiClient.get<{ source: string; missionUrl: string; stacApi: string; collections: LandsatCollectionDto[]; cacheHit?: boolean }>('/integrations/satellite/landsat/catalog');
     return response.data;
   },
+  async getAtlasSources() {
+    const response = await apiClient.get<{ source: string; items: AtlasSourceDto[]; cacheHit?: boolean }>('/integrations/atlas/sources');
+    return response.data;
+  },
+  async getAtlasOpenTopographyCatalog() {
+    const response = await apiClient.get<{ source: string; endpoint: string; data: unknown; note?: string; cacheHit?: boolean }>(
+      '/integrations/atlas/opentopography/catalog',
+    );
+    return response.data;
+  },
   async getIbgeMunicipios(uf?: string, nome?: string, limit = 20) {
     const response = await apiClient.get<{ source: string; items: IbgeMunicipioDto[]; cacheHit?: boolean }>('/integrations/ibge/municipios', {
       params: { uf, nome, limit },
@@ -94,7 +115,7 @@ export const integrationsApi = {
     return response.data;
   },
   async getDisasterIntelligence(params: { city?: string; state?: string; lat?: number; lon?: number; bbox?: string; since?: string }) {
-    const response = await apiClient.get<any>('/alerts/intelligence', { params, __skipGlobalNotify: true } as any);
+    const response = await apiClient.get<any>('/integrations/alerts/intelligence', { params, __skipGlobalNotify: true } as any);
     return response.data;
   },
   async getGeeAnalysis(bbox: string, analysisType: 'ndvi' | 'moisture' | 'thermal' = 'ndvi') {
