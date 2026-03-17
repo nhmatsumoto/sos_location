@@ -204,3 +204,34 @@ leaflet_cartography = [28]
 geo_observability = [29, 10]
 solid_ddd_best_practices = [11]
 automated_testing = [10]
+
+
+[[agents]]
+id = 30
+name = "Multi-Hazard Simulation Architect Agent"
+focus = "arquitetura de simulação multi-risco e contratos de cenário"
+deliverables = "SDK modular de modelos, versionamento de parâmetros e estratégia de validação"
+
+[[agents]]
+id = 31
+name = "Coastal & Ocean Dynamics Agent"
+focus = "modelagem costeira para maremoto/tsunami, correntes e ETA"
+deliverables = "modelos de inundação costeira, integração de marégrafos/boias e rotas de evacuação"
+
+[[agents]]
+id = 32
+name = "Wildfire & Environmental Monitoring Agent"
+focus = "propagação de incêndio, meteorologia aplicada e pressão de desmatamento"
+deliverables = "simulação de spread por vento/umidade, mapas de risco e cenários de contenção"
+
+[[agents]]
+id = 33
+name = "Sensor Fusion & Telemetry QA Agent"
+focus = "fusão de sensores heterogêneos e qualidade de dados em tempo real"
+deliverables = "normalização de telemetria, score de confiabilidade e detecção de inconsistências"
+
+[matrix_extension]
+multi_hazard_simulation = [30, 18, 17, 16]
+coastal_tsunami = [31, 25, 28]
+wildfire_monitoring = [32, 19, 22]
+sensor_fusion = [33, 4, 29, 10]

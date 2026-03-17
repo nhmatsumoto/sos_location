@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 from apscheduler.schedulers.background import BackgroundScheduler
 from app.services.risk_engine import RiskEngine
+from app.services.simulation_service import SimulationService
+from app.simulation_sdk.scenario import ScenarioRequest, SimulationCatalogItem, SimulationResult
 import logging
 
 # Setup logging
@@ -9,6 +11,7 @@ logger = logging.getLogger("RiskAnalysisUnit")
 
 app = FastAPI(title="SOS Location - Risk Analysis Unit", version="1.0.0")
 risk_engine = RiskEngine()
+simulation_service = SimulationService()
 
 @app.on_event("startup")
 def startup_event():
@@ -31,3 +34,13 @@ def get_risk_scores():
 @app.get("/api/v1/risk/location/{country}/{location}")
 def get_location_risk(country: str, location: str):
     return risk_engine.get_location_score(country, location)
+
+
+@app.get("/api/v1/simulations/catalog", response_model=list[SimulationCatalogItem])
+def get_simulations_catalog():
+    return simulation_service.get_catalog()
+
+
+@app.post("/api/v1/simulations/run", response_model=SimulationResult)
+def run_simulation(scenario: ScenarioRequest):
+    return simulation_service.run(scenario)

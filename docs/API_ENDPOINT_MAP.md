@@ -12,6 +12,8 @@ This document organizes the backend into specialized modules and validates front
 | `/api/events` | GET | Event log / Sync | ✅ `eventsApi.ts` |
 | `/api/v1/news` | GET | List operative news | ✅ `newsApi.ts` |
 | `/api/v1/attention-alerts` | GET | Real-time critical alerts | ✅ `integrationsApi.ts` |
+| `/api/v1/simulations/catalog` | GET | Catálogo de modelos de simulação multi-risco | ✅ Risk Analysis Unit |
+| `/api/v1/simulations/run` | POST | Executa cenário de simulação multi-risco | ✅ Risk Analysis Unit |
 
 ## Specialized Search & Public Access
 

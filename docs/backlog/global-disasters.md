@@ -14,3 +14,11 @@
 - [ ] **Modo Operação Offline-first**: Robustecer a persistência via IndexedDB local, com queue outbox expandida para as anotações do mapa para atrito zero em campo no interior.
 - [ ] **Expansão das Camadas de Camada (WMS/XYZ)**: Integrar visões de calor para inundações e chuvas dinamicamente consultando os catalogs GOES/Landsat via backend proxies.
 - [ ] **Exportação para Offline/Rádios**: Possibilitar Download das anotações mapeadas (GeoJSON) visando replicação no sistema rádio em cenários de quebra total da rede civil de telecomunicações.
+
+
+## Multi-Hazard SDK (Solicitação de Feature)
+- [ ] **SDK de Simulação Multi-Risco**: Criar núcleo `simulation-sdk` para incêndio, alagamento, terremoto e tsunami com contratos versionados de cenário.
+- [ ] **Cenário Costeiro/Tsunami**: Implementar simulação com ETA por trecho da costa, marégrafos/boias e polígonos de inundação costeira.
+- [ ] **Incêndio + Vento**: Integrar direção/velocidade do vento e umidade para estimar propagação e zonas de evacuação.
+- [ ] **Fusão de Sensores**: Padronizar ingestão de sensores (meteo, nível d'água, sísmico, oceânico) com indicador de qualidade por leitura.
+- [ ] **Gestão de Desmatamento**: Adicionar camada para pressão ambiental e aumento de suscetibilidade a incêndio/erosão.
