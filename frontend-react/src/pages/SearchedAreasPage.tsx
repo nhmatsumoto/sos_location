@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, Fragment } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { 
   Box, 
   VStack, 
@@ -24,7 +24,6 @@ import {
 } from '@chakra-ui/react';
 import { 
   Map as MapIcon, 
-  Shield, 
   Users, 
   AlertTriangle, 
   CheckCircle2, 
@@ -38,7 +37,8 @@ import { TacticalText } from '../components/atoms/TacticalText';
 import { TacticalButton } from '../components/atoms/TacticalButton';
 import { searchedAreasApi, type SearchedAreaApi } from '../services/searchedAreasApi';
 import { useNotifications } from '../context/NotificationsContext';
-import { MapContainer, TileLayer, Circle, Popup } from 'react-leaflet';
+import { Circle, Popup } from 'react-leaflet';
+import { TacticalMap } from '../components/features/map/TacticalMap';
 import 'leaflet/dist/leaflet.css';
 
 export function SearchedAreasPage() {
@@ -220,13 +220,11 @@ export function SearchedAreasPage() {
                     </HStack>
                  </Box>
 
-                 <MapContainer 
+                 <TacticalMap 
                     center={[-20.91, -42.98]} 
                     zoom={15} 
-                    zoomControl={false}
-                    style={{ height: '100%', width: '100%', filter: 'grayscale(0.4) brightness(0.8)' }}
+                    containerProps={{ flex: 1 }}
                  >
-                    <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
                     {Array.isArray(rows) && rows.map((area, i) => (
                        <Circle 
                           key={`area-${area.id || i}`}
@@ -249,7 +247,7 @@ export function SearchedAreasPage() {
                           </Popup>
                        </Circle>
                     ))}
-                 </MapContainer>
+                 </TacticalMap>
               </GlassPanel>
 
               <GlassPanel p={0} h="200px" overflow="hidden">

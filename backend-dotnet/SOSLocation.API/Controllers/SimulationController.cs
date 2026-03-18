@@ -9,6 +9,9 @@ using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Http;
+using System.Net.Http.Json;
+using Microsoft.Extensions.Configuration;
 using System.Text.Json;
 using System.Threading.Tasks;
 
@@ -21,11 +24,15 @@ namespace SOSLocation.API.Controllers
     {
         private readonly IGisService _gisService;
         private readonly SOSLocationDbContext _context;
+        private readonly HttpClient _httpClient;
+        private readonly string _riskServiceUrl;
 
-        public SimulationController(IGisService gisService, SOSLocationDbContext context)
+        public SimulationController(IGisService gisService, SOSLocationDbContext context, HttpClient httpClient, IConfiguration configuration)
         {
             _gisService = gisService;
             _context = context;
+            _httpClient = httpClient;
+            _riskServiceUrl = configuration["ExternalIntegrations:RiskServiceUrl"] ?? "http://risk-analysis:8000";
         }
 
         /// <summary>
@@ -83,7 +90,7 @@ namespace SOSLocation.API.Controllers
 
             // Parallel fetch of all GIS data needed
             var demTask     = _gisService.FetchElevationGridAsync(req.MinLat, req.MinLon, req.MaxLat, req.MaxLon, req.Resolution);
-            var urbanTask   = _gisService.FetchUrbanFeaturesAsync(req.MinLat, req.MinLon, req.MaxLat, req.MaxLon);
+            var urbanTask   = _gisService.ProcessUrbanPipelineAsync(req.MinLat, req.MinLon, req.MaxLat, req.MaxLon);
             var climateTask = _gisService.FetchClimateDataAsync(req.MinLat, req.MinLon, req.MaxLat, req.MaxLon);
             var soilTask    = _gisService.FetchSoilDataAsync(req.MinLat, req.MinLon, req.MaxLat, req.MaxLon);
             var vegTask     = _gisService.FetchVegetationDataAsync(req.MinLat, req.MinLon, req.MaxLat, req.MaxLon);
@@ -104,6 +111,47 @@ namespace SOSLocation.API.Controllers
                 Vegetation    = await vegTask,
                 GeneratedAt   = DateTime.UtcNow
             };
+
+            // INTEGRAÇÃO: Chamar Unidade de Análise de Risco (Python)
+            try 
+            {
+                var riskRequest = new
+                {
+                    scenario_id = result.SimulationId.ToString(),
+                    hazard_type = req.ScenarioType.ToLower(),
+                    bbox = result.Bbox,
+                    inputs = new {
+                        meteo = result.Climate,
+                        urban = result.UrbanFeatures,
+                        terrain = new { 
+                            elevation_sample = ((List<List<float>>)result.ElevationGrid!).FirstOrDefault()?.Take(5),
+                            soil = result.Soil,
+                            vegetation = result.Vegetation
+                        },
+                        config = new {
+                            intensity = req.Intensity,
+                            duration = req.Duration,
+                            water_level = req.WaterLevel,
+                            wind_speed = req.WindSpeed,
+                            pressure = req.Pressure,
+                            geology_index = req.GeologyIndex,
+                            temperature = req.Temperature
+                        }
+                    },
+                    sensors = new List<object>() // Pode ser expandido com sensores reais no futuro
+                };
+
+                var pythonResponse = await _httpClient.PostAsJsonAsync($"{_riskServiceUrl}/api/v1/simulations/run", riskRequest);
+                if (pythonResponse.IsSuccessStatusCode)
+                {
+                    result.Analysis = await pythonResponse.Content.ReadFromJsonAsync<object>();
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log and continue with raw data if analysis unit is unreachable
+                Console.WriteLine($"Risk Analysis Unit Unreachable: {ex.Message}");
+            }
 
             return Ok(Result<SimulationResultDto>.Success(result));
         }

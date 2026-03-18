@@ -98,6 +98,23 @@ namespace SOSLocation.Infrastructure.Persistence
             {
                 entry.Entity.CreatedAt = now;
                 entry.Entity.UpdatedAt = now;
+
+                if (entry.Entity is MapAnnotation mapAnn && string.IsNullOrEmpty(mapAnn.ExternalId))
+                {
+                    mapAnn.ExternalId = "INT-" + Guid.NewGuid().ToString("N").Substring(0, 12);
+                }
+                if (entry.Entity is MissingPerson mp && string.IsNullOrEmpty(mp.ExternalId))
+                {
+                    mp.ExternalId = "MP-" + Guid.NewGuid().ToString("N").Substring(0, 12);
+                }
+                if (entry.Entity is CollapseReport cr && string.IsNullOrEmpty(cr.ExternalId))
+                {
+                    cr.ExternalId = "CR-" + Guid.NewGuid().ToString("N").Substring(0, 12);
+                }
+                if (entry.Entity is AttentionAlert aa && string.IsNullOrEmpty(aa.ExternalId))
+                {
+                    aa.ExternalId = "AL-" + Guid.NewGuid().ToString("N").Substring(0, 12);
+                }
             }
 
             foreach (var entry in modifiedEntries)

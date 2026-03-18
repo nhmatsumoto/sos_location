@@ -88,6 +88,11 @@ export class WebGLRenderer {
     this.gl.vertexAttribPointer(location, size, type, normalized, stride, offset);
   }
 
+  public getAttribLocation(name: string): number {
+    if (!this.program) return -1;
+    return this.gl.getAttribLocation(this.program, name);
+  }
+
   public createTexture(image: HTMLImageElement | HTMLCanvasElement): WebGLTexture {
     const texture = this.gl.createTexture();
     if (!texture) throw new Error('Could not create texture.');

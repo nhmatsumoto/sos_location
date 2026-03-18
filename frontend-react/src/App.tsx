@@ -28,14 +28,12 @@ export default function App() {
   const state = useOperationalState();
 
   const displayedHotspots = useMemo(() => {
-    if (!state.tacticalMapEnabled) return state.hotspots;
-
     return state.hotspots.filter((hotspot) => {
       const riskText = `${hotspot.type} ${hotspot.riskFactors.join(' ')}`.toLowerCase();
       const disasterKeywords = ['flood', 'enchente', 'alag', 'corrente', 'desliz', 'desmoron', 'desab'];
       return hotspot.score >= 90 || disasterKeywords.some((keyword) => riskText.includes(keyword));
     });
-  }, [state.hotspots, state.tacticalMapEnabled]);
+  }, [state.hotspots]);
 
   const filteredNewsUpdates = useMemo(() => {
     const oneWeekAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);

@@ -46,7 +46,7 @@ namespace SOSLocation.Infrastructure.Services.Gis
             try
             {
                 var client = _httpClientFactory.CreateClient();
-                var riskEngineUrl = Environment.GetEnvironmentVariable("RISK_ENGINE_URL") ?? "http://localhost:8090";
+                var riskEngineUrl = Environment.GetEnvironmentVariable("RISK_ENGINE_URL") ?? "http://risk-analysis:8000";
                 
                 var response = await client.GetAsync($"{riskEngineUrl}/risk_scores");
                 if (response.IsSuccessStatusCode)

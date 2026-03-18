@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Pane, useMapEvents, useMap } from 'react-leaflet';
+import { Marker, Popup, Pane } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import '../../styles/MapLayerStyles.css';
 import MarkerClusterGroup from 'react-leaflet-cluster';
@@ -13,6 +13,8 @@ import { IntelPopupContent } from '../ui/IntelPopupContent';
 import { HazardMatrixLegend } from '../ui/HazardMatrixLegend';
 import { MapArea } from '../ui/MapArea';
 import { MapAutoBounds } from '../ui/MapAutoBounds';
+import { TacticalMap } from '../features/map/TacticalMap';
+import { useMapEvents, useMap } from 'react-leaflet';
 
 // Fix Leaflet marker icons in React
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
@@ -34,7 +36,7 @@ const getTacticalIcon = (category?: string, index?: number) => {
   else if (cat.match(/flood|enchente|rain|chuva/)) color = '#2b6cb0';
   else if (cat.match(/earthquake|terremoto|tsunami/)) color = '#e53e3e';
   else if (cat.match(/humanitarian|crise/)) color = '#ecc94b';
-  else if (cat.match(/heat|calor/)) color = '#dd6b20';
+  else if (cat.match(/heat|clor/)) color = '#dd6b20';
   else if (cat.match(/storm|hurricane|furação/)) color = '#805ad5';
 
   return L.divIcon({
@@ -75,7 +77,6 @@ export function PublicPortalMap({ news, selectedEvent }: PublicPortalMapProps) {
     return () => clearInterval(interval);
   }, []);
 
-  // Guard: ensure news is always an array before sorting (API may return null/object)
   const safeNews = Array.isArray(news) ? news : [];
   const sortedNews = [...safeNews].sort((a, b) =>
     new Date(a.at ?? 0).getTime() - new Date(b.at ?? 0).getTime()
@@ -84,100 +85,91 @@ export function PublicPortalMap({ news, selectedEvent }: PublicPortalMapProps) {
   return (
     <Box h="full" w="full" bg="sos.dark" position="relative" zIndex={0}>
       <div className={`map-3d-perspective ${zoomLevel > 6 ? 'map-micro-focus' : ''}`}>
-        <div className="map-3d-content">
-          <MapContainer 
-            center={defaultCenter} 
-            zoom={4} 
-            style={{ height: '100%', width: '100%', background: '#0A0B10' }}
-            zoomControl={false}
-          >
-            <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-            />
-            
-            <MapEventTracker 
-              setZoom={setZoomLevel} 
-              onContextMenu={(e) => setContextMenu({ x: e.originalEvent.clientX, y: e.originalEvent.clientY, coords: [e.latlng.lat, e.latlng.lng] })}
-            />
-            
-            <MapSelectedEventFocuser event={selectedEvent} />
-            <MapAutoBounds news={news} />
+        <TacticalMap 
+          center={defaultCenter} 
+          zoom={4} 
+          containerProps={{ className: "map-3d-content" }}
+        >
+          <MapEventTracker 
+            setZoom={setZoomLevel} 
+            onContextMenu={(e) => setContextMenu({ x: e.originalEvent.clientX, y: e.originalEvent.clientY, coords: [e.latlng.lat, e.latlng.lng] })}
+          />
+          
+          <MapSelectedEventFocuser event={selectedEvent} />
+          <MapAutoBounds news={news} />
 
-            <Pane name="areas-pane" style={{ zIndex: 200 }}>
-              {sortedNews.map((item) => {
-                if (!item) return null;
-                const lat = item.latitude || (item as any).lat;
-                const lng = item.longitude || (item as any).lng;
-                if (!lat || !lng) return null;
-                return (
-                  <MapArea 
-                    key={`area-${item.id}`}
-                    id={item.id}
-                    latitude={lat}
-                    longitude={lng}
-                    category={item.category || ''}
-                  />
-                );
-              })}
-            </Pane>
-            
-            <MarkerClusterGroup chunkedLoading maxClusterRadius={40}>
-              {sortedNews.map((item, idx) => {
-                if (!item) return null;
-                const lat = item.latitude || (item as any).lat;
-                const lng = item.longitude || (item as any).lng;
-                if (!lat || !lng) return null;
+          <Pane name="areas-pane" style={{ zIndex: 200 }}>
+            {sortedNews.map((item) => {
+              if (!item) return null;
+              const lat = item.latitude || (item as any).lat;
+              const lng = item.longitude || (item as any).lng;
+              if (!lat || !lng) return null;
+              return (
+                <MapArea 
+                  key={`area-${item.id}`}
+                  id={item.id}
+                  latitude={lat}
+                  longitude={lng}
+                  category={item.category || ''}
+                />
+              );
+            })}
+          </Pane>
+          
+          <MarkerClusterGroup chunkedLoading maxClusterRadius={40}>
+            {sortedNews.map((item, idx) => {
+              if (!item) return null;
+              const lat = item.latitude || (item as any).lat;
+              const lng = item.longitude || (item as any).lng;
+              if (!lat || !lng) return null;
 
-                return (
-                  <Marker 
-                    key={item.id} 
-                    position={[lat, lng]} 
-                    icon={getTacticalIcon(item.category, idx)}
-                  >
-                    <Popup className="guardian-popup">
-                      <IntelPopupContent item={item} />
-                    </Popup>
-                  </Marker>
-                );
-              })}
-            </MarkerClusterGroup>
-
-            {/* Tactical Operational Points */}
-            <Pane name="op-points-pane" style={{ zIndex: 600 }}>
-              {opPoints.map((point, index) => (
+              return (
                 <Marker 
-                  key={point.id} 
-                  position={[point.latitude, point.longitude]}
-                  icon={L.divIcon({
-                    className: 'tactical-marker-container',
-                    html: `
-                      <div class="tactical-pulse ${point.type.toLowerCase()}"></div>
-                      <div class="tactical-marker-id">${index + 1}</div>
-                    `,
-                    iconSize: [32, 32],
-                    iconAnchor: [16, 16]
-                  })}
+                  key={item.id} 
+                  position={[lat, lng]} 
+                  icon={getTacticalIcon(item.category, idx)}
                 >
                   <Popup className="guardian-popup">
-                    <VStack align="stretch" spacing={2} p={1}>
-                      <HStack justify="space-between">
-                         <Badge colorScheme="blue" variant="solid" fontSize="10px">{point.type.toUpperCase()}</Badge>
-                         <Text fontSize="10px" color="whiteAlpha.500">#{index + 1}</Text>
-                      </HStack>
-                      <Text fontWeight="black" fontSize="xs">{point.title}</Text>
-                      <Text fontSize="10px" color="whiteAlpha.700">{point.description}</Text>
-                      <Divider borderColor="whiteAlpha.200" />
-                      <Text fontSize="8px" color="whiteAlpha.500" fontFamily="mono">
-                         COORD: {point.latitude.toFixed(4)}, {point.longitude.toFixed(4)}
-                      </Text>
-                    </VStack>
+                    <IntelPopupContent item={item} />
                   </Popup>
                 </Marker>
-              ))}
-            </Pane>
-          </MapContainer>
-        </div>
+              );
+            })}
+          </MarkerClusterGroup>
+
+          <Pane name="op-points-pane" style={{ zIndex: 600 }}>
+            {opPoints.map((point, index) => (
+              <Marker 
+                key={point.id} 
+                position={[point.latitude, point.longitude]}
+                icon={L.divIcon({
+                  className: 'tactical-marker-container',
+                  html: `
+                    <div class="tactical-pulse ${point.type.toLowerCase()}"></div>
+                    <div class="tactical-marker-id">${index + 1}</div>
+                  `,
+                  iconSize: [32, 32],
+                  iconAnchor: [16, 16]
+                })}
+              >
+                <Popup className="guardian-popup">
+                  <VStack align="stretch" spacing={2} p={1}>
+                    <HStack justify="space-between">
+                       <Badge colorScheme="blue" variant="solid" fontSize="10px">{point.type.toUpperCase()}</Badge>
+                       <Text fontSize="10px" color="whiteAlpha.500">#{index + 1}</Text>
+                    </HStack>
+                    <Text fontWeight="black" fontSize="xs">{point.title}</Text>
+                    <Text fontSize="10px" color="whiteAlpha.700">{point.description}</Text>
+                    <Divider borderColor="whiteAlpha.200" />
+                    <Text fontSize="8px" color="whiteAlpha.500" fontFamily="mono">
+                       COORD: {point.latitude.toFixed(4)}, {point.longitude.toFixed(4)}
+                    </Text>
+                  </VStack>
+                </Popup>
+              </Marker>
+            ))}
+          </Pane>
+        </TacticalMap>
       </div>
       
       {contextMenu && (
@@ -201,7 +193,7 @@ function MapEventTracker({ setZoom, onContextMenu }: {
   setZoom: (z: number) => void, 
   onContextMenu: (e: L.LeafletMouseEvent) => void
 }) {
-  useMapEvents({
+  const map = useMapEvents({
     zoomend: (e) => {
       setZoom(e.target.getZoom());
     },
@@ -223,7 +215,6 @@ function MapSelectedEventFocuser({ event }: { event: NewsNotification | null | u
         try {
           map.flyTo([lat, lng], 10, { animate: true, duration: 1.5 });
         } catch (_) {
-          // Map may have been unmounted — suppress stale animation errors
         }
       }
     }

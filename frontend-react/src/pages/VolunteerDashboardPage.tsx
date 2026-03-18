@@ -1,4 +1,4 @@
-import { MapContainer, TileLayer, Marker, Popup, Circle as LeafletCircle } from 'react-leaflet';
+import { Marker, Popup, Circle as LeafletCircle } from 'react-leaflet';
 import { 
   CheckCircle2, 
   Trophy, 
@@ -29,19 +29,14 @@ import { GlassPanel } from '../components/atoms/GlassPanel';
 import { TacticalText } from '../components/atoms/TacticalText';
 import { TacticalButton } from '../components/atoms/TacticalButton';
 import { TacticalStat } from '../components/molecules/TacticalStat';
+import { TacticalMap } from '../components/features/map/TacticalMap';
 
-/**
- * Volunteer Operations Command
- * Centered on community response, task coordination, and individual impact telemétria.
- * Refactored with the Guardian Design System.
- */
 export function VolunteerDashboardPage() {
   const { tasks, stats, isOnline, loading, refreshing, actions } = useVolunteerDashboard();
 
   return (
     <Flex direction="column" h="100%" gap={6} p={8} overflow="hidden">
       
-      {/* Tactical Status Header */}
       <GlassPanel p={5} display="flex" alignItems="center" justifyContent="space-between" flexDir={{ base: 'column', md: 'row' }} gap={6}>
         <HStack spacing={6}>
           <HStack spacing={4}>
@@ -96,10 +91,8 @@ export function VolunteerDashboardPage() {
       ) : (
         <Flex flex={1} gap={8} overflow="hidden">
           
-          {/* List Section - Left */}
           <VStack w={{ base: 'full', lg: '450px' }} gap={6} overflowY="auto" align="stretch" className="no-scrollbar">
             
-            {/* Impact Telemetry Grid */}
             <SimpleGrid columns={2} spacing={4}>
               <GlassPanel p={5}>
                 <TacticalStat label="Missões Ativas" value={stats?.activeTasks ?? 0} icon={LayoutGrid} color="sos.blue.400" />
@@ -115,7 +108,6 @@ export function VolunteerDashboardPage() {
               </GlassPanel>
             </SimpleGrid>
 
-            {/* Safety Protocol Banner */}
             <Box 
               bgGradient="linear(to-br, sos.blue.700, sos.blue.900)" 
               borderRadius="3xl" 
@@ -136,7 +128,6 @@ export function VolunteerDashboardPage() {
               </TacticalText>
             </Box>
 
-            {/* Mission Feed */}
             <VStack spacing={4} align="stretch" pb={10}>
               <Flex align="center" justify="space-between" px={2}>
                 <TacticalText variant="subheading">Missões de Campo Disponíveis</TacticalText>
@@ -154,7 +145,6 @@ export function VolunteerDashboardPage() {
             </VStack>
           </VStack>
 
-          {/* Tactical Map - Center/Right */}
           <Box 
             flex={1} 
             display={{ base: 'none', lg: 'block' }} 
@@ -184,16 +174,11 @@ export function VolunteerDashboardPage() {
               </GlassPanel>
             </Box>
 
-            <MapContainer 
+            <TacticalMap 
               center={[-21.1215, -42.9427]} 
               zoom={14} 
-              zoomControl={false}
-              style={{ height: '100%', width: '100%' }}
+              containerProps={{ style: { height: '100%', width: '100%' } }}
             >
-              <TileLayer 
-                attribution='&copy; CARTO' 
-                url='https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png' 
-              />
               {tasks.map(task => (
                 <LeafletCircle
                   key={task.id}
@@ -216,7 +201,7 @@ export function VolunteerDashboardPage() {
                   </Popup>
                 </Marker>
               ))}
-            </MapContainer>
+            </TacticalMap>
           </Box>
         </Flex>
       )}

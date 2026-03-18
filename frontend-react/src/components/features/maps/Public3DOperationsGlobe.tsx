@@ -1,8 +1,10 @@
 import { useMemo, useRef, useState, Suspense } from 'react';
 import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber';
 import { OrbitControls, Stars, Text, Float } from '@react-three/drei';
-import { CircleMarker, MapContainer, Polygon, Popup, TileLayer } from 'react-leaflet';
+import { Polygon, Popup, CircleMarker } from 'react-leaflet';
 import * as THREE from 'three';
+import { Box } from '@chakra-ui/react';
+import { TacticalMap } from '../map/TacticalMap';
 import type { OperationsSnapshot } from '../../../services/operationsApi';
 
 type MarkerKind = 'house' | 'building' | 'critical' | 'event' | 'manual';
@@ -291,19 +293,12 @@ export function Public3DOperationsGlobe({ data }: { data: OperationsSnapshot | n
         </div>
       </div>
 
-      {/* 2D Sync Map (Optional Toggle or separate section, here simplified for presentation) */}
-      <div className="h-[240px] border-t border-white/5 bg-slate-950">
-        <MapContainer 
+      <Box h="240px" borderTop="1px solid" borderColor="whiteAlpha.100">
+        <TacticalMap 
           center={manualPoint ? [manualPoint.lat, manualPoint.lng] : [-15.78, -47.93]} 
           zoom={manualPoint ? 9 : 4} 
-          style={{ height: '100%', width: '100%' }}
-          zoomControl={false}
+          showLabel={false}
         >
-          <TileLayer
-            attribution='&copy; CARTO'
-            url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-          />
-
           {markers.map((marker) => (
             <CircleMarker
               key={marker.id}
@@ -335,8 +330,8 @@ export function Public3DOperationsGlobe({ data }: { data: OperationsSnapshot | n
               </Popup>
             </Polygon>
           ))}
-        </MapContainer>
-      </div>
+        </TacticalMap>
+      </Box>
     </div>
   );
 }

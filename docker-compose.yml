@@ -91,8 +91,12 @@ services:
       - Keycloak__RequireHttpsMetadata=false
       - ExternalIntegrations__InmetUrl=${INMET_URL:-https://apiprevmet3.inmet.gov.br/avisos/ativos}
       - ExternalIntegrations__OpenTopographyUrl=${OPENTOPOGRAPHY_URL:-https://portal.opentopography.org/API/globaldem}
+      - ExternalIntegrations__OpenTopographyApiKey=${OPENTOPOGRAPHY_API_KEY:-}
       - ExternalIntegrations__OverpassUrl=${OVERPASS_URL:-https://overpass-api.de/api/interpreter}
       - ExternalIntegrations__OpenMeteoUrl=${OPENMETEO_URL:-https://api.open-meteo.com/v1/forecast}
+      - ExternalIntegrations__EarthdataToken=${NASA_EARTHDATA_TOKEN:-eyJ0eXAiOiJKV1QiLCJvcmlnaW4iOiJFYXJ0aGRhdGEgTG9naW4iLCJzaWciOiJlZGxqd3RwdWJrZXlfb3BzIiwiYWxnIjoiUlMyNTYifQ.eyJ0eXBlIjoiVXNlciIsInVpZCI6Im5obWF0c3Vtb3RvIiwiZXhwIjoxNzc4OTM2NzkxLCJpYXQiOjE3NzM3NTI3OTEsImlzcyI6Imh0dHBzOi8vdXJzLmVhcnRoZGF0YS5uYXNhLmdvdiIsImlkZW50aXR5X3Byb3ZpZGVyIjoiZWRsX29wcyIsImFjciI6ImVkbCIsImFzc3VyYW5jZV9sZXZlbCI6M30.OTPMibAeknCQrQv2_3s0vZ_8pkNbr0cHAAEud9dFzM7XN6HkiGMaY5z1OU_AfgpAaL78yq4FsW2gSKjwq3hReST7ZXG2QyEpPC2QNE0SgNR2XlA0thF90QSeeko0HcomD78VXzCSi4mX73QEPE0xTROgx7Ybgj79tlaksAKkclKlGt3zN1b-BntLjkXwuXY4-MnqAeIvmLyF-V_imYZA-Z989BWS7OVIIAILZEOlUnpABBQdwbnXWT9iM-2hDSMcuM1_hUXoQWsmkWkPWlVxexOrOl_5-ElJDYbItj6cEtLpVRNeJOSgj8lhXNnP-RyIaau9YlZ6CG3DuKVfdkVIfg}
+      - ExternalIntegrations__RiskServiceUrl=http://risk-analysis:8000
+      - RISK_ENGINE_URL=http://risk-analysis:8000
       - ExternalIntegrations__CacheExpirationMinutes=${GIS_CACHE_EXPIRATION_MINUTES:-15}
       - ExternalIntegrations__IndexingIntervalMinutes=${GIS_INDEXING_INTERVAL_MINUTES:-30}
     volumes:

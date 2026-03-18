@@ -1,7 +1,7 @@
 import React from 'react';
 import { 
-  MapContainer, TileLayer, Marker, Popup, CircleMarker, 
-  LayersControl, Polyline, Circle 
+  Marker, Popup, CircleMarker, 
+  Polyline, Circle 
 } from 'react-leaflet';
 import { 
   Waves, MapPin, Camera, ExternalLink
@@ -13,9 +13,9 @@ import type {
 import { iconCritical, iconFlood, iconLandslide } from '../icons';
 import { MapFocusController } from './features/map/MapFocusController';
 import { MapClickSelector } from './features/map/MapClickSelector';
+import { TacticalMap } from './features/map/TacticalMap';
 
 interface OperationalMapProps {
-  tacticalMapEnabled: boolean;
   activeCatastrophe: Catastrophe | null;
   catastrophes: Catastrophe[];
   displayedHotspots: Hotspot[];
@@ -45,7 +45,7 @@ interface OperationalMapProps {
 
 export const OperationalMap: React.FC<OperationalMapProps> = (props) => {
   const {
-    tacticalMapEnabled, activeCatastrophe, catastrophes,
+    activeCatastrophe, catastrophes,
     displayedHotspots, selectedIncidentPoint, setSelectedIncidentPoint,
     supportPoints, setSupportPoints,    attentionAlerts, flowResult,
     flowPathLatLng, mapOverlayRef, setLastMapClick,
@@ -58,28 +58,11 @@ export const OperationalMap: React.FC<OperationalMapProps> = (props) => {
 
   return (
     <div ref={mapOverlayRef} className="w-full flex-1 relative z-10">
-      <MapContainer 
-        key={`map-${tacticalMapEnabled ? 'tactical' : 'default'}`} 
+      <TacticalMap 
         center={[-21.1215, -42.9427]} 
         zoom={14} 
-        className="h-full w-full" 
-        zoomControl={false}
+        containerProps={{ className: "h-full w-full" }}
       >
-        <LayersControl position="topright">
-          <LayersControl.BaseLayer checked={!tacticalMapEnabled} name="Mapa em relevo">
-            <TileLayer 
-              attribution='Map data: &copy; OpenStreetMap contributors' 
-              url="https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png" 
-            />
-          </LayersControl.BaseLayer>
-          <LayersControl.BaseLayer checked={tacticalMapEnabled} name="Mapa escuro tático">
-            <TileLayer 
-              attribution='&copy; CartoDB' 
-              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" 
-            />
-          </LayersControl.BaseLayer>
-        </LayersControl>
-
         <MapFocusController target={activeCatastrophe ? { lat: activeCatastrophe.centerLat, lng: activeCatastrophe.centerLng } : null} />
 
         <MapClickSelector
@@ -296,7 +279,7 @@ export const OperationalMap: React.FC<OperationalMapProps> = (props) => {
         {flowPathLatLng.length > 1 && (
           <Polyline positions={flowPathLatLng} pathOptions={{ color: '#06b6d4', weight: 3, opacity: 0.9, dashArray: '6 6' }} />
         )}
-      </MapContainer>
+      </TacticalMap>
     </div>
   );
 };

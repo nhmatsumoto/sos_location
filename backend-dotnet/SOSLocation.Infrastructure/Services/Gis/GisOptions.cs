@@ -7,6 +7,12 @@ namespace SOSLocation.Infrastructure.Services.Gis
         public string OpenTopographyUrl { get; set; } = "https://portal.opentopography.org/API/globaldem";
         public string OverpassUrl { get; set; } = "https://overpass-api.de/api/interpreter";
         public string OpenMeteoUrl { get; set; } = "https://api.open-meteo.com/v1/forecast";
+        public string OpenTopographyApiKey { get; set; } = "";
+        public string EarthdataUrl { get; set; } = "https://urs.earthdata.nasa.gov/";
+        public string EarthdataToken { get; set; } = "";
+        public string MapboxToken { get; set; } = "";
+        public string MapboxUrl { get; set; } = "https://api.mapbox.com/v4/mapbox.terrain-rgb/{z}/{x}/{y}.pngraw";
+        public string AwsTerrainUrl { get; set; } = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png";
         public int CacheExpirationMinutes { get; set; } = 15;
         public int IndexingIntervalMinutes { get; set; } = 30;
     }

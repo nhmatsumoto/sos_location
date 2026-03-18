@@ -25,12 +25,35 @@ export function useSimulationsController() {
   const numericLat = useMemo(() => Number(lat), [lat]);
   const numericLng = useMemo(() => Number(lng), [lng]);
 
-  const runSimulation = async (scenarioType: string = 'landslide', resolution: number = 128, bbox?: number[]) => {
+  const indexGisMission = async (bbox: number[]) => {
+    setIsSimulating(true);
+    try {
+      const payload = await simulationsApi.indexUrbanPipeline({
+        minLat: bbox[0],
+        minLon: bbox[1],
+        maxLat: bbox[2],
+        maxLon: bbox[3]
+      });
+      setResultData(payload);
+      return payload;
+    } catch (err) {
+      console.error("GIS Indexing pipeline failed.", err);
+      throw err;
+    } finally {
+      setIsSimulating(false);
+    }
+  };
+
+  const runSimulation = async (
+    scenarioType: string = 'landslide', 
+    resolution: number = 128, 
+    bbox?: number[],
+    config?: any
+  ) => {
     setIsSimulating(true);
     try {
       let finalBbox = bbox;
       if (!finalBbox) {
-         // Fallback: Compute a ~2-3km box around the point for local high-res context
          const span = 0.012; 
          finalBbox = [numericLat - span, numericLng - span, numericLat + span, numericLng + span];
       }
@@ -41,7 +64,8 @@ export function useSimulationsController() {
         minLon: finalBbox[1],
         maxLat: finalBbox[2],
         maxLon: finalBbox[3],
-        resolution
+        resolution,
+        ...config
       });
       setResultData(payload);
     } catch (err) {
@@ -96,6 +120,6 @@ export function useSimulationsController() {
     lat, setLat, lng, setLng,
     resultData, streamSteps, rainSummary, isSimulating,
     numericLat, numericLng,
-    actions: { runSimulation, startRealtimeStream }
+    actions: { indexGisMission, runSimulation, startRealtimeStream }
   };
 }

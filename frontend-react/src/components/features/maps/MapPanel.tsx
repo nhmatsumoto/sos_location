@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { MapContainer, TileLayer } from 'react-leaflet';
+import { TacticalMap } from '../map/TacticalMap';
 
 export function MapPanel({ title = 'Mapa operacional', rightSlot, renderExtraLayers }: { title?: string; rightSlot?: ReactNode; renderExtraLayers?: () => ReactNode }) {
   return (
@@ -9,10 +9,9 @@ export function MapPanel({ title = 'Mapa operacional', rightSlot, renderExtraLay
         {rightSlot}
       </div>
       <div className="relative h-[360px] overflow-hidden rounded-xl border border-slate-700 md:h-[520px]">
-        <MapContainer center={[-21.1215, -42.9427]} zoom={12} style={{ height: '100%', width: '100%' }}>
-          <TileLayer attribution='&copy; OpenStreetMap contributors' url='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png' />
+        <TacticalMap center={[-21.1215, -42.9427]} zoom={12} showLabel={false}>
           {renderExtraLayers?.()}
-        </MapContainer>
+        </TacticalMap>
       </div>
     </section>
   );

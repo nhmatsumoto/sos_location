@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Polygon, TileLayer, MapContainer } from 'react-leaflet';
+import { Polygon } from 'react-leaflet';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
   Box, 
@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { LoadingOverlay } from '../components/ui/LoadingOverlay';
 import { modulesApi } from '../services/modulesApi';
+import { TacticalMap } from '../components/features/map/TacticalMap';
 
 interface KpiItemProps {
   label: string;
@@ -102,7 +103,6 @@ export function PublicIncidentDashboardPage() {
     <Box h="100vh" w="100vw" position="relative" overflow="hidden" bg="sos.dark">
       {loading && <LoadingOverlay message="Obtendo Dados Públicos..." />}
 
-      {/* Floating Header */}
       <Box 
         position="absolute" 
         top={6} 
@@ -165,7 +165,6 @@ export function PublicIncidentDashboardPage() {
         </HStack>
       </Box>
 
-      {/* KPI Sidebar */}
       <VStack 
         position="absolute" 
         top="110px" 
@@ -200,7 +199,6 @@ export function PublicIncidentDashboardPage() {
           color="orange.400" 
         />
 
-        {/* Info Box */}
         <Box 
           mt={4}
           bg="rgba(15, 23, 42, 0.6)" 
@@ -224,18 +222,11 @@ export function PublicIncidentDashboardPage() {
         </Box>
       </VStack>
 
-      {/* Map Content (Background) */}
       <Box position="absolute" inset={0} zIndex={0}>
-        <MapContainer 
+        <TacticalMap 
           center={[-21.1215, -42.9427]} 
           zoom={12} 
-          zoomControl={false}
-          style={{ height: '100%', width: '100%' }}
         >
-          <TileLayer 
-            attribution='&copy; CARTO' 
-            url='https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png' 
-          />
           {areas.map((r) => {
             const path = (r.geometry_json?.coordinates?.[0] || []).map((c: number[]) => [c[1], c[0]] as [number, number]);
             return (
@@ -251,7 +242,7 @@ export function PublicIncidentDashboardPage() {
               />
             );
           })}
-        </MapContainer>
+        </TacticalMap>
       </Box>
     </Box>
   );

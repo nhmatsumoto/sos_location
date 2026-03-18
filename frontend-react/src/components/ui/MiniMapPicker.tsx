@@ -1,8 +1,8 @@
-import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
-import { Box, Icon } from '@chakra-ui/react';
-import { MapPin } from 'lucide-react';
+import { Marker, useMapEvents } from 'react-leaflet';
+import { Box } from '@chakra-ui/react';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import { TacticalMap } from '../features/map/TacticalMap';
 
 // Fix Leaflet marker icon
 const customIcon = new L.DivIcon({
@@ -30,7 +30,7 @@ function MapEvents({ onChange }: { onChange: (lat: number, lng: number) => void 
 export function MiniMapPicker({ lat, lng, onChange }: MiniMapPickerProps) {
   return (
     <Box 
-      h="200px" 
+      h="350px" 
       w="full" 
       borderRadius="xl" 
       overflow="hidden" 
@@ -38,19 +38,14 @@ export function MiniMapPicker({ lat, lng, onChange }: MiniMapPickerProps) {
       borderColor="whiteAlpha.100"
       position="relative"
     >
-      <MapContainer 
+      <TacticalMap 
         center={[lat, lng]} 
         zoom={13} 
-        style={{ height: '100%', width: '100%', background: '#08080F' }}
-        zoomControl={false}
+        showLabel={false}
       >
-        <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
-        />
         <MapEvents onChange={onChange} />
         <Marker position={[lat, lng]} icon={customIcon} />
-      </MapContainer>
+      </TacticalMap>
       
       {/* HUD overlay */}
       <Box 

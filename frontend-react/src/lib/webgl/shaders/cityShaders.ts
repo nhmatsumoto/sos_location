@@ -43,15 +43,16 @@ in float v_height;
 out vec4 outColor;
 
 uniform int u_satelliteMode;
+uniform sampler2D u_satelliteMap;
 uniform vec3 u_soilColor;
+uniform float u_reveal;
 
 void main() {
   vec3 groundColor = mix(vec3(0.04, 0.06, 0.12), vec3(0.12, 0.18, 0.3), clamp(v_height / 15.0, 0.0, 1.0));
   
   if (u_satelliteMode == 1) {
-    vec3 forest = vec3(0.05, 0.1, 0.05);
-    vec3 urban = vec3(0.2, 0.22, 0.25);
-    groundColor = mix(forest, urban, fract(sin(dot(v_uv, vec2(12.9898, 78.233))) * 43758.5453));
+    vec3 satColor = texture(u_satelliteMap, v_uv).rgb;
+    groundColor = mix(groundColor, satColor, 0.85);
   }
 
   groundColor = mix(groundColor, u_soilColor, 0.15);
@@ -75,7 +76,7 @@ void main() {
 
   vec3 lightDir = normalize(vec3(0.5, 0.8, 0.3));
   float diff = max(dot(v_normal, lightDir), 0.3);
-  outColor = vec4(finalColor * diff, 1.0);
+  outColor = vec4(finalColor * diff, u_reveal);
 }
 `
   },
@@ -98,9 +99,10 @@ void main() {
 `,
     FS: `#version 300 es
 precision highp float;
+uniform float u_reveal;
 out vec4 outColor;
 void main() {
-    outColor = vec4(0.4, 0.45, 0.5, 1.0);
+    outColor = vec4(0.4, 0.45, 0.5, u_reveal);
 }
 `
   },
@@ -124,49 +126,48 @@ void main() {
     FS: `#version 300 es
 precision highp float;
 uniform float u_time;
+uniform float u_reveal;
 out vec4 outColor;
 void main() {
     float shine = 0.5 + 0.5 * sin(u_time * 2.0);
-    outColor = vec4(0.0, 0.3, 0.6 + shine * 0.2, 0.9);
+    outColor = vec4(0.0, 0.3, 0.6 + shine * 0.2, 0.9 * u_reveal);
 }
 `
   },
 
   INFRASTRUCTURE: {
     VS: `#version 300 es
-layout(location = 0) in vec3 a_position;
-layout(location = 1) in vec2 a_texCoord;
+layout(location = 0) in vec3 a_position; // Unit cube vertex
+layout(location = 1) in vec4 a_instanceData; // x, z, height, levels
 
 uniform mat4 u_projectionMatrix;
 uniform mat4 u_viewMatrix;
 uniform mat4 u_modelMatrix;
-uniform sampler2D u_heightMap;
 uniform sampler2D u_topoMap;
-uniform float u_heightScale;
 uniform float u_topoScale;
-uniform float u_urbanDensity;
 
 out float v_floorCount;
 out float v_isTop;
 out vec3 v_worldPos;
 
 void main() {
-    vec4 heightData = texture(u_heightMap, a_texCoord);
-    vec4 topoData = texture(u_topoMap, a_texCoord);
-    v_floorCount = heightData.r * 255.0;
+    float xPos = a_instanceData.x;
+    float zPos = a_instanceData.y;
+    float buildHeight = a_instanceData.z;
+    v_floorCount = a_instanceData.w;
 
-    if (v_floorCount < 0.1) {
-       float noise = fract(sin(dot(a_texCoord, vec2(12.9898, 78.233))) * 43758.5453);
-       if (noise < u_urbanDensity) {
-          v_floorCount = 5.0 + noise * 15.0;
-       }
-    }
-
+    vec2 uv = (vec2(xPos, zPos) + 100.0) / 200.0;
+    vec4 topoData = texture(u_topoMap, uv);
     float baseHeight = topoData.r * u_topoScale;
-    float buildHeight = a_position.y > 0.0 ? v_floorCount * u_heightScale : 0.0;
-    v_isTop = a_position.y > 0.0 ? 1.0 : 0.0;
+
+    v_isTop = a_position.y > 0.5 ? 1.0 : 0.0;
     
-    vec4 worldPos = u_modelMatrix * vec4(a_position.x, baseHeight + buildHeight, a_position.z, 1.0);
+    // Scale unit cube to building dimensions
+    vec3 scaledPos = a_position;
+    scaledPos.y *= buildHeight;
+    scaledPos.xz *= 1.2; // Width/Depth
+    
+    vec4 worldPos = u_modelMatrix * vec4(scaledPos.x + xPos, baseHeight + scaledPos.y, scaledPos.z + zPos, 1.0);
     v_worldPos = worldPos.xyz;
     gl_Position = u_projectionMatrix * u_viewMatrix * worldPos;
 }
@@ -177,6 +178,7 @@ in float v_floorCount;
 in float v_isTop;
 in vec3 v_worldPos;
 uniform float u_time;
+uniform float u_reveal;
 uniform int u_aiMode;
 out vec4 outColor;
 
@@ -199,7 +201,7 @@ void main() {
       if (scan > 0.96) color = mix(color, vec3(0.0, 1.0, 1.0), 0.8);
       color += vec3(0.0, 0.04, 0.1) * (1.0 - abs(scan));
     }
-    outColor = vec4(color, 0.95);
+    outColor = vec4(color, 0.95 * u_reveal);
 }
 `
   },
@@ -241,6 +243,7 @@ in float v_depth;
 in vec2 v_uv;
 in vec3 v_worldPos;
 uniform float u_time;
+uniform float u_reveal;
 out vec4 outColor;
 
 void main() {
@@ -264,7 +267,7 @@ void main() {
     float foam = smoothstep(0.4, 0.0, v_depth);
     color = mix(color, vec3(0.8, 0.9, 1.0), foam * 0.3 * (0.8 + 0.2 * sin(u_time * 4.0)));
 
-    outColor = vec4(color, 0.75);
+    outColor = vec4(color, 0.75 * u_reveal);
 }
 `
   },
@@ -275,6 +278,7 @@ layout(location = 0) in vec3 a_position;
 uniform mat4 u_projectionMatrix;
 uniform mat4 u_viewMatrix;
 uniform float u_time;
+uniform float u_reveal;
 uniform int u_type;
 uniform float u_windSpeed;
 uniform float u_windDirection;
@@ -308,16 +312,17 @@ void main() {
     }
     
     gl_Position = u_projectionMatrix * u_viewMatrix * vec4(pos, 1.0);
-    gl_PointSize = u_type == 1 ? (3.0 + windFactor * 0.1) : 1.5;
+    gl_PointSize = u_type == 1 ? (3.0 + windFactor * 0.1) : 0.8;
     v_life = pos.y / 40.0;
 }
 `,
     FS: `#version 300 es
 precision highp float;
 in float v_life;
+uniform float u_reveal;
 out vec4 outColor;
 void main() {
-    outColor = vec4(0.6, 0.85, 1.0, 0.7 * (1.0 - v_life));
+    outColor = vec4(0.6, 0.85, 1.0, 0.7 * (1.0 - v_life) * u_reveal);
 }
 `
   },
@@ -344,6 +349,7 @@ void main() {
 precision highp float;
 in float v_density;
 uniform float u_vegIntensity;
+uniform float u_reveal;
 out vec4 outColor;
 void main() {
     float threshold = 0.9 - (u_vegIntensity * 0.6); 
@@ -353,7 +359,7 @@ void main() {
     vec3 lightLeaf = vec3(0.15, 0.35, 0.1);
     vec3 leafColor = mix(forestColor, lightLeaf, v_density);
     
-    outColor = vec4(leafColor, 0.9);
+    outColor = vec4(leafColor, 0.9 * u_reveal);
 }
 `
   }

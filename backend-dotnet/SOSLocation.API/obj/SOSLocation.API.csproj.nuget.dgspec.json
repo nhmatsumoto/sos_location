@@ -1176,6 +1176,10 @@
               "target": "Package",
               "version": "[2.1.72, )"
             },
+            "MaxRev.Gdal.Core": {
+              "target": "Package",
+              "version": "[3.12.2.472, )"
+            },
             "Microsoft.EntityFrameworkCore.Design": {
               "target": "Package",
               "version": "[10.0.3, )"
@@ -1196,9 +1200,21 @@
               "target": "Package",
               "version": "[10.0.0, )"
             },
+            "NetTopologySuite": {
+              "target": "Package",
+              "version": "[2.6.0, )"
+            },
             "Npgsql.EntityFrameworkCore.PostgreSQL": {
               "target": "Package",
               "version": "[10.0.0, )"
+            },
+            "RabbitMQ.Client": {
+              "target": "Package",
+              "version": "[7.2.1, )"
+            },
+            "SixLabors.ImageSharp": {
+              "target": "Package",
+              "version": "[3.1.12, )"
             }
           },
           "imports": [

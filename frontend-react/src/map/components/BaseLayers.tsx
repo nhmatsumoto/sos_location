@@ -3,8 +3,10 @@ import { TileLayer } from 'react-leaflet';
 export function BaseLayers() {
   return (
     <>
-      <TileLayer attribution='&copy; OpenStreetMap contributors' url='https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png' />
-      <TileLayer attribution='Topography by OpenTopoMap (SRTM)' url='https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png' opacity={0.4} />
+      <TileLayer 
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+      />
     </>
   );
 }

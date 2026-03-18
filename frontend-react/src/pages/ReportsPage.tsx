@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import { 
   Box, 
   VStack, 
@@ -8,13 +8,10 @@ import {
   Badge,
   Text,
   Input,
-  Select,
   Textarea,
   Flex,
   Avatar,
   IconButton,
-  Tooltip,
-  Divider,
   Center,
   ScaleFade,
 } from '@chakra-ui/react';
@@ -27,9 +24,6 @@ import {
   Dog, 
   MessageSquare, 
   Clock, 
-  Share2, 
-  Eye,
-  CheckCircle,
   MoreVertical,
   Navigation,
   Activity
@@ -39,8 +33,7 @@ import { TacticalText } from '../components/atoms/TacticalText';
 import { TacticalButton } from '../components/atoms/TacticalButton';
 import { reportsApi, type ReportItemApi } from '../services/reportsApi';
 import { useNotifications } from '../context/NotificationsContext';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-import L from 'leaflet';
+import { TacticalMap } from '../components/features/map/TacticalMap';
 
 export function ReportsPage() {
   const [reports, setReports] = useState<ReportItemApi[]>([]);
@@ -173,17 +166,10 @@ export function ReportsPage() {
 
               {/* MAP PREVIEW */}
               <GlassPanel p={0} flex={1} overflow="hidden" position="relative" minH="250px">
-                 <Box position="absolute" top={3} left={3} zIndex={1000} bg="rgba(0,0,0,0.7)" px={2} py={1} borderRadius="md" border="1px solid whiteAlpha.200">
-                    <TacticalText variant="mono" fontSize="10px">GEOLOCALIZAÇÃO_RECORRENTE</TacticalText>
-                 </Box>
-                 <MapContainer 
+                 <TacticalMap 
                     center={[-20.91, -42.98]} 
                     zoom={14} 
-                    zoomControl={false}
-                    style={{ height: '100%', width: '100%', filter: 'invert(1) hue-rotate(180deg) brightness(0.6) grayscale(0.2)' }}
-                 >
-                    <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                 </MapContainer>
+                 />
               </GlassPanel>
            </VStack>
 

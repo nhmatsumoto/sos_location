@@ -11,6 +11,7 @@ using SOSLocation.Application.Features.Incidents.Commands.CreateIncident;
 using SOSLocation.Application.Common.Behaviors;
 using MediatR;
 using SOSLocation.Infrastructure.Services.Gis.Providers;
+using SOSLocation.Infrastructure.Services.Gis.Crawlers;
 using SOSLocation.Infrastructure.Services.News;
 
 namespace SOSLocation.API.Extensions
@@ -50,12 +51,30 @@ namespace SOSLocation.API.Extensions
 
             // GIS Data Providers (Resilient Modular Architecture)
             services.AddHttpClient<IGisDataProvider, OpenTopographyProvider>().AddStandardResilienceHandler();
+            services.AddHttpClient<IGisDataProvider, TerrainRgbProvider>().AddStandardResilienceHandler();
             services.AddHttpClient<IGisDataProvider, OverpassProvider>().AddStandardResilienceHandler();
             services.AddHttpClient<IGisDataProvider, OpenMeteoProvider>().AddStandardResilienceHandler();
+            services.AddHttpClient<IGisDataProvider, EarthdataProvider>().AddStandardResilienceHandler();
 
             // GIS Facade
+            services.AddScoped<UrbanRasterProcessor>();
+            services.AddScoped<UrbanGeoprocessingService>();
             services.AddScoped<IGisService, GisService>();
             services.AddScoped<IGeoCentralService, GeoCentralService>();
+
+            // Crawler Engine & Connectors
+            services.AddHttpClient<IGsiElevationConnector, GsiElevationService>().AddStandardResilienceHandler();
+            services.AddHttpClient<IPlateauConnector, PlateauCrawlerProvider>().AddStandardResilienceHandler();
+            services.AddHttpClient<IWfsConnector, WfsCrawlerProvider>().AddStandardResilienceHandler();
+            services.AddHttpClient<DatasetCrawlerProvider>().AddStandardResilienceHandler();
+            
+            // Register all ICrawlerConnector implementations for the engine
+            services.AddScoped<ICrawlerConnector>(sp => sp.GetRequiredService<IGsiElevationConnector>());
+            services.AddScoped<ICrawlerConnector>(sp => sp.GetRequiredService<IPlateauConnector>());
+            services.AddScoped<ICrawlerConnector>(sp => sp.GetRequiredService<IWfsConnector>());
+            services.AddScoped<ICrawlerConnector>(sp => sp.GetRequiredService<DatasetCrawlerProvider>());
+            
+            services.AddScoped<ICrawlerEngine, CrawlerEngine>();
 
             // Alert Providers (Resilient)
             services.AddHttpClient<IAlertProvider, InmetAlertProvider>().AddStandardResilienceHandler();
@@ -98,6 +117,7 @@ namespace SOSLocation.API.Extensions
             services.AddHostedService<WeatherIndexerService>();
             services.AddHostedService<AlertHistoryService>();
             services.AddHostedService<GisIndexerService>();
+            services.AddHostedService<CrawlerBackgroundService>();
 
             // Broadcast & Notifications (Singleton: used by BackgroundService singletons)
             services.AddSingleton<INotificationService, SOSLocation.API.Services.NotificationService>();

@@ -26,16 +26,21 @@ namespace SOSLocation.Infrastructure.Services.Gis.Providers
         public async Task<object> FetchDataAsync(double minLat, double minLon, double maxLat, double maxLon)
         {
             _logger.LogInformation("Fetching DEM from OpenTopography: {minLat}, {minLon}", minLat, minLon);
-            var queryUrl = $"{_options.OpenTopographyUrl}?demtype=SRTMGL1&west={minLon}&south={minLat}&east={maxLon}&north={maxLat}&outputFormat=GTiff";
+            var queryUrl = $"{_options.OpenTopographyUrl}?demtype=SRTMGL1&west={minLon}&south={minLat}&east={maxLon}&north={maxLat}&outputFormat=AAIGrid";
+            if (!string.IsNullOrEmpty(_options.OpenTopographyApiKey)) {
+                queryUrl += $"&API_Key={_options.OpenTopographyApiKey}";
+            }
+            int resolution = 128;
 
             try
             {
-                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(25));
                 var response = await _httpClient.GetAsync(queryUrl, cts.Token);
                 if (response.IsSuccessStatusCode)
                 {
                     _logger.LogInformation("Successfully connected to OpenTopography.");
-                    return GenerateSyntheticTerrain(minLat, minLon, 128, true);
+                    var asciiData = await response.Content.ReadAsStringAsync();
+                    return ParseAAIGrid(asciiData, resolution);
                 }
             }
             catch (Exception ex)
@@ -43,7 +48,54 @@ namespace SOSLocation.Infrastructure.Services.Gis.Providers
                 _logger.LogWarning("OpenTopography query failed: {msg}", ex.Message);
             }
 
-            return GenerateSyntheticTerrain(minLat, minLon, 128, false);
+            return GenerateSyntheticTerrain(minLat, minLon, resolution, false);
+        }
+
+        private List<List<float>> ParseAAIGrid(string ascii, int targetRes)
+        {
+            try {
+                // Tokenize the entire string by removing empty entries from any type of whitespace
+                var tokens = ascii.Split(new[] { ' ', '\n', '\r', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+                
+                int ncols = 0, nrows = 0;
+                int tokenIndex = 0;
+                
+                // Parse 6-line header
+                while (tokenIndex < tokens.Length) {
+                    var label = tokens[tokenIndex].ToLower();
+                    if (label == "ncols") ncols = int.Parse(tokens[++tokenIndex]);
+                    else if (label == "nrows") nrows = int.Parse(tokens[++tokenIndex]);
+                    else if (label == "xllcorner" || label == "yllcorner" || label == "cellsize" || label == "nodata_value") {
+                        tokenIndex++; // Skip the value too
+                    }
+                    else {
+                        // Data starts here
+                        break;
+                    }
+                    tokenIndex++;
+                }
+
+                if (ncols <= 0 || nrows <= 0) 
+                    return GenerateSyntheticTerrain(0, 0, targetRes, false);
+
+                var grid = new List<List<float>>();
+                for (int i = 0; i < nrows; i++) {
+                    var row = new List<float>();
+                    for (int j = 0; j < ncols; j++) {
+                        if (tokenIndex < tokens.Length) {
+                            row.Add(float.Parse(tokens[tokenIndex++]));
+                        } else {
+                            row.Add(0.0f);
+                        }
+                    }
+                    grid.Add(row);
+                }
+
+                return grid;
+            } catch (Exception ex) {
+                _logger.LogError("Failed to parse AAIGrid: {msg}", ex.Message);
+                return GenerateSyntheticTerrain(0, 0, targetRes, false);
+            }
         }
 
         public async Task<bool> CheckHealthAsync()
@@ -63,17 +115,21 @@ namespace SOSLocation.Infrastructure.Services.Gis.Providers
         private List<List<float>> GenerateSyntheticTerrain(double lat, double lon, int resolution, bool highQuality)
         {
             var grid = new List<List<float>>();
-            Random rnd = new Random((int)(lat * 400 + lon * 400));
-            float baseH = (float)(rnd.NextDouble() * 100);
+            Random rnd = new Random((int)(lat * 10000 + lon * 10000));
+            float baseH = (float)(rnd.NextDouble() * 50);
 
             for (int i = 0; i < resolution; i++)
             {
                 var row = new List<float>();
                 for (int j = 0; j < resolution; j++)
                 {
-                    float noise = (float)(Math.Sin(i * 0.1) * Math.Cos(j * 0.1) * 30.0 + Math.Sin(i * 0.03) * 60.0);
+                    // Noise influenced by seeding (lat/lon)
+                    float freq = 0.05f + (float)rnd.NextDouble() * 0.05f;
+                    float noise = (float)(Math.Sin((i + lat * 100) * freq) * Math.Cos((j + lon * 100) * freq) * 40.0);
+                    noise += (float)(Math.Sin(i * 0.02) * 80.0 * rnd.NextDouble());
+                    
                     if (highQuality) noise += (float)(rnd.NextDouble() * 5.0);
-                    row.Add(baseH + noise);
+                    row.Add(Math.Max(0, baseH + noise));
                 }
                 grid.Add(row);
             }

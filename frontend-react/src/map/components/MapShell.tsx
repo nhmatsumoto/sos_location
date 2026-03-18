@@ -1,15 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
-import { MapContainer, Popup, useMap } from 'react-leaflet';
+import { Popup, useMap } from 'react-leaflet';
 import type { OperationsSnapshot } from '../../services/operationsApi';
 import { getForecastAndHistory, OPEN_METEO_HOURLY_FIELDS, type OpenMeteoResponse } from '../../services/openMeteo';
 import { LeafletThreeLayer } from '../layers/LeafletThreeLayer';
 import { WeatherLayer } from '../layers/WeatherLayer';
 import { useMapStore } from '../store/mapStore';
-import { BaseLayers } from './BaseLayers';
 import { FloatingPanels } from './FloatingPanels';
 import { MapEvents } from './MapEvents';
 import { OverlayLayers } from './OverlayLayers';
 import { WeatherPopupCard } from './WeatherPopupCard';
+import { TacticalMap } from '../../components/features/map/TacticalMap';
 
 function MapUpdater({ center, zoom }: { center?: [number, number]; zoom?: number }) {
   const map = useMap();
@@ -105,9 +105,12 @@ export function MapShell({ data, hideFloatingPanels = false, center, zoom }: { d
 
   return (
     <div className="relative h-full overflow-hidden rounded-xl border border-slate-700">
-      <MapContainer center={center || [-21.1215, -42.9427]} zoom={zoom || 13} zoomControl={false} style={{ height: '100%', width: '100%' }}>
+      <TacticalMap 
+        center={center || [-21.1215, -42.9427]} 
+        zoom={zoom || 13} 
+        containerProps={{ style: { height: '100%', width: '100%' } }}
+      >
         <MapUpdater center={center} zoom={zoom} />
-        <BaseLayers />
         <MapEvents onMapClick={(lat, lng) => { void onMapClick(lat, lng); }} />
         <OverlayLayers data={data} />
         <WeatherCanvasBridge active={layersEnabled.weather} value={current?.precipitation ?? null} />
@@ -117,7 +120,7 @@ export function MapShell({ data, hideFloatingPanels = false, center, zoom }: { d
             <WeatherPopupCard {...current} />
           </Popup>
         )}
-      </MapContainer>
+      </TacticalMap>
       {!hideFloatingPanels && <FloatingPanels weatherData={weatherData} snapshot={data} />}
     </div>
   );
