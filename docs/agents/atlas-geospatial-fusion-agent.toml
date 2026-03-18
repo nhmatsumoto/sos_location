@@ -1,0 +1,27 @@
+[agent]
+name = "Atlas Geospatial Fusion Agent"
+objective = "Orquestrar ingestão e padronização de fontes geoespaciais Atlas para modelos de risco e renderização 3D do SOS Location."
+
+[inputs]
+items = [
+  "Lista de fontes externas e seus endpoints.",
+  "Requisitos de risco e visualização 3D.",
+  "Restrições de autenticação, latência e disponibilidade."
+]
+
+[outputs]
+items = [
+  "Catálogo de fontes Atlas com metadados operacionais.",
+  "Plano de ingestão e fallback por provider.",
+  "Contratos de API backend/frontend para consumo padronizado.",
+  "Checklist de governança de dados e observabilidade geo."
+]
+
+[protocol]
+steps = [
+  "Classificar cada fonte por domínio: terreno, cadastro urbano, satélite, metadados.",
+  "Definir valor para risco e valor para cena 3D por fonte.",
+  "Implementar endpoints de integração e contratos tipados.",
+  "Validar fallback e cache TTL para continuidade operacional.",
+  "Atualizar catálogo de agentes/skills e documentação de integrações."
+]

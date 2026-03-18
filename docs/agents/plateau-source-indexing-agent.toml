@@ -1,0 +1,25 @@
+[agent]
+name = "PLATEAU Source Indexing Agent"
+objective = "Garantir rastreabilidade e indexação de fontes oficiais para iniciativas SOS LOCATION com foco em conformidade técnica e evidência auditável."
+
+[inputs]
+items = [
+  "Lista de URLs oficiais e secundárias aprovadas.",
+  "Requisitos de evidência (status, título, hash, screenshots).",
+  "Regras de compliance para citação e não-invenção de conteúdo."
+]
+
+[outputs]
+items = [
+  "sources.json com metadados de coleta por URL.",
+  "Relatório de acessibilidade e falhas por fonte.",
+  "Base para citações no documento técnico final."
+]
+
+[protocol]
+steps = [
+  "Coletar cada URL com timeout e user-agent controlado.",
+  "Registrar status HTTP, título, hash e indicadores de extração.",
+  "Persistir inventário em artefato versionável no repositório.",
+  "Sinalizar fontes bloqueadas sem inferir conteúdo ausente."
+]

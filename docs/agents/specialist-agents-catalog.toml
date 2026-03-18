@@ -235,3 +235,23 @@ multi_hazard_simulation = [30, 18, 17, 16]
 coastal_tsunami = [31, 25, 28]
 wildfire_monitoring = [32, 19, 22]
 sensor_fusion = [33, 4, 29, 10]
+
+
+[[agents]]
+id = 34
+name = "Atlas Geospatial Fusion Agent"
+focus = "integração de fontes Atlas para modelos de risco e visualização 3D"
+deliverables = "catálogo de fontes, contratos de API, fallback, cache TTL e governança de ingestão"
+
+[matrix_atlas]
+atlas_geodata_fusion = [34, 7, 25, 26, 29]
+
+
+[[agents]]
+id = 35
+name = "PLATEAU Source Indexing Agent"
+focus = "indexação rastreável de fontes oficiais geoespaciais e evidências de coleta"
+deliverables = "sources.json versionado, relatório de acesso e base de citação auditável"
+
+[matrix_plateau]
+plateau_source_indexing = [35, 7, 25, 29, 10]

@@ -24,6 +24,18 @@ a fontes para simulação 3D de cidades (Brasil e Japão).
 - **Implementação**: `OverpassProvider`
 - **Config**: `ExternalIntegrations__OverpassUrl`
 
+### Atlas Integration Registry (curadoria de fontes externas)
+- **URL**: `GET /api/integrations/atlas/sources`
+- **Dados**: catálogo de fontes Atlas (GSI Japan, QGIS API, GeoSampa, OpenTopography Catalog, INDE, NASA Earthdata)
+- **Uso**: descoberta e governança de fontes para modelos de risco e renderização 3D
+- **Cache TTL**: Long lived
+
+### OpenTopography Catalog (via Atlas)
+- **URL**: `GET /api/integrations/atlas/opentopography/catalog`
+- **Dados**: catálogo público de datasets do OpenTopography
+- **Uso**: seleção dinâmica de datasets de elevação para cenários de risco e terreno
+- **Cache TTL**: 5 min
+
 ### Open-Meteo (Clima em tempo real)
 - **URL**: `https://api.open-meteo.com/v1/forecast`
 - **Dados**: Temperatura, umidade, precipitação, velocidade do vento
@@ -58,6 +70,8 @@ a fontes para simulação 3D de cidades (Brasil e Japão).
 ## 3. Alertas e Monitoramento
 
 ### Endpoints de Alertas
+
+- Compatibilidade de rota de inteligência: `GET /api/integrations/alerts/intelligence` (principal) e `GET /api/alerts/intelligence` (alias legado).
 - `GET /api/alerts?bbox=minLon,minLat,maxLon,maxLat&since=ISO8601`
   - Agrega: INMET CAP/RSS, CEMADEN, DefesaCivil
   - Feed configurável via `CAP_ALERT_FEEDS` env var
