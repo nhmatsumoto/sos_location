@@ -245,3 +245,13 @@ deliverables = "catálogo de fontes, contratos de API, fallback, cache TTL e gov
 
 [matrix_atlas]
 atlas_geodata_fusion = [34, 7, 25, 26, 29]
+
+
+[[agents]]
+id = 35
+name = "PLATEAU Source Indexing Agent"
+focus = "indexação rastreável de fontes oficiais geoespaciais e evidências de coleta"
+deliverables = "sources.json versionado, relatório de acesso e base de citação auditável"
+
+[matrix_plateau]
+plateau_source_indexing = [35, 7, 25, 29, 10]
