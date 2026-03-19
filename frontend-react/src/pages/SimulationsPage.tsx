@@ -7,8 +7,6 @@ import {
   Divider,
   Input,
   Flex,
-  Tooltip,
-  IconButton,
   Grid,
   Slider,
   SliderTrack,
@@ -24,17 +22,9 @@ import {
   Wind, 
   Play, 
   RefreshCw, 
-  AlertTriangle, 
-  Zap,
-  CloudRain,
-  Timer,
   ChevronRight,
-  Database,
-  Search,
   Thermometer,
-  Waves,
-  Mountain,
-  Boxes
+  Waves
 } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 
@@ -171,7 +161,8 @@ export function SimulationsPage() {
   };
 
   return (
-    <Box h="100vh" w="100vw" position="relative" overflow="hidden" bg="black" color="white">
+    <Box h="100vh" w="full" position="relative" overflow="hidden" bg="black" color="white">
+
       {/* --- WEBGL ENGINE LAYER --- */}
       {activeStep === 'SIMULATION' && (
         <Box position="absolute" inset={0} zIndex={5}>
@@ -194,12 +185,12 @@ export function SimulationsPage() {
         left={0}
         right={0}
         zIndex={100}
-        px={8}
-        py={4}
+        px={{ base: 4, md: 6, xl: 8 }}
+        py={{ base: 3, md: 4 }}
         bgGradient="linear(to-b, blackAlpha.800, transparent)"
       >
         <Flex justify="space-between" align="center">
-          <HStack spacing={6}>
+          <HStack spacing={{ base: 3, md: 6 }} align="flex-start">
             <VStack align="start" spacing={0}>
               <TacticalText variant="caption" color="sos.blue.400" letterSpacing="0.3em">CORE_ENGINE: HYDRA_V4</TacticalText>
               <HStack>
@@ -208,7 +199,7 @@ export function SimulationsPage() {
               </HStack>
             </VStack>
             <Divider orientation="vertical" h="40px" borderColor="whiteAlpha.300" />
-            <HStack spacing={8} ml={4}>
+            <HStack spacing={{ base: 3, md: 6, xl: 8 }} ml={{ base: 0, md: 4 }} flexWrap="wrap">
               <WizardStep name="GEOGRAFIA" active={activeStep === 'LOCATION'} done={['INDEXING', 'SCENARIO', 'SIMULATION'].includes(activeStep)} />
               <WizardStep name="INDEXAÇÃO" active={activeStep === 'INDEXING'} done={['SCENARIO', 'SIMULATION'].includes(activeStep)} />
               <WizardStep name="CENÁRIO" active={activeStep === 'SCENARIO'} done={['SIMULATION'].includes(activeStep)} />
@@ -216,7 +207,7 @@ export function SimulationsPage() {
             </HStack>
           </HStack>
 
-          <HStack spacing={4}>
+          <HStack spacing={4} flexWrap="wrap">
              {activeStep === 'SIMULATION' && (
                <TacticalButton
                  variant="ghost"
@@ -236,8 +227,8 @@ export function SimulationsPage() {
 
       {/* --- STEP 1: LOCATION SELECTION --- */}
       {activeStep === 'LOCATION' && (
-        <Center h="full" w="full" zIndex={110}>
-          <Box w="1000px" maxH="80vh">
+        <Center h="full" w="full" zIndex={110} px={{ base: 4, md: 6 }}>
+          <Box w="full" maxW="1200px" maxH={{ base: 'calc(100vh - 120px)', md: '80vh' }}>
             <GlassPanel p={10} depth="raised" flexDirection="column">
               <VStack spacing={8} align="stretch">
                  <Box>
@@ -245,12 +236,12 @@ export function SimulationsPage() {
                     <TacticalText variant="caption" mt={2} color="whiteAlpha.600">Selecione ou busque a área de interesse para a missão de desastre.</TacticalText>
                  </Box>
 
-                 <Grid templateColumns="1fr 400px" gap={8}>
+                 <Grid templateColumns={{ base: '1fr', xl: 'minmax(0, 1.35fr) minmax(320px, 420px)' }} gap={{ base: 6, xl: 8 }} alignItems="stretch">
                     <VStack align="stretch" spacing={6}>
                        <Box>
                           <TacticalText variant="subheading" mb={4}>BUSCA HIERÁRQUICA / FILTROS</TacticalText>
                           <CitySearch onSelect={handleCitySelect} />
-                          <HStack mt={4} spacing={3}>
+                          <HStack mt={4} spacing={3} flexWrap="wrap">
                              <Select placeholder="País" variant="filled" bg="whiteAlpha.100" size="sm" borderRadius="md"><option>Brasil</option></Select>
                              <Select placeholder="Estado" variant="filled" bg="whiteAlpha.100" size="sm" borderRadius="md"><option>São Paulo</option></Select>
                              <Select placeholder="Cidade" variant="filled" bg="whiteAlpha.100" size="sm" borderRadius="md"><option>São Paulo</option></Select>
@@ -258,7 +249,7 @@ export function SimulationsPage() {
                           </HStack>
                        </Box>
 
-                       <SimpleGrid columns={2} spacing={4}>
+                       <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
                           <TacticalStat label="LATITUDE" value={numericLat.toFixed(6)} unit="°" />
                           <TacticalStat label="LONGITUDE" value={numericLng.toFixed(6)} unit="°" />
                        </SimpleGrid>
@@ -278,7 +269,7 @@ export function SimulationsPage() {
 
                     <VStack align="stretch" spacing={4}>
                        <TacticalText variant="subheading">DEMARCAÇÃO VISUAL (MAPA 2D)</TacticalText>
-                       <Box h="350px" borderRadius="2xl" overflow="hidden" border="1px solid" borderColor="whiteAlpha.200">
+                       <Box h={{ base: '300px', md: '360px', xl: '100%' }} minH={{ xl: '420px' }} borderRadius="2xl" overflow="hidden" border="1px solid" borderColor="whiteAlpha.200">
                           <MiniMapPicker
                             lat={numericLat}
                             lng={numericLng}
@@ -303,8 +294,8 @@ export function SimulationsPage() {
 
       {/* --- STEP 3: SCENARIO CONFIGURATION --- */}
       {activeStep === 'SCENARIO' && (
-        <Center h="full" w="full" zIndex={110}>
-          <Box w="600px">
+        <Center h="full" w="full" zIndex={110} px={{ base: 4, md: 6 }}>
+          <Box w="full" maxW="720px">
             <GlassPanel p={8} depth="raised" flexDirection="column">
               <VStack spacing={6} align="stretch">
                  <Box>
@@ -334,13 +325,13 @@ export function SimulationsPage() {
                       </Select>
                     </Box>
 
-                    <SimpleGrid columns={2} spacing={6}>
+                    <SimpleGrid columns={{ base: 1, md: 2 }} spacing={6}>
                        <ConfigSlider label="Intensidade" value={config.intensity} unit="%" min={0} max={100} onChange={(v) => setConfig(c => ({...c, intensity: v}))} />
                        <ConfigSlider label="Duração" value={config.duration} unit="min" min={10} max={300} onChange={(v) => setConfig(c => ({...c, duration: v}))} />
                     </SimpleGrid>
                  </VStack>
 
-                 <SimpleGrid columns={2} spacing={4}>
+                 <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
                     <ConfigSlider label="Nível da Água" value={config.waterLevel} unit="m" min={0} max={20} onChange={(v) => setConfig(c => ({...c, waterLevel: v}))} />
                     <ConfigSlider label="Velocidade Vento" value={config.windSpeed} unit="km/h" min={0} max={250} onChange={(v) => setConfig(c => ({...c, windSpeed: v}))} />
                  </SimpleGrid>
@@ -409,10 +400,11 @@ export function SimulationsPage() {
       {activeStep === 'SIMULATION' && (
         <Box
           position="absolute"
-          right={6}
-          top="100px"
-          bottom={6}
-          w="380px"
+          right={{ base: 4, md: 6 }}
+          top={{ base: '88px', md: '100px' }}
+          bottom={{ base: 4, md: 6 }}
+          w={{ base: 'calc(100% - 32px)', sm: '360px', xl: '380px' }}
+          maxW="380px"
           zIndex={100}
         >
           <VStack h="full" spacing={6} align="stretch">
@@ -442,7 +434,7 @@ export function SimulationsPage() {
       {/* Background Stats HUD */}
       {(activeStep === 'SIMULATION' || activeStep === 'SCENARIO') && (
         <Box position="absolute" bottom={8} left={8} zIndex={100}>
-          <HStack spacing={4}>
+          <HStack spacing={4} flexWrap="wrap">
             <GlassPanel px={4} py={3} depth="base" align="center">
                <Icon as={Wind} color="sos.blue.400" mr={2} size={14} />
                <TacticalText variant="mono" fontSize="xs">{config.windSpeed} km/h</TacticalText>
