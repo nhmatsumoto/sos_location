@@ -14,9 +14,10 @@ interface AppShellProps {
   theme: 'dark' | 'light';
   onToggleTheme: () => void;
   variant?: 'default' | 'tactical';
+  navigationMode?: 'compact' | 'expanded' | 'auto';
 }
 
-export function AppShell({ children, theme, onToggleTheme, variant = 'default' }: AppShellProps) {
+export function AppShell({ children, theme, onToggleTheme, variant = 'default', navigationMode = 'auto' }: AppShellProps) {
   const { notices, pushNotice } = useNotifications();
   const [openCenter, setOpenCenter] = useState(false);
 
@@ -30,7 +31,7 @@ export function AppShell({ children, theme, onToggleTheme, variant = 'default' }
       <Box minH="100vh" bg="sos.dark" color="white" overflow="hidden">
         <Flex h="100vh" w="full" overflow="hidden">
           {/* Compact Navigation Rail — icon-only, expands on hover */}
-          <NavigationRail mode="auto" h="full" flexShrink={0} />
+          <NavigationRail mode={navigationMode} h="full" flexShrink={0} />
 
           {/* Main Content Area */}
           <Box as="main" flex="1" h="100%" position="relative" overflow="hidden" bg="sos.dark">

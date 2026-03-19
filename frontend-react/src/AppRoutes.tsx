@@ -62,6 +62,7 @@ function PrivateLayout() {
     '/app/missing-persons'
   ];
   const isTactical = TACTICAL_ROUTES.includes(location.pathname);
+  const navigationMode = location.pathname === '/app/simulations' ? 'expanded' : 'auto';
 
   return (
     <div className="animate-in fade-in duration-700 ease-out">
@@ -69,6 +70,7 @@ function PrivateLayout() {
         theme={theme} 
         onToggleTheme={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
         variant={isTactical ? 'tactical' : 'default'}
+        navigationMode={navigationMode}
       >
         <Suspense fallback={<div style={{ padding: 16 }} className="text-slate-500 font-bold animate-pulse text-center">Iniciando painel de comando...</div>}>
           <Routes>
