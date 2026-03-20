@@ -3,6 +3,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from app.services.risk_engine import RiskEngine
 from app.services.simulation_service import SimulationService
 from app.simulation_sdk.scenario import ScenarioRequest, SimulationCatalogItem, SimulationResult
+from app.routes.segmentation_routes import router as segmentation_router
 import logging
 
 # Setup logging
@@ -12,6 +13,9 @@ logger = logging.getLogger("RiskAnalysisUnit")
 app = FastAPI(title="SOS Location - Risk Analysis Unit", version="1.0.0")
 risk_engine = RiskEngine()
 simulation_service = SimulationService()
+
+# Register routers
+app.include_router(segmentation_router)
 
 @app.on_event("startup")
 def startup_event():
