@@ -26,9 +26,9 @@ namespace SOSLocation.Infrastructure.Services.Gis
             _rasterProcessor = rasterProcessor;
         }
 
-        public async Task<object> ProcessPipelineAsync(double minLat, double minLon, double maxLat, double maxLon)
+        public async Task<object> ProcessPipelineAsync(double minLat, double minLon, double maxLat, double maxLon, double rotation = 0)
         {
-            _logger.LogInformation("Starting Urban Geoprocessing Pipeline for BBOX: {minLat}, {minLon} to {maxLat}, {maxLon}", minLat, minLon, maxLat, maxLon);
+            _logger.LogInformation("Starting Urban Geoprocessing Pipeline for BBOX: {minLat}, {minLon} to {maxLat}, {maxLon} with rotation {rotation}", minLat, minLon, maxLat, maxLon, rotation);
 
             // 1. Data Acquisition (Hybrid Approach: Vector + Raster Fallback)
             var overpass = _providers.OfType<OverpassProvider>().FirstOrDefault();
@@ -50,7 +50,7 @@ namespace SOSLocation.Infrastructure.Services.Gis
             // 4. Raster Analysis (Permeability & Morphology)
             // We use TerrainRgbProvider's logic to get imagery if needed, 
             // but here we focus on the semantic classification
-            var rasterFeatures = await _rasterProcessor.ExtractFeaturesFromImageryAsync(minLat, minLon, maxLat, maxLon);
+            var rasterFeatures = await _rasterProcessor.ExtractFeaturesFromImageryAsync(minLat, minLon, maxLat, maxLon, rotation);
             
             // 5. Build Height (Gabarito) Integration
             if (urbanManifest.Buildings.Any()) {
@@ -58,20 +58,21 @@ namespace SOSLocation.Infrastructure.Services.Gis
             }
 
             // 6. Merge Morphology (Fulls and Empties)
+            if (rasterFeatures.BuildingPolygons.Any()) {
+                urbanManifest.Buildings.AddRange(rasterFeatures.BuildingPolygons);
+            }
             var morphology = _rasterProcessor.AnalyzeUrbanMorphology(urbanManifest.Buildings, minLat, minLon, maxLat, maxLon);
 
             return new {
                 success = true,
                 timestamp = DateTime.UtcNow,
+                area_scale = rasterFeatures.AreaScale,
                 layers = new {
                     infrastructure = urbanManifest,
                     morphology = morphology,
                     permeability = rasterFeatures.PermeabilityPolygons,
                     pavement = rasterFeatures.PavementPolygons,
-                    source_metadata = new {
-                        vector = "OpenStreetMap_Overpass",
-                        raster_analysis = "Spectral_Reclassification_V1"
-                    }
+                    source_metadata = rasterFeatures.Metadata
                 }
             };
         }
@@ -81,5 +82,7 @@ namespace SOSLocation.Infrastructure.Services.Gis
     {
         public List<GisFeatureDto> Buildings { get; set; } = new();
         public List<GisFeatureDto> Highways { get; set; } = new();
+        public double AreaScale { get; set; } = 200.0;
+        public Dictionary<string, object> Metadata { get; set; } = new();
     }
 }

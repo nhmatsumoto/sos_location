@@ -78,18 +78,18 @@ namespace SOSLocation.Infrastructure.Services.Gis.Providers
                 if (ncols <= 0 || nrows <= 0) 
                     return GenerateSyntheticTerrain(0, 0, targetRes, false);
 
-                var grid = new List<List<float>>();
+                // AAIGrid row 0 = northernmost. Frontend expects row 0 = southernmost (UV.y=0=south).
+                var rawRows = new List<float>[nrows];
                 for (int i = 0; i < nrows; i++) {
                     var row = new List<float>();
                     for (int j = 0; j < ncols; j++) {
-                        if (tokenIndex < tokens.Length) {
-                            row.Add(float.Parse(tokens[tokenIndex++]));
-                        } else {
-                            row.Add(0.0f);
-                        }
+                        row.Add(tokenIndex < tokens.Length ? float.Parse(tokens[tokenIndex++]) : 0f);
                     }
-                    grid.Add(row);
+                    rawRows[i] = row;
                 }
+                var grid = new List<List<float>>(nrows);
+                for (int i = nrows - 1; i >= 0; i--)
+                    grid.Add(rawRows[i]);
 
                 return grid;
             } catch (Exception ex) {

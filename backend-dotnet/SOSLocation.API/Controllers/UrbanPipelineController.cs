@@ -27,7 +27,7 @@ namespace SOSLocation.API.Controllers
 
         /// <summary>
         /// Phase 2: Data Indexing Pipeline.
-        /// Extracts and processes geospatial data (Satellite, Topology, Infrastructure).
+        /// Extracts and processes real geospatial data (Satellite, Topology, OSM Infrastructure).
         /// </summary>
         [HttpPost("pipeline")]
         public async Task<ActionResult<Result<SimulationResultDto>>> ProcessPipeline([FromBody] SimulationRequestDto req)
@@ -37,7 +37,6 @@ namespace SOSLocation.API.Controllers
 
             try
             {
-                // Create or find a SimulationArea
                 var areaName = $"Area_{req.MinLat:F4}_{req.MinLon:F4}";
                 var area = new SimulationArea
                 {
@@ -50,21 +49,36 @@ namespace SOSLocation.API.Controllers
                 _context.SimulationAreas.Add(area);
                 await _context.SaveChangesAsync();
 
-                // Trigger GIS tasks in parallel
-                var demTask = _gisService.FetchElevationGridAsync(req.MinLat, req.MinLon, req.MaxLat, req.MaxLon, req.Resolution);
-                var urbanTask = _gisService.ProcessUrbanPipelineAsync(req.MinLat, req.MinLon, req.MaxLat, req.MaxLon);
-                var vegTask = _gisService.FetchVegetationDataAsync(req.MinLat, req.MinLon, req.MaxLat, req.MaxLon);
+                // Compute world scale from bbox physical dimensions.
+                // Target: ~200 world units for a typical 5 km city area (1 unit ≈ 25 m).
+                double latMid      = (req.MinLat + req.MaxLat) / 2.0;
+                double widthMeters = (req.MaxLon - req.MinLon) * 111139.0 * Math.Cos(latMid * Math.PI / 180.0);
+                double heightMeters = (req.MaxLat - req.MinLat) * 111139.0;
+                double worldSizeMeters = Math.Max(widthMeters, heightMeters);
+                // metersPerUnit target = 25 m → areaScale = worldSizeMeters / 25
+                double areaScale = Math.Clamp(worldSizeMeters / 25.0, 50.0, 1000.0);
 
-                await Task.WhenAll(demTask, urbanTask, vegTask);
+                // Fetch real OSM urban features + elevation + land cover in parallel
+                var urbanTask  = _gisService.FetchUrbanFeaturesAsync(req.MinLat, req.MinLon, req.MaxLat, req.MaxLon);
+                var demTask    = _gisService.FetchElevationGridAsync(req.MinLat, req.MinLon, req.MaxLat, req.MaxLon, req.Resolution > 0 ? req.Resolution : 256);
+                var vegTask    = _gisService.FetchVegetationDataAsync(req.MinLat, req.MinLon, req.MaxLat, req.MaxLon);
+                var lcTask     = _gisService.FetchLandCoverAsync(req.MinLat, req.MinLon, req.MaxLat, req.MaxLon);
 
-                // Create a ScenarioBundle (The Index)
+                await Task.WhenAll(urbanTask, demTask, vegTask, lcTask);
+
+                // Attach the computed area scale so the frontend can position features correctly
+                var urbanFeatures = await urbanTask as UrbanDataResponse;
+                if (urbanFeatures != null)
+                    urbanFeatures.AreaScale = areaScale;
+
                 var bundle = new ScenarioBundle
                 {
                     AreaId = area.Id,
                     Status = "indexed",
-                    ParametersJson = System.Text.Json.JsonSerializer.Serialize(new { 
-                        indexedAt = DateTime.UtcNow,
-                        res = req.Resolution
+                    ParametersJson = System.Text.Json.JsonSerializer.Serialize(new {
+                        indexedAt  = DateTime.UtcNow,
+                        res        = req.Resolution,
+                        areaScale  = areaScale
                     })
                 };
                 _context.ScenarioBundles.Add(bundle);
@@ -72,14 +86,15 @@ namespace SOSLocation.API.Controllers
 
                 var result = new SimulationResultDto
                 {
-                    SimulationId = bundle.Id, // Linking to bundle
-                    Status = "indexed",
-                    Bbox = new[] { req.MinLat, req.MinLon, req.MaxLat, req.MaxLon },
-                    Resolution = req.Resolution,
+                    SimulationId  = bundle.Id,
+                    Status        = "indexed",
+                    Bbox          = new[] { req.MinLat, req.MinLon, req.MaxLat, req.MaxLon },
+                    Resolution    = req.Resolution > 0 ? req.Resolution : 256,
                     ElevationGrid = await demTask,
-                    UrbanFeatures = await urbanTask as UrbanDataResponse,
-                    Vegetation = await vegTask,
-                    GeneratedAt = DateTime.UtcNow
+                    UrbanFeatures = urbanFeatures,
+                    Vegetation    = await vegTask,
+                    LandCover     = await lcTask,
+                    GeneratedAt   = DateTime.UtcNow
                 };
 
                 return Ok(Result<SimulationResultDto>.Success(result));
@@ -88,6 +103,36 @@ namespace SOSLocation.API.Controllers
             {
                 return StatusCode(500, Result<SimulationResultDto>.Failure($"Erro ao processar pipeline urbano: {ex.Message}"));
             }
+        }
+
+        /// <summary>Global soil data from ISRIC SoilGrids — clay/sand/silt percentages, pH, bulk density, permeability.</summary>
+        [HttpGet("soil")]
+        public async Task<IActionResult> GetSoil(
+            [FromQuery] double minLat, [FromQuery] double minLon,
+            [FromQuery] double maxLat, [FromQuery] double maxLon)
+        {
+            var result = await _gisService.FetchSoilDataAsync(minLat, minLon, maxLat, maxLon);
+            return Ok(Result<object>.Success(result));
+        }
+
+        /// <summary>ESA WorldCover 2021 land cover classification grid (64×64 byte array of class codes).</summary>
+        [HttpGet("landcover")]
+        public async Task<IActionResult> GetLandCover(
+            [FromQuery] double minLat, [FromQuery] double minLon,
+            [FromQuery] double maxLat, [FromQuery] double maxLon)
+        {
+            var result = await _gisService.FetchLandCoverAsync(minLat, minLon, maxLat, maxLon);
+            return Ok(Result<object>.Success(result));
+        }
+
+        /// <summary>WorldPop 2020 population density grid (32×32, normalized 0-1 log scale).</summary>
+        [HttpGet("population")]
+        public async Task<IActionResult> GetPopulation(
+            [FromQuery] double minLat, [FromQuery] double minLon,
+            [FromQuery] double maxLat, [FromQuery] double maxLon)
+        {
+            var result = await _gisService.FetchPopulationDensityAsync(minLat, minLon, maxLat, maxLon);
+            return Ok(Result<object>.Success(result));
         }
     }
 }

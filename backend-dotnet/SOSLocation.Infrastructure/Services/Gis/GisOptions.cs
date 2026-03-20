@@ -15,5 +15,10 @@ namespace SOSLocation.Infrastructure.Services.Gis
         public string AwsTerrainUrl { get; set; } = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png";
         public int CacheExpirationMinutes { get; set; } = 15;
         public int IndexingIntervalMinutes { get; set; } = 30;
+        public string CopernicusDemType { get; set; } = "COP30";
+        public string SoilGridsUrl { get; set; } = "https://rest.isric.org/soilgrids/v2.0/properties/query";
+        public string PlanetaryComputerUrl { get; set; } = "https://planetarycomputer.microsoft.com/api/stac/v1";
+        public string PlanetaryComputerToken { get; set; } = "";
+        public string WorldPopApiUrl { get; set; } = "https://hub.worldpop.org/rest/data/pop/wpgp";
     }
 }

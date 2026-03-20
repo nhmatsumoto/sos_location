@@ -55,6 +55,12 @@ namespace SOSLocation.API.Extensions
             services.AddHttpClient<IGisDataProvider, OverpassProvider>().AddStandardResilienceHandler();
             services.AddHttpClient<IGisDataProvider, OpenMeteoProvider>().AddStandardResilienceHandler();
             services.AddHttpClient<IGisDataProvider, EarthdataProvider>().AddStandardResilienceHandler();
+            // New civil engineering data providers
+            services.AddHttpClient<IGisDataProvider, CopernicusDemProvider>().AddStandardResilienceHandler();
+            services.AddHttpClient<IGisDataProvider, OpenElevationProvider>().AddStandardResilienceHandler();
+            services.AddHttpClient<IGisDataProvider, SoilGridsProvider>().AddStandardResilienceHandler();
+            services.AddHttpClient<IGisDataProvider, WorldCoverProvider>().AddStandardResilienceHandler();
+            services.AddHttpClient<IGisDataProvider, GhslProvider>().AddStandardResilienceHandler();
 
             // GIS Facade
             services.AddScoped<UrbanRasterProcessor>();

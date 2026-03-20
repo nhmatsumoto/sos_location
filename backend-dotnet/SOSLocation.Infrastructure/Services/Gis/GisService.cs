@@ -1,13 +1,12 @@
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
+using SOSLocation.Application.DTOs.Simulation;
 using SOSLocation.Domain.Interfaces;
 using SOSLocation.Infrastructure.Services.Gis.Providers;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-
-using SOSLocation.Application.DTOs.Simulation;
 
 namespace SOSLocation.Infrastructure.Services.Gis
 {
@@ -30,24 +29,46 @@ namespace SOSLocation.Infrastructure.Services.Gis
             _urbanProcessor = urbanProcessor;
         }
 
-        public async Task<object> ProcessUrbanPipelineAsync(double minLat, double minLon, double maxLat, double maxLon)
+        public async Task<object> ProcessUrbanPipelineAsync(double minLat, double minLon, double maxLat, double maxLon, double rotation = 0)
         {
-            return await _urbanProcessor.ProcessPipelineAsync(minLat, minLon, maxLat, maxLon);
+            return await _urbanProcessor.ProcessPipelineAsync(minLat, minLon, maxLat, maxLon, rotation);
         }
 
-        public async Task<List<List<float>>> FetchElevationGridAsync(double minLat, double minLon, double maxLat, double maxLon, int resolution = 128)
+        public async Task<List<List<float>>> FetchElevationGridAsync(double minLat, double minLon, double maxLat, double maxLon, int resolution = 256)
         {
-            var provider = (IGisDataProvider?)_providers.OfType<TerrainRgbProvider>().FirstOrDefault() 
-                          ?? _providers.OfType<OpenTopographyProvider>().FirstOrDefault();
-            
-            if (provider == null) return new List<List<float>>();
-
-            string cacheKey = $"dem_v3_{minLat:F4}_{minLon:F4}_{maxLat:F4}_{maxLon:F4}_{resolution}";
+            string cacheKey = $"dem_v6_{minLat:F4}_{minLon:F4}_{maxLat:F4}_{maxLon:F4}_{resolution}";
             return await _cache.GetOrCreateAsync(cacheKey, async entry =>
             {
                 entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(15);
-                var data = await provider.FetchDataAsync(minLat, minLon, maxLat, maxLon);
-                return data as List<List<float>> ?? new List<List<float>>();
+
+                // Try each provider in priority order; skip if result is empty
+                var demProviders = new IGisDataProvider?[]
+                {
+                    _providers.OfType<CopernicusDemProvider>().FirstOrDefault(),
+                    _providers.OfType<OpenElevationProvider>().FirstOrDefault(),
+                    _providers.OfType<OpenTopographyProvider>().FirstOrDefault(),
+                };
+
+                foreach (var p in demProviders)
+                {
+                    if (p == null) continue;
+                    try
+                    {
+                        var data = await p.FetchDataAsync(minLat, minLon, maxLat, maxLon);
+                        var grid = data as List<List<float>>;
+                        if (grid is { Count: > 0 } && grid[0].Count > 0)
+                        {
+                            _logger.LogInformation("DEM provider {Name} returned {Rows}×{Cols}", p.ProviderName, grid.Count, grid[0].Count);
+                            return grid;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning("DEM provider {Name} failed: {Msg}", p.ProviderName, ex.Message);
+                    }
+                }
+                _logger.LogWarning("All DEM providers failed, returning empty grid");
+                return new List<List<float>>();
             }) ?? new List<List<float>>();
         }
 
@@ -56,7 +77,7 @@ namespace SOSLocation.Infrastructure.Services.Gis
             var provider = _providers.OfType<OverpassProvider>().FirstOrDefault();
             if (provider == null) return new { buildings = new List<object>() };
 
-            string cacheKey = $"urban_v3_{minLat:F4}_{minLon:F4}_{maxLat:F4}_{maxLon:F4}";
+            string cacheKey = $"urban_v4_{minLat:F4}_{minLon:F4}_{maxLat:F4}_{maxLon:F4}";
             return await _cache.GetOrCreateAsync(cacheKey, async entry =>
             {
                 entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(15);
@@ -66,38 +87,15 @@ namespace SOSLocation.Infrastructure.Services.Gis
 
         public async Task<object> FetchSoilDataAsync(double minLat, double minLon, double maxLat, double maxLon)
         {
-            string cacheKey = $"soil_v4_{minLat:F4}_{minLon:F4}_{maxLat:F4}_{maxLon:F4}";
+            string cacheKey = $"soil_v5_{minLat:F4}_{minLon:F4}_{maxLat:F4}_{maxLon:F4}";
             return await _cache.GetOrCreateAsync(cacheKey, async entry =>
             {
-                entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(60);
-                
-                var earthdataProvider = _providers.OfType<EarthdataProvider>().FirstOrDefault();
-                double nasaRefinement = 1.0;
-                string extraGeology = "";
-
-                if (earthdataProvider != null) {
-                    var nasaData = await earthdataProvider.FetchDataAsync(minLat, minLon, maxLat, maxLon);
-                    if (nasaData != null) {
-                        dynamic d = nasaData;
-                        if (d.success == true) {
-                            nasaRefinement = 1.25;
-                            extraGeology = " (NASA Refined)";
-                        }
-                    }
-                }
-
-                // Deterministic soil type based on proximity to sea (lng) and lat
-                bool isCoastal = Math.Abs(minLon - (-43.1)) < 5.0; // Approximation for Brazil coast
-                string type = isCoastal ? "Sandy Clay" : "Yellow Latosol";
-                
-                return (object)new
-                {
-                    type = type + extraGeology,
-                    saturation = 45.5 * nasaRefinement,
-                    permeability = 2.8 * nasaRefinement,
-                    geology = "Precambrian Basement" + extraGeology
-                };
-            }) ?? new { type = "Unknown" };
+                entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(24); // Soil is stable
+                var soilProvider = _providers.OfType<SoilGridsProvider>().FirstOrDefault();
+                if (soilProvider == null)
+                    return (object)new SoilDataDto { Type = "Unknown", Source = "NoProvider" };
+                return await soilProvider.FetchDataAsync(minLat, minLon, maxLat, maxLon);
+            }) ?? new SoilDataDto { Type = "Unknown" };
         }
 
         public async Task<object> FetchVegetationDataAsync(double minLat, double minLon, double maxLat, double maxLon)
@@ -151,6 +149,32 @@ namespace SOSLocation.Infrastructure.Services.Gis
                 return await provider.FetchDataAsync(minLat, minLon, maxLat, maxLon);
             });
             return cached ?? new { temperature = 25.0 };
+        }
+
+        public async Task<object?> FetchLandCoverAsync(double minLat, double minLon, double maxLat, double maxLon)
+        {
+            string cacheKey = $"worldcover_v1_{minLat:F4}_{minLon:F4}_{maxLat:F4}_{maxLon:F4}";
+            return await _cache.GetOrCreateAsync(cacheKey, async entry =>
+            {
+                entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(72);
+                var provider = _providers.OfType<WorldCoverProvider>().FirstOrDefault();
+                if (provider == null) return (object)new WorldCoverGridDto { IsAvailable = false };
+                return await provider.FetchDataAsync(minLat, minLon, maxLat, maxLon) as WorldCoverGridDto
+                       ?? (object)new WorldCoverGridDto { IsAvailable = false };
+            });
+        }
+
+        public async Task<object?> FetchPopulationDensityAsync(double minLat, double minLon, double maxLat, double maxLon)
+        {
+            string cacheKey = $"population_v1_{minLat:F4}_{minLon:F4}_{maxLat:F4}_{maxLon:F4}";
+            return await _cache.GetOrCreateAsync(cacheKey, async entry =>
+            {
+                entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromDays(7);
+                var provider = _providers.OfType<GhslProvider>().FirstOrDefault();
+                if (provider == null) return (object)new PopulationDensityDto { IsAvailable = false };
+                return await provider.FetchDataAsync(minLat, minLon, maxLat, maxLon) as PopulationDensityDto
+                       ?? (object)new PopulationDensityDto { IsAvailable = false };
+            });
         }
 
         public async Task<byte[]> GenerateHeightmapAsync(double minLat, double minLon, double maxLat, double maxLon)

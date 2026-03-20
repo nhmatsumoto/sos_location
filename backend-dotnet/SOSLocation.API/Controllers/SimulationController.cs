@@ -90,12 +90,22 @@ namespace SOSLocation.API.Controllers
 
             // Parallel fetch of all GIS data needed
             var demTask     = _gisService.FetchElevationGridAsync(req.MinLat, req.MinLon, req.MaxLat, req.MaxLon, req.Resolution);
-            var urbanTask   = _gisService.ProcessUrbanPipelineAsync(req.MinLat, req.MinLon, req.MaxLat, req.MaxLon);
+            var urbanTask   = _gisService.FetchUrbanFeaturesAsync(req.MinLat, req.MinLon, req.MaxLat, req.MaxLon);
             var climateTask = _gisService.FetchClimateDataAsync(req.MinLat, req.MinLon, req.MaxLat, req.MaxLon);
             var soilTask    = _gisService.FetchSoilDataAsync(req.MinLat, req.MinLon, req.MaxLat, req.MaxLon);
             var vegTask     = _gisService.FetchVegetationDataAsync(req.MinLat, req.MinLon, req.MaxLat, req.MaxLon);
 
             await Task.WhenAll(demTask, urbanTask, climateTask, soilTask, vegTask);
+
+            // Compute world scale from bbox physical dimensions (1 world unit ≈ 25 m)
+            double latMid        = (req.MinLat + req.MaxLat) / 2.0;
+            double widthMeters   = (req.MaxLon - req.MinLon) * 111139.0 * Math.Cos(latMid * Math.PI / 180.0);
+            double heightMeters  = (req.MaxLat - req.MinLat) * 111139.0;
+            double areaScale     = Math.Clamp(Math.Max(widthMeters, heightMeters) / 25.0, 50.0, 1000.0);
+
+            var urbanFeatures = await urbanTask as SOSLocation.Application.DTOs.Simulation.UrbanDataResponse;
+            if (urbanFeatures != null)
+                urbanFeatures.AreaScale = areaScale;
 
             var result = new SimulationResultDto
             {
@@ -105,7 +115,7 @@ namespace SOSLocation.API.Controllers
                 Bbox          = new[] { req.MinLat, req.MinLon, req.MaxLat, req.MaxLon },
                 Resolution    = req.Resolution,
                 ElevationGrid = await demTask,
-                UrbanFeatures = await urbanTask,
+                UrbanFeatures = urbanFeatures,
                 Climate       = await climateTask,
                 Soil          = await soilTask,
                 Vegetation    = await vegTask,
