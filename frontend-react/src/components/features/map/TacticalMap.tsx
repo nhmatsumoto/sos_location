@@ -1,15 +1,25 @@
-import { Box, BoxProps } from '@chakra-ui/react';
-import { MapContainer, TileLayer, MapContainerProps } from 'react-leaflet';
+import { Box } from '@chakra-ui/react';
+import type { BoxProps } from '@chakra-ui/react';
+import { MapContainer, TileLayer } from 'react-leaflet';
+import type { MapContainerProps } from 'react-leaflet';
 import { TacticalText } from '../../atoms/TacticalText';
-import { ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { motion } from 'framer-motion';
 
 const MotionBox = motion(Box);
+
+const TILE_PROVIDERS = {
+  dark: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+  satellite: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+  topo: "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",
+  streets: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+};
 
 interface TacticalMapProps extends MapContainerProps {
   children?: ReactNode;
   containerProps?: BoxProps;
   showLabel?: boolean;
+  tileType?: keyof typeof TILE_PROVIDERS;
 }
 
 /**
@@ -21,6 +31,7 @@ export function TacticalMap({
   children, 
   containerProps, 
   showLabel = true, 
+  tileType = 'dark',
   style,
   ...props 
 }: TacticalMapProps) {
@@ -92,7 +103,7 @@ export function TacticalMap({
       >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+          url={TILE_PROVIDERS[tileType] || TILE_PROVIDERS.dark}
         />
         {children}
       </MapContainer>

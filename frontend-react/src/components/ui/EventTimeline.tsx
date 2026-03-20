@@ -49,12 +49,12 @@ export function EventTimeline({ steps }: EventTimelineProps) {
               </TacticalText>
             </Box>
             <TacticalText variant="mono" fontSize="10px" color="whiteAlpha.600">
-              {step.lat.toFixed(4)} / {step.lng.toFixed(4)}
+              {step.lat?.toFixed(4) ?? '0.0000'} / {step.lng?.toFixed(4) ?? '0.0000'}
             </TacticalText>
           </HStack>
           <HStack spacing={2}>
             <TacticalText variant="mono" fontSize="10px" fontWeight="black" color="sos.blue.400">
-              {step.depth.toFixed(2)}M
+              {step.depth?.toFixed(2) ?? '0.00'}M
             </TacticalText>
             <Box boxSize="4px" borderRadius="full" bg={step.depth > 1 ? "sos.red.500" : "sos.blue.400"} />
           </HStack>

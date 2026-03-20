@@ -155,7 +155,122 @@ export interface EnvironmentalData {
   humidity?: number;
   windSpeed?: number;
   rainfall?: number;
-  soilSaturaion?: number;
+  soilSaturation?: number;
+}
+
+export interface GISBuilding {
+  coordinates: [number, number][];
+  levels?: number;
+  height?: number; // height in meters from OSM data (building:height tag)
+  buildingUse?: 'residential' | 'commercial' | 'industrial' | 'mixed';
+  tags?: Record<string, string>;
+}
+
+export interface GISHighway {
+  coordinates: [number, number][];
+  type?: string; // 'motorway' | 'primary' | 'secondary' | 'residential' | etc.
+  lanes?: number;
+  tags?: Record<string, string>;
+}
+
+export interface GISWaterway {
+  coordinates: [number, number][];
+}
+
+export interface GISWaterArea {
+  coordinates: [number, number][];
+  type?: string; // 'lake' | 'river' | 'reservoir'
+}
+
+export interface GISPark {
+  coordinates: [number, number][];
+  type?: string; // 'park' | 'forest' | 'grass'
+}
+
+export interface GISNaturalArea {
+  coordinates: [number, number][];
+  /** scrub | heath | grassland | wetland | sand | beach | bare_rock | cliff | farmland | allotments | vineyard | orchard */
+  type: string;
+  category?: string;
+}
+
+export interface GISLandUseZone {
+  coordinates: [number, number][];
+  /** residential | commercial | industrial | retail | cemetery | construction | military | leisure_sports_centre | leisure_pitch | leisure_stadium */
+  type: string;
+  category?: string;
+}
+
+export interface GISAmenity {
+  /** Single-element array [[lat, lng]] — point-of-interest location */
+  coordinates: [number, number][];
+  /** hospital | clinic | school | university | fire_station | police | shelter | pharmacy | post_office | townhall */
+  type: string;
+  tags?: Record<string, string>;
+}
+
+export interface UrbanSimulationResult {
+  bbox: number[];
+  area_scale?: number;
+  source_metadata?: Record<string, unknown>;
+  raster_url?: string;
+  points?: unknown[];
+  polygons?: unknown[];
+  topo_data?: number[][];
+  elevationGrid?: number[][];
+  urbanFeatures?: {
+    highways?: GISHighway[];
+    waterways?: GISWaterway[];
+    buildings?: GISBuilding[];
+    areaScale?: number; // world scale in world units (≈200 for a ~5km area)
+    waterAreas?: GISWaterArea[];
+    parks?: GISPark[];
+    naturalAreas?: GISNaturalArea[];
+    landUseZones?: GISLandUseZone[];
+    amenities?: GISAmenity[];
+  };
+  soil?: {
+    type: string;
+    clayPct?: number;
+    sandPct?: number;
+    siltPct?: number;
+    ph?: number;
+    permeability?: number;
+    source?: string;
+  };
+  landCover?: LandCoverGrid;
+  populationDensity?: PopulationDensityGrid;
+}
+
+export interface LandCoverGrid {
+  rows: number;
+  cols: number;
+  grid: number[]; // row-major Uint8 ESA WorldCover class codes
+  source: string;
+  isAvailable: boolean;
+}
+
+export interface SoilData {
+  type: string;
+  clayPct: number;
+  sandPct: number;
+  siltPct: number;
+  ph: number;
+  bulkDensity: number;
+  organicCarbonDensity: number;
+  permeability: number;
+  phDescriptor: string;
+  source: string;
+}
+
+export interface PopulationDensityGrid {
+  rows: number;
+  cols: number;
+  grid: number[][];  // normalized 0-1 log scale
+  maxRawValue: number;
+  year: number;
+  isAvailable: boolean;
+  source: string;
 }
 
 export interface SituationalSnapshot {
@@ -164,6 +279,6 @@ export interface SituationalSnapshot {
   center: [number, number];
   bounds: Array<[number, number]>;
   environmentalData: EnvironmentalData;
-  terrainData?: any;
-  buildings?: any;
+  terrainData?: unknown;
+  buildings?: unknown;
 }
