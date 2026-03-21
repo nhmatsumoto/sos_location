@@ -1,5 +1,5 @@
 import { Target, CheckCircle2, ChevronRight, Rocket, Shield, Map } from 'lucide-react';
-import { Box, Flex, VStack, Text, Icon, HStack, Progress, Badge, Divider } from '@chakra-ui/react';
+import { Box, Flex, VStack, Text, Icon, HStack, Progress, Badge, Divider, Skeleton, SkeletonText } from '@chakra-ui/react';
 
 interface Mission {
   id: string;
@@ -11,40 +11,18 @@ interface Mission {
   priority: 'high' | 'medium' | 'low';
 }
 
-const mockMissions: Mission[] = [
-  { 
-    id: '1', 
-    title: 'Validar Áreas de Risco', 
-    description: 'Verificar 3 pontos reportados na Zona Sul',
-    reward: 500, 
-    completed: false, 
-    type: 'validate',
-    priority: 'high'
-  },
-  { 
-    id: '2', 
-    title: 'Reportar Inundação', 
-    description: 'Identificar nível da água no Setor 4',
-    reward: 300, 
-    completed: true, 
-    type: 'report',
-    priority: 'medium'
-  },
-  { 
-    id: '3', 
-    title: 'Confirmar Equipes', 
-    description: 'Validar chegada da defesa civil na UBS',
-    reward: 200, 
-    completed: false, 
-    type: 'rescue',
-    priority: 'low'
-  },
-];
-
 import { GlassPanel } from '../../atoms/GlassPanel';
 import { TacticalText } from '../../atoms/TacticalText';
 
-export function MissionsPanel() {
+interface MissionsPanelProps {
+  missions?: Mission[];
+  isLoading?: boolean;
+}
+
+export function MissionsPanel({ missions, isLoading = false }: MissionsPanelProps) {
+  const activeMissions = (missions ?? []).filter(m => !m.completed);
+  const isEmpty = !isLoading && (!missions || missions.length === 0);
+
   return (
     <GlassPanel
       flexDirection="column"
@@ -62,18 +40,50 @@ export function MissionsPanel() {
               OBJETIVOS TÁTICOS
             </TacticalText>
           </HStack>
-          <Badge bg="sos.blue.500" color="white" fontSize="9px" px={2} borderRadius="md" py={0.5}>
-            {mockMissions.filter(m => !m.completed).length} ATIVOS
-          </Badge>
+          {!isLoading && missions && (
+            <Badge bg="sos.blue.500" color="white" fontSize="9px" px={2} borderRadius="md" py={0.5}>
+              {activeMissions.length} ATIVOS
+            </Badge>
+          )}
+          {isLoading && (
+            <Skeleton h="18px" w="55px" borderRadius="md" startColor="whiteAlpha.100" endColor="whiteAlpha.200" />
+          )}
         </Flex>
         <TacticalText variant="caption">Coordenação de campo // Stream</TacticalText>
       </Box>
 
       {/* Mission List */}
       <VStack spacing={0} align="stretch" flex={1} overflowY="auto" className="custom-scrollbar">
-        {mockMissions.map((mission, index) => (
+        {isLoading && (
+          <>
+            {[0, 1, 2].map(i => (
+              <Box key={i} px={5} py={4} borderBottom="1px solid" borderColor="whiteAlpha.50">
+                <HStack spacing={3}>
+                  <Skeleton boxSize="32px" borderRadius="xl" startColor="whiteAlpha.100" endColor="whiteAlpha.200" />
+                  <VStack align="start" spacing={1} flex={1}>
+                    <Skeleton h="11px" w="70%" borderRadius="sm" startColor="whiteAlpha.100" endColor="whiteAlpha.200" />
+                    <Skeleton h="10px" w="50%" borderRadius="sm" startColor="whiteAlpha.100" endColor="whiteAlpha.200" />
+                  </VStack>
+                </HStack>
+              </Box>
+            ))}
+          </>
+        )}
+
+        {isEmpty && (
+          <Flex flex={1} align="center" justify="center" py={8}>
+            <VStack spacing={2}>
+              <Icon as={Target} boxSize="28px" color="whiteAlpha.200" />
+              <TacticalText variant="caption" color="whiteAlpha.300" textAlign="center">
+                Nenhum objetivo<br />disponível no momento
+              </TacticalText>
+            </VStack>
+          </Flex>
+        )}
+
+        {!isLoading && (missions ?? []).map((mission, index) => (
           <Box key={mission.id}>
-            <HStack 
+            <HStack
               px={5}
               py={4}
               cursor="pointer"
@@ -84,40 +94,40 @@ export function MissionsPanel() {
               position="relative"
             >
               {!mission.completed && (
-                <Box 
-                  position="absolute" 
-                  left={0} 
-                  top="20%" 
-                  bottom="20%" 
-                  w="2px" 
-                  bg={mission.priority === 'high' ? 'sos.red.500' : 'sos.blue.500'} 
+                <Box
+                  position="absolute"
+                  left={0}
+                  top="20%"
+                  bottom="20%"
+                  w="2px"
+                  bg={mission.priority === 'high' ? 'sos.red.500' : 'sos.blue.500'}
                   borderRadius="full"
                 />
               )}
 
-              <Flex 
-                alignItems="center" 
-                justifyContent="center" 
-                w="32px" 
-                h="32px" 
+              <Flex
+                alignItems="center"
+                justifyContent="center"
+                w="32px"
+                h="32px"
                 borderRadius="xl"
                 bg="whiteAlpha.100"
                 border="1px solid"
                 borderColor="whiteAlpha.100"
               >
-                <Icon 
-                  as={mission.type === 'validate' ? Shield : mission.type === 'report' ? Map : Rocket} 
-                  boxSize="14px" 
-                  color={mission.completed ? 'whiteAlpha.300' : 'sos.blue.400'} 
+                <Icon
+                  as={mission.type === 'validate' ? Shield : mission.type === 'report' ? Map : Rocket}
+                  boxSize="14px"
+                  color={mission.completed ? 'whiteAlpha.300' : 'sos.blue.400'}
                 />
               </Flex>
 
               <VStack align="flex-start" spacing={0} flex={1}>
                 <HStack w="full" justify="space-between">
-                  <TacticalText 
-                    fontSize="11px" 
-                    fontWeight="bold" 
-                    color={mission.completed ? "whiteAlpha.400" : "white"} 
+                  <TacticalText
+                    fontSize="11px"
+                    fontWeight="bold"
+                    color={mission.completed ? "whiteAlpha.400" : "white"}
                     textDecoration={mission.completed ? 'line-through' : 'none'}
                   >
                     {mission.title}
@@ -128,7 +138,7 @@ export function MissionsPanel() {
                   {mission.description}
                 </TacticalText>
                 <HStack mt={1} spacing={2}>
-                   <TacticalText variant="mono" fontSize="9px" color="sos.blue.400">
+                  <TacticalText variant="mono" fontSize="9px" color="sos.blue.400">
                     +{mission.reward} XP
                   </TacticalText>
                   {!mission.completed && (
@@ -138,37 +148,41 @@ export function MissionsPanel() {
                   )}
                 </HStack>
               </VStack>
-              
+
               {!mission.completed && (
-                <Icon 
-                  as={ChevronRight} 
-                  boxSize="14px" 
-                  color="whiteAlpha.200" 
-                  _groupHover={{ color: 'white', transform: 'translateX(2px)' }} 
+                <Icon
+                  as={ChevronRight}
+                  boxSize="14px"
+                  color="whiteAlpha.200"
+                  _groupHover={{ color: 'white', transform: 'translateX(2px)' }}
                   transition="all 0.2s"
                 />
               )}
             </HStack>
-            {index < mockMissions.length - 1 && <Divider borderColor="whiteAlpha.50" />}
+            {index < (missions ?? []).length - 1 && <Divider borderColor="whiteAlpha.50" />}
           </Box>
         ))}
       </VStack>
 
-      {/* Footer */}
-      <Box p={5} bg="whiteAlpha.50" borderTop="1px solid" borderColor="whiteAlpha.100">
-         <Flex align="center" justify="space-between" mb={2}>
-            <TacticalText variant="caption">PRONTIDÃO DO SETOR</TacticalText>
-            <TacticalText variant="mono" fontSize="xs" color="sos.blue.400">88.2%</TacticalText>
-         </Flex>
-         <Progress 
-           value={88.2} 
-           size="xs" 
-           borderRadius="full" 
-           bg="whiteAlpha.100" 
-           colorScheme="blue"
-           h="3px"
-         />
-      </Box>
+      {/* Footer — only shown when real data loaded */}
+      {!isLoading && missions && missions.length > 0 && (
+        <Box p={5} bg="whiteAlpha.50" borderTop="1px solid" borderColor="whiteAlpha.100">
+          <Flex align="center" justify="space-between" mb={2}>
+            <TacticalText variant="caption">OBJETIVOS CONCLUÍDOS</TacticalText>
+            <TacticalText variant="mono" fontSize="xs" color="sos.blue.400">
+              {missions.filter(m => m.completed).length}/{missions.length}
+            </TacticalText>
+          </Flex>
+          <Progress
+            value={missions.length > 0 ? (missions.filter(m => m.completed).length / missions.length) * 100 : 0}
+            size="xs"
+            borderRadius="full"
+            bg="whiteAlpha.100"
+            colorScheme="blue"
+            h="3px"
+          />
+        </Box>
+      )}
     </GlassPanel>
   );
 }

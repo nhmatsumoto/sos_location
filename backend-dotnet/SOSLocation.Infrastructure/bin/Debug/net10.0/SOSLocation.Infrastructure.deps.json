@@ -20,6 +20,7 @@
           "RabbitMQ.Client": "7.2.1",
           "SOSLocation.Application": "1.0.0",
           "SOSLocation.Domain": "1.0.0",
+          "SOSLocation.ML": "1.0.0",
           "SixLabors.ImageSharp": "3.1.12"
         },
         "runtime": {
@@ -2051,6 +2052,17 @@
             "fileVersion": "1.0.0.0"
           }
         }
+      },
+      "SOSLocation.ML/1.0.0": {
+        "dependencies": {
+          "SixLabors.ImageSharp": "3.1.12"
+        },
+        "runtime": {
+          "SOSLocation.ML.dll": {
+            "assemblyVersion": "1.0.0.0",
+            "fileVersion": "1.0.0.0"
+          }
+        }
       }
     }
   },
@@ -2640,6 +2652,11 @@
       "sha512": ""
     },
     "SOSLocation.Domain/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "SOSLocation.ML/1.0.0": {
       "type": "project",
       "serviceable": false,
       "sha512": ""

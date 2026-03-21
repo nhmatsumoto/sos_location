@@ -35,8 +35,9 @@ namespace SOSLocation.Infrastructure.Services.Gis
             var vectorData = (UrbanDataResponse?)await (overpass?.FetchDataAsync(minLat, minLon, maxLat, maxLon) ?? Task.FromResult<object>(null!));
             
             // 2. Identify Metadata and Potential Raster Sources
-            // (In a real scenario, this would search Web WMS/WMTS registries)
-            string buildingHeightMapUrl = "https://example.com/api/gabarito-mock"; // Placeholder for specific research logic
+            // Building height raster (Gabarito) is sourced dynamically at runtime.
+            // No URL is available at pipeline initialization — enrichment is skipped when null.
+            string? buildingHeightMapUrl = null; // Set by caller when a real height-map endpoint is known
 
             // 3. Process Layers
             var urbanManifest = new UrbanManifestDto();
@@ -52,8 +53,8 @@ namespace SOSLocation.Infrastructure.Services.Gis
             // but here we focus on the semantic classification
             var rasterFeatures = await _rasterProcessor.ExtractFeaturesFromImageryAsync(minLat, minLon, maxLat, maxLon, rotation);
             
-            // 5. Build Height (Gabarito) Integration
-            if (urbanManifest.Buildings.Any()) {
+            // 5. Build Height (Gabarito) Integration — only when a real source URL is provided
+            if (urbanManifest.Buildings.Any() && buildingHeightMapUrl != null) {
                 await _rasterProcessor.EnrichBuildingsWithGabaritoAsync(urbanManifest.Buildings, minLat, minLon, maxLat, maxLon, buildingHeightMapUrl);
             }
 

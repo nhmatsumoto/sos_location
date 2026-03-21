@@ -8,8 +8,9 @@ import type { NewsNotification } from '../../services/newsApi';
 import {
   Box, VStack, HStack, Badge, Text, Divider,
   IconButton, Input, InputGroup, InputRightElement,
-  Tooltip, keyframes,
+  Tooltip,
 } from '@chakra-ui/react';
+import { keyframes } from '@emotion/react';
 import { Search, Layers, X } from 'lucide-react';
 import { tacticalIntelApi } from '../../services/tacticalIntelApi';
 import type { OperationalPoint } from '../../services/tacticalIntelApi';

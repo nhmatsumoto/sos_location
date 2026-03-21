@@ -2451,6 +2451,19 @@
         "runtime": {
           "bin/placeholder/SOSLocation.Domain.dll": {}
         }
+      },
+      "SOSLocation.ML/1.0.0": {
+        "type": "project",
+        "framework": ".NETCoreApp,Version=v10.0",
+        "dependencies": {
+          "SixLabors.ImageSharp": "3.1.12"
+        },
+        "compile": {
+          "bin/placeholder/SOSLocation.ML.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/SOSLocation.ML.dll": {}
+        }
       }
     }
   },
@@ -5730,6 +5743,11 @@
       "type": "project",
       "path": "../SOSLocation.Domain/SOSLocation.Domain.csproj",
       "msbuildProject": "../SOSLocation.Domain/SOSLocation.Domain.csproj"
+    },
+    "SOSLocation.ML/1.0.0": {
+      "type": "project",
+      "path": "../SOSLocation.ML/SOSLocation.ML.csproj",
+      "msbuildProject": "../SOSLocation.ML/SOSLocation.ML.csproj"
     }
   },
   "projectFileDependencyGroups": {
@@ -5746,6 +5764,7 @@
       "RabbitMQ.Client >= 7.2.1",
       "SOSLocation.Application >= 1.0.0",
       "SOSLocation.Domain >= 1.0.0",
+      "SOSLocation.ML >= 1.0.0",
       "SixLabors.ImageSharp >= 3.1.12"
     ]
   },
@@ -5779,6 +5798,9 @@
             },
             "/home/nhmatsumoto/sos_location/backend-dotnet/SOSLocation.Domain/SOSLocation.Domain.csproj": {
               "projectPath": "/home/nhmatsumoto/sos_location/backend-dotnet/SOSLocation.Domain/SOSLocation.Domain.csproj"
+            },
+            "/home/nhmatsumoto/sos_location/backend-dotnet/SOSLocation.ML/SOSLocation.ML.csproj": {
+              "projectPath": "/home/nhmatsumoto/sos_location/backend-dotnet/SOSLocation.ML/SOSLocation.ML.csproj"
             }
           }
         }

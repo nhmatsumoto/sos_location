@@ -74,14 +74,16 @@ export function useSOSPageData() {
           // Heuristic: If KPIs are all zero, calculate logical fallbacks from other fetched data
           const hasData = (opSnap.kpis?.activeTeams || 0) > 0 || (opSnap.kpis?.criticalAlerts || 0) > 0;
           if (!hasData) {
-            const calculatedAlerts = finalAlerts.filter(a => a.severity === 'Extremo' || a.severity === 'Perigo' || a.severity === 'Critical' || a.severity === 'High').length;
-            const calculatedGis = finalGisAlerts.length;
-            
+            // Derive KPIs from real data only — no hardcoded fallback numbers
+            const calculatedAlerts = finalAlerts.filter(a =>
+              a.severity === 'Extremo' || a.severity === 'Perigo' ||
+              a.severity === 'Critical' || a.severity === 'High'
+            ).length + finalGisAlerts.length;
+
             opSnap.kpis = {
               ...opSnap.kpis,
-              criticalAlerts: calculatedAlerts + calculatedGis || (finalEvents?.length ? Math.floor(finalEvents.length / 5) : 1),
-              activeTeams: Math.max(3, Math.floor((finalEvents?.length || 0) / 6)), // Improved mock base
-              suppliesInTransit: Math.floor((finalEvents?.length || 0) * 1.5) || 12,
+              criticalAlerts: calculatedAlerts,
+              // Leave activeTeams and suppliesInTransit as 0 when no real data exists
             };
           }
           setOpsSnapshot(opSnap);

@@ -39,3 +39,5 @@
 /home/nhmatsumoto/sos_location/backend-dotnet/SOSLocation.Infrastructure/obj/Debug/net10.0/SOSLocation.Infrastructure.genruntimeconfig.cache
 /home/nhmatsumoto/sos_location/backend-dotnet/SOSLocation.Infrastructure/obj/Debug/net10.0/ref/SOSLocation.Infrastructure.dll
 /home/nhmatsumoto/sos_location/backend-dotnet/SOSLocation.Infrastructure/bin/Debug/net10.0/Persistence/SEED.json
+/home/nhmatsumoto/sos_location/backend-dotnet/SOSLocation.Infrastructure/bin/Debug/net10.0/SOSLocation.ML.dll
+/home/nhmatsumoto/sos_location/backend-dotnet/SOSLocation.Infrastructure/bin/Debug/net10.0/SOSLocation.ML.pdb

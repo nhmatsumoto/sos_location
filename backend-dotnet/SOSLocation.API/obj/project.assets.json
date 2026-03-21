@@ -3026,6 +3026,7 @@
           "RabbitMQ.Client": "7.2.1",
           "SOSLocation.Application": "1.0.0",
           "SOSLocation.Domain": "1.0.0",
+          "SOSLocation.ML": "1.0.0",
           "SixLabors.ImageSharp": "3.1.12"
         },
         "compile": {
@@ -3033,6 +3034,19 @@
         },
         "runtime": {
           "bin/placeholder/SOSLocation.Infrastructure.dll": {}
+        }
+      },
+      "SOSLocation.ML/1.0.0": {
+        "type": "project",
+        "framework": ".NETCoreApp,Version=v10.0",
+        "dependencies": {
+          "SixLabors.ImageSharp": "3.1.12"
+        },
+        "compile": {
+          "bin/placeholder/SOSLocation.ML.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/SOSLocation.ML.dll": {}
         }
       }
     }
@@ -7294,6 +7308,11 @@
       "type": "project",
       "path": "../SOSLocation.Infrastructure/SOSLocation.Infrastructure.csproj",
       "msbuildProject": "../SOSLocation.Infrastructure/SOSLocation.Infrastructure.csproj"
+    },
+    "SOSLocation.ML/1.0.0": {
+      "type": "project",
+      "path": "../SOSLocation.ML/SOSLocation.ML.csproj",
+      "msbuildProject": "../SOSLocation.ML/SOSLocation.ML.csproj"
     }
   },
   "projectFileDependencyGroups": {
@@ -7313,6 +7332,7 @@
       "OpenTelemetry.Instrumentation.Http >= 1.15.0",
       "SOSLocation.Application >= 1.0.0",
       "SOSLocation.Infrastructure >= 1.0.0",
+      "SOSLocation.ML >= 1.0.0",
       "Serilog.AspNetCore >= 9.0.0",
       "Serilog.Sinks.Console >= 6.0.0",
       "Serilog.Sinks.File >= 6.0.0",
@@ -7349,6 +7369,9 @@
             },
             "/home/nhmatsumoto/sos_location/backend-dotnet/SOSLocation.Infrastructure/SOSLocation.Infrastructure.csproj": {
               "projectPath": "/home/nhmatsumoto/sos_location/backend-dotnet/SOSLocation.Infrastructure/SOSLocation.Infrastructure.csproj"
+            },
+            "/home/nhmatsumoto/sos_location/backend-dotnet/SOSLocation.ML/SOSLocation.ML.csproj": {
+              "projectPath": "/home/nhmatsumoto/sos_location/backend-dotnet/SOSLocation.ML/SOSLocation.ML.csproj"
             }
           }
         }

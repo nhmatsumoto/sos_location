@@ -13,6 +13,7 @@ using MediatR;
 using SOSLocation.Infrastructure.Services.Gis.Providers;
 using SOSLocation.Infrastructure.Services.Gis.Crawlers;
 using SOSLocation.Infrastructure.Services.News;
+using SOSLocation.ML.Services;
 
 namespace SOSLocation.API.Extensions
 {
@@ -67,6 +68,11 @@ namespace SOSLocation.API.Extensions
             services.AddScoped<UrbanGeoprocessingService>();
             services.AddScoped<IGisService, GisService>();
             services.AddScoped<IGeoCentralService, GeoCentralService>();
+
+            // ML Services (native .NET — no Python container required)
+            services.AddScoped<SemanticSegmentationService>();
+            services.AddScoped<RiskEngineService>();
+            services.AddScoped<SimulationOrchestrationService>();
 
             // Crawler Engine & Connectors
             services.AddHttpClient<IGsiElevationConnector, GsiElevationService>().AddStandardResilienceHandler();

@@ -146,6 +146,7 @@ export function SimulationsPage() {
 
   const [analysisProgress, setAnalysisProgress] = useState(0);
   const [analysisStatus, setAnalysisStatus] = useState('');
+  const [captureError, setCaptureError] = useState<string | null>(null);
   const [captureRotation, setCaptureRotation] = useState(0);
 
   const [bbox, setBbox] = useState<number[] | undefined>(undefined);
@@ -160,6 +161,7 @@ export function SimulationsPage() {
   } = useSimulationsController();
   const handleIndexMission = useCallback(async () => {
     if (isSimulating) return;
+    setCaptureError(null);
     setActiveStep('INDEXING');
     setAnalysisProgress(0);
     setAnalysisStatus('INICIALIZANDO PIPELINE DE CAPTURA...');
@@ -176,9 +178,10 @@ export function SimulationsPage() {
       setAnalysisStatus('BLUEPRINT_COMPILADO — PRONTO');
       setScenarioSubStep('SELECT');
       setTimeout(() => setActiveStep('SCENARIO'), 800);
-    } catch {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Falha na captura do blueprint';
+      setCaptureError(msg);
       setAnalysisStatus('ERRO: FALHA NA CAPTURA DO BLUEPRINT');
-      setTimeout(() => setActiveStep('LOCATION'), 2000);
     }
   }, [actions, bbox, isSimulating, numericLat, numericLng]);
 
@@ -832,26 +835,48 @@ export function SimulationsPage() {
           justifyContent="center"
         >
           <VStack spacing={8} w="full" maxW="600px">
-            <Box position="relative" w="full" h="350px" borderRadius="2xl" overflow="hidden" border="1px solid" borderColor="whiteAlpha.300" bg="whiteAlpha.100">
-              <Box position="absolute" top={0} left={0} right={0} h="2px" bg="sos.blue.400" boxShadow="0 0 20px #007AFF" zIndex={2} style={{ animation: 'scanning 3s linear infinite' }} />
+            <Box position="relative" w="full" h="350px" borderRadius="2xl" overflow="hidden" border="1px solid" borderColor={captureError ? 'red.500' : 'whiteAlpha.300'} bg="whiteAlpha.100">
+              {!captureError && (
+                <Box position="absolute" top={0} left={0} right={0} h="2px" bg="sos.blue.400" boxShadow="0 0 20px #007AFF" zIndex={2} style={{ animation: 'scanning 3s linear infinite' }} />
+              )}
               <Flex direction="column" h="full" p={8} justify="space-between">
                 <HStack justify="space-between">
-                  <TacticalText variant="mono" fontSize="2xs" color="sos.blue.400">[HYDRA_INDEXER_RUNNING]</TacticalText>
+                  <TacticalText variant="mono" fontSize="2xs" color={captureError ? 'red.400' : 'sos.blue.400'}>
+                    {captureError ? '[HYDRA_INDEXER_ERROR]' : '[HYDRA_INDEXER_RUNNING]'}
+                  </TacticalText>
                   <TacticalText variant="mono" fontSize="2xs" color="whiteAlpha.400">THREADS: 16 // BUFFER: OK</TacticalText>
                 </HStack>
                 <VStack spacing={2}>
-                  <TacticalText variant="heading" fontSize="2xl" textAlign="center" letterSpacing="0.4em">INDEXAÇÃO_DE_DADOS</TacticalText>
+                  <TacticalText variant="heading" fontSize="2xl" textAlign="center" letterSpacing="0.4em">
+                    {captureError ? 'FALHA_NA_CAPTURA' : 'INDEXAÇÃO_DE_DADOS'}
+                  </TacticalText>
                   <TacticalText variant="caption" textAlign="center" opacity={0.6}>{analysisStatus}</TacticalText>
+                  {captureError && (
+                    <TacticalText variant="mono" fontSize="2xs" color="red.300" textAlign="center" mt={1}>
+                      {captureError}
+                    </TacticalText>
+                  )}
                 </VStack>
-                <Box>
-                  <Flex justify="space-between" mb={2}>
-                    <TacticalText variant="mono" fontSize="10px">ESTRUTURANDO_CONTEXTO_URBANO</TacticalText>
-                    <TacticalText variant="mono" fontSize="10px">{analysisProgress}%</TacticalText>
-                  </Flex>
-                  <Box h="2px" w="full" bg="whiteAlpha.100" borderRadius="full">
-                    <Box h="full" w={`${analysisProgress}%`} bg="sos.blue.400" transition="width 0.3s ease-out" boxShadow="0 0 15px #007AFF" />
+                {captureError ? (
+                  <HStack spacing={4} justify="center">
+                    <TacticalButton variant="primary" size="sm" onClick={handleIndexMission}>
+                      TENTAR NOVAMENTE
+                    </TacticalButton>
+                    <TacticalButton variant="ghost" size="sm" onClick={() => { setCaptureError(null); setActiveStep('LOCATION'); }}>
+                      VOLTAR
+                    </TacticalButton>
+                  </HStack>
+                ) : (
+                  <Box>
+                    <Flex justify="space-between" mb={2}>
+                      <TacticalText variant="mono" fontSize="10px">ESTRUTURANDO_CONTEXTO_URBANO</TacticalText>
+                      <TacticalText variant="mono" fontSize="10px">{analysisProgress}%</TacticalText>
+                    </Flex>
+                    <Box h="2px" w="full" bg="whiteAlpha.100" borderRadius="full">
+                      <Box h="full" w={`${analysisProgress}%`} bg="sos.blue.400" transition="width 0.3s ease-out" boxShadow="0 0 15px #007AFF" />
+                    </Box>
                   </Box>
-                </Box>
+                )}
               </Flex>
             </Box>
             <SimpleGrid columns={3} spacing={4} w="full">

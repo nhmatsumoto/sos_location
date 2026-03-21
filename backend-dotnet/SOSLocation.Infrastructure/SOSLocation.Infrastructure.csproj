@@ -9,6 +9,7 @@
   <ItemGroup>
     <ProjectReference Include="..\SOSLocation.Domain\SOSLocation.Domain.csproj" />
     <ProjectReference Include="..\SOSLocation.Application\SOSLocation.Application.csproj" />
+    <ProjectReference Include="..\SOSLocation.ML\SOSLocation.ML.csproj" />
   </ItemGroup>
 
   <ItemGroup>

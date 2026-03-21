@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { getEvents } from '../services/disastersApi';
 
 export interface GlobalEvent {
   id: string;
@@ -13,69 +14,65 @@ export interface GlobalEvent {
   description: string;
 }
 
-const MOCK_EVENTS: GlobalEvent[] = [
-  {
-    id: 'gdacs-1',
-    title: 'Tropical Cyclone ILSA-23',
-    type: 'Cyclone',
-    severity: 'High',
-    location: 'Western Australia',
-    countryCode: 'AU',
-    timestamp: new Date().toISOString(),
-    lat: -20.3,
-    lon: 118.6,
-    description: 'Cyclone reaching Category 4. Storm surge risk in Port Hedland.'
-  },
-  {
-    id: 'gdacs-2',
-    title: 'M 6.8 Earthquake - Hindu Kush',
-    type: 'Earthquake',
-    severity: 'Critical',
-    location: 'Afghanistan / Pakistan border',
-    countryCode: 'AF',
-    timestamp: new Date(Date.now() - 3600000).toISOString(),
-    lat: 36.5,
-    lon: 70.9,
-    description: 'Deep earthquake (180km). Massive shaking felt in Kabul and Islamabad.'
-  },
-  {
-    id: 'gdacs-3',
-    title: 'Po River Flood Crisis',
-    type: 'Flood',
-    severity: 'Medium',
-    location: 'Emilia-Romagna',
-    countryCode: 'IT',
-    timestamp: new Date(Date.now() - 7200000).toISOString(),
-    lat: 44.4,
-    lon: 12.2,
-    description: 'Unprecedented rainfall causing 23 rivers to overflow. Evacuations in progress.'
-  },
-  {
-    id: 'gdacs-4',
-    title: 'Mount Etna Eruption',
-    type: 'Volcano',
-    severity: 'Low',
-    location: 'Sicily',
-    countryCode: 'IT',
-    timestamp: new Date(Date.now() - 14400000).toISOString(),
-    lat: 37.7,
-    lon: 15.0,
-    description: 'Ash plume detected. Flights redirected from Catania airport.'
-  }
-];
+function toSeverity(raw: unknown): GlobalEvent['severity'] {
+  const s = String(raw ?? '').toLowerCase();
+  if (s === 'critical' || s === 'extremo' || Number(raw) >= 5) return 'Critical';
+  if (s === 'high' || s === 'perigo' || Number(raw) >= 3) return 'High';
+  if (s === 'medium' || s === 'atenção' || Number(raw) >= 2) return 'Medium';
+  return 'Low';
+}
+
+function toEventType(raw: unknown): GlobalEvent['type'] {
+  const t = String(raw ?? '').toLowerCase();
+  if (t.includes('earth') || t.includes('quake') || t.includes('sismo')) return 'Earthquake';
+  if (t.includes('flood') || t.includes('enchente') || t.includes('chuva')) return 'Flood';
+  if (t.includes('cyclone') || t.includes('hurricane') || t.includes('furac')) return 'Cyclone';
+  if (t.includes('fire') || t.includes('incend')) return 'Wildfire';
+  if (t.includes('volcan') || t.includes('erupc')) return 'Volcano';
+  return 'Flood';
+}
 
 export function useGlobalDisasters() {
   const [events, setEvents] = useState<GlobalEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Simulate API fetch delay
-    const timer = setTimeout(() => {
-      setEvents(MOCK_EVENTS);
-      setLoading(false);
-    }, 1200);
-    return () => clearTimeout(timer);
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const resp = await getEvents({ page: 1, pageSize: 50 });
+        if (cancelled) return;
+        const mapped: GlobalEvent[] = (resp?.items ?? [])
+          .filter((e: any) => typeof e.lat === 'number' && typeof e.lon === 'number')
+          .map((e: any): GlobalEvent => ({
+            id: String(e.id ?? e.providerEventId ?? Math.random()),
+            title: e.title ?? e.name ?? 'Evento',
+            type: toEventType(e.eventType ?? e.type),
+            severity: toSeverity(e.severity),
+            location: e.countryName ?? e.location ?? '',
+            countryCode: e.countryCode ?? '',
+            timestamp: e.startAt ?? e.createdAt ?? new Date().toISOString(),
+            lat: e.lat,
+            lon: e.lon,
+            description: e.description ?? '',
+          }));
+        setEvents(mapped);
+      } catch (err) {
+        if (!cancelled) {
+          console.error('useGlobalDisasters: failed to load events', err);
+          setError('Não foi possível carregar eventos globais.');
+          setEvents([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    void load();
+    return () => { cancelled = true; };
   }, []);
 
-  return { events, loading };
+  return { events, loading, error };
 }

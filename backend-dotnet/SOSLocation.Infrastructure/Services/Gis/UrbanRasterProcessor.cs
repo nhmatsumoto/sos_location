@@ -108,7 +108,7 @@ namespace SOSLocation.Infrastructure.Services.Gis
             return features;
         }
 
-        public async Task EnrichBuildingsWithGabaritoAsync(List<GisFeatureDto> buildings, double minLat, double minLon, double maxLat, double maxLon, string mapUrl)
+        public async Task EnrichBuildingsWithGabaritoAsync(List<GisFeatureDto> buildings, double minLat, double minLon, double maxLat, double maxLon, string? mapUrl)
         {
             _logger.LogInformation("Decoding building heights (Gabarito) from: {url}", mapUrl);
             
