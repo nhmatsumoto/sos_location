@@ -22,9 +22,11 @@ import { SKY_VS, SKY_FS, PRECIP_VS, PRECIP_FS, FOG_VS, FOG_FS } from '../../lib/
 import { ENGINEERING_SHADERS } from '../../lib/webgl/shaders/engineeringShaders';
 import { SEMANTIC_VS, SEMANTIC_FS } from '../../lib/webgl/shaders/semanticShaders';
 import { SemanticTileProcessor } from '../../lib/segmentation/SemanticTileProcessor';
+import { SemanticClass } from '../../lib/segmentation/SemanticTypes';
 import { getCachedCanvas } from '../../lib/blueprint/SatelliteCanvasCache';
 import { GeoDataPipeline } from '../../lib/geo/GeoDataPipeline';
 import { SlopeAnalyzer } from '../../lib/analysis/SlopeAnalyzer';
+import { HydrologicalAnalyzer } from '../../lib/analysis/HydrologicalAnalyzer';
 
 import type {
   UrbanSimulationResult,
@@ -82,6 +84,18 @@ interface CityScaleWebGLProps {
     spreadRate?: number;
     magnitude?: number;
     floodVelocity?: number;
+    // Extended disaster parameters
+    fireTemp?: number;
+    waveHeight?: number;
+    waveVelocity?: number;
+    stormSurge?: number;
+    faultDepth?: number;
+    geologyIndex?: number;
+    slopeInstability?: number;
+    soilSaturation?: number;
+    snowAccumulation?: number;
+    frostDepth?: number;
+    rainfallDeficit?: number;
   };
   topoScale?: number;
   topoOffset?: number;
@@ -161,6 +175,20 @@ function getFogColor(precipType: number, temp: number): [number, number, number]
   if (precipType === 4) return [0.78, 0.82, 0.90];
   if (temp > 35)        return [0.74, 0.68, 0.54];
   return [0.56, 0.60, 0.70];
+}
+function getDisasterTypeInt(type: string): number {
+  switch (type) {
+    case 'FLOOD': case 'TSUNAMI':              return 1;
+    case 'EARTHQUAKE':                          return 2;
+    case 'HURRICANE': case 'CYCLONE':          return 3;
+    case 'TORNADO':                             return 4;
+    case 'WILDFIRE':                            return 5;
+    case 'SNOW': case 'FROST':                 return 6;
+    case 'DROUGHT': case 'DEFORESTATION':      return 7;
+    case 'HAIL':                                return 8;
+    case 'MUDSLIDE': case 'LANDSLIDE':         return 9;
+    default:                                    return 0;
+  }
 }
 
 // ── Capsule mesh generator (cylinder body + two hemispheres) ─────────────────
@@ -357,7 +385,10 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
   }, [lightAngle, layers?.sunSync, centerLat, centerLng]);
 
   const layersKey  = useMemo(() => JSON.stringify(layers),  [layers]);
-  const simDataKey = useMemo(() => JSON.stringify(simData), [simData]);
+  // simDataRef keeps simData current without triggering scene rebuilds.
+  // The render loop reads simDataRef.current on every frame instead of the closure value.
+  const simDataRef = useRef(simData);
+  useEffect(() => { simDataRef.current = simData; }, [simData]);
 
   // Camera distance based on city metric scale
   const camDist = Math.max(worldSpanX, worldSpanZ) * 0.75;
@@ -740,8 +771,22 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
     }
     const fallbackRoadVBO = renderer.createBuffer(new Float32Array(fallbackRoadVertices.length ? fallbackRoadVertices : [0,0,0]));
 
-    // ── WATERWAYS (line fallback) ─────────────────────────────────────────────
+    // ── HYDROLOGICAL ANALYSIS (D8 flow accumulation + satellite water cells) ──
+    // Run once per scene build; uses blueprint elevation + semantic cells.
+    // Falls back gracefully to empty result when data is absent.
+    const elevGridForHydro = blueprint?.elevation ?? [];
+    const semanticCellsForHydro = blueprint?.semantic?.cells ?? [];
+    const hydroResult = HydrologicalAnalyzer.analyze(
+      elevGridForHydro,
+      semanticCellsForHydro,
+      worldSpanX,
+      worldSpanZ,
+      0.04, // 4% drainage area threshold for stream channels
+    );
+
+    // ── WATERWAYS (OSM lines + D8-derived stream channels) ───────────────────
     const waterwayVertices: number[] = [];
+    // OSM named waterways (authoritative for real rivers)
     if (osmWaterways) {
       osmWaterways.forEach((w: GISWaterway) => {
         w.coordinates.forEach((c, idx) => {
@@ -750,6 +795,15 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
           if (idx > 0 && idx < w.coordinates.length - 1) waterwayVertices.push(x, 0, z);
         });
       });
+    }
+    // Topography-derived stream channels (D8 flow accumulation)
+    for (const poly of hydroResult.streamPolylines) {
+      for (let i = 0; i < poly.length; i++) {
+        const [wx, wz] = poly[i];
+        waterwayVertices.push(wx, 0, wz);
+        // Duplicate interior vertices for line-strip continuity
+        if (i > 0 && i < poly.length - 1) waterwayVertices.push(wx, 0, wz);
+      }
     }
     const waterwayVBO = renderer.createBuffer(new Float32Array(waterwayVertices.length ? waterwayVertices : [0,0,0]));
 
@@ -765,11 +819,20 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
     }
 
     const waterAreaVertices: number[] = [];
+    // OSM polygon water bodies (lakes, reservoirs, ponds)
     if (osmWaterAreas) {
       for (const w of osmWaterAreas as GISWaterArea[]) {
         const pts = w.coordinates.map(c => mapPos(c[0], c[1]));
         waterAreaVertices.push(...triangulateFan(pts));
       }
+    }
+    // Satellite-detected water cells (SemanticClass.WATER from image analysis)
+    // Each water cell is a quad → 2 triangles added to the same water-area buffer.
+    for (const [x0, z0, x1, z1] of hydroResult.waterCellQuads) {
+      waterAreaVertices.push(
+        x0, 0, z0,  x1, 0, z0,  x1, 0, z1,  // triangle 1
+        x0, 0, z0,  x1, 0, z1,  x0, 0, z1,  // triangle 2
+      );
     }
     const waterAreaVBO = renderer.createBuffer(new Float32Array(waterAreaVertices.length ? waterAreaVertices : [0,0,0]));
 
@@ -859,63 +922,123 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
     const amenityVBO = renderer.createBuffer(new Float32Array(amenityVertices.length ? amenityVertices : [0, 0, 0]));
     const amenityVertCount = amenityVertices.length / 3;
 
-    // ── OSM VEGETATION POINTS (scattered within natural area polygons) ─────────
-    // Point-in-polygon test using ray casting
-    function pointInPoly(pts: [number,number][], px: number, pz: number): boolean {
-      let inside = false;
-      for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
-        if ((pts[i][1] > pz) !== (pts[j][1] > pz) &&
-            px < (pts[j][0]-pts[i][0]) * (pz-pts[i][1]) / (pts[j][1]-pts[i][1]) + pts[i][0])
-          inside = !inside;
+    // ── VEGETATION POINTS — satellite-driven placement ────────────────────────
+    //
+    // Primary source: satellite semantic grid (SemanticClass.VEGETATION cells).
+    // Trees are scattered *only* inside cells classified as vegetation by the
+    // satellite image analysis, giving realistic coverage tied to real land use.
+    //
+    // Fallback: when semantic data is absent (empty grid), individual OSM tree
+    // nodes and a moderate scatter within OSM natural-area polygons are used.
+    //
+    // Vertex layout: [x, 0, z, nx, ny, nz, u, v]  (8 floats, VEGETATION shader)
+    const osmVegVertices: number[] = [];
+
+    const semCells  = blueprint?.semantic?.cells ?? [];
+    const semRows   = blueprint?.semantic?.rows  ?? 0;
+    const semCols   = blueprint?.semantic?.cols  ?? 0;
+    const hasSemGrid = semRows > 0 && semCols > 0 && semCells.length > 0;
+
+    if (hasSemGrid) {
+      // ── Satellite-classified vegetation cells ─────────────────────────────
+      // Each VEGETATION cell scatters trees proportional to NDVI intensity.
+      // Max 6 trees per cell keeps vertex count manageable across large scenes.
+      const cellW = worldSpanX / semCols;
+      const cellH = worldSpanZ / semRows;
+      const MAX_TREES_PER_CELL = 6;
+
+      for (let r = 0; r < semRows; r++) {
+        for (let c = 0; c < semCols; c++) {
+          const cell = semCells[r]?.[c];
+          if (!cell || cell.class !== SemanticClass.VEGETATION || cell.intensity < 0.12) continue;
+
+          const cx = ((c + 0.5) / semCols - 0.5) * worldSpanX;
+          const cz = ((r + 0.5) / semRows - 0.5) * worldSpanZ;
+
+          // Scale count by intensity (sparse scrub → dense forest)
+          const nTrees = Math.max(1, Math.round(cell.intensity * MAX_TREES_PER_CELL));
+          for (let t = 0; t < nTrees; t++) {
+            const px = cx + (Math.random() - 0.5) * cellW * 0.88;
+            const pz = cz + (Math.random() - 0.5) * cellH * 0.88;
+            const u  = Math.max(0, Math.min(1, (px + areaHalfX) / worldSpanX));
+            const v  = Math.max(0, Math.min(1, (pz + areaHalfZ) / worldSpanZ));
+            osmVegVertices.push(px, 0, pz, 0, 1, 0, u, v);
+          }
+        }
       }
-      return inside;
+
+      // Individual OSM tree nodes are still respected even when using the semantic grid
+      if (osmTrees) {
+        for (const tree of osmTrees as GISAmenity[]) {
+          if (!tree.coordinates || tree.coordinates.length < 1) continue;
+          const [tx, tz] = mapPos(tree.coordinates[0][0], tree.coordinates[0][1]);
+          const u = Math.max(0, Math.min(1, (tx + areaHalfX) / worldSpanX));
+          const v = Math.max(0, Math.min(1, (tz + areaHalfZ) / worldSpanZ));
+          osmVegVertices.push(tx, 0, tz, 0, 1, 0, u, v);
+        }
+      }
+    } else {
+      // ── Fallback: OSM natural-area polygon scatter + individual tree nodes ─
+      // Used when satellite semantic grid is not yet available.
+
+      // Point-in-polygon (ray-casting) for polygon containment test
+      function pointInPoly(pts: [number,number][], px: number, pz: number): boolean {
+        let inside = false;
+        for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+          if ((pts[i][1] > pz) !== (pts[j][1] > pz) &&
+              px < (pts[j][0] - pts[i][0]) * (pz - pts[i][1]) / (pts[j][1] - pts[i][1]) + pts[i][0])
+            inside = !inside;
+        }
+        return inside;
+      }
+
+      const VEG_TYPES = new Set(['scrub','heath','grassland','wetland','farmland','allotments','orchard','vineyard']);
+      const vegPointDensity = 0.0025 / (CM * CM); // 0.0025 points/m²
+
+      if (osmNaturalAreas) {
+        for (const na of osmNaturalAreas as GISNaturalArea[]) {
+          if (!na.coordinates || na.coordinates.length < 3) continue;
+          if (!VEG_TYPES.has(na.type)) continue;
+          const pts = na.coordinates.map(c => mapPos(c[0], c[1]));
+          let mnX = Infinity, mxX = -Infinity, mnZ = Infinity, mxZ = -Infinity;
+          for (const [x, z] of pts) {
+            mnX = Math.min(mnX, x); mxX = Math.max(mxX, x);
+            mnZ = Math.min(mnZ, z); mxZ = Math.max(mxZ, z);
+          }
+          const bw = mxX - mnX, bh_ = mxZ - mnZ;
+          const nPoints = Math.min(3000, Math.round(bw * bh_ * vegPointDensity));
+          for (let i = 0; i < nPoints; i++) {
+            const px = mnX + Math.random() * bw;
+            const pz = mnZ + Math.random() * bh_;
+            if (!pointInPoly(pts, px, pz)) continue;
+            const u = Math.max(0, Math.min(1, (px + areaHalfX) / worldSpanX));
+            const v = Math.max(0, Math.min(1, (pz + areaHalfZ) / worldSpanZ));
+            osmVegVertices.push(px, 0, pz, 0, 1, 0, u, v);
+          }
+        }
+      }
+
+      if (osmTrees) {
+        for (const tree of osmTrees as GISAmenity[]) {
+          if (!tree.coordinates || tree.coordinates.length < 1) continue;
+          const [tx, tz] = mapPos(tree.coordinates[0][0], tree.coordinates[0][1]);
+          const u = Math.max(0, Math.min(1, (tx + areaHalfX) / worldSpanX));
+          const v = Math.max(0, Math.min(1, (tz + areaHalfZ) / worldSpanZ));
+          osmVegVertices.push(tx, 0, tz, 0, 1, 0, u, v);
+          for (let k = 0; k < 3; k++) {
+            const angle = (k / 3) * Math.PI * 2;
+            const jx = tx + Math.cos(angle) * 200;
+            const jz = tz + Math.sin(angle) * 200;
+            const ju = Math.max(0, Math.min(1, (jx + areaHalfX) / worldSpanX));
+            const jv = Math.max(0, Math.min(1, (jz + areaHalfZ) / worldSpanZ));
+            osmVegVertices.push(jx, 0, jz, 0, 1, 0, ju, jv);
+          }
+        }
+      }
     }
 
-    const VEG_TYPES = new Set(['scrub','heath','grassland','wetland','farmland','allotments','orchard','vineyard']);
-    const osmVegVertices: number[] = [];
-    const vegPointDensity = 0.0025 / (CM * CM); // 0.0025 points/m² → points/cm² (world units = cm)
-    if (osmNaturalAreas) {
-      for (const na of osmNaturalAreas as GISNaturalArea[]) {
-        if (!na.coordinates || na.coordinates.length < 3) continue;
-        if (!VEG_TYPES.has(na.type)) continue;
-        const pts = na.coordinates.map(c => mapPos(c[0], c[1]));
-        let mnX=Infinity,mxX=-Infinity,mnZ=Infinity,mxZ=-Infinity;
-        for (const [x,z] of pts){mnX=Math.min(mnX,x);mxX=Math.max(mxX,x);mnZ=Math.min(mnZ,z);mxZ=Math.max(mxZ,z);}
-        const bw = mxX-mnX, bh_= mxZ-mnZ;
-        const nPoints = Math.min(3000, Math.round(bw * bh_ * vegPointDensity));
-        for (let i = 0; i < nPoints; i++) {
-          const px = mnX + Math.random() * bw;
-          const pz = mnZ + Math.random() * bh_;
-          if (!pointInPoly(pts, px, pz)) continue;
-          const u = Math.max(0, Math.min(1, (px + areaHalfX) / worldSpanX));
-          const v = Math.max(0, Math.min(1, (pz + areaHalfZ) / worldSpanZ));
-          // Vertex layout matches vegProgram: [x, 0, z, nx, ny, nz, u, v] (8 floats, same as terrain)
-          osmVegVertices.push(px, 0, pz, 0, 1, 0, u, v);
-        }
-      }
-    }
-    // Individual OSM tree nodes — scatter a small cluster at each position
-    if (osmTrees) {
-      for (const tree of osmTrees as GISAmenity[]) {
-        if (!tree.coordinates || tree.coordinates.length < 1) continue;
-        const [tx, tz] = mapPos(tree.coordinates[0][0], tree.coordinates[0][1]);
-        const u = Math.max(0, Math.min(1, (tx + areaHalfX) / worldSpanX));
-        const v = Math.max(0, Math.min(1, (tz + areaHalfZ) / worldSpanZ));
-        // Single point per tree (VEG shader renders as point sprite)
-        osmVegVertices.push(tx, 0, tz, 0, 1, 0, u, v);
-        // Small jitter cluster for tree crown volume (3 extra points offset by ~2m)
-        for (let k = 0; k < 3; k++) {
-          const angle = (k / 3) * Math.PI * 2;
-          const jx = tx + Math.cos(angle) * 200; // 200 cm = 2 m
-          const jz = tz + Math.sin(angle) * 200;
-          const ju = Math.max(0, Math.min(1, (jx + areaHalfX) / worldSpanX));
-          const jv = Math.max(0, Math.min(1, (jz + areaHalfZ) / worldSpanZ));
-          osmVegVertices.push(jx, 0, jz, 0, 1, 0, ju, jv);
-        }
-      }
-    }
-    const osmVegVBO       = renderer.createBuffer(new Float32Array(osmVegVertices.length ? osmVegVertices : [0,0,0,0,1,0,0,0]));
-    const osmVegCount     = osmVegVertices.length / 8;
+    const osmVegVBO   = renderer.createBuffer(new Float32Array(osmVegVertices.length ? osmVegVertices : [0,0,0,0,1,0,0,0]));
+    const osmVegCount = osmVegVertices.length / 8;
 
     // ── BARRIERS (walls, fences, hedges — thin extruded line strips) ──────────
     // osmBarriers is declared above (line ~813); safe to use here
@@ -1556,6 +1679,9 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
 
     const render = () => {
       if (!isMounted || !canvasRef.current) return;
+      // Always read the latest simData from ref — disaster type/slider changes
+      // update the ref without triggering a full scene rebuild.
+      const simData = simDataRef.current;
       const time   = (Date.now() - startTime) / 1000;
       const reveal = Math.min(1.0, time / 2.0);
 
@@ -1633,6 +1759,10 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
           cam.current.target[1] + cam.current.distance * Math.sin(-cam.current.pitch),
           cam.current.target[2] + cam.current.distance * Math.cos(cam.current.pitch) * Math.cos(cam.current.yaw)
         ];
+        // Clamp camera Y: cannot go below terrain surface or above the atmosphere
+        const atmoCeiling  = Math.max(worldSpanX, worldSpanZ) * 0.5;
+        const terrainFloor = sampleTerrainCPU(orbitPos[0], orbitPos[2]) + 300; // 3 m above ground
+        orbitPos[1] = Math.max(terrainFloor, Math.min(atmoCeiling, orbitPos[1]));
         cam.current.pos = orbitPos;
         finalCamPos = orbitPos;
         finalTarget  = cam.current.target;
@@ -1701,6 +1831,8 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
         renderer.setUniform1f('u_time', time);
         renderer.setUniform1f('u_reveal', reveal);
         renderer.setUniform1f('u_sunElevDeg', sunElevDeg);
+        renderer.setUniform1i('u_disasterType', getDisasterTypeInt(simData.type));
+        renderer.setUniform1f('u_disasterIntensity', Math.min(1.0, (simData.intensity ?? 50) / 100.0));
         gl.bindBuffer(gl.ARRAY_BUFFER, skyQuadVBO);
         renderer.setAttribute('a_pos', 2, gl.FLOAT, false, 0, 0);
         gl.drawArrays(gl.TRIANGLES, 0, 6);
@@ -1755,8 +1887,8 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
         gl.drawElements(gl.TRIANGLES, terrainIndices.length, gl.UNSIGNED_INT, 0);
       }
 
-      // ── 2. WATER AREAS ────────────────────────────────────────────────────────
-      if (waterAreaVertices.length > 0) {
+      // ── 2. WATER AREAS (OSM + satellite WATER cells) ─────────────────────────
+      if (layers.polygons && waterAreaVertices.length > 0) {
         renderer.useProgram(waterAreaProgram);
         renderer.setUniformMatrix4('u_projectionMatrix', projMatrix);
         renderer.setUniformMatrix4('u_viewMatrix', viewMatrix);
@@ -1779,7 +1911,7 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
       }
 
       // ── 2b. LC-AUGMENTED WATER AREAS ──────────────────────────────────────────
-      if (lcWaterVBO && lcWaterCount > 0) {
+      if (layers.polygons && lcWaterVBO && lcWaterCount > 0) {
         renderer.useProgram(waterAreaProgram);
         renderer.setUniformMatrix4('u_projectionMatrix', projMatrix);
         renderer.setUniformMatrix4('u_viewMatrix', viewMatrix);
@@ -1885,8 +2017,8 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
         gl.disable(gl.POLYGON_OFFSET_FILL);
       }
 
-      // ── 4. WATERWAYS (line fallback) ──────────────────────────────────────────
-      if (waterwayVertices.length > 0) {
+      // ── 4. WATERWAYS (OSM + D8 hydrological streams) ─────────────────────────
+      if (layers.polygons && waterwayVertices.length > 0) {
         renderer.useProgram(waterwayProgram);
         renderer.setUniformMatrix4('u_projectionMatrix', projMatrix);
         renderer.setUniformMatrix4('u_viewMatrix', viewMatrix);
@@ -2104,88 +2236,7 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
         }
       }
 
-      // ── 8. VEGETATION (billboard tree sprites) ────────────────────────────────
-      if (layers.vegetation) {
-        renderer.useProgram(vegProgram);
-        renderer.setUniformMatrix4('u_projectionMatrix', projMatrix);
-        renderer.setUniformMatrix4('u_viewMatrix', viewMatrix);
-        renderer.setUniformMatrix4('u_modelMatrix', modelMatrix);
-        renderer.setUniform1f('u_topoScale', effectiveTopoScale);
-        renderer.setUniform1f('u_areaHalfX', areaHalfX);
-        renderer.setUniform1f('u_areaHalfZ', areaHalfZ);
-        renderer.bindTexture(topoTexture, 0);
-        renderer.setUniform1i('u_topoMap', 0);
-        renderer.setUniform1f('u_vegIntensity', (simData.intensity ?? 50) / 100.0);
-        renderer.setUniform1f('u_urbanDensity', (simData.urbanDensity ?? 50) / 100.0);
-        renderer.setUniform1f('u_time', time);
-        renderer.setUniform1f('u_reveal', reveal);
-
-        gl.bindBuffer(gl.ARRAY_BUFFER, vegFilteredVBO);
-        renderer.setAttribute('a_position', 3, gl.FLOAT, false, 8 * 4, 0);
-        renderer.setAttribute('a_uv',       2, gl.FLOAT, false, 8 * 4, 6 * 4);
-        gl.drawArrays(gl.POINTS, 0, vegFilteredCount);
-
-        // Grass pass (building-free terrain only)
-        renderer.useProgram(grassProgram);
-        renderer.setUniformMatrix4('u_projectionMatrix', projMatrix);
-        renderer.setUniformMatrix4('u_viewMatrix', viewMatrix);
-        renderer.setUniformMatrix4('u_modelMatrix', modelMatrix);
-        renderer.setUniform1f('u_topoScale', effectiveTopoScale);
-        renderer.setUniform1f('u_areaHalfX', areaHalfX);
-        renderer.setUniform1f('u_areaHalfZ', areaHalfZ);
-        renderer.bindTexture(topoTexture, 0);
-        renderer.setUniform1i('u_topoMap', 0);
-        renderer.setUniform1f('u_vegIntensity', (simData.intensity ?? 50) / 100.0);
-        renderer.setUniform1f('u_time', time);
-        renderer.setUniform1f('u_reveal', reveal);
-        gl.bindBuffer(gl.ARRAY_BUFFER, vegFilteredVBO);
-        renderer.setAttribute('a_position', 3, gl.FLOAT, false, 8 * 4, 0);
-        renderer.setAttribute('a_uv',       2, gl.FLOAT, false, 8 * 4, 6 * 4);
-        gl.drawArrays(gl.POINTS, 0, vegFilteredCount);
-      }
-
-      // ── 8b. OSM VEGETATION (trees in natural-area polygons) ──────────────────
-      if (layers.vegetation && osmVegCount > 0) {
-        renderer.useProgram(vegProgram);
-        renderer.setUniformMatrix4('u_projectionMatrix', projMatrix);
-        renderer.setUniformMatrix4('u_viewMatrix', viewMatrix);
-        renderer.setUniformMatrix4('u_modelMatrix', modelMatrix);
-        renderer.setUniform1f('u_topoScale', effectiveTopoScale);
-        renderer.setUniform1f('u_areaHalfX', areaHalfX);
-        renderer.setUniform1f('u_areaHalfZ', areaHalfZ);
-        renderer.bindTexture(topoTexture, 0);
-        renderer.setUniform1i('u_topoMap', 0);
-        renderer.setUniform1f('u_vegIntensity', 0.85);
-        renderer.setUniform1f('u_urbanDensity', 0.0);
-        renderer.setUniform1f('u_time', time);
-        renderer.setUniform1f('u_reveal', reveal);
-        gl.bindBuffer(gl.ARRAY_BUFFER, osmVegVBO);
-        renderer.setAttribute('a_position', 3, gl.FLOAT, false, 8 * 4, 0);
-        renderer.setAttribute('a_uv',       2, gl.FLOAT, false, 8 * 4, 6 * 4);
-        gl.drawArrays(gl.POINTS, 0, osmVegCount);
-      }
-
-      // ── 8c. LC-AUGMENTED VEGETATION (from SpectralAnalyzer land cover) ────────
-      if (layers.vegetation && lcVegVBO && lcVegCount > 0) {
-        renderer.useProgram(vegProgram);
-        renderer.setUniformMatrix4('u_projectionMatrix', projMatrix);
-        renderer.setUniformMatrix4('u_viewMatrix', viewMatrix);
-        renderer.setUniformMatrix4('u_modelMatrix', modelMatrix);
-        renderer.setUniform1f('u_topoScale', effectiveTopoScale);
-        renderer.setUniform1f('u_topoOffset', topoOffset);
-        renderer.setUniform1f('u_areaHalfX', areaHalfX);
-        renderer.setUniform1f('u_areaHalfZ', areaHalfZ);
-        renderer.bindTexture(topoTexture, 0);
-        renderer.setUniform1i('u_topoMap', 0);
-        renderer.setUniform1f('u_vegIntensity', 1.0);
-        renderer.setUniform1f('u_urbanDensity', 0.0);
-        renderer.setUniform1f('u_time', time);
-        renderer.setUniform1f('u_reveal', reveal);
-        gl.bindBuffer(gl.ARRAY_BUFFER, lcVegVBO);
-        renderer.setAttribute('a_position', 3, gl.FLOAT, false, 8 * 4, 0);
-        renderer.setAttribute('a_uv',       2, gl.FLOAT, false, 8 * 4, 6 * 4);
-        gl.drawArrays(gl.POINTS, 0, lcVegCount);
-      }
+      // ── 8. VEGETATION — removed (trees disabled) ─────────────────────────────
 
       // ── 9. SEMANTIC RECONSTRUCTION ────────────────────────────────────────────
       if (layers.semantic && semTerrainCountRef.current > 0) {
@@ -2292,7 +2343,12 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
       }
 
       // ── 13. ZONE OVERLAY (natural areas + land-use zones) ────────────────────
-      if ((layers.naturalAreas || layers.landUseZones) && zoneVertCount > 0) {
+      // Each zone type is independently gated via per-fragment shader uniforms:
+      //   u_showNatural  → typeId 0-7  (scrub, heath, grassland, farmland…)
+      //   u_showLandUse  → typeId 8-15 (residential, commercial, industrial…)
+      //   u_showPaving   → typeId 16-17 (pedestrian plazas, parking lots)
+      const anyZoneOn = (layers.naturalAreas || layers.landUseZones || layers.paving);
+      if (anyZoneOn && zoneVertCount > 0) {
         gl.enable(gl.BLEND);
         gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
         renderer.useProgram(zoneProgram);
@@ -2304,6 +2360,9 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
         renderer.setUniform1f('u_areaHalfX', areaHalfX);
         renderer.setUniform1f('u_areaHalfZ', areaHalfZ);
         renderer.setUniform1f('u_reveal', reveal);
+        renderer.setUniform1f('u_showNatural',  layers.naturalAreas  ? 1.0 : 0.0);
+        renderer.setUniform1f('u_showLandUse',  layers.landUseZones  ? 1.0 : 0.0);
+        renderer.setUniform1f('u_showPaving',   layers.paving        ? 1.0 : 0.0);
         renderer.bindTexture(topoTexture, 0);
         renderer.setUniform1i('u_topoMap', 0);
         gl.bindBuffer(gl.ARRAY_BUFFER, zoneVBO);
@@ -2346,6 +2405,8 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
           renderer.setUniform3f('u_fogColor', fogCol[0], fogCol[1], fogCol[2]);
           renderer.setUniform1f('u_reveal', reveal);
           renderer.setUniform1f('u_cloudCover', cloudCover);
+          renderer.setUniform1i('u_disasterType', getDisasterTypeInt(simData.type));
+          renderer.setUniform1f('u_disasterIntensity', Math.min(1.0, (simData.intensity ?? 50) / 100.0));
           gl.bindBuffer(gl.ARRAY_BUFFER, skyQuadVBO);
           renderer.setAttribute('a_pos', 2, gl.FLOAT, false, 0, 0);
           gl.drawArrays(gl.TRIANGLES, 0, 6);
@@ -2411,13 +2472,13 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
       gl.deleteProgram(fireProgram);
     };
   }, [
-    centerLat, centerLng, layersKey, simDataKey, resultData, blueprint, heightMapUrl,
+    centerLat, centerLng, layersKey, resultData, blueprint, heightMapUrl,
     topoMapUrl, satelliteMapUrl, effectiveTopoScale, topoOffset, lightAngle, lightIntensity,
     particleIntensity, lightDir, layers.aiStructural, layers.buildings, layers.particles,
-    layers.paving, layers.residential, layers.satellite, layers.streets, layers.terrain,
-    layers.topography, layers.vegetation, layers.bridges, layers.semantic, layers.slope, layers.density, layers.sunSync, simData.intensity, simData.pressure,
-    simData.resolution, simData.type, simData.urbanDensity, simData.waterLevel,
-    simData.windDirection, simData.windSpeed, buildingOffsetX, buildingOffsetY,
+    layers.polygons, layers.residential, layers.satellite, layers.streets, layers.terrain,
+    layers.topography, layers.semantic, layers.slope, layers.density, layers.sunSync,
+    layers.naturalAreas, layers.landUseZones, layers.paving, layers.amenities,
+    buildingOffsetX, buildingOffsetY,
     worldSpanX, worldSpanZ, areaHalfX, areaHalfZ, mapPos, rawElevRange
   ]);
 

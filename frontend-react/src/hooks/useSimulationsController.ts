@@ -1,8 +1,10 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { simulationsApi } from '../services/simulationsApi';
 import { dataHubApi } from '../services/dataHubApi';
+import { gisApi } from '../services/gisApi';
+import { sceneDataApi } from '../services/sceneDataApi';
 import { CityBlueprintBuilder } from '../lib/blueprint/CityBlueprintBuilder';
-import type { UrbanSimulationResult } from '../types';
+import type { UrbanSimulationResult, HotspotEntry } from '../types';
 import type { CityBlueprint, BlueprintProgress } from '../lib/blueprint/CityBlueprintTypes';
 
 interface StreamStep {
@@ -29,43 +31,89 @@ export function useSimulationsController() {
 
   /**
    * Full blueprint capture pipeline:
-   * 1. Fetch OSM + DEM from backend
-   * 2. Load satellite tiles + segment → semantic grid
-   * 3. Build unified CityBlueprint
+   *
+   * The ORIGINAL pipeline (simulationsApi.indexUrbanPipeline + CityBlueprintBuilder.build)
+   * always runs and is the guaranteed path.
+   *
+   * The NEW backend scene data pipeline (sceneDataApi.fetchSceneData) runs in PARALLEL
+   * as an optional enhancement.  If it succeeds, `buildFromSceneData` is used to
+   * incorporate precomputed slope analysis and backend-normalised elevation.
+   * If it fails (timeout, rate-limit, etc.), the original pipeline result is used — silently.
+   *
+   * This dual-path architecture means the rendering is never blocked by backend
+   * external API failures (Overpass timeout, DEM 429, etc.).
    */
   const captureBlueprint = async (
     bbox: number[],
     onProgress?: (p: BlueprintProgress) => void,
-  ) => {
+  ): Promise<CityBlueprint | undefined> => {
     if (isCapturingRef.current) {
       console.warn('[Blueprint] Capture already in progress, ignoring duplicate call');
       return;
     }
     isCapturingRef.current = true;
     setIsSimulating(true);
-    try {
-      // Step 1: fetch backend data (OSM + DEM)
-      onProgress?.({ phase: 'OSM', percent: 5, label: 'CONECTANDO AO SERVIDOR GIS...' });
-      const osmData = await simulationsApi.indexUrbanPipeline({
-        minLat: bbox[0], minLon: bbox[1],
-        maxLat: bbox[2], maxLon: bbox[3],
-      });
-      setResultData(osmData as unknown as UrbanSimulationResult);
-      onProgress?.({ phase: 'OSM', percent: 20, label: 'DADOS OSM + DEM RECEBIDOS' });
 
-      // Step 2: satellite + segmentation + compile
-      const bp = await CityBlueprintBuilder.build(
-        [bbox[0], bbox[1], bbox[2], bbox[3]] as [number, number, number, number],
-        osmData as unknown as UrbanSimulationResult,
-        16,
-        onProgress,
-      );
+    try {
+      onProgress?.({ phase: 'OSM', percent: 5, label: 'CONECTANDO AO SERVIDOR GIS...' });
+
+      // ── Run all fetches in parallel ──────────────────────────────────────
+      // sceneDataApi is non-blocking: resolves to null on any error
+      const [osmData, hotspots, sceneData] = await Promise.all([
+        simulationsApi.indexUrbanPipeline({
+          minLat: bbox[0], minLon: bbox[1],
+          maxLat: bbox[2], maxLon: bbox[3],
+        }),
+        gisApi.fetchHotspots(bbox[0], bbox[1], bbox[2], bbox[3])
+          .catch(() => [] as HotspotEntry[]),
+        sceneDataApi.fetchSceneData({
+          minLat: bbox[0], minLon: bbox[1],
+          maxLat: bbox[2], maxLon: bbox[3],
+          tileSize: 16,
+          demResolution: 64,
+        }).catch(err => {
+          console.warn('[Blueprint] Backend scene pipeline unavailable — using frontend pipeline:', err?.message ?? err);
+          return null;
+        }),
+      ]);
+
+      const enrichedOsmData = {
+        ...osmData,
+        hotspots: (hotspots as HotspotEntry[]).length > 0 ? hotspots as HotspotEntry[] : undefined,
+      };
+      setResultData(enrichedOsmData as unknown as UrbanSimulationResult);
+      onProgress?.({ phase: 'OSM', percent: 25, label: 'DADOS OSM + DEM RECEBIDOS' });
+
+      // ── Choose pipeline based on backend availability ────────────────────
+      let bp: CityBlueprint;
+
+      if (sceneData) {
+        // Backend data available — use precomputed elevation + slope + OSM
+        onProgress?.({ phase: 'SEGMENTATION', percent: 40, label: 'DADOS BACKEND RECEBIDOS — MONTANDO CENA...' });
+        bp = await CityBlueprintBuilder.buildFromSceneData(
+          [bbox[0], bbox[1], bbox[2], bbox[3]] as [number, number, number, number],
+          sceneData,
+          enrichedOsmData as unknown as UrbanSimulationResult,
+          onProgress,
+        );
+      } else {
+        // Fallback: full frontend pipeline (always reliable)
+        bp = await CityBlueprintBuilder.build(
+          [bbox[0], bbox[1], bbox[2], bbox[3]] as [number, number, number, number],
+          enrichedOsmData as unknown as UrbanSimulationResult,
+          16,
+          onProgress,
+        );
+      }
+
       setBlueprint(bp);
       return bp;
+
     } catch (err) {
-      console.error('Blueprint capture failed:', err);
+      console.error('[Blueprint] Pipeline failed:', err);
       throw err;
     } finally {
+      // finally runs ONLY after the entire async body completes (no dangling fallbacks)
       isCapturingRef.current = false;
       setIsSimulating(false);
     }
@@ -84,7 +132,6 @@ export function useSimulationsController() {
         const span = 0.012;
         finalBbox = [numericLat - span, numericLng - span, numericLat + span, numericLng + span];
       }
-      // Run physics simulation — do NOT overwrite blueprint
       await simulationsApi.runSimulation({
         scenarioType,
         minLat: finalBbox[0], minLon: finalBbox[1],
@@ -92,8 +139,6 @@ export function useSimulationsController() {
         resolution,
         ...config,
       });
-      // Note: we intentionally don't overwrite resultData/blueprint here
-      // The 3D city stays as-is; only disaster overlay parameters change via simData
     } catch (err) {
       console.error('Simulation engine failed:', err);
     } finally {
@@ -110,11 +155,11 @@ export function useSimulationsController() {
       if (payload.type === 'done') { source.close(); return; }
       if (payload.type === 'flow-step') {
         setStreamSteps(prev => [...prev, {
-          step: payload.step ?? prev.length,
-          lat: payload.lat ?? numericLat,
-          lng: payload.lng ?? numericLng,
+          step:  payload.step  ?? prev.length,
+          lat:   payload.lat   ?? numericLat,
+          lng:   payload.lng   ?? numericLng,
           depth: payload.depth ?? 0,
-          risk: payload.risk ?? 'unknown',
+          risk:  payload.risk  ?? 'unknown',
         }]);
       }
     };
@@ -125,7 +170,8 @@ export function useSimulationsController() {
     void dataHubApi.weatherForecast(numericLat, numericLng)
       .then(response => {
         const precipitation = response.data?.hourly?.precipitation ?? [];
-        const peakRain = Array.isArray(precipitation) && precipitation.length > 0 ? Math.max(...precipitation) : 0;
+        const peakRain = Array.isArray(precipitation) && precipitation.length > 0
+          ? Math.max(...precipitation) : 0;
         setRainSummary(`PEAK_PRECIPITATION: ${Number(peakRain).toFixed(1)} MM/H`);
       })
       .catch(() => setRainSummary('ERROR: DATA_OFFLINE'));

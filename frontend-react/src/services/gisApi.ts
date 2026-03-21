@@ -159,5 +159,27 @@ export const gisApi = {
       console.error("Failed to fetch Soil Data:", error);
       return null;
     }
-  }
+  },
+
+  /**
+   * Fetches geographic risk hotspots from the risk analysis unit (via backend proxy).
+   * Short TTL (2 min) since scores update every 5 minutes.
+   * Returns: { lat, lng, intensity (0-1), radius, type, level, country, location, score }[]
+   */
+  fetchHotspots: async (minLat: number, minLon: number, maxLat: number, maxLon: number) => {
+    const cacheKey = `hotspots_${minLat.toFixed(3)}_${minLon.toFixed(3)}_${maxLat.toFixed(3)}_${maxLon.toFixed(3)}`;
+    const cached = memoryCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < 1000 * 60 * 2) return cached.data; // 2 min L1 only
+
+    try {
+      const response = await apiClient.get('/api/public/risk-hotspots', {
+        params: { minLat, minLon, maxLat, maxLon },
+      });
+      const data = response.data;
+      memoryCache.set(cacheKey, { data, timestamp: Date.now() });
+      return data;
+    } catch {
+      return [];
+    }
+  },
 };

@@ -1,31 +1,45 @@
 # Arquitetura SOS Location
 
-## Visão de Alto Nível
+> **Este arquivo foi consolidado.** Consulte a documentação atualizada:
+>
+> - [SYSTEM_ARCHITECTURE.md](../SYSTEM_ARCHITECTURE.md) — Diagramas C4, componentes e sequências
+> - [CLASS_DIAGRAMS.md](../CLASS_DIAGRAMS.md) — Diagramas de classe (Domain, Application, Frontend)
+> - [DATA_FLOW.md](../DATA_FLOW.md) — Fluxos de dados GIS, simulação e tempo real
+> - [INDEX.md](../INDEX.md) — Índice completo da documentação
+
+---
+
+## Visão de Alto Nível (resumo)
 
 ```mermaid
 graph TD
-    subgraph "Frontend (React + Three.js)"
-        UI[SOS Terminal]
-        Map[Tactical3DMap]
-        Chunk[useChunkManager]
-        Hero[SosHero]
+    subgraph Frontend["Frontend (React 19 + WebGL 2.0)"]
+        SIM[SimulationsPage\nCena 3D WebGL]
+        MAP[PublicMapPage\nLeaflet 2D]
+        DASH[DataHubPage\nAnalytics]
     end
 
-    subgraph "Backend (Django REST)"
-        API[API Endpoints]
-        Hub[Data Hub / Integrations]
-        Adapters[Adapters: Open-Meteo, INMET, NASA]
+    subgraph Backend[".NET Backend (ASP.NET Core 10)"]
+        API[REST API\nClean Architecture + DDD]
+        HUB[HydraHub\nSignalR]
+        GIS[GisService\nOSM + OpenTopo + Meteo]
     end
 
-    subgraph "Data Storage"
-        DB[(PostgreSQL / SQLite)]
+    subgraph RAU["Risk Analysis Unit (FastAPI + PyTorch)"]
+        RISK[Risk Analyzer]
+        SEG[Semantic Segmentor]
     end
 
-    Hero -->|Position| Chunk
-    Chunk -->|BBOX| API
-    API --> Hub
-    Hub --> Adapters
-    Hub --> DB
-    API -->|Features| Map
-    Map --> UI
+    subgraph Infra["Infrastructure"]
+        PG[(PostgreSQL 15)]
+        KC[Keycloak 26\nIAM / SSO]
+    end
+
+    SIM & MAP & DASH -->|REST / WS| API
+    SIM & MAP -->|OIDC| KC
+    SIM -->|REST| RISK
+    SIM -->|REST| SEG
+    API --> GIS
+    API --> PG
+    HUB -->|WebSocket Push| SIM & MAP
 ```

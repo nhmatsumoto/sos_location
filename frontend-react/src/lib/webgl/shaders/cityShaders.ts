@@ -871,9 +871,20 @@ void main() {
 precision highp float;
 in float v_typeId;
 uniform float u_reveal;
+// Layer visibility uniforms — 1.0 = visible, 0.0 = hidden
+// tid 0-7:  natural areas (u_showNatural)
+// tid 8-15: land-use zones (u_showLandUse)
+// tid 16-17: pedestrian / parking (u_showPaving)
+uniform float u_showNatural;
+uniform float u_showLandUse;
+uniform float u_showPaving;
 out vec4 outColor;
 void main() {
     int tid = int(v_typeId + 0.5);
+    // Per-layer discard — skip fragments whose layer is toggled off
+    if (tid <= 7  && u_showNatural < 0.5) discard;
+    if (tid >= 8  && tid <= 15 && u_showLandUse < 0.5) discard;
+    if (tid >= 16 && u_showPaving  < 0.5) discard;
     vec3 col;
     if      (tid ==  0) col = vec3(0.55, 0.47, 0.28); // scrub - olive/tan
     else if (tid ==  1) col = vec3(0.55, 0.38, 0.45); // heath - purple-brown

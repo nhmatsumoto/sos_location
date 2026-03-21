@@ -29,7 +29,30 @@ export interface GISFeature {
   type: string;
   coordinates: [number, number][] | [number, number][][];
   levels?: number;
+  height?: number;
+  lanes?: number;
+  surface?: string;
+  buildingUse?: string;
   category?: string;
+  tags?: Record<string, string>;
+  metadata?: Record<string, unknown>;
+}
+
+export interface UrbanFeatureSet {
+  buildings: GISFeature[];
+  highways: GISFeature[];
+  waterways: GISFeature[];
+  waterAreas?: GISFeature[];
+  parks?: GISFeature[];
+  forests?: GISFeature[];
+  naturalAreas?: GISFeature[];
+  landUseZones?: GISFeature[];
+  amenities?: GISFeature[];
+  pedestrianAreas?: GISFeature[];
+  parkingLots?: GISFeature[];
+  trees?: GISFeature[];
+  barriers?: GISFeature[];
+  areaScale?: number;
   metadata?: Record<string, unknown>;
 }
 
@@ -40,14 +63,12 @@ export interface SimulationResult {
   bbox: number[]; // [minLat, minLon, maxLat, maxLon]
   resolution: number;
   elevationGrid: number[][];
-  urbanFeatures: {
-    buildings: GISFeature[];
-    highways: GISFeature[];
-    waterways: GISFeature[];
-  };
+  urbanFeatures: UrbanFeatureSet;
   climate: Record<string, unknown> | null;
   soil: Record<string, unknown> | null;
   vegetation: GISFeature[];
+  landCover?: Record<string, unknown> | null;
+  populationDensity?: Record<string, unknown> | null;
   generatedAt: string;
 }
 

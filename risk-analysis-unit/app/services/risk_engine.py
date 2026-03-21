@@ -14,6 +14,8 @@ class RiskEngine:
         self.current_scores = []
         self.api_base_url = os.getenv("INTERNAL_API_URL", "http://backend:8000")
         self.model = self._initialize_model()
+        # (country, location) → (lat, lon) populated on each cycle
+        self._location_coords: dict[tuple[str, str], tuple[float, float]] = {}
         
     def _initialize_model(self):
         params_path = "/app/model_parameters.json"
@@ -210,7 +212,73 @@ class RiskEngine:
                 results[region] = {"humidity": 50, "temp": 20, "seismic": 0.05}
         
         results["Japan"] = results.get("Kanto", results["World"])
-        
+
+        # ── Global world cities ───────────────────────────────────────────────
+        global_cities = {
+            "New York":     {"lat": 40.7128,  "lon": -74.0060,  "country": "USA"},
+            "Los Angeles":  {"lat": 34.0522,  "lon": -118.2437, "country": "USA"},
+            "London":       {"lat": 51.5074,  "lon": -0.1278,   "country": "UK"},
+            "Paris":        {"lat": 48.8566,  "lon": 2.3522,    "country": "France"},
+            "Berlin":       {"lat": 52.5200,  "lon": 13.4050,   "country": "Germany"},
+            "Madrid":       {"lat": 40.4168,  "lon": -3.7038,   "country": "Spain"},
+            "Rome":         {"lat": 41.9028,  "lon": 12.4964,   "country": "Italy"},
+            "Moscow":       {"lat": 55.7558,  "lon": 37.6173,   "country": "Russia"},
+            "Beijing":      {"lat": 39.9042,  "lon": 116.4074,  "country": "China"},
+            "Shanghai":     {"lat": 31.2304,  "lon": 121.4737,  "country": "China"},
+            "Delhi":        {"lat": 28.7041,  "lon": 77.1025,   "country": "India"},
+            "Mumbai":       {"lat": 19.0760,  "lon": 72.8777,   "country": "India"},
+            "Sydney":       {"lat": -33.8688, "lon": 151.2093,  "country": "Australia"},
+            "Cairo":        {"lat": 30.0444,  "lon": 31.2357,   "country": "Egypt"},
+            "Lagos":        {"lat": 6.5244,   "lon": 3.3792,    "country": "Nigeria"},
+            "Mexico City":  {"lat": 19.4326,  "lon": -99.1332,  "country": "Mexico"},
+            "Buenos Aires": {"lat": -34.6037, "lon": -58.3816,  "country": "Argentina"},
+            "Istanbul":     {"lat": 41.0082,  "lon": 28.9784,   "country": "Turkey"},
+            "Dhaka":        {"lat": 23.8103,  "lon": 90.4125,   "country": "Bangladesh"},
+            "Karachi":      {"lat": 24.8607,  "lon": 67.0011,   "country": "Pakistan"},
+            "Jakarta":      {"lat": -6.2088,  "lon": 106.8456,  "country": "Indonesia"},
+            "Seoul":        {"lat": 37.5665,  "lon": 126.9780,  "country": "South Korea"},
+            "Bangkok":      {"lat": 13.7563,  "lon": 100.5018,  "country": "Thailand"},
+            "Singapore":    {"lat": 1.3521,   "lon": 103.8198,  "country": "Singapore"},
+            "Nairobi":      {"lat": -1.2921,  "lon": 36.8219,   "country": "Kenya"},
+            "Lima":         {"lat": -12.0464, "lon": -77.0428,  "country": "Peru"},
+            "Bogota":       {"lat": 4.7110,   "lon": -74.0721,  "country": "Colombia"},
+            "Santiago":     {"lat": -33.4489, "lon": -70.6693,  "country": "Chile"},
+            "Lisbon":       {"lat": 38.7169,  "lon": -9.1399,   "country": "Portugal"},
+            "Tehran":       {"lat": 35.6892,  "lon": 51.3890,   "country": "Iran"},
+            "Baghdad":      {"lat": 33.3406,  "lon": 44.4009,   "country": "Iraq"},
+            "Riyadh":       {"lat": 24.7136,  "lon": 46.6753,   "country": "Saudi Arabia"},
+        }
+
+        for city, info in global_cities.items():
+            try:
+                url = f"https://api.open-meteo.com/v1/forecast?latitude={info['lat']}&longitude={info['lon']}&current=temperature_2m,relative_humidity_2m"
+                resp = requests.get(url, timeout=3)
+                if resp.status_code == 200:
+                    curr = resp.json().get("current", {})
+                    results[city] = {
+                        "humidity": curr.get("relative_humidity_2m", 50),
+                        "temp": curr.get("temperature_2m", 20),
+                        "seismic": 0.02,
+                        "lat": info["lat"],
+                        "lon": info["lon"],
+                        "country": info["country"],
+                    }
+                else:
+                    results[city] = {"humidity": 50, "temp": 20, "seismic": 0.02, "lat": info["lat"], "lon": info["lon"], "country": info["country"]}
+            except:
+                results[city] = {"humidity": 50, "temp": 20, "seismic": 0.02, "lat": info["lat"], "lon": info["lon"], "country": info["country"]}
+
+        # Build (country, location) → (lat, lon) index for hotspot bbox queries
+        new_coords: dict[tuple[str, str], tuple[float, float]] = {}
+        for state_code, info in states_capitals.items():
+            new_coords[("Brasil", state_code)] = (info["lat"], info["lon"])
+            new_coords[("Brasil", info["name"])] = (info["lat"], info["lon"])
+        for region, info in japan_regions.items():
+            new_coords[("Japan", region)] = (info["lat"], info["lon"])
+        for city, info in global_cities.items():
+            new_coords[(info["country"], city)] = (info["lat"], info["lon"])
+        self._location_coords = new_coords
+
         return results
 
     def _calculate_risk_scores(self, alerts, climate):
@@ -253,7 +321,8 @@ class RiskEngine:
             
             final_score = max(min(int(risk_val), 100), 5)
             
-            scores.append({
+            coords = self._location_coords.get((country, location))
+            entry = {
                 "country": country,
                 "location": location,
                 "score": final_score,
@@ -261,10 +330,14 @@ class RiskEngine:
                 "last_updated": datetime.now().isoformat(),
                 "factors": {
                     "alert_count": len(items),
-                    "environmental": c_data,
+                    "environmental": {k: v for k, v in c_data.items() if k not in ("lat", "lon", "country")},
                     "alerts_sample": [a['title'] for a in items[:3]]
                 }
-            })
+            }
+            if coords:
+                entry["lat"] = coords[0]
+                entry["lng"] = coords[1]
+            scores.append(entry)
             
         return scores
 
@@ -282,3 +355,28 @@ class RiskEngine:
             if s['country'].lower() == country.lower() and s['location'].lower() == location.lower():
                 return s
         return {"country": country, "location": location, "score": 0, "level": "Unknown"}
+
+    def get_hotspots_in_bbox(self, min_lat: float, min_lon: float, max_lat: float, max_lon: float) -> list[dict]:
+        """Return scored locations whose lat/lon fall within the requested bounding box.
+        Each entry is shaped for CityScaleWebGL's OSMEnrichmentAgent:
+          { lat, lng, intensity (0-1), radius (metres), type, level, country, location }
+        """
+        hotspots = []
+        for s in self.current_scores:
+            lat = s.get("lat")
+            lng = s.get("lng")
+            if lat is None or lng is None:
+                continue
+            if min_lat <= lat <= max_lat and min_lon <= lng <= max_lon:
+                hotspots.append({
+                    "lat":      lat,
+                    "lng":      lng,
+                    "intensity": s["score"] / 100.0,
+                    "radius":   5000.0,  # 5 km influence radius
+                    "type":     "risk_score",
+                    "level":    s["level"],
+                    "country":  s["country"],
+                    "location": s["location"],
+                    "score":    s["score"],
+                })
+        return hotspots

@@ -4,6 +4,29 @@ using System.ComponentModel.DataAnnotations;
 
 namespace SOSLocation.Domain.Entities
 {
+    /// <summary>
+    /// PostgreSQL cache for preprocessed 3D scene data (elevation, semantics, OSM, slope).
+    /// Avoids re-fetching and re-processing expensive GIS data for the same bounding box.
+    /// TTL is controlled by <c>SceneDataService.CacheTtlDays</c> (default: 7 days).
+    /// </summary>
+    public class CachedScene : BaseEntity
+    {
+        public double MinLat { get; set; }
+        public double MinLon { get; set; }
+        public double MaxLat { get; set; }
+        public double MaxLon { get; set; }
+
+        /// <summary>DEM resolution used when building this cache entry.</summary>
+        public int DemResolution { get; set; } = 64;
+
+        /// <summary>JSON-serialized SceneDataDto.</summary>
+        public string SceneDataJson { get; set; } = string.Empty;
+
+        /// <summary>UTC timestamp after which this entry should be invalidated.</summary>
+        public DateTime ExpiresAt { get; set; }
+    }
+
+
     public class SimulationArea : BaseEntity
     {
         [MaxLength(255)]

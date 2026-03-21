@@ -113,7 +113,7 @@ export function SimulationsPage() {
     streets: true,
     terrain: true,
     satellite: true,
-    vegetation: true,
+    vegetation: false,
     particles: false,
     aiStructural: false,
     semantic: false,
@@ -403,6 +403,40 @@ export function SimulationsPage() {
     resultData?.area_scale ??
     visualAdjustments.areaScale;
 
+  // Memoize simData so CityScaleWebGL only sees a new object reference when
+  // the actual values change — prevents spurious prop-change notifications.
+  const simData = useMemo(() => ({
+    type: disasterType,
+    waterLevel: config.waterLevel,
+    intensity: config.intensity,
+    duration: config.duration,
+    pressure: config.pressure,
+    precipitation: config.precipitation,
+    resolution: config.resolution,
+    urbanDensity: config.urbanDensity,
+    windSpeed: config.windSpeed,
+    windDirection: config.windDirection,
+    temp: config.temp,
+    humidity: config.humidity,
+    snowfall: config.snowfall,
+    soilMoisture: config.soilMoisture,
+    spreadRate: config.spreadRate,
+    magnitude: config.magnitude,
+    floodVelocity: config.floodVelocity,
+    // Extended disaster parameters (previously omitted — all now forwarded)
+    fireTemp: config.fireTemp,
+    waveHeight: config.waveHeight,
+    waveVelocity: config.waveVelocity,
+    stormSurge: config.stormSurge,
+    faultDepth: config.faultDepth,
+    geologyIndex: config.geologyIndex,
+    slopeInstability: config.slopeInstability,
+    soilSaturation: config.soilSaturation,
+    snowAccumulation: config.snowAccumulation,
+    frostDepth: config.frostDepth,
+    rainfallDeficit: config.rainfallDeficit,
+  }), [disasterType, config]);
+
   return (
     <Box h="100vh" w="full" position="relative" overflow="hidden" bg="black" color="white" className="v-blueprint-layer">
 
@@ -413,25 +447,7 @@ export function SimulationsPage() {
             centerLat={numericLat}
             centerLng={numericLng}
             blueprint={blueprint}
-            simData={{
-              type: disasterType,
-              waterLevel: config.waterLevel,
-              intensity: config.intensity,
-              duration: config.duration,
-              pressure: config.pressure,
-              precipitation: config.precipitation,
-              resolution: config.resolution,
-              urbanDensity: config.urbanDensity,
-              windSpeed: config.windSpeed,
-              windDirection: config.windDirection,
-              temp: config.temp,
-              humidity: config.humidity,
-              snowfall: config.snowfall,
-              soilMoisture: config.soilMoisture,
-              spreadRate: config.spreadRate,
-              magnitude: config.magnitude,
-              floodVelocity: config.floodVelocity,
-            }}
+            simData={simData}
             topoScale={visualAdjustments.topoScale}
             topoOffset={visualAdjustments.topoOffset}
             lightAngle={visualAdjustments.lightAngle}
@@ -1001,7 +1017,7 @@ export function SimulationsPage() {
                     <TacticalText variant="heading" fontSize="xs">CAMADAS_3D</TacticalText>
                   </HStack>
                   <TacticalText variant="mono" fontSize="8px" color="whiteAlpha.400" mb={2}>PRESET_VIEWS</TacticalText>
-                  <SimpleGrid columns={3} spacing={2} mb={3}>
+                  <SimpleGrid columns={2} spacing={2} mb={3}>
                     {VIEW_PRESETS.map(preset => (
                       <Box key={preset.id} as="button" onClick={() => applyPreset(preset.id)}
                         py={2} px={2} borderRadius="md" border="1px solid" textAlign="center"
@@ -1095,7 +1111,7 @@ export function SimulationsPage() {
                 <GlassPanel p={4} depth="raised" flexDirection="column">
                   <HStack mb={3}>
                     <Icon as={CloudRain} boxSize={3.5} color="orange.400" />
-                    <TacticalText variant="heading" fontSize="xs">FOTO_ATMOSFERA</TacticalText>
+                    <TacticalText variant="heading" fontSize="xs">ATMOSFERA_E_LUZ</TacticalText>
                   </HStack>
                   <VStack align="stretch" spacing={4}>
                     <ConfigSlider label="ÂNGULO SOLAR" value={visualAdjustments.lightAngle} unit="°" min={0} max={360}
@@ -1136,12 +1152,51 @@ export function SimulationsPage() {
               {/* LOG panel */}
               {activeToolPanel === 'log' && (
                 <GlassPanel p={4} depth="raised" flexDirection="column" h="360px">
-                  <HStack mb={3}>
-                    <Icon as={Activity} boxSize={3.5} color="sos.red.400" />
-                    <TacticalText variant="heading" fontSize="xs">LOG_ENGINE</TacticalText>
+                  <HStack mb={3} justify="space-between">
+                    <HStack>
+                      <Icon as={Activity} boxSize={3.5} color="sos.red.400" />
+                      <TacticalText variant="heading" fontSize="xs">LOG_ENGINE</TacticalText>
+                    </HStack>
+                    {analysisProgress > 0 && analysisProgress < 100 && (
+                      <Badge fontSize="7px" px={2} colorScheme="blue" borderRadius="full">
+                        {analysisProgress}%
+                      </Badge>
+                    )}
                   </HStack>
                   <Box flex={1} overflowY="auto" className="custom-scrollbar" pr={1}>
-                    <EventTimeline steps={streamSteps} />
+                    {streamSteps.length > 0 ? (
+                      <EventTimeline steps={streamSteps} />
+                    ) : (
+                      <VStack spacing={2} align="stretch">
+                        {/* Blueprint capture progress */}
+                        {analysisStatus && (
+                          <Flex align="center" bg="whiteAlpha.50" px={3} py={2}
+                            borderRadius="md" border="1px solid" borderColor="whiteAlpha.100">
+                            <Box boxSize="6px" borderRadius="full" mr={2} flexShrink={0}
+                              bg={captureError ? 'red.400' : analysisProgress >= 100 ? 'green.400' : 'sos.blue.400'} />
+                            <TacticalText variant="mono" fontSize="9px" color="whiteAlpha.700">
+                              {analysisStatus}
+                            </TacticalText>
+                          </Flex>
+                        )}
+                        {/* Active disaster summary */}
+                        {activeStep === 'SIMULATION' && disasterCatalog[disasterType] && (
+                          <Flex align="center" bg="whiteAlpha.50" px={3} py={2}
+                            borderRadius="md" border="1px solid" borderColor="whiteAlpha.100">
+                            <Box boxSize="6px" borderRadius="full" mr={2} flexShrink={0}
+                              bg={disasterCatalog[disasterType].color} />
+                            <TacticalText variant="mono" fontSize="9px" color="whiteAlpha.700">
+                              {disasterCatalog[disasterType].labelEn} · INT:{config.intensity}% · DUR:{config.duration}min
+                            </TacticalText>
+                          </Flex>
+                        )}
+                        {!analysisStatus && activeStep !== 'SIMULATION' && (
+                          <TacticalText variant="mono" fontSize="9px" color="whiteAlpha.300" textAlign="center" mt={4}>
+                            SEM EVENTOS — INICIE UMA SIMULAÇÃO
+                          </TacticalText>
+                        )}
+                      </VStack>
+                    )}
                   </Box>
                 </GlassPanel>
               )}
@@ -1285,7 +1340,7 @@ const VIEW_PRESETS: {
     layers: {
       terrain: true, topography: true, paving: true, satellite: false,
       buildings: true, residential: true, bridges: true, streets: true,
-      vegetation: true, polygons: true,
+      vegetation: false, polygons: true,
       semantic: false, particles: false, aiStructural: false,
       slope: false, density: false, sunSync: false,
       naturalAreas: true, landUseZones: false, amenities: false,
@@ -1311,9 +1366,9 @@ const VIEW_PRESETS: {
     layers: {
       terrain: true, topography: true, satellite: false, paving: false,
       buildings: false, residential: false, bridges: false, streets: false,
-      vegetation: false, polygons: false,
-      semantic: true, particles: false, aiStructural: false,
-      slope: true, density: true, sunSync: false,
+      vegetation: false, polygons: true,
+      semantic: true, particles: false, aiStructural: true,
+      slope: true, density: true, sunSync: true,
       naturalAreas: true, landUseZones: true, amenities: true,
     },
   },
@@ -1324,9 +1379,9 @@ const VIEW_PRESETS: {
     layers: {
       terrain: true, topography: true, satellite: false, paving: false,
       buildings: true, residential: true, bridges: true, streets: true,
-      vegetation: true, polygons: true,
+      vegetation: false, polygons: true,
       semantic: false, particles: true, aiStructural: true,
-      slope: false, density: false, sunSync: false,
+      slope: true, density: false, sunSync: false,
       naturalAreas: true, landUseZones: false, amenities: true,
     },
   },
@@ -1342,9 +1397,8 @@ const LAYER_GROUPS: {
     items: [
       { key: 'terrain',    label: 'Topografia (DEM)' },
       { key: 'topography', label: 'Mapa Topográfico' },
-      { key: 'paving',     label: 'Pavimento Urbano' },
       { key: 'satellite',  label: 'Imagem de Satélite' },
-      { key: 'slope',      label: 'Declividade (Análise)' },
+      { key: 'sunSync',    label: 'Sol Real (NOAA)' },
     ],
   },
   {
@@ -1361,9 +1415,9 @@ const LAYER_GROUPS: {
     label: 'NATUREZA & ÁGUA',
     icon: Trees,
     items: [
-      { key: 'vegetation',   label: 'Vegetação e Árvores' },
-      { key: 'polygons',     label: 'Rios e Corpos D\'água' },
+      { key: 'polygons',     label: 'Rios e Lagos' },
       { key: 'naturalAreas', label: 'Áreas Naturais (OSM)' },
+      { key: 'paving',       label: 'Praças e Estacionamentos' },
     ],
   },
   {
@@ -1379,9 +1433,9 @@ const LAYER_GROUPS: {
     icon: Activity,
     items: [
       { key: 'semantic',     label: 'Semântica 3D (IA)' },
+      { key: 'slope',        label: 'Declividade (Horn)' },
       { key: 'density',      label: 'Densidade Populacional' },
-      { key: 'sunSync',      label: 'Sol Real (NOAA)' },
-      { key: 'aiStructural', label: 'Estruturas Críticas' },
+      { key: 'aiStructural', label: 'Estruturas Críticas (IA)' },
     ],
   },
   {

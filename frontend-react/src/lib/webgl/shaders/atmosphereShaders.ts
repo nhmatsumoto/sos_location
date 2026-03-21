@@ -25,13 +25,16 @@ precision highp float;
 in vec2 v_ndc;
 out vec4 outColor;
 
-uniform mat4 u_invViewProj;
-uniform vec3 u_sunDir;
+uniform mat4  u_invViewProj;
+uniform vec3  u_sunDir;
 uniform float u_cloudCover;
 uniform int   u_precipType;
 uniform float u_time;
 uniform float u_reveal;
 uniform float u_sunElevDeg;
+// Disaster atmosphere
+uniform int   u_disasterType;      // 0=clear 1=flood/tsunami 2=earthquake 3=hurricane 4=tornado 5=wildfire 6=snow/frost 7=drought 8=hail 9=mudslide
+uniform float u_disasterIntensity; // 0-1
 
 float hash(vec2 p) {
   return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
@@ -47,18 +50,31 @@ float fbm(vec2 p) {
   for (int i=0;i<5;i++) { v+=a*smoothN(p); p=p*2.17+vec2(1.7,9.2); a*=0.5; }
   return v;
 }
+float fbmTurb(vec2 p, float speed) {
+  float v=0.0, a=0.5;
+  for (int i=0;i<6;i++) { v+=a*smoothN(p); p=p*2.3+vec2(u_time*speed, u_time*speed*0.7); a*=0.45; }
+  return v;
+}
+// Lightning flash: random bright spikes at storm time
+float lightning() {
+  float t1 = mod(u_time * 0.9 + 1.3, 5.2);
+  float t2 = mod(u_time * 1.7 + 3.8, 7.1);
+  float f1 = step(0.97, sin(t1 * 38.0)) * smoothstep(0.97, 1.0, sin(t1 * 38.0));
+  float f2 = step(0.97, sin(t2 * 41.0)) * smoothstep(0.97, 1.0, sin(t2 * 41.0));
+  return max(f1, f2);
+}
 
 void main() {
   // Reconstruct world-space ray from NDC via inverse view-projection
-  vec4 nearH = u_invViewProj * vec4(v_ndc, -1.0, 1.0);
-  vec4 farH  = u_invViewProj * vec4(v_ndc,  1.0, 1.0);
+  vec4 nearH  = u_invViewProj * vec4(v_ndc, -1.0, 1.0);
+  vec4 farH   = u_invViewProj * vec4(v_ndc,  1.0, 1.0);
   vec3 rayDir = normalize(farH.xyz/farH.w - nearH.xyz/nearH.w);
   float cosUp = rayDir.y;
 
   float sunEl  = clamp(u_sunElevDeg, -10.0, 90.0);
   float dayFac = smoothstep(-6.0, 14.0, sunEl);
 
-  // Sky gradient
+  // ── Base sky gradient ─────────────────────────────────────────────────────
   vec3 zenith  = mix(vec3(0.02,0.04,0.14), vec3(0.11,0.34,0.72), dayFac);
   vec3 horizon = mix(
     vec3(0.04,0.07,0.16),
@@ -68,47 +84,106 @@ void main() {
   float hBlend  = pow(max(0.0, 1.0-cosUp), 4.0);
   vec3 skyColor = mix(zenith, horizon, hBlend);
 
-  // Sun disk + Mie scattering halo + corona
-  float sunDot  = dot(rayDir, normalize(u_sunDir));
-  float disk    = smoothstep(0.9986, 0.9999, sunDot);
-  float corona  = smoothstep(0.90,   0.9986, sunDot) * 0.28;
-  // Mie forward-scattering: bright glow that falls off from sun center
-  float mie     = pow(max(0.0, sunDot), 8.0) * 0.55 * dayFac;
-  vec3  mieCol  = mix(vec3(1.0, 0.50, 0.10), vec3(1.0, 0.80, 0.55), smoothstep(0.0, 20.0, sunEl) / 20.0);
-  skyColor     += mieCol * mie * (1.0 - u_cloudCover * 0.6);
-  vec3  sunCol  = mix(vec3(1.0,0.78,0.28), vec3(1.0,0.96,0.82), smoothstep(0.0,30.0,sunEl)/30.0);
-  skyColor     += sunCol * (disk + corona) * dayFac;
+  // ── Sun disk + Mie scattering halo + corona ───────────────────────────────
+  float sunDot = dot(rayDir, normalize(u_sunDir));
+  float disk   = smoothstep(0.9986, 0.9999, sunDot);
+  float corona = smoothstep(0.90,   0.9986, sunDot) * 0.28;
+  float mie    = pow(max(0.0, sunDot), 8.0) * 0.55 * dayFac;
+  vec3  mieCol = mix(vec3(1.0,0.50,0.10), vec3(1.0,0.80,0.55), smoothstep(0.0,20.0,sunEl)/20.0);
+  skyColor    += mieCol * mie * (1.0 - u_cloudCover * 0.6);
+  vec3  sunCol = mix(vec3(1.0,0.78,0.28), vec3(1.0,0.96,0.82), smoothstep(0.0,30.0,sunEl)/30.0);
+  skyColor    += sunCol * (disk + corona) * dayFac;
 
-  // Atmospheric limb: extra haze band right at the horizon
+  // ── Atmospheric limb haze ─────────────────────────────────────────────────
   float limbH   = exp(-pow(cosUp / 0.08, 2.0)) * dayFac * 0.18;
-  vec3  limbCol = mix(vec3(0.88, 0.55, 0.22), vec3(0.70, 0.80, 0.98), smoothstep(4.0, 28.0, sunEl));
+  vec3  limbCol = mix(vec3(0.88,0.55,0.22), vec3(0.70,0.80,0.98), smoothstep(4.0,28.0,sunEl));
   skyColor     += limbCol * limbH;
 
-  // Stars at night
+  // ── Stars at night ────────────────────────────────────────────────────────
   if (dayFac < 0.7 && cosUp > 0.0) {
-    vec2 sUV     = v_ndc * 180.0;
-    float star   = step(0.985, hash(floor(sUV)));
-    float twink  = 0.55 + 0.45*sin(u_time*3.1 + hash(floor(sUV))*90.0);
-    skyColor    += vec3(0.88,0.93,1.0) * star * twink * (1.0-dayFac) * max(0.0,cosUp);
+    vec2  sUV   = v_ndc * 180.0;
+    float star  = step(0.985, hash(floor(sUV)));
+    float twink = 0.55 + 0.45*sin(u_time*3.1 + hash(floor(sUV))*90.0);
+    skyColor   += vec3(0.88,0.93,1.0) * star * twink * (1.0-dayFac) * max(0.0,cosUp);
   }
 
-  // Cloud layer
+  // ── Cloud layer (FBM — turbulence varies by disaster) ─────────────────────
   float cFade = smoothstep(0.0, 0.22, cosUp);
   if (u_cloudCover > 0.01 && cFade > 0.0) {
-    vec2 cUV  = (rayDir.xz / max(cosUp,0.02)) * 0.28 + u_time*0.008*vec2(1.0,0.25);
-    float cloud = fbm(cUV * 2.0 + 5.0);
-    float thr   = 1.0 - u_cloudCover * 0.88;
-    float cA    = smoothstep(thr, thr+0.14, cloud) * cFade;
-    vec3 cCol   = mix(vec3(0.90,0.93,0.97), vec3(0.28,0.30,0.36), u_cloudCover*0.75);
-    skyColor    = mix(skyColor, cCol, cA * u_cloudCover);
+    float turbSpeed = (u_disasterType == 3 || u_disasterType == 4) ? 0.014 : 0.008;
+    vec2 cUV   = (rayDir.xz / max(cosUp,0.02)) * 0.28 + u_time * turbSpeed * vec2(1.0,0.25);
+    float cloud = (u_disasterType == 3 || u_disasterType == 4)
+      ? fbmTurb(cUV * 2.5, 0.006)   // storm: more chaotic, faster
+      : fbm(cUV * 2.0 + 5.0);
+    float thr = 1.0 - u_cloudCover * 0.88;
+    float cA  = smoothstep(thr, thr+0.14, cloud) * cFade;
+    vec3 cCol = mix(vec3(0.90,0.93,0.97), vec3(0.28,0.30,0.36), u_cloudCover*0.75);
+    // Storm clouds darker + greenish for tornado
+    if (u_disasterType == 4) cCol = mix(cCol, vec3(0.22,0.26,0.20), u_disasterIntensity*0.6);
+    else if (u_disasterType == 3) cCol = mix(cCol, vec3(0.18,0.20,0.26), u_disasterIntensity*0.5);
+    skyColor = mix(skyColor, cCol, cA * u_cloudCover);
   }
 
-  // Overcast + precipitation tint
+  // ── Overcast + precipitation attenuation ─────────────────────────────────
   skyColor *= 1.0 - u_cloudCover * 0.48;
   if (u_precipType >= 3) skyColor *= 0.70;
   else if (u_precipType >= 1) skyColor *= 0.85;
 
-  // Below-horizon ground color
+  // ── Disaster-specific sky tinting ─────────────────────────────────────────
+  float di = u_disasterIntensity;
+
+  if (u_disasterType == 1) {
+    // Flood/Tsunami: dark stormy blue-gray sky
+    skyColor = mix(skyColor, vec3(0.08,0.10,0.18), di * 0.35);
+  } else if (u_disasterType == 2) {
+    // Earthquake: dust & aerosol haze band at horizon
+    float dustBand = exp(-pow((cosUp - 0.06) / 0.18, 2.0));
+    skyColor = mix(skyColor, vec3(0.55,0.44,0.28), di * 0.28 * dustBand);
+    skyColor *= 1.0 - di * 0.12;
+  } else if (u_disasterType == 3) {
+    // Hurricane: near-black storm wall, desaturated gray
+    skyColor = mix(skyColor, vec3(0.06,0.07,0.10), di * 0.55);
+    // Lightning flashes
+    float lf = lightning() * di;
+    skyColor += vec3(0.85,0.92,1.00) * lf * 0.35;
+  } else if (u_disasterType == 4) {
+    // Tornado: sickly green-gray supercell
+    skyColor = mix(skyColor, vec3(0.14,0.20,0.12), di * 0.50);
+    // Rotation hint in clouds
+    float rotUV = atan(rayDir.z, rayDir.x) + u_time * 0.15 * di;
+    float rotor = 0.5 + 0.5 * sin(rotUV * 4.0 + fbm(rayDir.xz * 3.0));
+    skyColor = mix(skyColor, vec3(0.10,0.14,0.08), rotor * di * 0.30 * cFade);
+    // Violent lightning
+    skyColor += vec3(0.90,0.95,1.00) * lightning() * di * 0.50;
+  } else if (u_disasterType == 5) {
+    // Wildfire: thick orange-brown smoke canopy obscuring the sun
+    float smokeLow  = smoothstep(0.40, 0.0, cosUp);  // dense smoke near horizon
+    float smokeHigh = smoothstep(0.0, 0.55, cosUp) * (1.0 - smoothstep(0.55, 1.0, cosUp));
+    vec3  smokeCol  = mix(vec3(0.42,0.22,0.06), vec3(0.28,0.16,0.05), smokeHigh);
+    skyColor = mix(skyColor, smokeCol, di * 0.65 * (smokeLow + smokeHigh * 0.5));
+    // Dim the sun through smoke
+    skyColor *= 1.0 - di * 0.45;
+    // Eerie orange glow at horizon
+    float glow = exp(-pow(cosUp / 0.12, 2.0));
+    skyColor += vec3(0.50, 0.18, 0.02) * di * glow * 0.55 * dayFac;
+  } else if (u_disasterType == 6) {
+    // Snow/Frost: flat white overcast
+    skyColor = mix(skyColor, vec3(0.78,0.80,0.82), di * 0.55);
+  } else if (u_disasterType == 7) {
+    // Drought: washed-out pale straw haze
+    skyColor = mix(skyColor, vec3(0.68,0.58,0.36), di * 0.42);
+    skyColor *= 1.0 - di * 0.15;
+  } else if (u_disasterType == 8) {
+    // Hail: dark boiling cumulonimbus
+    skyColor = mix(skyColor, vec3(0.10,0.10,0.14), di * 0.45);
+    skyColor += vec3(0.88,0.94,1.00) * lightning() * di * 0.28;
+  } else if (u_disasterType == 9) {
+    // Mudslide / Deforestation: earthy dark haze + reduced visibility
+    float mudBand = exp(-pow((cosUp - 0.10) / 0.22, 2.0));
+    skyColor = mix(skyColor, vec3(0.40,0.30,0.16), di * 0.32 * mudBand);
+  }
+
+  // ── Below-horizon ground color ────────────────────────────────────────────
   if (cosUp < -0.01) skyColor = mix(vec3(0.02,0.02,0.03), skyColor, smoothstep(-0.06,0.0,cosUp));
 
   outColor = vec4(skyColor * u_reveal, 1.0);
@@ -319,6 +394,8 @@ uniform float u_fogDensity;
 uniform vec3  u_fogColor;
 uniform float u_reveal;
 uniform float u_cloudCover;
+uniform int   u_disasterType;       // matches SKY_FS codes
+uniform float u_disasterIntensity;  // 0-1
 
 void main() {
   float h          = v_uv.y;
@@ -327,5 +404,47 @@ void main() {
   float ceiling    = smoothstep(0.62, 0.80, h)         * u_cloudCover * 0.10;
   float total      = clamp(groundFog + horizonFog + ceiling, 0.0, 0.75) * u_reveal;
   if (total < 0.006) discard;
-  outColor = vec4(u_fogColor, total);
+
+  // Disaster-specific fog tint blended on top of weather fog color
+  vec3 fogCol = u_fogColor;
+  float di = u_disasterIntensity;
+  if (u_disasterType == 1) {
+    // Flood: murky blue-gray ground mist
+    fogCol = mix(fogCol, vec3(0.22, 0.28, 0.42), di * 0.55);
+    total  = min(0.75, total * (1.0 + di * 0.40));
+  } else if (u_disasterType == 2) {
+    // Earthquake: choking dust & debris haze
+    fogCol = mix(fogCol, vec3(0.58, 0.48, 0.30), di * 0.65);
+    total  = min(0.75, total * (1.0 + di * 0.60));
+  } else if (u_disasterType == 3) {
+    // Hurricane: dense gray storm mist
+    fogCol = mix(fogCol, vec3(0.18, 0.20, 0.26), di * 0.60);
+    total  = min(0.75, total * (1.0 + di * 0.50));
+  } else if (u_disasterType == 4) {
+    // Tornado: sickly green-gray vortex mist
+    fogCol = mix(fogCol, vec3(0.20, 0.28, 0.16), di * 0.55);
+    total  = min(0.75, total * (1.0 + di * 0.45));
+  } else if (u_disasterType == 5) {
+    // Wildfire: thick orange-brown smoke at ground level
+    fogCol = mix(fogCol, vec3(0.48, 0.24, 0.06), di * 0.75);
+    total  = min(0.75, total * (1.0 + di * 0.80));
+  } else if (u_disasterType == 6) {
+    // Snow/Frost: white whiteout mist
+    fogCol = mix(fogCol, vec3(0.88, 0.91, 0.96), di * 0.70);
+    total  = min(0.75, total * (1.0 + di * 0.35));
+  } else if (u_disasterType == 7) {
+    // Drought: dusty brown haze
+    fogCol = mix(fogCol, vec3(0.72, 0.60, 0.36), di * 0.60);
+    total  = min(0.75, total * (1.0 + di * 0.30));
+  } else if (u_disasterType == 8) {
+    // Hail: icy gray-blue mist
+    fogCol = mix(fogCol, vec3(0.55, 0.62, 0.78), di * 0.45);
+    total  = min(0.75, total * (1.0 + di * 0.40));
+  } else if (u_disasterType == 9) {
+    // Mudslide: earthy brown ground murk
+    fogCol = mix(fogCol, vec3(0.44, 0.32, 0.14), di * 0.70);
+    total  = min(0.75, total * (1.0 + di * 0.65));
+  }
+
+  outColor = vec4(fogCol, total);
 }`;

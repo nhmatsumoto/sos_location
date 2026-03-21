@@ -18,6 +18,10 @@ export interface CityBlueprint {
     naturalAreas: GISNaturalArea[];
     landUseZones: GISLandUseZone[];
     amenities: GISAmenity[];
+    pedestrianAreas: GISNaturalArea[];
+    parkingLots: GISNaturalArea[];
+    trees: GISAmenity[];
+    barriers: GISHighway[];
   };
   hasSatelliteCanvas: boolean;   // true if canvas available in SatelliteCanvasCache
   metadata: SemanticMetadata;

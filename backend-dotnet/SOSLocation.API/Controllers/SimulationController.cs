@@ -4,6 +4,7 @@ using SOSLocation.Domain.Interfaces;
 using SOSLocation.Domain.Common;
 using SOSLocation.Application.DTOs.Common;
 using SOSLocation.Application.DTOs.Simulation;
+using SOSLocation.Application.Interfaces;
 using SOSLocation.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using System;
@@ -13,6 +14,7 @@ using System.Net.Http;
 using System.Net.Http.Json;
 using Microsoft.Extensions.Configuration;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace SOSLocation.API.Controllers
@@ -22,17 +24,61 @@ namespace SOSLocation.API.Controllers
     [Authorize]
     public class SimulationController : ControllerBase
     {
-        private readonly IGisService _gisService;
+        private readonly IGisService        _gisService;
+        private readonly ISceneDataService  _sceneData;
         private readonly SOSLocationDbContext _context;
-        private readonly HttpClient _httpClient;
-        private readonly string _riskServiceUrl;
+        private readonly HttpClient          _httpClient;
+        private readonly string              _riskServiceUrl;
 
-        public SimulationController(IGisService gisService, SOSLocationDbContext context, HttpClient httpClient, IConfiguration configuration)
+        public SimulationController(
+            IGisService          gisService,
+            ISceneDataService    sceneData,
+            SOSLocationDbContext context,
+            HttpClient           httpClient,
+            IConfiguration       configuration)
         {
-            _gisService = gisService;
-            _context = context;
-            _httpClient = httpClient;
-            _riskServiceUrl = configuration["ExternalIntegrations:RiskServiceUrl"] ?? "http://risk-analysis:8000";
+            _gisService     = gisService;
+            _sceneData      = sceneData;
+            _context        = context;
+            _httpClient     = httpClient;
+            _riskServiceUrl = configuration["ExternalIntegrations:RiskServiceUrl"]
+                              ?? "http://risk-analysis:8000";
+        }
+
+        // ── Scene Data Pipeline ───────────────────────────────────────────────
+
+        /// <summary>
+        /// Returns fully preprocessed scene data for the given bounding box:
+        /// elevation grid (normalized 0-1), slope analysis (Horn 1981),
+        /// semantic land-use segmentation, OSM urban features, and sun position.
+        ///
+        /// Results are cached in PostgreSQL for 7 days.
+        /// This endpoint is the backend-side replacement for the frontend's
+        /// GeoDataPipeline + CityBlueprintBuilder heavy processing.
+        /// </summary>
+        [HttpPost("v1/scenes/data")]
+        [AllowAnonymous] // public endpoint — data is non-sensitive geographic info
+        public async Task<ActionResult<Result<SceneDataDto>>> GetSceneData(
+            [FromBody]        SceneBboxRequest request,
+            CancellationToken ct = default)
+        {
+            if (request.MinLat >= request.MaxLat || request.MinLon >= request.MaxLon)
+                return BadRequest(Result<SceneDataDto>.Failure("Invalid bounding box."));
+
+            try
+            {
+                var dto = await _sceneData.FetchSceneDataAsync(request, ct);
+                return Ok(Result<SceneDataDto>.Success(dto));
+            }
+            catch (OperationCanceledException)
+            {
+                return StatusCode(499); // client closed request
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, Result<SceneDataDto>.Failure(
+                    $"Scene data pipeline failed: {ex.Message}"));
+            }
         }
 
         /// <summary>

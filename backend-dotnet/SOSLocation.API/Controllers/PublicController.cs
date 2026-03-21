@@ -68,5 +68,28 @@ namespace SOSLocation.API.Controllers
                 });
             }
         }
+
+        /// <summary>
+        /// Proxies geographic hotspot query from the risk analysis unit.
+        /// Returns scored locations within the bounding box for OSM risk enrichment in the 3D engine.
+        /// Shape: [{ lat, lng, intensity (0-1), radius, type, level, country, location, score }]
+        /// </summary>
+        [HttpGet("risk-hotspots")]
+        public async Task<IActionResult> GetRiskHotspots(
+            [FromQuery] double minLat, [FromQuery] double minLon,
+            [FromQuery] double maxLat, [FromQuery] double maxLon)
+        {
+            try
+            {
+                using var cts = new System.Threading.CancellationTokenSource(TimeSpan.FromSeconds(5));
+                var url = $"{_riskServiceUrl}/api/v1/risk/hotspots?min_lat={minLat}&min_lon={minLon}&max_lat={maxLat}&max_lon={maxLon}";
+                var data = await _httpClient.GetFromJsonAsync<object[]>(url, cts.Token);
+                return Ok(data ?? Array.Empty<object>());
+            }
+            catch
+            {
+                return Ok(Array.Empty<object>());
+            }
+        }
     }
 }

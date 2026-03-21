@@ -63,6 +63,18 @@ def get_public_risk_summary():
     }
 
 
+@app.get("/api/v1/risk/hotspots")
+def get_risk_hotspots(
+    min_lat: float, min_lon: float,
+    max_lat: float, max_lon: float,
+):
+    """Geographic bbox query — returns scored locations as hotspot points.
+    Shape: [{ lat, lng, intensity (0-1), radius, type, level, country, location, score }]
+    Consumed by frontend OSMEnrichmentAgent to enrich 3D city buildings with risk scores.
+    """
+    return risk_engine.get_hotspots_in_bbox(min_lat, min_lon, max_lat, max_lon)
+
+
 @app.get("/api/v1/simulations/catalog", response_model=list[SimulationCatalogItem])
 def get_simulations_catalog():
     return simulation_service.get_catalog()

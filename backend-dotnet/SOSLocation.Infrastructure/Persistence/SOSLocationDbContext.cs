@@ -47,6 +47,7 @@ namespace SOSLocation.Infrastructure.Persistence
         public DbSet<SimulationArea> SimulationAreas { get; set; } = null!;
         public DbSet<ScenarioBundle> ScenarioBundles { get; set; } = null!;
         public DbSet<SimulationRun> SimulationRuns { get; set; } = null!;
+        public DbSet<CachedScene> CachedScenes { get; set; } = null!;
         public DbSet<Geolocation> Geolocations { get; set; } = null!;
         public DbSet<VisitedLocation> VisitedLocations { get; set; } = null!;
         public DbSet<FoundPeople> FoundPeople { get; set; } = null!;

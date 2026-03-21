@@ -9,6 +9,7 @@ using SOSLocation.Infrastructure.Persistence.Dapper;
 using FluentValidation;
 using SOSLocation.Application.Features.Incidents.Commands.CreateIncident;
 using SOSLocation.Application.Common.Behaviors;
+using SOSLocation.Application.Interfaces;
 using MediatR;
 using SOSLocation.Infrastructure.Services.Gis.Providers;
 using SOSLocation.Infrastructure.Services.Gis.Crawlers;
@@ -73,6 +74,11 @@ namespace SOSLocation.API.Extensions
             services.AddScoped<SemanticSegmentationService>();
             services.AddScoped<RiskEngineService>();
             services.AddScoped<SimulationOrchestrationService>();
+
+            // Scene Data Pipeline (Phase 2 migration — GIS processing moved from frontend)
+            services.AddScoped<GISMathService>();
+            services.AddScoped<SlopeAnalyzerService>();
+            services.AddScoped<ISceneDataService, SceneDataService>();
 
             // Crawler Engine & Connectors
             services.AddHttpClient<IGsiElevationConnector, GsiElevationService>().AddStandardResilienceHandler();
