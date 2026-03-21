@@ -113,7 +113,7 @@ export class OSMEnrichmentAgent {
           const d = distanceM(bCentLat, bCentLon, sCentLat, sCentLon);
           if (d < minDist) { minDist = d; closest = sb; }
         }
-        if (closest && closest.height > 0) enriched.enrichedHeight = closest.height;
+        if (closest && (closest.height ?? 0) > 0) enriched.enrichedHeight = closest.height;
       }
 
       // Risk score from hotspot overlap
@@ -123,9 +123,9 @@ export class OSMEnrichmentAgent {
       for (const h of hotspots) {
         if (!h.lat || !h.lng) continue;
         const d = distanceM(bCentLat, bCentLon, h.lat, h.lng);
-        const radius = (h as any).radius ?? 50;
+        const radius = h.radius ?? 50;
         if (d < radius) {
-          const intensity = Math.max(0, 1 - d / radius) * ((h as any).intensity ?? 0.5);
+          const intensity = Math.max(0, 1 - d / radius) * (h.intensity ?? 0.5);
           if (intensity > maxRisk) maxRisk = intensity;
         }
       }
@@ -147,9 +147,9 @@ export class OSMEnrichmentAgent {
       for (const h of hotspots) {
         if (!h.lat || !h.lng) continue;
         const d = distanceM(centLat, centLon, h.lat, h.lng);
-        const radius = (h as any).radius ?? 80;
+        const radius = h.radius ?? 80;
         if (d < radius) {
-          const intensity = Math.max(0, 1 - d / radius) * ((h as any).intensity ?? 0.5);
+          const intensity = Math.max(0, 1 - d / radius) * (h.intensity ?? 0.5);
           if (intensity > maxRisk) maxRisk = intensity;
         }
       }

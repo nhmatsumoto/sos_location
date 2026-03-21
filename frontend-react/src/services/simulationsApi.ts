@@ -2,13 +2,35 @@ import { apiClient } from './apiClient';
 import type { SemanticGrid } from '../lib/segmentation/SemanticTypes';
 import type { PopulationDensityGrid, LandCoverGrid } from '../types';
 
+interface RawSegmentCell { class: string; intensity: number; r: number; g: number; b: number }
+interface SegmentApiResponse {
+  cols: number; rows: number; tile_size?: number; tileSize?: number;
+  grid: RawSegmentCell[][];
+  metadata: {
+    vegetation_pct?: number; vegetationPct?: number;
+    water_pct?: number;      waterPct?: number;
+    road_pct?: number;       roadPct?: number;
+    building_pct?: number;   buildingPct?: number;
+    slum_pct?: number;       slumPct?: number;
+    urban_density?: number;  urbanDensityScore?: number;
+  };
+}
+interface PopulationApiResponse {
+  rows: number; cols: number; grid: number[][];
+  maxRawValue?: number; year?: number; isAvailable: boolean; source?: string;
+}
+interface LandCoverApiResponse {
+  rows: number; cols: number; grid: number[] | Uint8Array;
+  isAvailable: boolean; source?: string;
+}
+
 export interface GISFeature {
   id: number | string;
   type: string;
-  coordinates: any[]; // [lat, lon] or poly points
+  coordinates: [number, number][] | [number, number][][];
   levels?: number;
   category?: string;
-  metadata?: any;
+  metadata?: Record<string, unknown>;
 }
 
 export interface SimulationResult {
@@ -23,9 +45,9 @@ export interface SimulationResult {
     highways: GISFeature[];
     waterways: GISFeature[];
   };
-  climate: any;
-  soil: any;
-  vegetation: GISFeature[] | any;
+  climate: Record<string, unknown> | null;
+  soil: Record<string, unknown> | null;
+  vegetation: GISFeature[];
   generatedAt: string;
 }
 
@@ -81,7 +103,7 @@ export const simulationsApi = {
     minLat: number; minLon: number; maxLat: number; maxLon: number; tileSize?: number;
   }): Promise<SemanticGrid | null> {
     try {
-      const response = await apiClient.post<any>('/api/v1/urban/segment', {
+      const response = await apiClient.post<SegmentApiResponse>('/api/v1/urban/segment', {
         MinLat:   payload.minLat,
         MinLon:   payload.minLon,
         MaxLat:   payload.maxLat,
@@ -95,8 +117,8 @@ export const simulationsApi = {
         cols:     d.cols,
         rows:     d.rows,
         tileSize: d.tile_size ?? d.tileSize,
-        cells:    d.grid.map((row: any[]) =>
-          row.map((cell: any) => ({
+        cells:    d.grid.map((row) =>
+          row.map((cell) => ({
             class:     cell.class,
             intensity: cell.intensity,
             r: cell.r, g: cell.g, b: cell.b,
@@ -110,7 +132,7 @@ export const simulationsApi = {
           slumPct:          d.metadata.slum_pct       ?? d.metadata.slumPct       ?? 0,
           urbanDensityScore: d.metadata.urban_density ?? d.metadata.urbanDensityScore ?? 0,
         },
-      } as SemanticGrid;
+      } as unknown as SemanticGrid;
     } catch {
       return null;
     }
@@ -123,7 +145,7 @@ export const simulationsApi = {
     minLat: number; minLon: number; maxLat: number; maxLon: number;
   }): Promise<PopulationDensityGrid | null> {
     try {
-      const response = await apiClient.get<any>('/api/v1/urban/population', { params: payload });
+      const response = await apiClient.get<PopulationApiResponse>('/api/v1/urban/population', { params: payload });
       const d = response.data;
       if (!d?.isAvailable) return null;
       return {
@@ -147,7 +169,7 @@ export const simulationsApi = {
     minLat: number; minLon: number; maxLat: number; maxLon: number;
   }): Promise<LandCoverGrid | null> {
     try {
-      const response = await apiClient.get<any>('/api/v1/urban/landcover', { params: payload });
+      const response = await apiClient.get<LandCoverApiResponse>('/api/v1/urban/landcover', { params: payload });
       const d = response.data;
       if (!d?.isAvailable) return null;
       return {

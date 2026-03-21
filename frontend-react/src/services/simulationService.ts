@@ -1,4 +1,5 @@
 import { apiClient } from './apiClient';
+import type { GeoJSONGeometry, ScenarioParameters, SimulationRunMetrics, SimulationArtifacts } from '../types';
 
 export interface SimulationArea {
   id: string;
@@ -7,7 +8,7 @@ export interface SimulationArea {
   bbox_min_lng: number;
   bbox_max_lat: number;
   bbox_max_lng: number;
-  polygon_geometry: any;
+  polygon_geometry: GeoJSONGeometry | null;
   created_at: string;
 }
 
@@ -18,7 +19,7 @@ export interface ScenarioBundle {
   status: 'pending' | 'extracting' | 'ready' | 'failed';
   terrain_path?: string;
   buildings_path?: string;
-  parameters: any;
+  parameters: ScenarioParameters;
 }
 
 export interface SimulationRun {
@@ -28,8 +29,8 @@ export interface SimulationRun {
   water_level_start: number;
   rainfall_mm: number;
   duration_hours: number;
-  metrics: any;
-  artifacts: any;
+  metrics: SimulationRunMetrics | null;
+  artifacts: SimulationArtifacts | null;
 }
 
 export const simulationService = {
@@ -49,7 +50,7 @@ export const simulationService = {
     return (await apiClient.get<ScenarioBundle[]>(`/api/simulation/areas/${areaId}/scenarios`)).data;
   },
   
-  async createScenario(areaId: string, data: any = {}) {
+  async createScenario(areaId: string, data: Partial<ScenarioBundle> = {}) {
     return (await apiClient.post<ScenarioBundle>(`/api/simulation/areas/${areaId}/scenarios`, data)).data;
   },
   

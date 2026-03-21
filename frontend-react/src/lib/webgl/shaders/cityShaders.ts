@@ -31,6 +31,10 @@ void main() {
   vec3 pos = a_position;
   pos.y += height;
 
+  // Earth curvature: at distance d the horizon drops d²/(2R).
+  // R_earth = 6,371 km = 637,100,000 cm  →  2R = 1,274,200,000 cm
+  pos.y -= dot(pos.xz, pos.xz) / 1274200000.0;
+
   // Physically-correct terrain normal via finite differences.
   // Each neighbour sample is u_texelOffset UV units away, which corresponds to
   // (u_worldSpanX * u_texelOffset) metres in X and (u_worldSpanZ * u_texelOffset) in Z.
@@ -126,6 +130,8 @@ void main() {
   // ── Procedural elevation palette ─────────────────────────────────────────
   float normH   = clamp(v_height / max(u_topoScale, 1.0), 0.0, 1.0);
   float flatness = clamp(N.y, 0.0, 1.0);
+  // Slope-based ambient occlusion: valleys and steep faces receive less sky light
+  float ao = 0.45 + 0.55 * flatness * flatness;
 
   vec3 cWater  = vec3(0.10, 0.26, 0.50);
   vec3 cSand   = vec3(0.72, 0.63, 0.44);
@@ -161,15 +167,16 @@ void main() {
     terrainColor   = mix(terrainColor, vec3(0.0, 0.62, 0.95), line * 0.55);
   }
 
-  // Hemisphere ambient (sky + ground bounce)
-  vec3 skyAmb  = vec3(0.42, 0.52, 0.68) * ambStr;
-  vec3 gndAmb  = u_soilColor * 0.20;
+  // Hemisphere ambient (sky + ground bounce) with slope AO
+  vec3 skyAmb  = vec3(0.42, 0.52, 0.68) * ambStr * ao;
+  vec3 gndAmb  = u_soilColor * 0.20 * ao;
   vec3 ambient = mix(gndAmb, skyAmb, N.y * 0.5 + 0.5);
 
   vec3 diffuse = terrainColor * diff * u_lightColor * u_lightIntensity;
-  vec3 V = vec3(0.0, 1.0, 0.0);
+  // View-dependent specular (approximate camera-up for far terrain)
+  vec3 V = normalize(vec3(0.0, 1.0, 0.3));
   vec3 H = normalize(L + V);
-  float spec = pow(max(dot(N, H), 0.0), 32.0) * flatness * 0.08;
+  float spec = pow(max(dot(N, H), 0.0), 48.0) * flatness * 0.12;
   float micro = fract(sin(dot(floor(v_uv * 256.0), vec2(127.1, 311.7))) * 43758.5) * 0.03 - 0.015;
 
   if (u_wetness > 0.01) {
@@ -263,8 +270,17 @@ uniform float u_time;
 uniform float u_reveal;
 out vec4 outColor;
 void main() {
-    float shine = 0.5 + 0.5 * sin(u_time * 2.0);
-    outColor = vec4(0.05, 0.25, 0.55 + shine * 0.15, 0.88 * u_reveal);
+    // Animated water shimmer with dual-frequency specular flash
+    float s1 = sin(u_time * 2.4) * 0.5 + 0.5;
+    float s2 = sin(u_time * 1.3 + 1.2) * 0.5 + 0.5;
+    float glint = s1 * s2;
+    vec3 deepCol    = vec3(0.02, 0.14, 0.38);
+    vec3 shallowCol = vec3(0.06, 0.32, 0.62);
+    vec3 color = mix(deepCol, shallowCol, 0.45 + glint * 0.25);
+    // foam fringe
+    float foam = smoothstep(0.85, 1.0, glint);
+    color = mix(color, vec3(0.85, 0.93, 1.0), foam * 0.4);
+    outColor = vec4(color, 0.88 * u_reveal);
 }
 `
   },
@@ -620,14 +636,84 @@ uniform float u_time, u_reveal;
 uniform vec3 u_lightDir, u_lightColor;
 uniform float u_lightIntensity;
 out vec4 outColor;
+
+float wHash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5); }
+float wNoise(vec2 p){
+  vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f);
+  return mix(mix(wHash(i),wHash(i+vec2(1,0)),f.x),
+             mix(wHash(i+vec2(0,1)),wHash(i+vec2(1,1)),f.x),f.y);
+}
+float wFbm(vec2 p){
+  float v=0.0,a=0.5;
+  for(int i=0;i<5;i++){v+=a*wNoise(p);p=p*2.07+vec2(1.7,9.2);a*=0.5;}
+  return v;
+}
+
 void main() {
-    float wave = sin(v_worldPos.x * 0.00012 + u_time * 2.0) * 0.04 + cos(v_worldPos.z * 0.00010 + u_time * 1.5) * 0.03;
-    vec3 color = mix(vec3(0.16, 0.46, 0.72), vec3(0.05, 0.18, 0.42), 0.5) + wave;
-    vec3 N = normalize(vec3(wave * 8.0, 1.0, wave * 6.0));
-    float diff = max(dot(N, normalize(u_lightDir)), 0.45) * u_lightIntensity;
-    float spec = pow(max(dot(reflect(-normalize(u_lightDir), N), vec3(0,0,-1)), 0.0), 64.0) * 0.3;
-    color = color * diff * u_lightColor + spec;
-    outColor = vec4(color, 0.90 * u_reveal);
+    // World-space UV at water detail scale (0.00006 → ~1 wave per ~17 m)
+    vec2 wuv = v_worldPos.xz * 0.00006;
+
+    // Two-layer FBM domain-warped normals for realistic chop
+    vec2 q = vec2(wFbm(wuv + vec2(u_time*0.10)),
+                  wFbm(wuv + vec2(u_time*0.08) + 5.2));
+    vec2 r = vec2(wFbm(wuv*2.3 + q*0.6 + vec2(u_time*0.07,0.0)),
+                  wFbm(wuv*2.3 + q*0.6 + vec2(0.0,u_time*0.09) + 1.7));
+    // Normal from gradient of domain-warped FBM
+    float nx = r.x * 0.45 - 0.225;
+    float nz = r.y * 0.45 - 0.225;
+    vec3 N = normalize(vec3(nx, 1.0, nz));
+
+    vec3 L = normalize(u_lightDir);
+    // Approximate view direction (overhead look-down with slight tilt)
+    vec3 V = normalize(vec3(0.0, 1.0, 0.18));
+    vec3 H = normalize(L + V);
+
+    // Schlick Fresnel — F0 = 0.02 for water
+    float cosV = max(dot(N, V), 0.0);
+    float F = 0.02 + 0.98 * pow(1.0 - cosV, 5.0);
+
+    // Water color: deep/shallow blend with FBM variation
+    float depth = wFbm(wuv * 2.8 + u_time * 0.018);
+    vec3 shallowCol = vec3(0.04, 0.32, 0.60);
+    vec3 deepCol    = vec3(0.01, 0.08, 0.26);
+    vec3 waterCol   = mix(shallowCol, deepCol, depth);
+    // Sub-surface scattering: bright turquoise tint at shallow crest areas
+    vec3 sssCol = vec3(0.08, 0.62, 0.80);
+    waterCol = mix(waterCol, sssCol, (1.0 - depth) * 0.18);
+
+    float diff = max(dot(N, L), 0.0) * u_lightIntensity;
+
+    // Specular highlight (sun glint on water)
+    float spec = pow(max(dot(N, H), 0.0), 256.0) * u_lightIntensity;
+    vec3 sunGlint = u_lightColor * spec * 3.5 * F;
+
+    // Sky reflection tint
+    vec3 skyRefl = mix(vec3(0.30, 0.50, 0.78), vec3(0.65, 0.80, 0.95), F);
+
+    // Animated caustic shimmer (bright wave-crests)
+    float cw = wuv.x * 120.0; float ch = wuv.y * 120.0;
+    float caustic = max(0.0, sin(cw + u_time*2.2)*sin(ch + u_time*1.8));
+    caustic = pow(caustic, 4.0) * 0.18 * (1.0 - depth);
+
+    // Foam: white froth at high-frequency wave peaks
+    float foamN = wFbm(wuv * 9.0 + vec2(u_time * 0.18, -u_time * 0.14));
+    float foam  = smoothstep(0.60, 0.78, foamN) * 0.65;
+
+    // Horizon foam streaks (wind-aligned)
+    float streak = wFbm(vec2(wuv.x * 3.0 + u_time * 0.06, wuv.y * 18.0));
+    foam = max(foam, smoothstep(0.72, 0.82, streak) * 0.35);
+
+    vec3 color = waterCol * (0.30 + diff * 0.70) * u_lightColor
+               + sunGlint
+               + skyRefl * F * 0.35
+               + caustic;
+    color = mix(color, vec3(0.92, 0.96, 1.0), foam);
+
+    // Distance fog
+    float fog = smoothstep(80000.0, 180000.0, length(v_worldPos));
+    color = mix(color, vec3(0.38, 0.52, 0.70), fog);
+
+    outColor = vec4(clamp(color, 0.0, 1.0), (0.88 + F * 0.08) * u_reveal);
 }
 `
   },
@@ -685,34 +771,80 @@ uniform float u_areaHalfX;
 uniform float u_areaHalfZ;
 uniform float u_urbanDensity;
 uniform float u_vegIntensity;
+uniform float u_time;
 out float v_density;
+out float v_vegHeight;
 
 void main() {
     float density = fract(sin(dot(a_uv, vec2(12.9898, 78.233))) * 43758.5453);
     v_density = density;
-    // Sample terrain height so vegetation sits on the actual terrain surface
     vec2 uv = clamp(vec2(
         (a_position.x + u_areaHalfX) / (u_areaHalfX * 2.0),
         (a_position.z + u_areaHalfZ) / (u_areaHalfZ * 2.0)
     ), 0.0, 1.0);
     float terrainH = texture(u_topoMap, uv).r * u_topoScale;
-    float vegHeight = density * (2.0 + u_vegIntensity * 3.0);
-    gl_Position = u_projectionMatrix * u_viewMatrix * u_modelMatrix * vec4(a_position.x, terrainH + vegHeight, a_position.z, 1.0);
+    // Tree height: 3–12 m (300–1200 cm)
+    float vegHeight = 300.0 + density * 900.0 * (0.5 + u_vegIntensity * 0.5);
+    v_vegHeight = vegHeight;
+    // Subtle wind sway: trunk base stays fixed, top sways
+    float sway = sin(u_time * 1.4 + a_position.x * 0.0023 + a_position.z * 0.0019) * 18.0 * density;
+    vec3 top = vec3(a_position.x + sway, terrainH + vegHeight, a_position.z);
+    // Point size: proportional to tree height, visible from far
+    vec4 clip = u_projectionMatrix * u_viewMatrix * u_modelMatrix * vec4(top, 1.0);
+    // Estimate on-screen size: ~treeDiameter projected. Use fixed world radius 400 cm.
+    // gl_PointSize approximation via frustum depth
+    gl_PointSize = clamp(vegHeight * 0.018, 10.0, 48.0);
+    gl_Position = clip;
 }
 `,
     FS: `#version 300 es
 precision highp float;
 in float v_density;
+in float v_vegHeight;
 uniform float u_vegIntensity;
 uniform float u_reveal;
 out vec4 outColor;
+
 void main() {
     float threshold = 0.9 - (u_vegIntensity * 0.6);
     if (v_density < threshold) discard;
-    vec3 forestColor = vec3(0.06, 0.18, 0.06);
-    vec3 lightLeaf   = vec3(0.18, 0.42, 0.12);
-    vec3 leafColor = mix(forestColor, lightLeaf, v_density);
-    outColor = vec4(leafColor, 0.9 * u_reveal);
+
+    vec2 pc = gl_PointCoord; // [0,1] — 0=top-left, y increases downward
+    float py = 1.0 - pc.y;  // flip so py=0 is bottom, py=1 is top
+
+    // Trunk: lower 22% of sprite, narrow band
+    bool isTrunk = py < 0.22 && abs(pc.x - 0.5) < 0.10;
+
+    // Crown: circular shape centered at upper 60% of sprite
+    float crownY = 0.62;
+    float crownR = length(vec2(pc.x - 0.5, py - crownY) * vec2(1.0, 0.85));
+    bool isCrown = crownR < 0.36;
+
+    if (!isTrunk && !isCrown) discard;
+
+    vec3 color;
+    if (isTrunk) {
+        // Bark: warm brown, lighter on sun side
+        color = mix(vec3(0.30, 0.18, 0.08), vec3(0.48, 0.32, 0.16), pc.x);
+    } else {
+        // Crown: layered greens with occasional autumn tint
+        float t = v_density;
+        vec3 dark   = vec3(0.05, 0.18, 0.04);
+        vec3 mid    = vec3(0.18, 0.42, 0.10);
+        vec3 bright = vec3(0.30, 0.56, 0.16);
+        color = mix(dark, mid, t);
+        color = mix(color, bright, max(0.0, t - 0.6) * 2.5);
+        // Rare autumn orange/yellow
+        vec3 autumn = vec3(0.72, 0.46, 0.08);
+        color = mix(color, autumn, smoothstep(0.88, 0.96, t) * 0.65);
+        // Rim darkening at crown edge
+        color = mix(color * 0.55, color, smoothstep(0.30, 0.10, crownR));
+        // Top highlight (sky-lit crown tip)
+        color = mix(color, color * 1.35, smoothstep(0.20, 0.0, crownR) * (py > 0.70 ? 1.0 : 0.0));
+    }
+
+    float alpha = isTrunk ? 0.95 : smoothstep(0.36, 0.20, crownR) * 0.92;
+    outColor = vec4(color, alpha * u_reveal);
 }
 `
   },
@@ -813,6 +945,68 @@ void main() {
   },
 
 };
+
+// ── GRASS SHADER ─────────────────────────────────────────────────────────────
+// Ground-level grass tufts rendered as point sprites with wind animation.
+// Reuses the same VBO layout as VEGETATION (vec3 position + vec2 uv).
+export const GRASS_VS = `#version 300 es
+layout(location=0) in vec3 a_position;
+layout(location=1) in vec2 a_uv;
+uniform mat4 u_projectionMatrix, u_viewMatrix, u_modelMatrix;
+uniform sampler2D u_topoMap;
+uniform float u_topoScale, u_areaHalfX, u_areaHalfZ, u_time, u_vegIntensity;
+out float v_density;
+
+void main() {
+    float dens = fract(sin(dot(a_uv, vec2(43.21, 89.57))) * 71491.3);
+    v_density = dens;
+    float threshold = 0.72 - u_vegIntensity * 0.35;
+    if (dens < threshold) {
+        gl_PointSize = 0.0;
+        gl_Position = vec4(0.0, 0.0, 2.0, 1.0);
+        return;
+    }
+    vec2 uv = clamp(vec2(
+        (a_position.x + u_areaHalfX) / (u_areaHalfX * 2.0),
+        (a_position.z + u_areaHalfZ) / (u_areaHalfZ * 2.0)
+    ), 0.0, 1.0);
+    float h = texture(u_topoMap, uv).r * u_topoScale;
+    // Wind sway: grass tips lean with the breeze
+    float sway = sin(u_time * 2.2 + a_position.x * 0.005 + a_position.z * 0.004) * 6.0 * dens;
+    vec3 pos = vec3(a_position.x + sway, h + 22.0 * dens, a_position.z);
+    gl_PointSize = clamp(4.0 + dens * 8.0, 4.0, 14.0);
+    gl_Position = u_projectionMatrix * u_viewMatrix * u_modelMatrix * vec4(pos, 1.0);
+}`;
+
+export const GRASS_FS = `#version 300 es
+precision highp float;
+in float v_density;
+uniform float u_reveal;
+out vec4 outColor;
+
+void main() {
+    vec2 pc = gl_PointCoord - vec2(0.5, 0.5);
+    // Blade shape: tall narrow oval, wider at base, tapers at tip
+    float tipY = gl_PointCoord.y; // 0=top, 1=bottom
+    float bladeW = (1.0 - tipY) * 0.22 + 0.04;  // wider at base
+    float inBlade = step(abs(pc.x), bladeW);
+    if (inBlade < 0.5) discard;
+
+    float t = v_density;
+    // Green grass palette: dry ↔ fresh
+    vec3 dry   = vec3(0.54, 0.50, 0.18);
+    vec3 fresh = vec3(0.18, 0.44, 0.08);
+    vec3 color = mix(dry, fresh, t);
+    // Brighter tip (sun-lit)
+    color = mix(color * 1.4, color, tipY);
+    // Slight AO at base
+    float baseAO = smoothstep(0.0, 0.4, tipY);
+    color *= 0.55 + 0.45 * baseAO;
+
+    float alpha = smoothstep(0.0, 0.06, gl_PointCoord.y) * 0.85;
+    if (alpha < 0.04) discard;
+    outColor = vec4(color, alpha * u_reveal);
+}`;
 
 // Named exports for backward compatibility
 export const CITY_TERRAIN_VS    = SHADERS.TERRAIN.VS;

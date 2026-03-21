@@ -16,6 +16,7 @@ import {
   ZONE_VS, ZONE_FS,
   AMENITY_VS, AMENITY_FS,
   FIRE_VS, FIRE_FS,
+  GRASS_VS, GRASS_FS,
 } from '../../lib/webgl/shaders/cityShaders';
 import { SKY_VS, SKY_FS, PRECIP_VS, PRECIP_FS, FOG_VS, FOG_FS } from '../../lib/webgl/shaders/atmosphereShaders';
 import { ENGINEERING_SHADERS } from '../../lib/webgl/shaders/engineeringShaders';
@@ -286,6 +287,7 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
   const [compassBearing, setCompassBearing] = React.useState(0);
   const [showNavHelp, setShowNavHelp] = React.useState(true);
   const [fpModeDisplay, setFpModeDisplay] = React.useState(false);
+  const [godModeDisplay, setGodModeDisplay] = React.useState(false);
 
   const semTerrainCountRef  = useRef(0);
   const semBuildingCountRef = useRef(0);
@@ -295,6 +297,7 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
   const charYawRef        = useRef(0);
   const fpPitchRef        = useRef(0);
   const fpModeRef         = useRef(false);
+  const godModeRef        = useRef(false);
   const normalizedGridRef = useRef<number[][]>([]);
 
   // Extended building AABB with selection metadata
@@ -389,8 +392,16 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
         cam.current.yaw      = Math.PI;
         cam.current.pitch    = -0.52;
       }
+      // G — toggle god mode (macro overview, free-fly)
+      if (e.code === 'KeyG') {
+        godModeRef.current = !godModeRef.current;
+        setGodModeDisplay(godModeRef.current);
+        // Exit FP when entering god mode
+        if (godModeRef.current && fpModeRef.current) document.exitPointerLock();
+      }
       // F — toggle first-person mode
       if (e.code === 'KeyF') {
+        if (godModeRef.current) { godModeRef.current = false; setGodModeDisplay(false); }
         if (!fpModeRef.current) {
           // Enter FP: face current camera direction, request pointer lock
           charYawRef.current = cam.current.yaw;
@@ -558,6 +569,7 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
     const terrainProgram   = renderer.createProgram(CITY_TERRAIN_VS,   CITY_TERRAIN_FS);
     const infraProgram     = renderer.createProgram(INFRASTRUCTURE_VS,  INFRASTRUCTURE_FS);
     const vegProgram       = renderer.createProgram(VEGETATION_VS,      VEGETATION_FS);
+    const grassProgram     = renderer.createProgram(GRASS_VS,           GRASS_FS);
     const waterProgram     = renderer.createProgram(WATER_VS,           WATER_FS);
     const particleProgram  = renderer.createProgram(PARTICLE_VS,        PARTICLE_FS);
     const skyProgram       = renderer.createProgram(SKY_VS,             SKY_FS);
@@ -1035,6 +1047,32 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
       }
     }
     buildingAABBsRef.current = bAABBs;
+
+    // ── VEGETATION-FILTERED VBO ───────────────────────────────────────────────
+    // Remove terrain vertices that fall inside building footprints so trees are
+    // never rendered on top of roofs. Each vertex is 8 floats: [x,y,z,nx,ny,nz,u,v].
+    const vegFilteredVerts: number[] = [];
+    for (let i = 0; i < terrainVertices.length; i += 8) {
+      const vx = terrainVertices[i];
+      const vz = terrainVertices[i + 2];
+      let inside = false;
+      for (const aabb of bAABBs) {
+        // Add 100 cm margin around each building footprint
+        if (vx > aabb.minX - 100 && vx < aabb.maxX + 100 &&
+            vz > aabb.minZ - 100 && vz < aabb.maxZ + 100) {
+          inside = true; break;
+        }
+      }
+      if (!inside) {
+        vegFilteredVerts.push(
+          terrainVertices[i], terrainVertices[i+1], terrainVertices[i+2],
+          terrainVertices[i+3], terrainVertices[i+4], terrainVertices[i+5],
+          terrainVertices[i+6], terrainVertices[i+7],
+        );
+      }
+    }
+    const vegFilteredVBO   = renderer.createBuffer(new Float32Array(vegFilteredVerts.length ? vegFilteredVerts : [0,0,0,0,1,0,0,0]));
+    const vegFilteredCount = vegFilteredVerts.length / 8;
 
     // Character capsule: radius 0.22m, total height 1.82m
     const capsuleData   = buildCapsule(22, 182, 10); // 22 cm radius, 182 cm tall
@@ -1524,9 +1562,11 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
       // ── CHARACTER: snap to terrain every frame ─────────────────────────────
       charPosRef.current[1] = sampleTerrainCPU(charPosRef.current[0], charPosRef.current[2]);
 
-      // Keyboard: FP character movement vs orbit pan
+      // Keyboard: FP character movement vs orbit pan vs god-mode fly
+      const isShift = cam.current.keys.has('ShiftLeft') || cam.current.keys.has('ShiftRight');
       if (fpModeRef.current && cam.current.keys.size > 0) {
-        const spd = 500.0 / 60.0; // 500 cm/s = 5 m/s at ~60 fps
+        // Walk 5 m/s, run 15 m/s (Shift)
+        const spd = (isShift ? 1500.0 : 500.0) / 60.0;
         const yaw = charYawRef.current;
         let dx = 0, dz = 0;
         if (cam.current.keys.has('KeyW')) { dx += Math.sin(yaw)*spd; dz += Math.cos(yaw)*spd; }
@@ -1535,16 +1575,24 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
         if (cam.current.keys.has('KeyD')) { dx -= Math.cos(yaw)*spd; dz += Math.sin(yaw)*spd; }
         if (dx !== 0 || dz !== 0) {
           const nx = charPosRef.current[0] + dx, nz = charPosRef.current[2] + dz;
-          const r  = 22; // 22 cm collision radius
+          const r  = 22;
           const blocked = buildingAABBsRef.current.some(
             a => nx+r > a.minX && nx-r < a.maxX && nz+r > a.minZ && nz-r < a.maxZ
           );
-          if (!blocked) {
-            charPosRef.current[0] = nx;
-            charPosRef.current[2] = nz;
-          }
+          if (!blocked) { charPosRef.current[0] = nx; charPosRef.current[2] = nz; }
         }
-      } else if (!fpModeRef.current && cam.current.keys.size > 0) {
+      } else if (godModeRef.current && cam.current.keys.size > 0) {
+        // God mode: free-fly with no collision, faster speed
+        const flySpd = (isShift ? 8000 : 2500) / 60.0;
+        const fwd   = GISMath.normalize(GISMath.subtract(cam.current.target, cam.current.pos));
+        const right = GISMath.normalize(GISMath.cross([0, 1, 0], fwd));
+        if (cam.current.keys.has('KeyW')) cam.current.target = GISMath.add(cam.current.target, GISMath.scale(fwd,   flySpd)) as [number,number,number];
+        if (cam.current.keys.has('KeyS')) cam.current.target = GISMath.add(cam.current.target, GISMath.scale(fwd,  -flySpd)) as [number,number,number];
+        if (cam.current.keys.has('KeyA')) cam.current.target = GISMath.add(cam.current.target, GISMath.scale(right, flySpd)) as [number,number,number];
+        if (cam.current.keys.has('KeyD')) cam.current.target = GISMath.add(cam.current.target, GISMath.scale(right,-flySpd)) as [number,number,number];
+        if (cam.current.keys.has('KeyQ')) cam.current.target[1] += flySpd;
+        if (cam.current.keys.has('KeyE')) cam.current.target[1] -= flySpd;
+      } else if (!fpModeRef.current && !godModeRef.current && cam.current.keys.size > 0) {
         const spd = cam.current.speed * (cam.current.distance * 0.004);
         const fwd   = GISMath.normalize(GISMath.subtract(cam.current.target, cam.current.pos));
         const right = GISMath.normalize(GISMath.cross([0, 1, 0], fwd));
@@ -1554,7 +1602,7 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
         if (cam.current.keys.has('KeyD')) cam.current.target = GISMath.add(cam.current.target, GISMath.scale(right,-spd)) as [number, number, number];
       }
 
-      // Camera: first-person eye view OR standard orbit
+      // Camera: first-person eye view OR god mode macro overview OR standard orbit
       let finalCamPos: [number,number,number];
       let finalTarget: [number,number,number];
       if (fpModeRef.current) {
@@ -1567,6 +1615,18 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
           charPosRef.current[2] + Math.cos(yaw) * Math.cos(pitch),
         ];
         compassBearingRef.current = charYawRef.current;
+      } else if (godModeRef.current) {
+        // God mode: high overhead position, slight tilt so user can see the city
+        const godHeight = Math.max(worldSpanX, worldSpanZ) * 1.6;
+        const orbitPos: [number,number,number] = [
+          cam.current.target[0] + cam.current.distance * 0.3 * Math.sin(cam.current.yaw),
+          godHeight,
+          cam.current.target[2] + cam.current.distance * 0.3 * Math.cos(cam.current.yaw),
+        ];
+        finalCamPos = orbitPos;
+        finalTarget = cam.current.target;
+        cam.current.pos = orbitPos;
+        compassBearingRef.current = cam.current.yaw;
       } else {
         const orbitPos: [number, number, number] = [
           cam.current.target[0] + cam.current.distance * Math.cos(cam.current.pitch) * Math.sin(cam.current.yaw),
@@ -1595,8 +1655,23 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
       renderer.setViewport(width, height);
       renderer.clear(0.01, 0.02, 0.04, 1.0);
 
-      // Centimetre near/far: near=1cm, far=4× widest scene extent
-      const projMatrix  = GISMath.perspective(45 * Math.PI / 180, width / height, 1, Math.max(worldSpanX, worldSpanZ) * 4);
+      // Dynamic sun: simulate a full day in 180 s; sun rises from east, arcs to zenith, sets west
+      const dayPeriod = 180.0; // seconds for a simulated day
+      const dayFrac   = (time % dayPeriod) / dayPeriod; // 0-1
+      const sunEl     = Math.sin(dayFrac * Math.PI) * 72; // elevation: 0° dawn/dusk, 72° noon
+      const sunAz     = (dayFrac - 0.25) * Math.PI * 2;  // azimuth sweep
+      const dynamicLightDir: [number,number,number] = layers?.sunSync
+        ? (() => { const now = new Date(); const [az,el] = GISMath.sunPosition(centerLat,centerLng,now); return GISMath.sunToLightDir(az,el); })()
+        : [
+            Math.sin(sunAz) * Math.cos(sunEl * Math.PI / 180),
+            Math.sin(sunEl * Math.PI / 180),
+            Math.cos(sunAz) * Math.cos(sunEl * Math.PI / 180),
+          ];
+
+      // FP mode: wider FOV + closer near clip for immersive first-person feel
+      const fovRad   = fpModeRef.current ? (90 * Math.PI / 180) : (45 * Math.PI / 180);
+      const nearClip = fpModeRef.current ? 5 : 1;  // 5 cm FP, 1 cm orbit
+      const projMatrix  = GISMath.perspective(fovRad, width / height, nearClip, Math.max(worldSpanX, worldSpanZ) * 4);
       const viewMatrix  = GISMath.lookAt(finalCamPos, finalTarget, [0, 1, 0]);
       const modelMatrix = identityMatrix;
       lastProjRef.current = projMatrix;
@@ -1612,7 +1687,7 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
       {
         const precipType  = getPrecipType(simData.type, simData.precipitation ?? 0, simData.snowfall ?? 0, simData.temp ?? 25);
         const cloudCover  = getCloudCover(simData.type, simData.precipitation ?? 0, simData.intensity ?? 50);
-        const sunElevDeg  = Math.asin(Math.max(-1, Math.min(1, lightDir[1]))) * 180 / Math.PI;
+        const sunElevDeg  = Math.asin(Math.max(-1, Math.min(1, dynamicLightDir[1]))) * 180 / Math.PI;
         const viewProjMat = GISMath.multiply(projMatrix, viewMatrix);
         const invVP       = GISMath.invertMat4(viewProjMat);
 
@@ -1620,7 +1695,7 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
         gl.depthMask(false);
         renderer.useProgram(skyProgram);
         renderer.setUniformMatrix4('u_invViewProj', invVP);
-        renderer.setUniform3f('u_sunDir', lightDir[0], lightDir[1], lightDir[2]);
+        renderer.setUniform3f('u_sunDir', dynamicLightDir[0], dynamicLightDir[1], dynamicLightDir[2]);
         renderer.setUniform1f('u_cloudCover', cloudCover);
         renderer.setUniform1i('u_precipType', precipType);
         renderer.setUniform1f('u_time', time);
@@ -1647,7 +1722,7 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
         renderer.setUniform3f('u_soilColor', soilColor[0], soilColor[1], soilColor[2]);
         // Terrain always uses solid topographic colours — satellite used only for semantic data
         renderer.setUniform1i('u_topoMode', layers.topography ? 1 : 0);
-        renderer.setUniform3f('u_lightDir', lightDir[0], lightDir[1], lightDir[2]);
+        renderer.setUniform3f('u_lightDir', dynamicLightDir[0], dynamicLightDir[1], dynamicLightDir[2]);
         renderer.setUniform3f('u_lightColor', L_COLOR[0], L_COLOR[1], L_COLOR[2]);
         renderer.bindTexture(topoTexture, 0);
         renderer.setUniform1i('u_topoMap', 0);
@@ -1692,7 +1767,7 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
         renderer.setUniform1f('u_areaHalfZ', areaHalfZ);
         renderer.setUniform1f('u_time', time);
         renderer.setUniform1f('u_reveal', reveal);
-        renderer.setUniform3f('u_lightDir', lightDir[0], lightDir[1], lightDir[2]);
+        renderer.setUniform3f('u_lightDir', dynamicLightDir[0], dynamicLightDir[1], dynamicLightDir[2]);
         renderer.setUniform3f('u_lightColor', L_COLOR[0], L_COLOR[1], L_COLOR[2]);
         renderer.setUniform1f('u_lightIntensity', lightIntensity);
         renderer.bindTexture(topoTexture, 2);
@@ -1845,7 +1920,7 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
         renderer.setUniform1f('u_areaHalfZ', areaHalfZ);
         renderer.setUniform1i('u_aiMode', layers.aiStructural ? 1 : 0);
         renderer.setUniform1i('u_realisticMode', isRealMode);
-        renderer.setUniform3f('u_lightDir', lightDir[0], lightDir[1], lightDir[2]);
+        renderer.setUniform3f('u_lightDir', dynamicLightDir[0], dynamicLightDir[1], dynamicLightDir[2]);
         renderer.setUniform3f('u_lightColor', L_COLOR[0], L_COLOR[1], L_COLOR[2]);
         renderer.setUniform1f('u_lightIntensity', lightIntensity);
         renderer.bindTexture(topoTexture, 1);
@@ -1891,7 +1966,7 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
         renderer.setUniform1f('u_areaHalfZ', areaHalfZ);
         renderer.setUniform1i('u_aiMode', 0);
         renderer.setUniform1i('u_realisticMode', isRealMode);
-        renderer.setUniform3f('u_lightDir', lightDir[0], lightDir[1], lightDir[2]);
+        renderer.setUniform3f('u_lightDir', dynamicLightDir[0], dynamicLightDir[1], dynamicLightDir[2]);
         renderer.setUniform3f('u_lightColor', L_COLOR[0], L_COLOR[1], L_COLOR[2]);
         renderer.setUniform1f('u_lightIntensity', lightIntensity);
         renderer.bindTexture(topoTexture, 1);
@@ -1945,7 +2020,7 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
         renderer.setUniformMatrix4('u_projectionMatrix', projMatrix);
         renderer.setUniformMatrix4('u_viewMatrix', viewMatrix);
         renderer.setUniformMatrix4('u_modelMatrix', modelMatrix);
-        renderer.setUniform3f('u_lightDir', lightDir[0], lightDir[1], lightDir[2]);
+        renderer.setUniform3f('u_lightDir', dynamicLightDir[0], dynamicLightDir[1], dynamicLightDir[2]);
         renderer.setUniform3f('u_lightColor', L_COLOR[0], L_COLOR[1], L_COLOR[2]);
         renderer.setUniform1f('u_lightIntensity', lightIntensity);
         renderer.setUniform1f('u_topoScale', effectiveTopoScale);
@@ -2029,7 +2104,7 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
         }
       }
 
-      // ── 8. VEGETATION ─────────────────────────────────────────────────────────
+      // ── 8. VEGETATION (billboard tree sprites) ────────────────────────────────
       if (layers.vegetation) {
         renderer.useProgram(vegProgram);
         renderer.setUniformMatrix4('u_projectionMatrix', projMatrix);
@@ -2042,12 +2117,31 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
         renderer.setUniform1i('u_topoMap', 0);
         renderer.setUniform1f('u_vegIntensity', (simData.intensity ?? 50) / 100.0);
         renderer.setUniform1f('u_urbanDensity', (simData.urbanDensity ?? 50) / 100.0);
+        renderer.setUniform1f('u_time', time);
         renderer.setUniform1f('u_reveal', reveal);
 
-        gl.bindBuffer(gl.ARRAY_BUFFER, terrainVBO);
+        gl.bindBuffer(gl.ARRAY_BUFFER, vegFilteredVBO);
         renderer.setAttribute('a_position', 3, gl.FLOAT, false, 8 * 4, 0);
         renderer.setAttribute('a_uv',       2, gl.FLOAT, false, 8 * 4, 6 * 4);
-        gl.drawArrays(gl.POINTS, 0, terrainVertices.length / 8);
+        gl.drawArrays(gl.POINTS, 0, vegFilteredCount);
+
+        // Grass pass (building-free terrain only)
+        renderer.useProgram(grassProgram);
+        renderer.setUniformMatrix4('u_projectionMatrix', projMatrix);
+        renderer.setUniformMatrix4('u_viewMatrix', viewMatrix);
+        renderer.setUniformMatrix4('u_modelMatrix', modelMatrix);
+        renderer.setUniform1f('u_topoScale', effectiveTopoScale);
+        renderer.setUniform1f('u_areaHalfX', areaHalfX);
+        renderer.setUniform1f('u_areaHalfZ', areaHalfZ);
+        renderer.bindTexture(topoTexture, 0);
+        renderer.setUniform1i('u_topoMap', 0);
+        renderer.setUniform1f('u_vegIntensity', (simData.intensity ?? 50) / 100.0);
+        renderer.setUniform1f('u_time', time);
+        renderer.setUniform1f('u_reveal', reveal);
+        gl.bindBuffer(gl.ARRAY_BUFFER, vegFilteredVBO);
+        renderer.setAttribute('a_position', 3, gl.FLOAT, false, 8 * 4, 0);
+        renderer.setAttribute('a_uv',       2, gl.FLOAT, false, 8 * 4, 6 * 4);
+        gl.drawArrays(gl.POINTS, 0, vegFilteredCount);
       }
 
       // ── 8b. OSM VEGETATION (trees in natural-area polygons) ──────────────────
@@ -2061,8 +2155,9 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
         renderer.setUniform1f('u_areaHalfZ', areaHalfZ);
         renderer.bindTexture(topoTexture, 0);
         renderer.setUniform1i('u_topoMap', 0);
-        renderer.setUniform1f('u_vegIntensity', 0.85);  // full density for OSM areas
-        renderer.setUniform1f('u_urbanDensity', 0.0);   // no density suppression
+        renderer.setUniform1f('u_vegIntensity', 0.85);
+        renderer.setUniform1f('u_urbanDensity', 0.0);
+        renderer.setUniform1f('u_time', time);
         renderer.setUniform1f('u_reveal', reveal);
         gl.bindBuffer(gl.ARRAY_BUFFER, osmVegVBO);
         renderer.setAttribute('a_position', 3, gl.FLOAT, false, 8 * 4, 0);
@@ -2084,6 +2179,7 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
         renderer.setUniform1i('u_topoMap', 0);
         renderer.setUniform1f('u_vegIntensity', 1.0);
         renderer.setUniform1f('u_urbanDensity', 0.0);
+        renderer.setUniform1f('u_time', time);
         renderer.setUniform1f('u_reveal', reveal);
         gl.bindBuffer(gl.ARRAY_BUFFER, lcVegVBO);
         renderer.setAttribute('a_position', 3, gl.FLOAT, false, 8 * 4, 0);
@@ -2105,7 +2201,7 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
         renderer.setUniform1f('u_texelOffset', 1.0 / topoSize);
         renderer.setUniform1f('u_time', time);
         renderer.setUniform1f('u_reveal', reveal);
-        renderer.setUniform3f('u_lightDir', lightDir[0], lightDir[1], lightDir[2]);
+        renderer.setUniform3f('u_lightDir', dynamicLightDir[0], dynamicLightDir[1], dynamicLightDir[2]);
         renderer.setUniform3f('u_lightColor', L_COLOR[0], L_COLOR[1], L_COLOR[2]);
         renderer.setUniform1f('u_lightIntensity', lightIntensity);
         renderer.bindTexture(topoTexture, 0);
@@ -2187,7 +2283,7 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
         renderer.setUniformMatrix4('u_viewMatrix', viewMatrix);
         renderer.setUniform3f('u_charPos', charPosRef.current[0], charPosRef.current[1], charPosRef.current[2]);
         renderer.setUniform1f('u_charYaw', charYawRef.current);
-        renderer.setUniform3f('u_lightDir', lightDir[0], lightDir[1], lightDir[2]);
+        renderer.setUniform3f('u_lightDir', dynamicLightDir[0], dynamicLightDir[1], dynamicLightDir[2]);
         renderer.setUniform3f('u_lightColor', L_COLOR[0], L_COLOR[1], L_COLOR[2]);
         renderer.setUniform1f('u_lightIntensity', lightIntensity);
         gl.bindBuffer(gl.ARRAY_BUFFER, charVBO);
@@ -2287,6 +2383,7 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
       gl.deleteProgram(terrainProgram);
       gl.deleteProgram(infraProgram);
       gl.deleteProgram(vegProgram);
+      gl.deleteProgram(grassProgram);
       gl.deleteProgram(waterProgram);
       gl.deleteProgram(particleProgram);
       gl.deleteProgram(skyProgram);
@@ -2307,6 +2404,7 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
       gl.deleteBuffer(osmVegVBO);
       gl.deleteBuffer(barrierVBO);
       gl.deleteBuffer(sidewalkVBO);
+      gl.deleteBuffer(vegFilteredVBO);
       if (lcBuildingVBO) gl.deleteBuffer(lcBuildingVBO);
       if (lcVegVBO) gl.deleteBuffer(lcVegVBO);
       if (lcWaterVBO) gl.deleteBuffer(lcWaterVBO);
@@ -2353,7 +2451,9 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
             <>VEG:{semanticMeta.vegetationPct}% ÁGU:{semanticMeta.waterPct}% EDIF:{semanticMeta.buildingPct}%<br/></>
           )}
           OBJ: {buildingCount} // P: {simData.pressure} hPa / I: {simData.intensity}%<br/>
-          {fpModeDisplay ? '[ F ] PRIMEIRA PESSOA — ESC para sair' : '[ F ] Entrar na 1ª pessoa'}
+          {fpModeDisplay  ? '[ F ] PRIMEIRA PESSOA — ESC para sair | ⇧ = Correr' :
+           godModeDisplay ? '[ G ] MODO DEUS — visão macro | Q/E = altitude' :
+           '[ F ] 1ª Pessoa  [ G ] Modo Deus'}
         </div>
       </Box>
 
@@ -2408,7 +2508,10 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
             ⇧ + Arraste → Transladar<br/>
             🖱 Scroll → Zoom<br/>
             W A S D → Mover câmera / personagem<br/>
+            ⇧ + WASD → Correr (modo 1ª pessoa)<br/>
             F → Visão de 1ª pessoa<br/>
+            G → Modo deus (visão macro)<br/>
+            Q / E → Subir / Descer (modo deus)<br/>
             ESC → Sair da 1ª pessoa<br/>
             . / Del → Centrar cena
           </div>

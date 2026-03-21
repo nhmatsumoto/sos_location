@@ -1,0 +1,78 @@
+name: CI — Backend (.NET)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend-dotnet/**'
+      - '.github/workflows/ci-backend.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'backend-dotnet/**'
+      - '.github/workflows/ci-backend.yml'
+
+env:
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  DOTNET_NOLOGO: true
+
+jobs:
+  test-publish:
+    name: Restore · Test · Publish
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up .NET SDK 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore
+        working-directory: backend-dotnet
+
+      - name: Build
+        run: dotnet build --no-restore --configuration Release
+        working-directory: backend-dotnet
+
+      - name: Install EF Core tools
+        run: dotnet tool install --global dotnet-ef
+
+      - name: Generate migration script (dry-run, no DB required)
+        run: >
+          dotnet ef migrations script
+          --idempotent
+          --no-build
+          --configuration Release
+          --project SOSLocation.Infrastructure/SOSLocation.Infrastructure.csproj
+          --startup-project SOSLocation.API/SOSLocation.API.csproj
+          --output ./publish/migrations.sql
+        working-directory: backend-dotnet
+
+      - name: Run tests
+        run: >
+          dotnet test
+          SOSLocation.API.Tests/SOSLocation.API.Tests.csproj
+          --no-build
+          --configuration Release
+          --logger "console;verbosity=normal"
+        working-directory: backend-dotnet
+
+      - name: Publish API
+        run: >
+          dotnet publish
+          SOSLocation.API/SOSLocation.API.csproj
+          --no-build
+          --configuration Release
+          --output ./publish/api
+        working-directory: backend-dotnet
+
+      - name: Upload publish artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-publish
+          path: backend-dotnet/publish/api
+          retention-days: 7

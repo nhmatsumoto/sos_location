@@ -15,7 +15,7 @@ interface AuthState {
   roles: string[];
   token: string | null;
   
-  setAuth: (authenticated: boolean, user: any, roles: string[], token: string | null) => void;
+  setAuth: (authenticated: boolean, user: Partial<User> | null, roles: string[], token: string | null) => void;
   updateUser: (user: Partial<User>) => void;
   addXp: (amount: number) => void;
   clearAuth: () => void;

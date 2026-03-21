@@ -68,12 +68,21 @@ void main() {
   float hBlend  = pow(max(0.0, 1.0-cosUp), 4.0);
   vec3 skyColor = mix(zenith, horizon, hBlend);
 
-  // Sun disk + corona
+  // Sun disk + Mie scattering halo + corona
   float sunDot  = dot(rayDir, normalize(u_sunDir));
   float disk    = smoothstep(0.9986, 0.9999, sunDot);
   float corona  = smoothstep(0.90,   0.9986, sunDot) * 0.28;
+  // Mie forward-scattering: bright glow that falls off from sun center
+  float mie     = pow(max(0.0, sunDot), 8.0) * 0.55 * dayFac;
+  vec3  mieCol  = mix(vec3(1.0, 0.50, 0.10), vec3(1.0, 0.80, 0.55), smoothstep(0.0, 20.0, sunEl) / 20.0);
+  skyColor     += mieCol * mie * (1.0 - u_cloudCover * 0.6);
   vec3  sunCol  = mix(vec3(1.0,0.78,0.28), vec3(1.0,0.96,0.82), smoothstep(0.0,30.0,sunEl)/30.0);
   skyColor     += sunCol * (disk + corona) * dayFac;
+
+  // Atmospheric limb: extra haze band right at the horizon
+  float limbH   = exp(-pow(cosUp / 0.08, 2.0)) * dayFac * 0.18;
+  vec3  limbCol = mix(vec3(0.88, 0.55, 0.22), vec3(0.70, 0.80, 0.98), smoothstep(4.0, 28.0, sunEl));
+  skyColor     += limbCol * limbH;
 
   // Stars at night
   if (dayFac < 0.7 && cosUp > 0.0) {

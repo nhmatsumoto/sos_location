@@ -50,13 +50,13 @@ export function useSimulationsController() {
         minLat: bbox[0], minLon: bbox[1],
         maxLat: bbox[2], maxLon: bbox[3],
       });
-      setResultData(osmData as UrbanSimulationResult);
+      setResultData(osmData as unknown as UrbanSimulationResult);
       onProgress?.({ phase: 'OSM', percent: 20, label: 'DADOS OSM + DEM RECEBIDOS' });
 
       // Step 2: satellite + segmentation + compile
       const bp = await CityBlueprintBuilder.build(
         [bbox[0], bbox[1], bbox[2], bbox[3]] as [number, number, number, number],
-        osmData as UrbanSimulationResult,
+        osmData as unknown as UrbanSimulationResult,
         16,
         onProgress,
       );

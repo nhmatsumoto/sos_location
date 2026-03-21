@@ -143,6 +143,7 @@ namespace SOSLocation.API.Extensions
             services.AddMediatR(cfg =>
             {
                 cfg.RegisterServicesFromAssembly(typeof(CreateIncidentCommand).Assembly);
+                cfg.AddOpenBehavior(typeof(ValidationBehavior<,>)); // runs before handler
                 cfg.AddOpenBehavior(typeof(LoggingBehavior<,>));
             });
 

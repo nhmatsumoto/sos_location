@@ -6,7 +6,7 @@ import { frontendLogger } from '../lib/logger';
  * Hook to manage SignalR hub connections.
  * Automatically handles reconnection and message routing.
  */
-export function useSignalR(hubUrl: string, methodNames: string[], onMessage: (methodName: string, data: any) => void) {
+export function useSignalR(hubUrl: string, methodNames: string[], onMessage: (methodName: string, data: unknown) => void) {
   const connection = useRef<signalR.HubConnection | null>(null);
 
   useEffect(() => {

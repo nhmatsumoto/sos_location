@@ -70,8 +70,8 @@ export const SnapshotVolume: React.FC<SnapshotVolumeProps> = ({ snapshot, isSele
             </div>
             <div className="flex justify-between gap-4">
               <span className="text-slate-500">SOIL:</span>
-              <span className={snapshot.environmentalData.soilSaturaion && snapshot.environmentalData.soilSaturaion > 80 ? 'text-red-400' : ''}>
-                {snapshot.environmentalData.soilSaturaion?.toFixed(1) ?? 'N/A'}%
+              <span className={snapshot.environmentalData.soilSaturation && snapshot.environmentalData.soilSaturation > 80 ? 'text-red-400' : ''}>
+                {snapshot.environmentalData.soilSaturation?.toFixed(1) ?? 'N/A'}%
               </span>
             </div>
           </div>

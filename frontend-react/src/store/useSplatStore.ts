@@ -21,10 +21,12 @@ interface SplatState {
   isLoading: boolean;
   error: string | null;
 
-  // Actions
+  // Pure state setters — fetching is handled by useSplats hook
   setActiveSplat: (id: string | null) => void;
   setQuality: (quality: QualityPreset) => void;
-  fetchSplats: () => Promise<void>;
+  setSplats: (splats: SplatAsset[]) => void;
+  setLoading: (loading: boolean) => void;
+  setError: (error: string | null) => void;
 }
 
 export const useSplatStore = create<SplatState>((set) => ({
@@ -36,15 +38,7 @@ export const useSplatStore = create<SplatState>((set) => ({
 
   setActiveSplat: (id) => set({ activeSplatId: id }),
   setQuality: (quality) => set({ quality }),
-  fetchSplats: async () => {
-    set({ isLoading: true, error: null });
-    try {
-      const response = await fetch('/api/splats/');
-      if (!response.ok) throw new Error('Failed to fetch splat assets');
-      const data = await response.json();
-      set({ splats: data, isLoading: false });
-    } catch (err) {
-      set({ error: (err as Error).message, isLoading: false });
-    }
-  },
+  setSplats: (splats) => set({ splats }),
+  setLoading: (loading) => set({ isLoading: loading }),
+  setError: (error) => set({ error }),
 }));

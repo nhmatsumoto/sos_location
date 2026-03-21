@@ -228,6 +228,10 @@ export interface UrbanSimulationResult {
     naturalAreas?: GISNaturalArea[];
     landUseZones?: GISLandUseZone[];
     amenities?: GISAmenity[];
+    pedestrianAreas?: GISNaturalArea[];
+    parkingLots?: GISNaturalArea[];
+    trees?: GISAmenity[];
+    barriers?: GISHighway[];
   };
   soil?: {
     type: string;
@@ -240,6 +244,7 @@ export interface UrbanSimulationResult {
   };
   landCover?: LandCoverGrid;
   populationDensity?: PopulationDensityGrid;
+  hotspots?: HotspotEntry[];
 }
 
 export interface LandCoverGrid {
@@ -282,3 +287,110 @@ export interface SituationalSnapshot {
   terrainData?: unknown;
   buildings?: unknown;
 }
+
+// ── Ops form ──────────────────────────────────────────────────────────────────
+
+export type OpsRecordType =
+  | 'risk_area'
+  | 'voluntario'
+  | 'doacao'
+  | 'resgate'
+  | 'bombeiros'
+  | 'exercito';
+
+export interface OpsFormState {
+  recordType: OpsRecordType;
+  personName: string;
+  lastSeenLocation: string;
+  incidentTitle: string;
+  severity: string;
+}
+
+export type SaveOpsFn = (
+  opsForm: OpsFormState,
+  lastClickedCoords: [number, number] | null,
+  setOpenOpsModal: (v: boolean) => void,
+  setLastClickedCoords: (v: [number, number] | null) => void,
+) => void;
+
+/** Matches the shape expected by MapInteractions component */
+export interface SpatialFilter {
+  center: [number, number];
+  radius: number;
+}
+
+// ── Disaster events ───────────────────────────────────────────────────────────
+
+export interface DisasterEvent {
+  id: number | string;
+  title: string;
+  description?: string;
+  eventType: string;
+  severity: number;
+  lat: number;
+  lon: number;
+  startAt?: string;
+  endAt?: string;
+  countryCode?: string;
+  countryName?: string;
+  sourceUrl?: string;
+  provider?: string;
+  providerEventId?: string;
+  geometry?: unknown;
+}
+
+export interface DisasterCountryStat {
+  country_code: string;
+  country_name: string;
+  count: number;
+  avg_severity?: number;
+}
+
+export interface DisasterTimeseriesPoint {
+  bucket: string;
+  count: number;
+  avg_severity?: number;
+}
+
+// ── Simulation run ────────────────────────────────────────────────────────────
+
+export interface SimulationRunMetrics {
+  maxDepthM?: number;
+  affectedAreaM2?: number;
+  peakFlowM3s?: number;
+  evacuationRisk?: number;
+  [key: string]: number | string | undefined;
+}
+
+export interface SimulationArtifacts {
+  geojsonUrl?: string;
+  rasterUrl?: string;
+  reportUrl?: string;
+  [key: string]: string | undefined;
+}
+
+export interface ScenarioParameters {
+  intensity?: number;
+  duration?: number;
+  waterLevel?: number;
+  windSpeed?: number;
+  [key: string]: number | string | boolean | undefined;
+}
+
+// ── Hotspot ───────────────────────────────────────────────────────────────────
+
+export interface HotspotEntry {
+  lat: number;
+  lng: number;
+  radius?: number;
+  intensity?: number;
+  type?: string;
+  [key: string]: unknown;
+}
+
+// ── GeoJSON ───────────────────────────────────────────────────────────────────
+
+export interface GeoJSONPoint { type: 'Point'; coordinates: [number, number] }
+export interface GeoJSONPolygon { type: 'Polygon'; coordinates: [number, number][][] }
+export interface GeoJSONMultiPolygon { type: 'MultiPolygon'; coordinates: [number, number][][][] }
+export type GeoJSONGeometry = GeoJSONPoint | GeoJSONPolygon | GeoJSONMultiPolygon;

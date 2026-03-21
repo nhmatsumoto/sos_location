@@ -111,6 +111,11 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         options.Audience = builder.Configuration["Keycloak:Audience"];
         options.RequireHttpsMetadata = builder.Configuration.GetValue<bool>("Keycloak:RequireHttpsMetadata");
 
+        var audiences = builder.Configuration
+            .GetSection("Keycloak:Audiences")
+            .Get<string[]>()
+            ?? new[] { builder.Configuration["Keycloak:Audience"] ?? "sos-location-frontend" };
+
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = !builder.Environment.IsDevelopment(),
@@ -119,7 +124,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 "https://localhost:8080/realms/sos-location",
                 "http://localhost:8080/realms/sos-location"
             },
-            ValidateAudience = false,
+            ValidateAudience = true,
+            ValidAudiences = audiences,
             ValidateLifetime = true
         };
 
@@ -155,7 +161,12 @@ app.UseForwardedHeaders();
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<SOSLocationDbContext>();
-    context.Database.Migrate();
+    // Migrations are applied as a deployment step (dotnet ef database update).
+    // EnsureCreated is used only for local/dev convenience when no migrations are pending.
+    if (app.Environment.IsDevelopment())
+    {
+        context.Database.EnsureCreated();
+    }
     SOSLocationDbSeeder.Seed(context);
 }
 

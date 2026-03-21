@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { ScenarioParameters, SimulationRunMetrics, SimulationArtifacts } from '../types';
 
 export interface SimulationBox {
   center: [number, number]; // lat, lon
@@ -14,14 +15,14 @@ interface SimulationState {
   setWaterLevel: (level: number) => void;
   hazardType: string;
   setHazardType: (type: string) => void;
-  scenarioParameters: Record<string, any>;
-  setScenarioParameters: (params: Record<string, any>) => void;
+  scenarioParameters: ScenarioParameters;
+  setScenarioParameters: (params: ScenarioParameters) => void;
   
   // New State
   isSimulating: boolean;
   setIsSimulating: (active: boolean) => void;
-  activeRun: any | null;
-  setActiveRun: (run: any | null) => void;
+  activeRun: { id: string; scenario: string; status: string; metrics: SimulationRunMetrics | null; artifacts: SimulationArtifacts | null } | null;
+  setActiveRun: (run: SimulationState['activeRun']) => void;
   environment: {
     fog: number;
     rain: number;

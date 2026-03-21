@@ -1,22 +1,23 @@
 import { useState, useCallback } from 'react';
 import type { ToolMode } from '../components/features/map/MapInteractions';
+import type { OpsFormState, OpsRecordType, SaveOpsFn, SpatialFilter } from '../types';
 
 /**
  * Controller Hook for SOSPage
  * Manages UI interaction states, transitions, and local operational forms.
  */
-export function useSOSPageController(saveOpsFn: any) {
+export function useSOSPageController(saveOpsFn: SaveOpsFn) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [mapCenter, setMapCenter] = useState<[number, number]>([-20.91, -42.98]);
   const [mapZoom, setMapZoom] = useState(13);
   const [lastClickedCoords, setLastClickedCoords] = useState<[number, number] | null>(null);
   const [tool, setTool] = useState<ToolMode>('inspect');
   const [areaDraft, setAreaDraft] = useState<Array<[number, number]>>([]);
-  const [spatialFilter, setSpatialFilter] = useState<any>(null);
+  const [spatialFilter, setSpatialFilter] = useState<SpatialFilter | null>(null);
 
   const [openOpsModal, setOpenOpsModal] = useState(false);
-  const [opsForm, setOpsForm] = useState({
-    recordType: 'risk_area' as any,
+  const [opsForm, setOpsForm] = useState<OpsFormState>({
+    recordType: 'risk_area' as OpsRecordType,
     personName: '',
     lastSeenLocation: '',
     incidentTitle: '',
@@ -39,14 +40,14 @@ export function useSOSPageController(saveOpsFn: any) {
       setOpsForm(prev => ({ ...prev, recordType: 'risk_area' }));
       setOpenOpsModal(true);
     } else if (['Voluntários', 'Doações', 'Resgate', 'Bombeiros', 'Exército'].includes(label)) {
-      const typeMap: Record<string, string> = {
+      const typeMap: Record<string, OpsRecordType> = {
         'Voluntários': 'voluntario',
         'Doações': 'doacao',
         'Resgate': 'resgate',
         'Bombeiros': 'bombeiros',
         'Exército': 'exercito'
       };
-      setOpsForm(prev => ({ ...prev, recordType: typeMap[label] }));
+      setOpsForm(prev => ({ ...prev, recordType: typeMap[label] ?? 'risk_area' }));
       setOpenOpsModal(true);
     }
   }, []);

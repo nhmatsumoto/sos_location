@@ -6,7 +6,7 @@ export interface OutboxCommand {
   id: string;
   method: 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   url: string;
-  data: any;
+  data: unknown;
   priority: number;
   timestamp: number;
   retries: number;

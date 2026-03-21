@@ -5,7 +5,7 @@ export type DomainEvent = {
   aggregate_id: string;
   aggregate_type: string;
   event_type: string;
-  payload: any;
+  payload: unknown;
   timestamp: string;
   actor_user_id: string;
 };

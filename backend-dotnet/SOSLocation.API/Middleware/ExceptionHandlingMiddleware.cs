@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json;
+using FluentValidation;
 using SOSLocation.Domain.Common;
 
 namespace SOSLocation.API.Middleware
@@ -33,12 +34,38 @@ namespace SOSLocation.API.Middleware
         private static Task HandleExceptionAsync(HttpContext context, Exception exception, bool isDevelopment)
         {
             context.Response.ContentType = "application/json";
-            context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
 
-            var message = isDevelopment ? $"Internal Server Error: {exception.Message}" : "Ocorreu um erro interno no servidor. Por favor, tente novamente mais tarde.";
-            var detail = isDevelopment ? exception.StackTrace : null;
+            object resultModel;
 
-            var resultModel = Result.Failure(message, "Operation failed", (int)HttpStatusCode.InternalServerError);
+            if (exception is ValidationException validationEx)
+            {
+                context.Response.StatusCode = StatusCodes.Status422UnprocessableEntity;
+
+                var errors = validationEx.Errors
+                    .GroupBy(e => e.PropertyName)
+                    .ToDictionary(
+                        g => g.Key,
+                        g => g.Select(e => e.ErrorMessage).ToArray()
+                    );
+
+                resultModel = new
+                {
+                    success = false,
+                    statusCode = StatusCodes.Status422UnprocessableEntity,
+                    message = "Validation failed",
+                    errors
+                };
+            }
+            else
+            {
+                context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
+
+                var message = isDevelopment
+                    ? $"Internal Server Error: {exception.Message}"
+                    : "Ocorreu um erro interno no servidor. Por favor, tente novamente mais tarde.";
+
+                resultModel = Result.Failure(message, "Operation failed", (int)HttpStatusCode.InternalServerError);
+            }
 
             var result = JsonSerializer.Serialize(
                 resultModel,

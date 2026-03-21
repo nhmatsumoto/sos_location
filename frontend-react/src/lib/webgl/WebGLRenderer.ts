@@ -70,7 +70,7 @@ export class WebGLRenderer {
     this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
   }
 
-  public createBuffer(data: Float32Array | Uint16Array, target: number = this.gl.ARRAY_BUFFER, usage: number = this.gl.STATIC_DRAW): WebGLBuffer {
+  public createBuffer(data: Float32Array | Uint16Array | Uint32Array, target: number = this.gl.ARRAY_BUFFER, usage: number = this.gl.STATIC_DRAW): WebGLBuffer {
     const buffer = this.gl.createBuffer();
     if (!buffer) throw new Error('Could not create buffer.');
 

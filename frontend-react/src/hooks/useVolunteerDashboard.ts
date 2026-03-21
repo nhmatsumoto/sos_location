@@ -1,25 +1,21 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useVolunteerStore } from '../store/volunteerStore';
+import { useState, useCallback } from 'react';
 import { useToast } from '@chakra-ui/react';
+import { useVolunteerData } from './useVolunteerData';
 
 /**
  * Controller Hook for VolunteerDashboardPage
  * Manages volunteer presence, mission selection, and impact telemetry.
  */
 export function useVolunteerDashboard() {
-  const { tasks, fetchData, isOnline, toggleOnline, stats, loading, pickUpTask } = useVolunteerStore();
+  const { tasks, stats, loading, isOnline, toggleOnline, refresh, pickUpTask } = useVolunteerData();
   const toast = useToast();
   const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    void fetchData();
-  }, [fetchData]);
-
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    await fetchData();
+    await refresh();
     setRefreshing(false);
-  }, [fetchData]);
+  }, [refresh]);
 
   const handlePickUpTask = useCallback(async (id: string) => {
     try {
