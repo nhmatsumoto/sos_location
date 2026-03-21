@@ -48,6 +48,14 @@ namespace SOSLocation.Infrastructure.Services.Gis.Providers
                   way[""leisure""~""park|garden|sports_centre|pitch|nature_reserve|playground|stadium""]({bb});
                   relation[""leisure""~""park|garden|nature_reserve""]({bb});
                   node[""amenity""~""hospital|clinic|school|university|fire_station|police|shelter|pharmacy|post_office|townhall""]({bb});
+                  way[""building:part""]({bb});
+                  way[""highway""=""pedestrian""]({bb});
+                  way[""place""~""square|plaza""]({bb});
+                  way[""amenity""=""parking""]({bb});
+                  way[""parking""~""surface|multi-storey|underground|rooftop""]({bb});
+                  node[""natural""=""tree""]({bb});
+                  way[""barrier""~""wall|fence|hedge|retaining_wall""]({bb});
+                  node[""amenity""~""bus_stop|bicycle_parking|fuel|atm|post_box|vending_machine""]({bb});
                 );
                 out body;
                 >;
@@ -103,6 +111,10 @@ namespace SOSLocation.Infrastructure.Services.Gis.Providers
             var naturalAreas  = new List<GisFeatureDto>(); // scrub, heath, wetland, beach, bare_rock, farmland, vineyard, etc.
             var landUseZones  = new List<GisFeatureDto>(); // residential, commercial, industrial, retail, cemetery, construction, military, leisure_*
             var amenitiesList = new List<GisFeatureDto>(); // point-of-interest nodes
+            var pedestrianAreas = new List<GisFeatureDto>();
+            var parkingLots     = new List<GisFeatureDto>();
+            var trees           = new List<GisFeatureDto>();
+            var barriers        = new List<GisFeatureDto>();
 
             // First pass: collect node positions AND extract amenity point features
             foreach (var element in elements.EnumerateArray())
@@ -128,6 +140,42 @@ namespace SOSLocation.Infrastructure.Services.Gis.Providers
                         Category    = "amenity",
                         Tags        = new Dictionary<string, string> { ["name"] = name },
                     });
+                }
+
+                // Individual trees
+                if (element.TryGetProperty("tags", out var treeTags) &&
+                    treeTags.TryGetProperty("natural", out var treeNat) &&
+                    treeNat.GetString() == "tree")
+                {
+                    var genus   = treeTags.TryGetProperty("genus",   out var gp) ? gp.GetString() ?? "" : "";
+                    var species = treeTags.TryGetProperty("species", out var sp) ? sp.GetString() ?? "" : "";
+                    trees.Add(new GisFeatureDto
+                    {
+                        Id          = id,
+                        Coordinates = new List<double[]> { new[] { lat, lon } },
+                        Type        = "tree",
+                        Category    = "vegetation",
+                        Tags        = new Dictionary<string, string> { ["genus"] = genus, ["species"] = species },
+                    });
+                }
+
+                // Extra amenity nodes (bus stop, bicycle parking, fuel, etc.)
+                if (element.TryGetProperty("tags", out var extraTags) &&
+                    extraTags.TryGetProperty("amenity", out var extraAm))
+                {
+                    var extraType = extraAm.GetString() ?? "other";
+                    if (extraType is "bus_stop" or "bicycle_parking" or "fuel" or "atm" or "post_box" or "vending_machine")
+                    {
+                        var name = extraTags.TryGetProperty("name", out var enp) ? enp.GetString() ?? "" : "";
+                        amenitiesList.Add(new GisFeatureDto
+                        {
+                            Id          = id,
+                            Coordinates = new List<double[]> { new[] { lat, lon } },
+                            Type        = extraType,
+                            Category    = "amenity",
+                            Tags        = new Dictionary<string, string> { ["name"] = name },
+                        });
+                    }
                 }
             }
 
@@ -172,7 +220,10 @@ namespace SOSLocation.Infrastructure.Services.Gis.Providers
                     highwaysList.Add(new GisFeatureDto
                     {
                         Id = id, Coordinates = coordinates, Type = hwType, Category = "highway",
-                        Lanes = lanes, Tags = new Dictionary<string, string> { ["half_width_m"] = ComputeRoadHalfWidth(hwType, lanes).ToString("F2") }
+                        Lanes = lanes, Tags = new Dictionary<string, string> {
+                        ["half_width_m"] = ComputeRoadHalfWidth(hwType, lanes).ToString("F2"),
+                        ["surface"]      = tags.TryGetProperty("surface", out var surfProp) ? surfProp.GetString() ?? "" : ""
+                    }
                     });
                 }
                 // ── Water areas (polygon) ─────────────────────────────────────
@@ -236,19 +287,70 @@ namespace SOSLocation.Infrastructure.Services.Gis.Providers
                     else if (leVal is "sports_centre" or "pitch" or "stadium")
                         landUseZones.Add(new GisFeatureDto { Id = id, Coordinates = coordinates, Type = "leisure_" + leVal, Category = "leisure" });
                 }
+                // ── Building parts ─────────────────────────────────────────────────────
+                else if (tags.TryGetProperty("building:part", out var bpartTag))
+                {
+                    if (coordinates.Count < 3) continue;
+                    var height = 0.0; var levels = 1;
+                    if (tags.TryGetProperty("height",          out var hpProp)) double.TryParse(hpProp.GetString(), out height);
+                    if (tags.TryGetProperty("building:levels", out var lpProp)) int.TryParse(lpProp.GetString(), out levels);
+                    buildingsList.Add(new GisFeatureDto
+                    {
+                        Id = id, Coordinates = coordinates, Height = height, Levels = levels,
+                        Type = "building:part", BuildingUse = ClassifyBuildingUse(bpartTag.GetString() ?? "", tags)
+                    });
+                }
+                // ── Pedestrian areas (plazas, squares, pedestrian zones) ───────────────
+                else if ((tags.TryGetProperty("highway",  out var pedH) && pedH.GetString() == "pedestrian") ||
+                         (tags.TryGetProperty("place",    out var pedP) && (pedP.GetString() == "square" || pedP.GetString() == "plaza")))
+                {
+                    if (coordinates.Count < 3) continue;
+                    var surface = tags.TryGetProperty("surface", out var sProp) ? sProp.GetString() ?? "" : "";
+                    pedestrianAreas.Add(new GisFeatureDto
+                    {
+                        Id = id, Coordinates = coordinates, Type = "pedestrian",
+                        Category = "pedestrian", Surface = surface
+                    });
+                }
+                // ── Parking lots ────────────────────────────────────────────────────────
+                else if ((tags.TryGetProperty("amenity",  out var parA) && parA.GetString() == "parking") ||
+                         (tags.TryGetProperty("parking",  out var parP)))
+                {
+                    if (coordinates.Count < 3) continue;
+                    var surface = tags.TryGetProperty("surface", out var psProp) ? psProp.GetString() ?? "" : "asphalt";
+                    parkingLots.Add(new GisFeatureDto
+                    {
+                        Id = id, Coordinates = coordinates, Type = "parking",
+                        Category = "parking", Surface = surface
+                    });
+                }
+                // ── Barriers (wall, fence, hedge, retaining_wall) ───────────────────────
+                else if (tags.TryGetProperty("barrier", out var barTag))
+                {
+                    if (coordinates.Count < 2) continue;
+                    var barType = barTag.GetString() ?? "fence";
+                    barriers.Add(new GisFeatureDto
+                    {
+                        Id = id, Coordinates = coordinates, Type = barType, Category = "barrier"
+                    });
+                }
             }
 
             return new UrbanDataResponse
             {
-                Buildings    = buildingsList,
-                Highways     = highwaysList,
-                Forests      = forestList,
-                Waterways    = waterways,
-                WaterAreas   = waterAreas,
-                Parks        = parksList,
-                NaturalAreas = naturalAreas,
-                LandUseZones = landUseZones,
-                Amenities    = amenitiesList,
+                Buildings       = buildingsList,
+                Highways        = highwaysList,
+                Forests         = forestList,
+                Waterways       = waterways,
+                WaterAreas      = waterAreas,
+                Parks           = parksList,
+                NaturalAreas    = naturalAreas,
+                LandUseZones    = landUseZones,
+                Amenities       = amenitiesList,
+                PedestrianAreas = pedestrianAreas,
+                ParkingLots     = parkingLots,
+                Trees           = trees,
+                Barriers        = barriers,
             };
         }
 

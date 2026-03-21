@@ -66,36 +66,75 @@ in float v_height;
 
 out vec4 outColor;
 
-uniform int u_topoMode;
+uniform int   u_topoMode;
 uniform float u_topoScale;
 uniform float u_lightIntensity;
-uniform vec3 u_soilColor;
+uniform vec3  u_soilColor;
 uniform float u_reveal;
-uniform vec3 u_lightDir;
-uniform vec3 u_lightColor;
-uniform float u_wetness;       // 0-1: soil saturation from precipitation
-uniform float u_fireScorch;    // 0-1: burned/charred ground (WILDFIRE)
-uniform int   u_earthquakeMod; // 1 = show Voronoi crack pattern
+uniform vec3  u_lightDir;
+uniform vec3  u_lightColor;
+uniform float u_wetness;
+uniform float u_fireScorch;
+uniform int   u_earthquakeMod;
+
+// Satellite / map tile texture
+uniform sampler2D u_satTex;
+uniform int       u_satMode;   // 1 = texture loaded, show map imagery
+
+// Land cover texture (SpectralAnalyzer output, one byte per cell = classId × 32)
+// classId: 0=unknown 1=water 2=veg_dense 3=veg_sparse 4=bare_soil 5=urban 6=sand 7=snow
+uniform sampler2D u_landCoverTex;
+uniform int       u_landCoverMode;  // 1 = texture loaded, blend land cover tint
+
+vec3 landCoverTint(float encoded) {
+  int cls = int(encoded * 255.0 / 32.0 + 0.5);
+  if (cls == 1) return vec3(0.08, 0.22, 0.55);  // water — deep blue
+  if (cls == 2) return vec3(0.10, 0.32, 0.08);  // veg_dense — dark green
+  if (cls == 3) return vec3(0.28, 0.52, 0.18);  // veg_sparse — medium green
+  if (cls == 4) return vec3(0.44, 0.30, 0.16);  // bare_soil — brown
+  if (cls == 5) return vec3(0.46, 0.46, 0.48);  // urban — grey
+  if (cls == 6) return vec3(0.80, 0.72, 0.52);  // sand — tan
+  if (cls == 7) return vec3(0.90, 0.93, 0.97);  // snow — white-blue
+  return vec3(-1.0);                             // unknown → no tint
+}
 
 void main() {
   vec3 N = normalize(v_normal);
   vec3 L = normalize(u_lightDir);
 
-  // ── Elevation normalised to [0,1] over the full DEM range ─────────────────
-  float normH = clamp(v_height / max(u_topoScale, 1.0), 0.0, 1.0);
+  float diff   = max(dot(N, L), 0.0);
+  float ambStr = 0.50;
 
-  // ── Slope factor: N.y=1 = flat, N.y→0 = vertical cliff ───────────────────
+  // ── Satellite / map tile mode ────────────────────────────────────────────
+  if (u_satMode == 1) {
+    vec3 sat = texture(u_satTex, vec2(v_uv.x, v_uv.y)).rgb;
+    // Boost gamma slightly — tiles are web-sRGB, WebGL linear
+    sat = pow(clamp(sat, 0.0, 1.0), vec3(0.9));
+    // Optionally blend land cover tint over satellite for class visibility
+    if (u_landCoverMode == 1) {
+      float enc  = texture(u_landCoverTex, v_uv).r;
+      vec3  tint = landCoverTint(enc);
+      if (tint.r >= 0.0) sat = mix(sat, tint, 0.18); // subtle 18% tint
+    }
+    // Diffuse + strong ambient so the image is always legible
+    vec3 lit = sat * (ambStr + diff * 0.65 * u_lightIntensity * u_lightColor);
+    lit = clamp(lit, 0.0, 1.0);
+    outColor = vec4(lit, u_reveal);
+    return;
+  }
+
+  // ── Procedural elevation palette ─────────────────────────────────────────
+  float normH   = clamp(v_height / max(u_topoScale, 1.0), 0.0, 1.0);
   float flatness = clamp(N.y, 0.0, 1.0);
 
-  // ── Topographic colour palette (realistic solid colours) ──────────────────
-  vec3 cWater   = vec3(0.10, 0.26, 0.50);   // water / depression
-  vec3 cSand    = vec3(0.72, 0.63, 0.44);   // beach / sandy flat
-  vec3 cGrass   = vec3(0.24, 0.48, 0.16);   // lowland grass
-  vec3 cForest  = vec3(0.13, 0.34, 0.11);   // forest / dense veg
-  vec3 cScrub   = vec3(0.38, 0.40, 0.20);   // scrubland / savanna
-  vec3 cSoil    = vec3(0.44, 0.30, 0.16);   // exposed soil / hills
-  vec3 cRock    = vec3(0.50, 0.46, 0.42);   // bare rock
-  vec3 cSnow    = vec3(0.91, 0.93, 0.96);   // snow / glacier
+  vec3 cWater  = vec3(0.10, 0.26, 0.50);
+  vec3 cSand   = vec3(0.72, 0.63, 0.44);
+  vec3 cGrass  = vec3(0.24, 0.48, 0.16);
+  vec3 cForest = vec3(0.13, 0.34, 0.11);
+  vec3 cScrub  = vec3(0.38, 0.40, 0.20);
+  vec3 cSoil   = vec3(0.44, 0.30, 0.16);
+  vec3 cRock   = vec3(0.50, 0.46, 0.42);
+  vec3 cSnow   = vec3(0.91, 0.93, 0.96);
 
   vec3 baseColor;
   if      (normH < 0.04) baseColor = mix(cWater,  cSand,   normH / 0.04);
@@ -106,65 +145,60 @@ void main() {
   else if (normH < 0.80) baseColor = mix(cSoil,   cRock,   (normH - 0.63) / 0.17);
   else                   baseColor = mix(cRock,   cSnow,   (normH - 0.80) / 0.20);
 
-  // Steep cliffs always show rock regardless of elevation
   vec3 terrainColor = mix(cRock, baseColor, smoothstep(0.35, 0.68, flatness));
 
-  // ── Optional contour lines (10 m interval) ────────────────────────────────
+  // ── Land cover tint (procedural mode) ────────────────────────────────────
+  if (u_landCoverMode == 1) {
+    float enc  = texture(u_landCoverTex, v_uv).r;
+    vec3  tint = landCoverTint(enc);
+    if (tint.r >= 0.0) terrainColor = mix(terrainColor, tint, 0.45);
+  }
+
   if (u_topoMode == 1) {
-    float interval = max(u_topoScale * 0.05, 1.0); // ~5% of range
+    float interval = max(u_topoScale * 0.05, 1.0);
     float contour  = fract(v_height / interval);
     float line     = 1.0 - smoothstep(0.0, 0.035, min(contour, 1.0 - contour));
     terrainColor   = mix(terrainColor, vec3(0.0, 0.62, 0.95), line * 0.55);
   }
 
-  // ── Hemisphere ambient (sky above + soil bounce below) ────────────────────
-  vec3 skyAmb  = vec3(0.42, 0.52, 0.68) * 0.38;
-  vec3 gndAmb  = u_soilColor * 0.18;
+  // Hemisphere ambient (sky + ground bounce)
+  vec3 skyAmb  = vec3(0.42, 0.52, 0.68) * ambStr;
+  vec3 gndAmb  = u_soilColor * 0.20;
   vec3 ambient = mix(gndAmb, skyAmb, N.y * 0.5 + 0.5);
 
-  // ── Directional diffuse ───────────────────────────────────────────────────
-  float diff   = max(dot(N, L), 0.0);
   vec3 diffuse = terrainColor * diff * u_lightColor * u_lightIntensity;
-
-  // ── Soft specular highlight on flat surfaces ──────────────────────────────
-  vec3 V    = vec3(0.0, 1.0, 0.0); // approx view up
-  vec3 H    = normalize(L + V);
+  vec3 V = vec3(0.0, 1.0, 0.0);
+  vec3 H = normalize(L + V);
   float spec = pow(max(dot(N, H), 0.0), 32.0) * flatness * 0.08;
-
-  // ── Subtle UV-based micro-variation (no texture needed) ───────────────────
   float micro = fract(sin(dot(floor(v_uv * 256.0), vec2(127.1, 311.7))) * 43758.5) * 0.03 - 0.015;
 
-  // Wetness: saturated soil darkens and gains specularity
   if (u_wetness > 0.01) {
     float wet = u_wetness * 0.72;
     terrainColor = mix(terrainColor, terrainColor * vec3(0.50, 0.52, 0.55), wet);
     spec += wet * 0.18;
   }
 
-  // Earthquake ground cracks: cellular Voronoi pattern
   if (u_earthquakeMod > 0) {
     vec2 cp = v_uv * 36.0;
     vec2 ci = floor(cp); vec2 cf = fract(cp);
     float md = 1.0;
     for (int dy=-1; dy<=1; dy++) for (int dx=-1; dx<=1; dx++) {
-      vec2 nb   = vec2(float(dx), float(dy));
+      vec2 nb = vec2(float(dx), float(dy));
       vec2 seed = ci + nb;
-      vec2 rp   = vec2(fract(sin(dot(seed, vec2(127.1, 311.7)))*43758.5),
-                       fract(sin(dot(seed, vec2(269.5, 183.3)))*17371.3));
+      vec2 rp = vec2(fract(sin(dot(seed, vec2(127.1,311.7)))*43758.5),
+                     fract(sin(dot(seed, vec2(269.5,183.3)))*17371.3));
       md = min(md, length(cf - nb - rp));
     }
     float crack = 1.0 - smoothstep(0.0, 0.09, md);
-    terrainColor = mix(terrainColor, vec3(0.01, 0.01, 0.01), crack * 0.88);
+    terrainColor = mix(terrainColor, vec3(0.01,0.01,0.01), crack * 0.88);
   }
 
-  // Wildfire scorch: char and ash-black burned ground
   if (u_fireScorch > 0.01) {
-    terrainColor = mix(terrainColor, vec3(0.04, 0.02, 0.01), u_fireScorch * 0.80);
+    terrainColor = mix(terrainColor, vec3(0.04,0.02,0.01), u_fireScorch * 0.80);
   }
 
   vec3 finalColor = terrainColor * ambient + diffuse + spec + micro;
-
-  outColor = vec4(finalColor, u_reveal);
+  outColor = vec4(clamp(finalColor, 0.0, 1.0), u_reveal);
 }
 `
   },
@@ -184,7 +218,7 @@ uniform int u_bridgeMode;
 void main() {
     vec2 uv = (a_position.xz + u_areaHalf) / (u_areaHalf * 2.0);
     float height = texture(u_topoMap, uv).r * u_topoScale + u_topoOffset + 0.3;
-    if (u_bridgeMode == 1 && fract(a_position.x * 0.1) < 0.05) height += 4.0;
+    if (u_bridgeMode == 1 && fract(a_position.x * 0.001) < 0.05) height += 400.0;
     vec4 pos = u_modelMatrix * vec4(a_position.x, height, a_position.z, 1.0);
     gl_Position = u_projectionMatrix * u_viewMatrix * pos;
 }
@@ -282,6 +316,8 @@ uniform int u_buildingType; // 0=residential, 1=commercial, 2=industrial
 uniform vec3 u_lightDir;
 uniform vec3 u_lightColor;
 uniform float u_lightIntensity;
+// Selection highlight: vec4(minX, minZ, maxX, maxZ) — sentinel (1e9,1e9,-1e9,-1e9) = none
+uniform vec4 u_highlightAABB;
 
 out vec4 outColor;
 
@@ -293,8 +329,8 @@ void main() {
 
     // === REALISTIC MODE: Type-differentiated building appearance ===
     if (u_realisticMode == 1) {
-        float floorBand = fract(v_worldPos.y * 0.30);
-        float vertPane  = fract(v_worldPos.x * 0.55 + v_worldPos.z * 0.55);
+        float floorBand = fract(v_worldPos.y * 0.003);
+        float vertPane  = fract(v_worldPos.x * 0.0055 + v_worldPos.z * 0.0055);
         float isWindow  = step(0.12, floorBand) * step(floorBand, 0.84)
                         * step(0.18, vertPane)  * step(vertPane, 0.82);
         vec3 wallColor;
@@ -312,7 +348,7 @@ void main() {
             wallColor = v_isTop > 0.5
                 ? vec3(0.30, 0.30, 0.30)
                 : vec3(0.44, 0.44, 0.42);
-            float rib = step(0.5, fract(v_worldPos.y * 1.5));
+            float rib = step(0.5, fract(v_worldPos.y * 0.015));
             wallColor = mix(wallColor, wallColor * 0.78, rib * (1.0 - v_isTop) * 0.45);
         } else {
             // Residential: warm brick/beige, standard windows
@@ -323,9 +359,20 @@ void main() {
         }
 
         float diff = max(dot(normal, L), 0.25);
-        float fog  = smoothstep(150.0, 500.0, length(v_worldPos));
+        float fog  = smoothstep(15000.0, 50000.0, length(v_worldPos));
         vec3 color = wallColor * diff * u_lightColor * u_lightIntensity;
         color = mix(color, vec3(0.04, 0.06, 0.10), fog);
+
+        // Selection highlight
+        bool inAABB = v_worldPos.x >= u_highlightAABB.x && v_worldPos.x <= u_highlightAABB.z
+                   && v_worldPos.z >= u_highlightAABB.y && v_worldPos.z <= u_highlightAABB.w;
+        if (inAABB) {
+            float pulse = 0.55 + 0.45 * sin(u_time * 4.0);
+            color = mix(color, vec3(0.0, 0.85, 1.0), pulse * 0.45);
+            // Edge glow on roof
+            if (v_isTop > 0.5) color = mix(color, vec3(0.0, 1.0, 0.9), 0.6);
+        }
+
         outColor = vec4(color, u_reveal);
         return;
     }
@@ -334,27 +381,35 @@ void main() {
     vec3 baseColor = vec3(0.02, 0.08, 0.15);
     vec3 edgeColor = vec3(0.0, 0.95, 1.0);
 
-    float pulse = sin(v_worldPos.y * 1.5 - u_time * 3.0) * 0.5 + 0.5;
+    float pulse = sin(v_worldPos.y * 0.015 - u_time * 3.0) * 0.5 + 0.5;
     pulse = pow(pulse, 8.0);
 
     float distToEdge = min(
-        min(fract(v_worldPos.x), fract(1.0 - v_worldPos.x)),
-        min(fract(v_worldPos.z), fract(1.0 - v_worldPos.z))
+        min(fract(v_worldPos.x * 0.01), fract(1.0 - v_worldPos.x * 0.01)),
+        min(fract(v_worldPos.z * 0.01), fract(1.0 - v_worldPos.z * 0.01))
     );
     float edgeGlow = smoothstep(0.1, 0.0, distToEdge) * 0.8;
 
     vec3 color = mix(baseColor, edgeColor, edgeGlow + pulse * 0.4);
     if (v_isTop > 0.5) color += edgeColor * 0.3;
 
-    float fog = smoothstep(150.0, 600.0, length(v_worldPos));
+    float fog = smoothstep(15000.0, 60000.0, length(v_worldPos));
     color = mix(color, vec3(0.01, 0.02, 0.05), fog);
 
     float diff = max(dot(normal, L), 0.4);
     color *= (diff * u_lightIntensity + 0.5);
 
     if (u_aiMode == 1) {
-        float aiScan = sin(v_worldPos.y * 10.0 + u_time * 5.0);
+        float aiScan = sin(v_worldPos.y * 0.10 + u_time * 5.0);
         if (aiScan > 0.95) color = mix(color, vec3(1.0, 1.0, 0.0), 0.8);
+    }
+
+    // Selection highlight (tactical mode)
+    bool inAABBt = v_worldPos.x >= u_highlightAABB.x && v_worldPos.x <= u_highlightAABB.z
+                && v_worldPos.z >= u_highlightAABB.y && v_worldPos.z <= u_highlightAABB.w;
+    if (inAABBt) {
+        float pulse = 0.55 + 0.45 * sin(u_time * 4.0);
+        color = mix(color, vec3(1.0, 1.0, 0.0), pulse * 0.6);
     }
 
     outColor = vec4(color, 0.75 * u_reveal);
@@ -552,7 +607,7 @@ void main() {
     uv = clamp(uv, 0.0, 1.0);
     v_uv = uv;
     float h = texture(u_topoMap, uv).r * u_topoScale + u_topoOffset;
-    float wave = sin(a_position.x * 0.008 + u_time * 1.5) * 0.12 + cos(a_position.z * 0.006 + u_time * 1.2) * 0.08;
+    float wave = sin(a_position.x * 0.00008 + u_time * 1.5) * 0.12 + cos(a_position.z * 0.00006 + u_time * 1.2) * 0.08;
     vec3 wPos = vec3(a_position.x, h + wave, a_position.z);
     v_worldPos = wPos;
     gl_Position = u_projectionMatrix * u_viewMatrix * u_modelMatrix * vec4(wPos, 1.0);
@@ -566,7 +621,7 @@ uniform vec3 u_lightDir, u_lightColor;
 uniform float u_lightIntensity;
 out vec4 outColor;
 void main() {
-    float wave = sin(v_worldPos.x * 0.012 + u_time * 2.0) * 0.04 + cos(v_worldPos.z * 0.010 + u_time * 1.5) * 0.03;
+    float wave = sin(v_worldPos.x * 0.00012 + u_time * 2.0) * 0.04 + cos(v_worldPos.z * 0.00010 + u_time * 1.5) * 0.03;
     vec3 color = mix(vec3(0.16, 0.46, 0.72), vec3(0.05, 0.18, 0.42), 0.5) + wave;
     vec3 N = normalize(vec3(wave * 8.0, 1.0, wave * 6.0));
     float diff = max(dot(N, normalize(u_lightDir)), 0.45) * u_lightIntensity;
@@ -703,7 +758,10 @@ void main() {
     else if (tid == 12) col = vec3(0.22, 0.36, 0.22); // cemetery - dark green
     else if (tid == 13) col = vec3(0.72, 0.60, 0.10); // construction - yellow
     else if (tid == 14) col = vec3(0.48, 0.20, 0.20); // military - dark red
-    else                col = vec3(0.38, 0.60, 0.35); // leisure/sports - light green
+    else if (tid == 15) col = vec3(0.38, 0.60, 0.35); // leisure/sports - light green
+    else if (tid == 16) col = vec3(0.82, 0.80, 0.76); // pedestrian plaza - light stone/concrete
+    else if (tid == 17) col = vec3(0.40, 0.38, 0.36); // parking lot - dark asphalt
+    else                col = vec3(0.38, 0.60, 0.35); // fallback - light green
     outColor = vec4(col, 0.50 * u_reveal);
 }
 `

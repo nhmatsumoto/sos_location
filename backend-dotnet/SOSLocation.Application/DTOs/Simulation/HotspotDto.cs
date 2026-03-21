@@ -66,6 +66,14 @@ namespace SOSLocation.Application.DTOs.Simulation
         public List<GisFeatureDto> LandUseZones { get; set; } = new();
         /// <summary>Point-of-interest amenities: hospitals, schools, fire stations, police, shelters, pharmacies, etc.</summary>
         public List<GisFeatureDto> Amenities { get; set; } = new();
+        /// <summary>Pedestrian plazas, squares, pedestrian zones (highway=pedestrian with area, or place=square)</summary>
+        public List<GisFeatureDto> PedestrianAreas { get; set; } = new();
+        /// <summary>Parking lots and facilities</summary>
+        public List<GisFeatureDto> ParkingLots { get; set; } = new();
+        /// <summary>Individual OSM tree nodes and hedgerows</summary>
+        public List<GisFeatureDto> Trees { get; set; } = new();
+        /// <summary>Barriers: walls, fences, hedges</summary>
+        public List<GisFeatureDto> Barriers { get; set; } = new();
         public double AreaScale { get; set; } = 200.0;
         public Dictionary<string, object> Metadata { get; set; } = new();
     }
@@ -81,6 +89,7 @@ namespace SOSLocation.Application.DTOs.Simulation
         public Dictionary<string, string> Tags { get; set; } = new();
         public string BuildingUse { get; set; } = string.Empty; // "residential"|"commercial"|"industrial"|"mixed"
         public int Lanes { get; set; } = 0;
+        public string Surface { get; set; } = string.Empty; // OSM surface tag: asphalt|concrete|paving_stones|gravel|grass|dirt|wood|sand
     }
 
     public class SoilDataDto

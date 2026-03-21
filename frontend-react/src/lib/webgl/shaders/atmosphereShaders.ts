@@ -130,14 +130,15 @@ out float v_precipType;
 out float v_life;
 out float v_screenAngle;
 
+// Fall speeds in cm/s (world unit = 1 cm). Original m/s values × 100.
 float fallSpeed() {
-  if (u_precipType == 1) return 2.5;
-  if (u_precipType == 2) return 7.0;
-  if (u_precipType == 3) return 12.0;
-  if (u_precipType == 4) return 20.0;
-  if (u_precipType == 5) return 0.9;
-  if (u_precipType == 6) return 4.5;
-  return 8.0;
+  if (u_precipType == 1) return 250.0;   // drizzle  ~2.5 m/s
+  if (u_precipType == 2) return 700.0;   // rain     ~7.0 m/s
+  if (u_precipType == 3) return 1200.0;  // heavy    ~12 m/s
+  if (u_precipType == 4) return 2000.0;  // hail     ~20 m/s
+  if (u_precipType == 5) return 90.0;    // snow     ~0.9 m/s
+  if (u_precipType == 6) return 450.0;   // blizzard ~4.5 m/s
+  return 800.0;
 }
 float pSize() {
   if (u_precipType == 1) return 2.5;   // drizzle: small
@@ -176,9 +177,9 @@ void main() {
     wz += cos(u_time*0.8 + a_seeds.z*43.0) * u_turbulence;
   }
 
-  // Wrap with extra margin so particles fill edges
-  wx = mod(wx + u_areaHalfX * 2.5, u_worldSpanX * 2.0) - u_worldSpanX * 0.5;
-  wz = mod(wz + u_areaHalfZ * 2.5, u_worldSpanZ * 2.0) - u_worldSpanZ * 0.5;
+  // Wrap strictly within scene bounds [−areaHalf, +areaHalf]
+  wx = mod(wx + u_areaHalfX, u_worldSpanX) - u_areaHalfX;
+  wz = mod(wz + u_areaHalfZ, u_worldSpanZ) - u_areaHalfZ;
 
   // Terrain height
   vec2 uv = clamp(vec2(
@@ -200,7 +201,7 @@ void main() {
     v_screenAngle = atan(sd.x, -sd.y);
   }
 
-  if (wy < terrH - 1.5 || p0.w <= 0.0) {
+  if (wy < terrH - 150.0 || p0.w <= 0.0) {
     gl_PointSize = 0.0;
     gl_Position  = vec4(0.0, 0.0, 2.0, 1.0);
   } else {

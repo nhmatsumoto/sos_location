@@ -22,6 +22,7 @@ import { ENGINEERING_SHADERS } from '../../lib/webgl/shaders/engineeringShaders'
 import { SEMANTIC_VS, SEMANTIC_FS } from '../../lib/webgl/shaders/semanticShaders';
 import { SemanticTileProcessor } from '../../lib/segmentation/SemanticTileProcessor';
 import { getCachedCanvas } from '../../lib/blueprint/SatelliteCanvasCache';
+import { GeoDataPipeline } from '../../lib/geo/GeoDataPipeline';
 import { SlopeAnalyzer } from '../../lib/analysis/SlopeAnalyzer';
 
 import type {
@@ -203,6 +204,9 @@ function buildCapsule(radius: number, totalHeight: number, seg = 10): number[] {
   return verts;
 }
 
+/** 1 world unit = 1 centimetre. All scene distances, heights, spans in cm. */
+const CM = 100;
+
 export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
   centerLat,
   centerLng,
@@ -245,21 +249,21 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
     centerLat + 0.025, centerLng + 0.025
   ];
 
-  // Metric coordinate system: 1 world unit = 1 metre
+  // Centimetre coordinate system: 1 world unit = 1 cm (100× more terrain detail)
   const latMid = (bbox[0] + bbox[2]) / 2;
   const cosLat = Math.cos(latMid * Math.PI / 180);
   const centerLatVal = (bbox[0] + bbox[2]) / 2;
   const centerLngVal = (bbox[1] + bbox[3]) / 2;
-  const worldSpanX = (bbox[3] - bbox[1]) * 111139 * cosLat; // metres E-W
-  const worldSpanZ = (bbox[2] - bbox[0]) * 111139;           // metres N-S
+  const worldSpanX = (bbox[3] - bbox[1]) * 111139 * cosLat * CM; // cm E-W
+  const worldSpanZ = (bbox[2] - bbox[0]) * 111139 * CM;           // cm N-S
   const areaHalfX = worldSpanX / 2;
   const areaHalfZ = worldSpanZ / 2;
 
-  // mapPos returns [x_metres, z_metres] from city centre
+  // mapPos returns [x_cm, z_cm] from city centre (world units = centimetres)
   const mapPos = useMemo(() => {
     return (lat: number, lng: number): [number, number] => [
-      (lng - centerLngVal) * 111139 * cosLat + (buildingOffsetX || 0),
-      (lat - centerLatVal) * 111139 + (buildingOffsetY || 0)
+      (lng - centerLngVal) * 111139 * cosLat * CM + (buildingOffsetX || 0),
+      (lat - centerLatVal) * 111139 * CM          + (buildingOffsetY || 0)
     ];
   }, [centerLatVal, centerLngVal, cosLat, buildingOffsetX, buildingOffsetY]);
 
@@ -292,7 +296,22 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
   const fpPitchRef        = useRef(0);
   const fpModeRef         = useRef(false);
   const normalizedGridRef = useRef<number[][]>([]);
-  const buildingAABBsRef  = useRef<Array<{minX:number;maxX:number;minZ:number;maxZ:number}>>([]);
+
+  // Extended building AABB with selection metadata
+  type BuildingSelectable = {
+    minX: number; maxX: number; minZ: number; maxZ: number;
+    height: number; levels: number; buildingUse: string;
+    lat: number; lng: number; // centroid geographic coords
+  };
+  const buildingAABBsRef  = useRef<BuildingSelectable[]>([]);
+
+  // Camera matrices — updated every frame for ray picking
+  const lastProjRef = useRef<Float32Array>(new Float32Array(16));
+  const lastViewRef = useRef<Float32Array>(new Float32Array(16));
+
+  // Selected building
+  const [selectedBuilding, setSelectedBuilding] = React.useState<BuildingSelectable | null>(null);
+  const selectedBuildingRef = useRef<BuildingSelectable | null>(null);
 
   /**
    * Raw elevation range (metres) derived from the available DEM data.
@@ -321,7 +340,7 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
    */
   const effectiveTopoScale = useMemo(() => {
     const exaggeration = Math.max(0.05, topoScale / 100);
-    return rawElevRange * exaggeration;
+    return rawElevRange * CM * exaggeration; // cm
   }, [rawElevRange, topoScale]);
 
   const lightDir = useMemo(() => {
@@ -398,11 +417,79 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
     let lastX = 0;
     let lastY = 0;
 
+    // Track drag vs click
+    let mouseDownX = 0, mouseDownY = 0;
+
     const handleMouseDown = (e: MouseEvent) => {
       isDragging = true; lastX = e.clientX; lastY = e.clientY;
+      mouseDownX = e.clientX; mouseDownY = e.clientY;
       if (e.button === 1) e.preventDefault();
     };
-    const handleMouseUp = () => { isDragging = false; };
+    const handleMouseUp = (e: MouseEvent) => {
+      isDragging = false;
+      // Distinguish click from drag: < 4px movement
+      const moved = Math.abs(e.clientX - mouseDownX) + Math.abs(e.clientY - mouseDownY);
+      if (moved < 4 && e.button === 0 && canvasRef.current && !fpModeRef.current) {
+        const canvas = canvasRef.current;
+        const rect   = canvas.getBoundingClientRect();
+        const scaleX = canvas.width  / rect.width;
+        const scaleY = canvas.height / rect.height;
+        const px = (e.clientX - rect.left) * scaleX;
+        const py = (e.clientY - rect.top)  * scaleY;
+        const ndcX =  (px / canvas.width)  * 2 - 1;
+        const ndcY = -(py / canvas.height) * 2 + 1;
+
+        const proj = lastProjRef.current;
+        const view = lastViewRef.current;
+        if (!proj || !view) return;
+
+        const viewProj = GISMath.multiply(proj, view);
+        const invVP    = GISMath.invertMat4(viewProj);
+
+        // Unproject near / far points
+        const unproject = (nx: number, ny: number, nz: number): [number,number,number] => {
+          const w = invVP[3]*nx + invVP[7]*ny + invVP[11]*nz + invVP[15];
+          return [
+            (invVP[0]*nx + invVP[4]*ny + invVP[8]*nz  + invVP[12]) / w,
+            (invVP[1]*nx + invVP[5]*ny + invVP[9]*nz  + invVP[13]) / w,
+            (invVP[2]*nx + invVP[6]*ny + invVP[10]*nz + invVP[14]) / w,
+          ];
+        };
+
+        const near = unproject(ndcX, ndcY, -1);
+        const far  = unproject(ndcX, ndcY,  1);
+        const dir  = GISMath.normalize(GISMath.subtract(far, near)) as [number,number,number];
+        const ro   = near;
+
+        // Ray-AABB slab test (XYZ)
+        let minDist = Infinity;
+        let best: (typeof buildingAABBsRef.current)[0] | null = null;
+
+        for (const aabb of buildingAABBsRef.current) {
+          const hMax = aabb.height + 20; // generous Y ceiling
+          const tX0 = (aabb.minX - ro[0]) / dir[0];
+          const tX1 = (aabb.maxX - ro[0]) / dir[0];
+          const tY0 = (0         - ro[1]) / dir[1];
+          const tY1 = (hMax      - ro[1]) / dir[1];
+          const tZ0 = (aabb.minZ - ro[2]) / dir[2];
+          const tZ1 = (aabb.maxZ - ro[2]) / dir[2];
+          const tMin = Math.max(Math.min(tX0,tX1), Math.min(tY0,tY1), Math.min(tZ0,tZ1));
+          const tMax = Math.min(Math.max(tX0,tX1), Math.max(tY0,tY1), Math.max(tZ0,tZ1));
+          if (tMax >= 0 && tMin <= tMax && tMin < minDist) {
+            minDist = tMin;
+            best = aabb;
+          }
+        }
+
+        if (best) {
+          selectedBuildingRef.current = best;
+          setSelectedBuilding(best);
+        } else {
+          selectedBuildingRef.current = null;
+          setSelectedBuilding(null);
+        }
+      }
+    };
 
     const handleMouseMove = (e: MouseEvent) => {
       // FP mode: pointer-lock mouse look
@@ -441,7 +528,7 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
     window.addEventListener('keyup', handleKeyUp);
     window.addEventListener('mousedown', handleMouseDown);
     window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('mouseup', handleMouseUp as EventListener);
     window.addEventListener('wheel', handleWheel, { passive: false });
     document.addEventListener('pointerlockchange', handlePointerLockChange);
 
@@ -450,7 +537,7 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
       window.removeEventListener('keyup', handleKeyUp);
       window.removeEventListener('mousedown', handleMouseDown);
       window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('mouseup', handleMouseUp as EventListener);
       window.removeEventListener('wheel', handleWheel);
       document.removeEventListener('pointerlockchange', handlePointerLockChange);
     };
@@ -496,7 +583,7 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
     const demRows = blueprint?.elevation?.length ?? resultData?.elevationGrid?.length ?? 0;
     const demCols = blueprint?.elevation?.[0]?.length ?? resultData?.elevationGrid?.[0]?.length ?? 0;
     const gridSize = demRows > 0 && demCols > 0
-      ? Math.min(1024, Math.max(512, demRows * 4, demCols * 4))
+      ? Math.min(2048, Math.max(512, demRows * 4, demCols * 4))
       : 512;
     const terrainVertices: number[] = [];
     const terrainIndices: number[]  = [];
@@ -523,20 +610,20 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
     // ── ROAD WIDTHS (metres) ─ data-driven from OSM lanes tag ────────────────
     // Default widths used only when OSM half_width_m tag is absent
     const roadWidths: Record<string, number> = {
-      motorway: 14, trunk: 10.5, motorway_link: 5.25, trunk_link: 5.25,
-      primary: 7, primary_link: 3.5, secondary: 7, secondary_link: 3.5,
-      tertiary: 3.5, tertiary_link: 2.625, residential: 3.5, living_street: 3.5,
-      service: 3.0, unclassified: 3.5, road: 3.5, footway: 1.5, path: 1.0, cycleway: 1.5,
+      motorway: 1400, trunk: 1050, motorway_link: 525, trunk_link: 525,
+      primary: 700, primary_link: 350, secondary: 700, secondary_link: 350,
+      tertiary: 350, tertiary_link: 262.5, residential: 350, living_street: 350,
+      service: 300, unclassified: 350, road: 350, footway: 150, path: 100, cycleway: 150,
     };
     // Helper: uses backend-computed half_width_m tag when available, falls back to type defaults
     function getRoadHalfWidth(highway: GISHighway): number {
       const tag = (highway as any).tags?.half_width_m;
       if (tag) {
         const parsed = parseFloat(tag);
-        if (!isNaN(parsed) && parsed > 0) return parsed;
+        if (!isNaN(parsed) && parsed > 0) return parsed * CM; // tag is in metres, convert to cm
       }
       const t = (highway as any).type ?? 'road';
-      return (roadWidths[t] ?? 3.5);
+      return (roadWidths[t] ?? 350);
     }
 
     const roadColors: Record<string, [number,number,number]> = {
@@ -545,6 +632,20 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
       tertiary: [0.55, 0.55, 0.55], residential: [0.50, 0.50, 0.50],
       default: [0.40, 0.40, 0.40],
     };
+
+    function getSurfaceColor(surface: string, baseColor: [number,number,number]): [number,number,number] {
+      switch (surface) {
+        case 'concrete':       return [0.78, 0.78, 0.76];
+        case 'paving_stones':  return [0.72, 0.68, 0.62];
+        case 'cobblestone':    return [0.60, 0.56, 0.50];
+        case 'gravel':         return [0.62, 0.57, 0.45];
+        case 'dirt': case 'ground': return [0.52, 0.40, 0.28];
+        case 'grass':          return [0.30, 0.52, 0.20];
+        case 'wood':           return [0.55, 0.38, 0.20];
+        case 'sand':           return [0.78, 0.72, 0.50];
+        default:               return baseColor;
+      }
+    }
 
     // Terrain cell size: used to subdivide road segments so they closely follow terrain.
     // Each sub-segment samples the heightmap independently → roads conform to curved slopes.
@@ -595,18 +696,21 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
     const osmWaterAreas = blueprint?.osm.waterAreas ?? resultData?.urbanFeatures?.waterAreas;
 
     if (osmHighways) {
-      const byType: Record<string, { vertices: number[]; color: [number,number,number] }> = {};
+      const byType: Record<string, { vertices: number[]; color: [number,number,number]; markings: boolean }> = {};
       osmHighways.forEach((h: GISHighway & { type?: string }) => {
         const roadType = (h as { type?: string }).type || 'road';
         const halfW = getRoadHalfWidth(h);
         const coords = h.coordinates.map(c => mapPos(c[0], c[1]));
         const verts  = expandToQuads(coords, halfW);
         if (!verts.length) return;
-        if (!byType[roadType]) {
-          const rc = roadColors[roadType] || roadColors['default'];
-          byType[roadType] = { vertices: [], color: rc, markings: markedRoadTypes.has(roadType) };
+        const surfaceTag    = (h as any).tags?.surface ?? '';
+        const baseColor     = roadColors[roadType] || roadColors['default'];
+        const appliedColor  = getSurfaceColor(surfaceTag, baseColor);
+        const groupKey = surfaceTag && surfaceTag !== 'asphalt' ? `${roadType}:${surfaceTag}` : roadType;
+        if (!byType[groupKey]) {
+          byType[groupKey] = { vertices: [], color: appliedColor, markings: markedRoadTypes.has(roadType) };
         }
-        byType[roadType].vertices.push(...verts);
+        byType[groupKey].vertices.push(...verts);
       });
       for (const entry of Object.values(byType)) roadGroups.push(entry);
     }
@@ -617,9 +721,9 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
       const roadGrid = 8;
       for (let i = 0; i <= roadGrid; i++) {
         const pos = (i / roadGrid) * worldSpanX - areaHalfX;
-        fallbackRoadVertices.push(...expandToQuads([[pos, -areaHalfZ], [pos, areaHalfZ]], 4));
+        fallbackRoadVertices.push(...expandToQuads([[pos, -areaHalfZ], [pos, areaHalfZ]], 4 * CM));
         const posZ = (i / roadGrid) * worldSpanZ - areaHalfZ;
-        fallbackRoadVertices.push(...expandToQuads([[-areaHalfX, posZ], [areaHalfX, posZ]], 4));
+        fallbackRoadVertices.push(...expandToQuads([[-areaHalfX, posZ], [areaHalfX, posZ]], 4 * CM));
       }
     }
     const fallbackRoadVBO = renderer.createBuffer(new Float32Array(fallbackRoadVertices.length ? fallbackRoadVertices : [0,0,0]));
@@ -689,6 +793,10 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
     const osmNaturalAreas = (blueprint?.osm as any)?.naturalAreas ?? resultData?.urbanFeatures?.naturalAreas as GISNaturalArea[] | undefined;
     const osmLandUseZones = (blueprint?.osm as any)?.landUseZones ?? resultData?.urbanFeatures?.landUseZones as GISLandUseZone[] | undefined;
     const osmAmenities    = (blueprint?.osm as any)?.amenities    ?? resultData?.urbanFeatures?.amenities    as GISAmenity[]     | undefined;
+    const osmPedestrianAreas = (blueprint?.osm as any)?.pedestrianAreas ?? resultData?.urbanFeatures?.pedestrianAreas as GISNaturalArea[] | undefined;
+    const osmParkingLots     = (blueprint?.osm as any)?.parkingLots     ?? resultData?.urbanFeatures?.parkingLots     as GISNaturalArea[] | undefined;
+    const osmTrees           = (blueprint?.osm as any)?.trees           ?? resultData?.urbanFeatures?.trees           as GISAmenity[]     | undefined;
+    const osmBarriers        = (blueprint?.osm as any)?.barriers        ?? resultData?.urbanFeatures?.barriers        as GISHighway[]     | undefined;
 
     const zoneVertices: number[] = [];
     if (osmNaturalAreas) {
@@ -705,6 +813,22 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
         const pts = lz.coordinates.map(c => mapPos(c[0], c[1]));
         const tid = LANDUSE_TYPE_ID[lz.type] ?? 8;
         zoneVertices.push(...triangulateFanZoned(pts, tid));
+      }
+    }
+    // Pedestrian areas (plazas, squares) — typeId 16
+    if (osmPedestrianAreas) {
+      for (const pa of osmPedestrianAreas as GISNaturalArea[]) {
+        if (!pa.coordinates || pa.coordinates.length < 3) continue;
+        const pts = pa.coordinates.map(c => mapPos(c[0], c[1]));
+        zoneVertices.push(...triangulateFanZoned(pts, 16));
+      }
+    }
+    // Parking lots — typeId 17
+    if (osmParkingLots) {
+      for (const pk of osmParkingLots as GISNaturalArea[]) {
+        if (!pk.coordinates || pk.coordinates.length < 3) continue;
+        const pts = pk.coordinates.map(c => mapPos(c[0], c[1]));
+        zoneVertices.push(...triangulateFanZoned(pts, 17));
       }
     }
     const zoneVBO = renderer.createBuffer(new Float32Array(zoneVertices.length ? zoneVertices : [0, 0, 0]));
@@ -737,7 +861,7 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
 
     const VEG_TYPES = new Set(['scrub','heath','grassland','wetland','farmland','allotments','orchard','vineyard']);
     const osmVegVertices: number[] = [];
-    const vegPointDensity = 0.0025; // points per m²
+    const vegPointDensity = 0.0025 / (CM * CM); // 0.0025 points/m² → points/cm² (world units = cm)
     if (osmNaturalAreas) {
       for (const na of osmNaturalAreas as GISNaturalArea[]) {
         if (!na.coordinates || na.coordinates.length < 3) continue;
@@ -758,12 +882,47 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
         }
       }
     }
+    // Individual OSM tree nodes — scatter a small cluster at each position
+    if (osmTrees) {
+      for (const tree of osmTrees as GISAmenity[]) {
+        if (!tree.coordinates || tree.coordinates.length < 1) continue;
+        const [tx, tz] = mapPos(tree.coordinates[0][0], tree.coordinates[0][1]);
+        const u = Math.max(0, Math.min(1, (tx + areaHalfX) / worldSpanX));
+        const v = Math.max(0, Math.min(1, (tz + areaHalfZ) / worldSpanZ));
+        // Single point per tree (VEG shader renders as point sprite)
+        osmVegVertices.push(tx, 0, tz, 0, 1, 0, u, v);
+        // Small jitter cluster for tree crown volume (3 extra points offset by ~2m)
+        for (let k = 0; k < 3; k++) {
+          const angle = (k / 3) * Math.PI * 2;
+          const jx = tx + Math.cos(angle) * 200; // 200 cm = 2 m
+          const jz = tz + Math.sin(angle) * 200;
+          const ju = Math.max(0, Math.min(1, (jx + areaHalfX) / worldSpanX));
+          const jv = Math.max(0, Math.min(1, (jz + areaHalfZ) / worldSpanZ));
+          osmVegVertices.push(jx, 0, jz, 0, 1, 0, ju, jv);
+        }
+      }
+    }
     const osmVegVBO       = renderer.createBuffer(new Float32Array(osmVegVertices.length ? osmVegVertices : [0,0,0,0,1,0,0,0]));
     const osmVegCount     = osmVegVertices.length / 8;
 
+    // ── BARRIERS (walls, fences, hedges — thin extruded line strips) ──────────
+    // osmBarriers is declared above (line ~813); safe to use here
+    const barrierVertices: number[] = [];
+    if (osmBarriers) {
+      for (const b of osmBarriers as GISHighway[]) {
+        if (!b.coordinates || b.coordinates.length < 2) continue;
+        const coords = b.coordinates.map(c => mapPos(c[0], c[1]));
+        const hw = ((b as any).type === 'wall' || (b as any).type === 'retaining_wall') ? 30
+                 : (b as any).type === 'hedge' ? 50
+                 : 10;
+        barrierVertices.push(...expandToQuads(coords, hw));
+      }
+    }
+    const barrierVBO = renderer.createBuffer(new Float32Array(barrierVertices.length ? barrierVertices : [0,0,0]));
+
     // ── BUILDINGS ─────────────────────────────────────────────────────────────
-    // 1 world unit = 1 metre — no conversion needed
-    const buildHScale = 3.5; // 3.5m per floor
+    // 1 world unit = 1 cm — heights in cm
+    const buildHScale = 3.5 * CM; // 350 cm = 3.5 m per floor
     const maxLevels   = 80;
     const buildingVertices: number[] = [];
 
@@ -774,8 +933,8 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
       const pts    = coords.map(c => mapPos(c[0], c[1]));
       const levels = Math.min(maxLevels, b.levels || 2);
 
-      // Use OSM height tag (metres, 1wu=1m) or estimate from levels
-      const buildHeight = (b.height && b.height > 0) ? b.height : (levels * buildHScale);
+      // Use OSM height tag (metres → cm) or estimate from levels
+      const buildHeight = (b.height && b.height > 0) ? b.height * CM : (levels * buildHScale);
       const nh = Math.max(buildHScale, buildHeight);
       const n  = pts.length;
 
@@ -822,7 +981,7 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
           const pz  = gz * blockSize - areaHalfZ + blockSize * 0.1;
           const sz  = blockSize * 0.7;
           const lv  = 2 + Math.floor(noise * 12);
-          const bh  = lv * buildHScale; // metres
+          const bh  = lv * buildHScale; // cm (buildHScale is already in cm)
           const pts = [[px, pz], [px+sz, pz], [px+sz, pz+sz], [px, pz+sz], [px, pz]];
           const pcu = Math.max(0, Math.min(1, (px + sz/2 + areaHalfX) / worldSpanX));
           const pcv = Math.max(0, Math.min(1, (pz + sz/2 + areaHalfZ) / worldSpanZ));
@@ -852,21 +1011,33 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
     setBuildingCount(prev => prev !== vertexCount ? vertexCount : prev);
     setDataReady(!!resultData);
 
-    // Build building AABBs for character collision detection
-    const bAABBs: Array<{minX:number;maxX:number;minZ:number;maxZ:number}> = [];
+    // Build building AABBs (collision + selection metadata)
+    const bAABBs: Array<{minX:number;maxX:number;minZ:number;maxZ:number;height:number;levels:number;buildingUse:string;lat:number;lng:number}> = [];
     if (osmBuildings) {
       for (const b of osmBuildings as GISBuilding[]) {
         if (!b.coordinates || b.coordinates.length < 3) continue;
         const pp = b.coordinates.map(c => mapPos(c[0], c[1]));
         let mnX=Infinity, mxX=-Infinity, mnZ=Infinity, mxZ=-Infinity;
         for (const [x,z] of pp) { mnX=Math.min(mnX,x); mxX=Math.max(mxX,x); mnZ=Math.min(mnZ,z); mxZ=Math.max(mxZ,z); }
-        if (mxX > mnX && mxZ > mnZ) bAABBs.push({minX:mnX, maxX:mxX, minZ:mnZ, maxZ:mxZ});
+        if (mxX > mnX && mxZ > mnZ) {
+          const levels = Math.min(80, b.levels || 2);
+          const bh = (b.height && b.height > 0) ? b.height * CM : levels * (3.5 * CM);
+          // Centroid in geographic coords
+          const latc = b.coordinates.reduce((s,c)=>s+c[0],0)/b.coordinates.length;
+          const lngc = b.coordinates.reduce((s,c)=>s+c[1],0)/b.coordinates.length;
+          bAABBs.push({
+            minX:mnX, maxX:mxX, minZ:mnZ, maxZ:mxZ,
+            height: Math.max(3.5 * CM, bh), levels,
+            buildingUse: (b as any).buildingUse ?? 'residential',
+            lat: latc, lng: lngc,
+          });
+        }
       }
     }
     buildingAABBsRef.current = bAABBs;
 
     // Character capsule: radius 0.22m, total height 1.82m
-    const capsuleData   = buildCapsule(0.22, 1.82, 10);
+    const capsuleData   = buildCapsule(22, 182, 10); // 22 cm radius, 182 cm tall
     const charVBO       = renderer.createBuffer(new Float32Array(capsuleData));
     const charVertCount = capsuleData.length / 3;
 
@@ -1013,7 +1184,7 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, 1, 1, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, new Uint8Array([0]));
     const demGrid = blueprint?.elevation ?? resultData?.elevationGrid ?? [];
     if (demGrid.length > 0 && worldSpanX > 0 && worldSpanZ > 0) {
-      const slopeFloat = SlopeAnalyzer.compute(demGrid, worldSpanX, worldSpanZ);
+      const slopeFloat = SlopeAnalyzer.compute(demGrid, worldSpanX / CM, worldSpanZ / CM); // metres
       const slopeTex   = SlopeAnalyzer.toTexture(slopeFloat);
       const sCols = demGrid[0]?.length ?? 1;
       const sRows = demGrid.length;
@@ -1053,13 +1224,23 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
+    // Land cover texture from SpectralAnalyzer (classId × 32 per byte, LUMINANCE)
+    const landCoverTexture = gl.createTexture()!;
+    let landCoverLoaded = false;
+    gl.bindTexture(gl.TEXTURE_2D, landCoverTexture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, 1, 1, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, new Uint8Array([0]));
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
     const runSemanticFromGrid = (semGrid: import('../../lib/segmentation/SemanticTypes').SemanticGrid) => {
       if (!isMounted) return;
       try {
         const worldScale = Math.max(worldSpanX, worldSpanZ);
         const areaHalf   = Math.max(areaHalfX, areaHalfZ);
         const { terrainVerts, buildingVerts } = SemanticTileProcessor.buildGeometry(
-          semGrid, worldScale, areaHalf, 1.0
+          semGrid, worldScale, areaHalf, CM
         );
         gl.bindBuffer(gl.ARRAY_BUFFER, semTerrainVBO);
         gl.bufferData(gl.ARRAY_BUFFER, terrainVerts, gl.DYNAMIC_DRAW);
@@ -1084,6 +1265,14 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
       }
     };
 
+    // LC-augmented geometry VBOs — declared here so render loop closure can always see them
+    let lcBuildingVBO: WebGLBuffer | null = null;
+    let lcBuildingCount = 0;
+    let lcVegVBO: WebGLBuffer | null = null;
+    let lcVegCount = 0;
+    let lcWaterVBO: WebGLBuffer | null = null;
+    let lcWaterCount = 0;
+
     if (blueprint?.hasSatelliteCanvas) {
       const cachedCanvas = getCachedCanvas();
       if (cachedCanvas) {
@@ -1093,13 +1282,177 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
       // Use pre-computed semantic grid from blueprint
       runSemanticFromGrid(blueprint.semantic);
     } else {
-      TileLoader.loadSatelliteTiles(bbox[0], bbox[1], bbox[2], bbox[3])
-        .then(canvas => {
-          updateTextureFromCanvas(satelliteTexture, canvas);
-          setSatLoaded(true);
-          runSemanticSegmentation(canvas);
+      // Fetch map tile + DEM via GeoDataPipeline (cached in sessionStorage)
+      GeoDataPipeline.fetch(bbox[0], bbox[1], bbox[2], bbox[3], layers.satellite !== false)
+        .then(geoData => {
+          if (!isMounted) return;
+          // Prefer NASA high-res canvas; fall back to map tile canvas
+          const satSrc = (geoData as any).nasaCanvas ?? geoData.mapCanvas;
+          if (satSrc) {
+            updateTextureFromCanvas(satelliteTexture, satSrc);
+            setSatLoaded(true);
+            runSemanticSegmentation(satSrc);
+          } else if (geoData.mapCanvas) {
+            updateTextureFromCanvas(satelliteTexture, geoData.mapCanvas);
+            setSatLoaded(true);
+            runSemanticSegmentation(geoData.mapCanvas);
+          }
+          // Upload SpectralAnalyzer land cover texture if available
+          if ((geoData as any).landCoverTexture && (geoData as any).landCover) {
+            const lc = (geoData as any).landCover;
+            gl.bindTexture(gl.TEXTURE_2D, landCoverTexture);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, lc.cols, lc.rows, 0,
+              gl.LUMINANCE, gl.UNSIGNED_BYTE, (geoData as any).landCoverTexture as Uint8Array);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            landCoverLoaded = true;
+
+            // ── LC-driven procedural fill ──────────────────────────────────────────
+            // For every land cover cell not already covered by OSM data,
+            // synthesise buildings (urban), vegetation (veg_dense/sparse), water quads.
+            const lcData = (geoData as any).landCover as { grid: Uint8Array; rows: number; cols: number };
+            const lcGrid2 = lcData.grid;
+            const lcRows2 = lcData.rows, lcCols2 = lcData.cols;
+
+            // Mark cells that already have OSM building footprints
+            const osmOccupied = new Uint8Array(lcRows2 * lcCols2);
+            for (const aabb of buildingAABBsRef.current) {
+              const c0 = Math.max(0, Math.floor((aabb.minX + areaHalfX) / worldSpanX * lcCols2));
+              const c1 = Math.min(lcCols2 - 1, Math.ceil((aabb.maxX + areaHalfX) / worldSpanX * lcCols2));
+              const r0 = Math.max(0, Math.floor((aabb.minZ + areaHalfZ) / worldSpanZ * lcRows2));
+              const r1 = Math.min(lcRows2 - 1, Math.ceil((aabb.maxZ + areaHalfZ) / worldSpanZ * lcRows2));
+              for (let r = r0; r <= r1; r++)
+                for (let c = c0; c <= c1; c++)
+                  osmOccupied[r * lcCols2 + c] = 1;
+            }
+            const hasOsmVeg = osmVegVertices.length > 50;
+            const hasOsmWater = waterAreaVertices.length > 0;
+
+            const cellW2 = worldSpanX / lcCols2;
+            const cellD2 = worldSpanZ / lcRows2;
+
+            // Deterministic pseudo-noise (stable across frames, no Math.random)
+            function cellN(row: number, col: number, salt: number): number {
+              const v = Math.sin(row * 127.1 + col * 311.7 + salt * 43758.54) * 43758.54;
+              return Math.abs(v - Math.floor(v));
+            }
+
+            const lcBuildVerts: number[] = [];
+            const lcVegVerts: number[] = [];
+            const lcWaterVerts: number[] = [];
+
+            for (let row = 0; row < lcRows2; row++) {
+              for (let col = 0; col < lcCols2; col++) {
+                const idx = row * lcCols2 + col;
+                const cls = Math.round(lcGrid2[idx] / 32); // decode 0-7
+                const cx2 = (col + 0.5) / lcCols2 * worldSpanX - areaHalfX;
+                const cz2 = (row + 0.5) / lcRows2 * worldSpanZ - areaHalfZ;
+
+                // ── URBAN class → procedural house ─────────────────────────────────
+                if (cls === 5 && !osmOccupied[idx]) {
+                  const n0 = cellN(row, col, 0);
+                  if (n0 > 0.28) { // ~72% fill (some cells are yards/driveways)
+                    const bw2 = cellW2 * (0.42 + cellN(row, col, 1) * 0.28);
+                    const bd2 = cellD2 * (0.42 + cellN(row, col, 2) * 0.28);
+                    const lvls2 = 1 + Math.floor(cellN(row, col, 3) * 2.6); // 1-3 floors
+                    const bh2 = lvls2 * buildHScale;
+                    const bx2 = cx2 + (cellN(row, col, 4) - 0.5) * cellW2 * 0.22;
+                    const bz2 = cz2 + (cellN(row, col, 5) - 0.5) * cellD2 * 0.22;
+                    const cu2 = Math.max(0, Math.min(1, (bx2 + areaHalfX) / worldSpanX));
+                    const cv2 = Math.max(0, Math.min(1, (bz2 + areaHalfZ) / worldSpanZ));
+                    const x0b = bx2 - bw2/2, x1b = bx2 + bw2/2;
+                    const z0b = bz2 - bd2/2, z1b = bz2 + bd2/2;
+                    // 4 walls (2 tris each)
+                    const walls: [number,number,number,number][] = [
+                      [x0b,z0b,x1b,z0b],[x1b,z0b,x1b,z1b],[x1b,z1b,x0b,z1b],[x0b,z1b,x0b,z0b],
+                    ];
+                    for (const [wx0,wz0,wx1,wz1] of walls) {
+                      lcBuildVerts.push(wx0,wz0, 0,  0, lvls2, cu2, cv2);
+                      lcBuildVerts.push(wx1,wz1, 0,  0, lvls2, cu2, cv2);
+                      lcBuildVerts.push(wx1,wz1, bh2, 1, lvls2, cu2, cv2);
+                      lcBuildVerts.push(wx0,wz0, 0,  0, lvls2, cu2, cv2);
+                      lcBuildVerts.push(wx1,wz1, bh2, 1, lvls2, cu2, cv2);
+                      lcBuildVerts.push(wx0,wz0, bh2, 1, lvls2, cu2, cv2);
+                    }
+                    // Roof (2 tris)
+                    lcBuildVerts.push(x0b,z0b, bh2, 1, lvls2, cu2, cv2);
+                    lcBuildVerts.push(x1b,z0b, bh2, 1, lvls2, cu2, cv2);
+                    lcBuildVerts.push(x1b,z1b, bh2, 1, lvls2, cu2, cv2);
+                    lcBuildVerts.push(x0b,z0b, bh2, 1, lvls2, cu2, cv2);
+                    lcBuildVerts.push(x1b,z1b, bh2, 1, lvls2, cu2, cv2);
+                    lcBuildVerts.push(x0b,z1b, bh2, 1, lvls2, cu2, cv2);
+                  }
+                }
+                // ── VEG_DENSE / VEG_SPARSE → scatter vegetation ─────────────────────
+                else if ((cls === 2 || cls === 3) && !hasOsmVeg) {
+                  const density = cls === 2 ? 0.72 : 0.42;
+                  if (cellN(row, col, 10) < density) {
+                    const u2 = Math.max(0, Math.min(1, (cx2 + areaHalfX) / worldSpanX));
+                    const v2 = Math.max(0, Math.min(1, (cz2 + areaHalfZ) / worldSpanZ));
+                    lcVegVerts.push(cx2, 0, cz2, 0, 1, 0, u2, v2);
+                    // Dense forest → 3 extra sub-points within the cell
+                    if (cls === 2) {
+                      const jitter = cellW2 * 0.33;
+                      for (let k = 1; k <= 3; k++) {
+                        const jx2 = cx2 + (cellN(row, col, 10+k) - 0.5) * jitter;
+                        const jz2 = cz2 + (cellN(row, col, 14+k) - 0.5) * jitter;
+                        const ju2 = Math.max(0, Math.min(1, (jx2 + areaHalfX) / worldSpanX));
+                        const jv2 = Math.max(0, Math.min(1, (jz2 + areaHalfZ) / worldSpanZ));
+                        lcVegVerts.push(jx2, 0, jz2, 0, 1, 0, ju2, jv2);
+                      }
+                    }
+                  }
+                }
+                // ── WATER → fill missing water areas ────────────────────────────────
+                else if (cls === 1 && !hasOsmWater) {
+                  const hw2 = cellW2 / 2, hd2 = cellD2 / 2;
+                  lcWaterVerts.push(cx2-hw2, 0, cz2-hd2,  cx2+hw2, 0, cz2-hd2,  cx2+hw2, 0, cz2+hd2);
+                  lcWaterVerts.push(cx2-hw2, 0, cz2-hd2,  cx2+hw2, 0, cz2+hd2,  cx2-hw2, 0, cz2+hd2);
+                }
+              }
+            }
+
+            if (lcBuildVerts.length > 0) {
+              lcBuildingVBO = renderer.createBuffer(new Float32Array(lcBuildVerts));
+              lcBuildingCount = lcBuildVerts.length / 7;
+            }
+            if (lcVegVerts.length > 0) {
+              lcVegVBO = renderer.createBuffer(new Float32Array(lcVegVerts));
+              lcVegCount = lcVegVerts.length / 8;
+            }
+            if (lcWaterVerts.length > 0) {
+              lcWaterVBO = renderer.createBuffer(new Float32Array(lcWaterVerts));
+              lcWaterCount = lcWaterVerts.length / 3;
+            }
+          }
+          // If pipeline returned DEM and we have no elevation data, build topo texture
+          if (geoData.dem && !blueprint?.elevation.length && !resultData?.elevationGrid?.length) {
+            const dem = geoData.dem;
+            const texData = new Uint8Array(dem.rows * dem.cols);
+            const range = Math.max(1, dem.maxHeight - dem.minHeight);
+            // Build normalized 0-1 grid for CPU terrain sampler
+            const normGrid: number[][] = [];
+            for (let r = 0; r < dem.rows; r++) {
+              normGrid.push([]);
+              for (let c = 0; c < dem.cols; c++) {
+                const norm = (dem.grid[r * dem.cols + c] - dem.minHeight) / range;
+                normGrid[r].push(norm);
+                texData[r * dem.cols + c] = Math.round(norm * 255);
+              }
+            }
+            normalizedGridRef.current = normGrid;
+            gl.bindTexture(gl.TEXTURE_2D, topoTexture);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, dem.cols, dem.rows, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, texData);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+          }
         })
         .catch(() => {
+          // Final fallback: load from backend API
           const img = new Image();
           img.crossOrigin = 'anonymous';
           img.src = satelliteMapUrl;
@@ -1113,6 +1466,24 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
           };
         });
     }
+
+    // ── SIDEWALKS (concrete strips flanking OSM roads) ─────────────────────────
+    // Rendered beneath roads (depth-offset +1), adds visible pavement to the scene.
+    const sidewalkVertices: number[] = [];
+    if (osmHighways && (osmHighways as GISHighway[]).length > 0) {
+      for (const h of osmHighways as GISHighway[]) {
+        const rt = (h.type as string) || 'residential';
+        // Only add sidewalks alongside driveable roads (not footways themselves)
+        if (rt === 'footway' || rt === 'path' || rt === 'cycleway' || rt === 'steps') continue;
+        const coords = h.coordinates.map(c => mapPos(c[0], c[1]));
+        const roadHW = getRoadHalfWidth(h);
+        const swW = Math.max(50, roadHW * 0.28); // sidewalk = 28% of road half-width, min 50cm
+        // Outer pavement strip (road + sidewalk width)
+        sidewalkVertices.push(...expandToQuads(coords, roadHW + swW));
+      }
+    }
+    const sidewalkVBO  = renderer.createBuffer(new Float32Array(sidewalkVertices.length ? sidewalkVertices : [0,0,0]));
+    const sidewalkCount = sidewalkVertices.length / 3;
 
     // Pre-build road group VBOs
     const roadGroupVBOs: Array<{ vbo: WebGLBuffer; count: number; color: [number,number,number]; markings: boolean }> = [];
@@ -1155,7 +1526,7 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
 
       // Keyboard: FP character movement vs orbit pan
       if (fpModeRef.current && cam.current.keys.size > 0) {
-        const spd = 5.0 / 60.0; // 5 m/s at ~60 fps
+        const spd = 500.0 / 60.0; // 500 cm/s = 5 m/s at ~60 fps
         const yaw = charYawRef.current;
         let dx = 0, dz = 0;
         if (cam.current.keys.has('KeyW')) { dx += Math.sin(yaw)*spd; dz += Math.cos(yaw)*spd; }
@@ -1164,7 +1535,7 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
         if (cam.current.keys.has('KeyD')) { dx -= Math.cos(yaw)*spd; dz += Math.sin(yaw)*spd; }
         if (dx !== 0 || dz !== 0) {
           const nx = charPosRef.current[0] + dx, nz = charPosRef.current[2] + dz;
-          const r  = 0.22;
+          const r  = 22; // 22 cm collision radius
           const blocked = buildingAABBsRef.current.some(
             a => nx+r > a.minX && nx-r < a.maxX && nz+r > a.minZ && nz-r < a.maxZ
           );
@@ -1187,7 +1558,7 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
       let finalCamPos: [number,number,number];
       let finalTarget: [number,number,number];
       if (fpModeRef.current) {
-        const eyeH = charPosRef.current[1] + 1.6;
+        const eyeH = charPosRef.current[1] + 160; // 160 cm eye height
         finalCamPos = [charPosRef.current[0], eyeH, charPosRef.current[2]];
         const yaw = charYawRef.current, pitch = fpPitchRef.current;
         finalTarget = [
@@ -1212,7 +1583,7 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
       if (simData.type === 'EARTHQUAKE' && (simData.magnitude ?? 0) > 0) {
         const mag     = Math.min(9.0, simData.magnitude ?? 0) / 9.0;
         const decay   = Math.exp(-Math.max(0, time - 2.0) * 0.4);
-        const shakeAmp = mag * 1.2 * decay;
+        const shakeAmp = mag * 120 * decay; // 120 cm max shake = 1.2 m
         finalCamPos = [
           finalCamPos[0] + Math.sin(time * 24.0) * shakeAmp,
           finalCamPos[1] + Math.abs(Math.sin(time * 19.0)) * shakeAmp * 0.4,
@@ -1224,10 +1595,12 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
       renderer.setViewport(width, height);
       renderer.clear(0.01, 0.02, 0.04, 1.0);
 
-      // Metric near/far planes: near=0.5m, far=200km
-      const projMatrix  = GISMath.perspective(45 * Math.PI / 180, width / height, 0.5, 200000);
+      // Centimetre near/far: near=1cm, far=4× widest scene extent
+      const projMatrix  = GISMath.perspective(45 * Math.PI / 180, width / height, 1, Math.max(worldSpanX, worldSpanZ) * 4);
       const viewMatrix  = GISMath.lookAt(finalCamPos, finalTarget, [0, 1, 0]);
       const modelMatrix = identityMatrix;
+      lastProjRef.current = projMatrix;
+      lastViewRef.current = viewMatrix;
 
       const soilType  = resultData?.soil?.type || 'Clay';
       const soilColor = soilType.includes('Clay') ? [0.35, 0.15, 0.08] : [0.25, 0.25, 0.18];
@@ -1278,6 +1651,12 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
         renderer.setUniform3f('u_lightColor', L_COLOR[0], L_COLOR[1], L_COLOR[2]);
         renderer.bindTexture(topoTexture, 0);
         renderer.setUniform1i('u_topoMap', 0);
+        renderer.bindTexture(satelliteTexture, 1);
+        renderer.setUniform1i('u_satTex', 1);
+        renderer.setUniform1i('u_satMode', (layers.satellite && satLoaded) ? 1 : 0);
+        renderer.bindTexture(landCoverTexture, 2);
+        renderer.setUniform1i('u_landCoverTex', 2);
+        renderer.setUniform1i('u_landCoverMode', landCoverLoaded ? 1 : 0);
         renderer.setUniform1f('u_texelOffset', 1.0 / topoSize);
         renderer.setUniform1f('u_worldSpanX', worldSpanX);
         renderer.setUniform1f('u_worldSpanZ', worldSpanZ);
@@ -1324,6 +1703,50 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
         gl.drawArrays(gl.TRIANGLES, 0, waterAreaVertices.length / 3);
       }
 
+      // ── 2b. LC-AUGMENTED WATER AREAS ──────────────────────────────────────────
+      if (lcWaterVBO && lcWaterCount > 0) {
+        renderer.useProgram(waterAreaProgram);
+        renderer.setUniformMatrix4('u_projectionMatrix', projMatrix);
+        renderer.setUniformMatrix4('u_viewMatrix', viewMatrix);
+        renderer.setUniformMatrix4('u_modelMatrix', modelMatrix);
+        renderer.setUniform1f('u_topoScale', effectiveTopoScale);
+        renderer.setUniform1f('u_topoOffset', topoOffset);
+        renderer.setUniform1f('u_areaHalfX', areaHalfX);
+        renderer.setUniform1f('u_areaHalfZ', areaHalfZ);
+        renderer.setUniform1f('u_reveal', reveal);
+        renderer.setUniform1i('u_realisticMode', isRealMode);
+        renderer.bindTexture(topoTexture, 2);
+        renderer.setUniform1i('u_topoMap', 2);
+        gl.bindBuffer(gl.ARRAY_BUFFER, lcWaterVBO);
+        renderer.setAttribute('a_position', 3, gl.FLOAT, false, 0, 0);
+        gl.drawArrays(gl.TRIANGLES, 0, lcWaterCount);
+      }
+
+      // ── 3a. SIDEWALKS (concrete pavement strips beneath roads) ────────────────
+      if (layers.streets && sidewalkCount > 0) {
+        gl.enable(gl.POLYGON_OFFSET_FILL);
+        gl.polygonOffset(1.0, 1.0); // behind roads
+        renderer.useProgram(roadProgram);
+        renderer.setUniformMatrix4('u_projectionMatrix', projMatrix);
+        renderer.setUniformMatrix4('u_viewMatrix', viewMatrix);
+        renderer.setUniformMatrix4('u_modelMatrix', modelMatrix);
+        renderer.setUniform1f('u_topoScale', effectiveTopoScale);
+        renderer.setUniform1f('u_topoOffset', topoOffset);
+        renderer.setUniform1f('u_areaHalfX', areaHalfX);
+        renderer.setUniform1f('u_areaHalfZ', areaHalfZ);
+        renderer.setUniform1f('u_elevOffset', 0.0);
+        renderer.setUniform1f('u_reveal', reveal);
+        renderer.setUniform1i('u_realisticMode', isRealMode);
+        renderer.bindTexture(topoTexture, 2);
+        renderer.setUniform1i('u_topoMap', 2);
+        renderer.setUniform3f('u_roadColor', 0.74, 0.72, 0.68); // light concrete
+        renderer.setUniform1f('u_markings', 0.0);
+        gl.bindBuffer(gl.ARRAY_BUFFER, sidewalkVBO);
+        renderer.setAttribute('a_position', 3, gl.FLOAT, false, 0, 0);
+        gl.drawArrays(gl.TRIANGLES, 0, sidewalkCount);
+        gl.disable(gl.POLYGON_OFFSET_FILL);
+      }
+
       // ── 3. ROADS (polygon quads) ───────────────────────────────────────────────
       if (layers.streets) {
         // Polygon offset pushes roads in front of terrain in depth buffer,
@@ -1359,6 +1782,31 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
           renderer.setAttribute('a_position', 3, gl.FLOAT, false, 0, 0);
           gl.drawArrays(gl.TRIANGLES, 0, fallbackRoadVertices.length / 3);
         }
+        gl.disable(gl.POLYGON_OFFSET_FILL);
+      }
+
+      // ── 3b. BARRIERS (walls, fences, hedges) ──────────────────────────────────
+      if (barrierVertices.length > 0) {
+        gl.enable(gl.POLYGON_OFFSET_FILL);
+        gl.polygonOffset(-1.5, -1.5);
+        renderer.useProgram(roadProgram);
+        renderer.setUniformMatrix4('u_projectionMatrix', projMatrix);
+        renderer.setUniformMatrix4('u_viewMatrix', viewMatrix);
+        renderer.setUniformMatrix4('u_modelMatrix', modelMatrix);
+        renderer.setUniform1f('u_topoScale', effectiveTopoScale);
+        renderer.setUniform1f('u_topoOffset', topoOffset);
+        renderer.setUniform1f('u_areaHalfX', areaHalfX);
+        renderer.setUniform1f('u_areaHalfZ', areaHalfZ);
+        renderer.setUniform1f('u_elevOffset', 0.0);
+        renderer.setUniform1f('u_reveal', reveal);
+        renderer.setUniform1i('u_realisticMode', isRealMode);
+        renderer.bindTexture(topoTexture, 2);
+        renderer.setUniform1i('u_topoMap', 2);
+        renderer.setUniform3f('u_roadColor', 0.55, 0.48, 0.38);
+        renderer.setUniform1f('u_markings', 0.0);
+        gl.bindBuffer(gl.ARRAY_BUFFER, barrierVBO);
+        renderer.setAttribute('a_position', 3, gl.FLOAT, false, 0, 0);
+        gl.drawArrays(gl.TRIANGLES, 0, barrierVertices.length / 3);
         gl.disable(gl.POLYGON_OFFSET_FILL);
       }
 
@@ -1411,6 +1859,14 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
           bldgUse === 'commercial' ? 1 : bldgUse === 'industrial' ? 2 : 0
         );
 
+        // Selection highlight AABB (sentinel = no selection)
+        const sel = selectedBuildingRef.current;
+        if (sel) {
+          renderer.setUniform4f('u_highlightAABB', sel.minX, sel.minZ, sel.maxX, sel.maxZ);
+        } else {
+          renderer.setUniform4f('u_highlightAABB', 1e9, 1e9, -1e9, -1e9);
+        }
+
         gl.bindBuffer(gl.ARRAY_BUFFER, buildingVBO);
         renderer.setAttribute('a_position', 3, gl.FLOAT, false, 7 * 4, 0);
         renderer.setAttribute('a_meta',     4, gl.FLOAT, false, 7 * 4, 3 * 4);
@@ -1418,9 +1874,40 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
         gl.disable(gl.POLYGON_OFFSET_FILL);
       }
 
+      // ── 5b. LC-AUGMENTED BUILDINGS (from SpectralAnalyzer land cover) ─────────
+      // Draws procedural residential houses for URBAN land-cover cells not covered by OSM.
+      if ((layers.buildings || layers.residential) && lcBuildingVBO && lcBuildingCount > 0) {
+        gl.enable(gl.POLYGON_OFFSET_FILL);
+        gl.polygonOffset(-1.0, -1.0);
+        renderer.useProgram(infraProgram);
+        renderer.setUniformMatrix4('u_projectionMatrix', projMatrix);
+        renderer.setUniformMatrix4('u_viewMatrix', viewMatrix);
+        renderer.setUniformMatrix4('u_modelMatrix', modelMatrix);
+        renderer.setUniform1f('u_topoScale', effectiveTopoScale);
+        renderer.setUniform1f('u_topoOffset', topoOffset);
+        renderer.setUniform1f('u_time', time);
+        renderer.setUniform1f('u_reveal', reveal);
+        renderer.setUniform1f('u_areaHalfX', areaHalfX);
+        renderer.setUniform1f('u_areaHalfZ', areaHalfZ);
+        renderer.setUniform1i('u_aiMode', 0);
+        renderer.setUniform1i('u_realisticMode', isRealMode);
+        renderer.setUniform3f('u_lightDir', lightDir[0], lightDir[1], lightDir[2]);
+        renderer.setUniform3f('u_lightColor', L_COLOR[0], L_COLOR[1], L_COLOR[2]);
+        renderer.setUniform1f('u_lightIntensity', lightIntensity);
+        renderer.bindTexture(topoTexture, 1);
+        renderer.setUniform1i('u_topoMap', 1);
+        renderer.setUniform1i('u_buildingType', 0); // residential
+        renderer.setUniform4f('u_highlightAABB', 1e9, 1e9, -1e9, -1e9);
+        gl.bindBuffer(gl.ARRAY_BUFFER, lcBuildingVBO);
+        renderer.setAttribute('a_position', 3, gl.FLOAT, false, 7 * 4, 0);
+        renderer.setAttribute('a_meta',     4, gl.FLOAT, false, 7 * 4, 3 * 4);
+        gl.drawArrays(gl.TRIANGLES, 0, lcBuildingCount);
+        gl.disable(gl.POLYGON_OFFSET_FILL);
+      }
+
       // ── 5b. WILDFIRE OVERLAY ──────────────────────────────────────────────────
       if (simData.type === 'WILDFIRE' && (simData.intensity ?? 0) > 5) {
-        const fireRadius = Math.max(40, ((simData.spreadRate ?? 200) / 3600) * time * 4 + 60);
+        const fireRadius = Math.max(4000, (((simData.spreadRate ?? 200) / 3600) * time * 4 + 60) * CM);
         const windRad2   = ((simData.windDirection ?? 45) * Math.PI) / 180;
         gl.enable(gl.BLEND);
         gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
@@ -1463,7 +1950,7 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
         renderer.setUniform1f('u_lightIntensity', lightIntensity);
         renderer.setUniform1f('u_topoScale', effectiveTopoScale);
         renderer.setUniform1f('u_topoOffset', topoOffset);
-        renderer.setUniform1f('u_waterLevel', simData.waterLevel ?? 0);
+        renderer.setUniform1f('u_waterLevel', (simData.waterLevel ?? 0) * CM);
         renderer.setUniform1f('u_time', time);
         renderer.setUniform1f('u_reveal', reveal);
         renderer.bindTexture(topoTexture, 0);
@@ -1480,12 +1967,12 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
       if (layers.particles) {
         const precipType  = getPrecipType(simData.type, simData.precipitation ?? 0, simData.snowfall ?? 0, simData.temp ?? 25);
         const cloudCover  = getCloudCover(simData.type, simData.precipitation ?? 0, simData.intensity ?? 50);
-        const cloudBase   = getCloudBase(simData.temp ?? 20, simData.humidity ?? 60);
+        const cloudBase   = getCloudBase(simData.temp ?? 20, simData.humidity ?? 60) * CM; // cm
         const windRad     = (simData.windDirection ?? 0) * Math.PI / 180;
-        const windMs      = (simData.windSpeed ?? 0) / 3.6;
+        const windMs      = ((simData.windSpeed ?? 0) / 3.6) * CM; // cm/s
         const windX       = Math.sin(windRad) * windMs;
         const windZ       = Math.cos(windRad) * windMs;
-        const turbulence  = precipType >= 5 ? 6.0 : precipType === 1 ? 2.0 : 0.5;
+        const turbulence  = (precipType >= 5 ? 600.0 : precipType === 1 ? 200.0 : 50.0); // cm
         // Particle count by type
         const precipCounts = [0, 20000, 40000, 70000, 12000, 25000, 60000];
         const drawCount   = Math.floor((precipCounts[precipType] ?? 0) * Math.min(1.0, particleIntensity));
@@ -1581,6 +2068,27 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
         renderer.setAttribute('a_position', 3, gl.FLOAT, false, 8 * 4, 0);
         renderer.setAttribute('a_uv',       2, gl.FLOAT, false, 8 * 4, 6 * 4);
         gl.drawArrays(gl.POINTS, 0, osmVegCount);
+      }
+
+      // ── 8c. LC-AUGMENTED VEGETATION (from SpectralAnalyzer land cover) ────────
+      if (layers.vegetation && lcVegVBO && lcVegCount > 0) {
+        renderer.useProgram(vegProgram);
+        renderer.setUniformMatrix4('u_projectionMatrix', projMatrix);
+        renderer.setUniformMatrix4('u_viewMatrix', viewMatrix);
+        renderer.setUniformMatrix4('u_modelMatrix', modelMatrix);
+        renderer.setUniform1f('u_topoScale', effectiveTopoScale);
+        renderer.setUniform1f('u_topoOffset', topoOffset);
+        renderer.setUniform1f('u_areaHalfX', areaHalfX);
+        renderer.setUniform1f('u_areaHalfZ', areaHalfZ);
+        renderer.bindTexture(topoTexture, 0);
+        renderer.setUniform1i('u_topoMap', 0);
+        renderer.setUniform1f('u_vegIntensity', 1.0);
+        renderer.setUniform1f('u_urbanDensity', 0.0);
+        renderer.setUniform1f('u_reveal', reveal);
+        gl.bindBuffer(gl.ARRAY_BUFFER, lcVegVBO);
+        renderer.setAttribute('a_position', 3, gl.FLOAT, false, 8 * 4, 0);
+        renderer.setAttribute('a_uv',       2, gl.FLOAT, false, 8 * 4, 6 * 4);
+        gl.drawArrays(gl.POINTS, 0, lcVegCount);
       }
 
       // ── 9. SEMANTIC RECONSTRUCTION ────────────────────────────────────────────
@@ -1773,6 +2281,7 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
       for (const rg of roadGroupVBOs) gl.deleteBuffer(rg.vbo);
       gl.deleteTexture(topoTexture);
       gl.deleteTexture(satelliteTexture);
+      gl.deleteTexture(landCoverTexture);
       gl.deleteTexture(slopeTexture);
       gl.deleteTexture(densityTexture);
       gl.deleteProgram(terrainProgram);
@@ -1796,6 +2305,11 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
       gl.deleteProgram(zoneProgram);
       gl.deleteProgram(amenityProgram);
       gl.deleteBuffer(osmVegVBO);
+      gl.deleteBuffer(barrierVBO);
+      gl.deleteBuffer(sidewalkVBO);
+      if (lcBuildingVBO) gl.deleteBuffer(lcBuildingVBO);
+      if (lcVegVBO) gl.deleteBuffer(lcVegVBO);
+      if (lcWaterVBO) gl.deleteBuffer(lcWaterVBO);
       gl.deleteProgram(fireProgram);
     };
   }, [
@@ -1898,6 +2412,77 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
             ESC → Sair da 1ª pessoa<br/>
             . / Del → Centrar cena
           </div>
+        </Box>
+      )}
+
+      {/* ── SELECTION PANEL ───────────────────────────────────────────────────── */}
+      {selectedBuilding && (
+        <Box
+          position="absolute" top={4} right={4} zIndex={20}
+          bg="rgba(0,8,20,0.92)" borderRadius="xl"
+          border="1px solid rgba(0,200,255,0.30)" backdropFilter="blur(12px)"
+          fontFamily="monospace" minW="220px" maxW="260px" overflow="hidden"
+        >
+          {/* Header */}
+          <Box
+            px={3} py={2}
+            bg="rgba(0,200,255,0.10)"
+            borderBottom="1px solid rgba(0,200,255,0.15)"
+            display="flex" alignItems="center" justifyContent="space-between"
+          >
+            <div style={{ color: '#00d4ff', fontSize: '10px', fontWeight: 'bold' }}>
+              ▣ OBJETO SELECIONADO
+            </div>
+            <Box
+              as="button"
+              color="whiteAlpha.400" fontSize="11px"
+              onClick={() => { setSelectedBuilding(null); selectedBuildingRef.current = null; }}
+              _hover={{ color: 'white' }}
+              lineHeight="1"
+            >✕</Box>
+          </Box>
+          {/* Body */}
+          <Box px={3} py={2.5} fontSize="10px" lineHeight="1.9" color="#cce8ff">
+            <div>
+              <span style={{ color: 'rgba(255,255,255,0.4)' }}>TIPO&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+              <span style={{ color: '#00d4ff' }}>EDIFÍCIO</span>
+            </div>
+            <div>
+              <span style={{ color: 'rgba(255,255,255,0.4)' }}>USO&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+              <span>{(selectedBuilding.buildingUse ?? 'residential').toUpperCase()}</span>
+            </div>
+            <div>
+              <span style={{ color: 'rgba(255,255,255,0.4)' }}>PISOS&nbsp;&nbsp;&nbsp;&nbsp;</span>
+              <span>{selectedBuilding.levels}</span>
+            </div>
+            <div>
+              <span style={{ color: 'rgba(255,255,255,0.4)' }}>ALTURA&nbsp;&nbsp;&nbsp;</span>
+              <span>{selectedBuilding.height.toFixed(1)} m</span>
+            </div>
+            <div>
+              <span style={{ color: 'rgba(255,255,255,0.4)' }}>LAT&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+              <span>{selectedBuilding.lat.toFixed(5)}</span>
+            </div>
+            <div>
+              <span style={{ color: 'rgba(255,255,255,0.4)' }}>LNG&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+              <span>{selectedBuilding.lng.toFixed(5)}</span>
+            </div>
+            <div>
+              <span style={{ color: 'rgba(255,255,255,0.4)' }}>DIM X&nbsp;&nbsp;&nbsp;&nbsp;</span>
+              <span>{(selectedBuilding.maxX - selectedBuilding.minX).toFixed(1)} m</span>
+            </div>
+            <div>
+              <span style={{ color: 'rgba(255,255,255,0.4)' }}>DIM Z&nbsp;&nbsp;&nbsp;&nbsp;</span>
+              <span>{(selectedBuilding.maxZ - selectedBuilding.minZ).toFixed(1)} m</span>
+            </div>
+          </Box>
+          <Box
+            px={3} py={1.5}
+            borderTop="1px solid rgba(0,200,255,0.10)"
+            fontSize="9px" color="rgba(255,255,255,0.3)"
+          >
+            Clique em outro edifício ou no terreno para deselecionar
+          </Box>
         </Box>
       )}
 

@@ -39,6 +39,29 @@ def get_risk_scores():
 def get_location_risk(country: str, location: str):
     return risk_engine.get_location_score(country, location)
 
+@app.get("/api/v1/risk/public")
+def get_public_risk_summary():
+    """Public endpoint — no auth required. Returns risk scores + summary for the public map."""
+    from datetime import datetime
+    scores = risk_engine.get_current_scores()
+    critical = [s for s in scores if s.get("level") == "Critical"]
+    high     = [s for s in scores if s.get("level") == "High"]
+    medium   = [s for s in scores if s.get("level") == "Medium"]
+    low      = [s for s in scores if s.get("level") == "Low"]
+    top_risk = sorted(scores, key=lambda x: x.get("score", 0), reverse=True)[:10]
+    return {
+        "scores": scores,
+        "summary": {
+            "total":    len(scores),
+            "critical": len(critical),
+            "high":     len(high),
+            "medium":   len(medium),
+            "low":      len(low),
+            "top_risk": top_risk,
+        },
+        "last_cycle": datetime.now().isoformat(),
+    }
+
 
 @app.get("/api/v1/simulations/catalog", response_model=list[SimulationCatalogItem])
 def get_simulations_catalog():
