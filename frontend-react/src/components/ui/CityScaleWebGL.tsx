@@ -802,13 +802,13 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
       return v;
     }
 
-    const osmNaturalAreas = (blueprint?.osm as any)?.naturalAreas ?? resultData?.urbanFeatures?.naturalAreas as GISNaturalArea[] | undefined;
-    const osmLandUseZones = (blueprint?.osm as any)?.landUseZones ?? resultData?.urbanFeatures?.landUseZones as GISLandUseZone[] | undefined;
-    const osmAmenities    = (blueprint?.osm as any)?.amenities    ?? resultData?.urbanFeatures?.amenities    as GISAmenity[]     | undefined;
-    const osmPedestrianAreas = (blueprint?.osm as any)?.pedestrianAreas ?? resultData?.urbanFeatures?.pedestrianAreas as GISNaturalArea[] | undefined;
-    const osmParkingLots     = (blueprint?.osm as any)?.parkingLots     ?? resultData?.urbanFeatures?.parkingLots     as GISNaturalArea[] | undefined;
-    const osmTrees           = (blueprint?.osm as any)?.trees           ?? resultData?.urbanFeatures?.trees           as GISAmenity[]     | undefined;
-    const osmBarriers        = (blueprint?.osm as any)?.barriers        ?? resultData?.urbanFeatures?.barriers        as GISHighway[]     | undefined;
+    const osmNaturalAreas    = ((blueprint?.osm as any)?.naturalAreas    ?? resultData?.urbanFeatures?.naturalAreas)    as GISNaturalArea[] | undefined;
+    const osmLandUseZones    = ((blueprint?.osm as any)?.landUseZones    ?? resultData?.urbanFeatures?.landUseZones)    as GISLandUseZone[] | undefined;
+    const osmAmenities       = ((blueprint?.osm as any)?.amenities       ?? resultData?.urbanFeatures?.amenities)       as GISAmenity[]     | undefined;
+    const osmPedestrianAreas = ((blueprint?.osm as any)?.pedestrianAreas ?? resultData?.urbanFeatures?.pedestrianAreas) as GISNaturalArea[] | undefined;
+    const osmParkingLots     = ((blueprint?.osm as any)?.parkingLots     ?? resultData?.urbanFeatures?.parkingLots)     as GISNaturalArea[] | undefined;
+    const osmTrees           = ((blueprint?.osm as any)?.trees           ?? resultData?.urbanFeatures?.trees)           as GISAmenity[]     | undefined;
+    const osmBarriers        = ((blueprint?.osm as any)?.barriers        ?? resultData?.urbanFeatures?.barriers)        as GISHighway[]     | undefined;
 
     const zoneVertices: number[] = [];
     if (osmNaturalAreas) {
@@ -1185,7 +1185,7 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
     // Apply Gaussian blur before texture upload to eliminate false mountains
     // that arise when coarse DEM data is upsampled to a high-resolution mesh.
     const blurRadius = 2;
-    if (blueprint?.elevation.length) {
+    if (blueprint?.elevation?.length) {
       const smoothed = smoothGrid(blueprint.elevation as number[][], blurRadius);
       normalizedGridRef.current = smoothed; // already normalized 0-1
       const rows = smoothed.length;
