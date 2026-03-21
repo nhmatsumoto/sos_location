@@ -37,6 +37,17 @@ Construir uma plataforma resiliente que integre dados geoespaciais, climáticos,
 
 ---
 
+## 💡 Onde essa plataforma pode ser útil? (Casos de Uso)
+
+O SOS Location foi projetado para operar em cenários críticos onde a rapidez e a precisão das informações são fundamentais e capazes de salvar vidas. A plataforma pode ser aplicada de forma prática em:
+
+- **Desastres Naturais (Enchentes, Deslizamentos, Terremotos):** Mapeamento 3D dinâmico da área afetada, identificação de zonas de risco extremo e rotas bloqueadas, auxiliando de forma decisiva na busca e localização de vítimas.
+- **Coordenação de Resgate e Defesa Civil:** Fornece um painel tático (High-Definition Tactical View) em tempo real centralizado, permitindo aos centros de comando direcionar equipes de campo (bombeiros, socorristas, médicos, voluntários) para as áreas de maior urgência.
+- **Logística Humanitária e Gestão de Crise:** Organização ágil de suprimentos, mapeamento de rotas seguras para escoamento e definição estratégica de pontos de apoio e abrigos temporários.
+- **Monitoramento e Prevenção de Risco:** Integração com dados topográficos e alertas climáticos em tempo real para antecipar áreas de transbordamento ou deslizamento, apoiando a evacuação preventiva das comunidades.
+
+---
+
 ## 🧭 Governança do projeto
 
 A governança do SOS Location segue princípios de impacto social, responsabilidade técnica e transparência:

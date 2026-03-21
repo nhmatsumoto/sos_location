@@ -20,6 +20,15 @@ Born from the legacy of `brumadinho_location`, this project is a personal missio
 ### Mission
 To provide first responders with a "High-Definition Tactical View" of disaster zones. By using AI to leverage billions of data points into actionable 3D environments, we ensure that every second counts when every life is at stake.
 
+### 💡 Where this platform can be useful? (Use Cases)
+
+SOS Location is designed to operate in critical scenarios where the speed and accuracy of information are vital to saving lives. The platform can be practically applied in:
+
+- **Natural Disasters (Floods, Landslides, Earthquakes):** Dynamic 3D mapping of the affected area, identification of extreme risk zones and blocked routes, aiding in the rescue of victims.
+- **Rescue Coordination and Civil Defense:** Providing a real-time Tactical HUD to command centers, allowing them to direct field teams (firefighters, medics, volunteers) to areas of greatest urgency.
+- **Humanitarian Logistics and Crisis Management:** Agile organization of supplies, mapping of safe logistical routes, and strategic definition of support points and temporary shelters.
+- **Risk Monitoring and Prevention:** Integration with topographical and climate data to anticipate extreme events (like landslides or floodings), supporting the preventive evacuation of communities.
+
 ---
 
 ## 🛠️ Technology Stack (Full Spectrum)
