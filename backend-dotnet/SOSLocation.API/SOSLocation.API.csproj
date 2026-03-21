@@ -29,6 +29,7 @@
   <ItemGroup>
     <ProjectReference Include="..\SOSLocation.Application\SOSLocation.Application.csproj" />
     <ProjectReference Include="..\SOSLocation.Infrastructure\SOSLocation.Infrastructure.csproj" />
+    <ProjectReference Include="..\SOSLocation.ML\SOSLocation.ML.csproj" />
   </ItemGroup>
 
 </Project>

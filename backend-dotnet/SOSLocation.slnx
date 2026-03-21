@@ -3,4 +3,5 @@
   <Project Path="SOSLocation.Application/SOSLocation.Application.csproj" />
   <Project Path="SOSLocation.Domain/SOSLocation.Domain.csproj" />
   <Project Path="SOSLocation.Infrastructure/SOSLocation.Infrastructure.csproj" />
+  <Project Path="SOSLocation.ML/SOSLocation.ML.csproj" />
 </Solution>
