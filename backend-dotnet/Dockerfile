@@ -7,6 +7,7 @@ COPY ["SOSLocation.Domain/SOSLocation.Domain.csproj", "SOSLocation.Domain/"]
 COPY ["SOSLocation.Application/SOSLocation.Application.csproj", "SOSLocation.Application/"]
 COPY ["SOSLocation.Infrastructure/SOSLocation.Infrastructure.csproj", "SOSLocation.Infrastructure/"]
 COPY ["SOSLocation.API/SOSLocation.API.csproj", "SOSLocation.API/"]
+COPY ["SOSLocation.ML/SOSLocation.ML.csproj", "SOSLocation.ML/"]
 COPY ["Directory.Build.props", "./"]
 
 # Restaurar
