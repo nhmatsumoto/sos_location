@@ -16,7 +16,10 @@ import {
   ZONE_VS, ZONE_FS,
   AMENITY_VS, AMENITY_FS,
   FIRE_VS, FIRE_FS,
+  TORNADO_VS, TORNADO_FS,
   GRASS_VS, GRASS_FS,
+  TSUNAMI_WAVE_VS, TSUNAMI_WAVE_FS,
+  SMOKE_VS, SMOKE_FS,
 } from '../../lib/webgl/shaders/cityShaders';
 import { SKY_VS, SKY_FS, PRECIP_VS, PRECIP_FS, FOG_VS, FOG_FS } from '../../lib/webgl/shaders/atmosphereShaders';
 import { ENGINEERING_SHADERS } from '../../lib/webgl/shaders/engineeringShaders';
@@ -616,6 +619,9 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
     const zoneProgram      = renderer.createProgram(ZONE_VS,      ZONE_FS);
     const amenityProgram   = renderer.createProgram(AMENITY_VS,   AMENITY_FS);
     const fireProgram      = renderer.createProgram(FIRE_VS,      FIRE_FS);
+    const tornadoProgram   = renderer.createProgram(TORNADO_VS,   TORNADO_FS);
+    const smokeProgram     = renderer.createProgram(SMOKE_VS,     SMOKE_FS);
+    const tsunamiWaveProgram = renderer.createProgram(TSUNAMI_WAVE_VS, TSUNAMI_WAVE_FS);
 
     const identityMatrix = new Float32Array([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]);
 
@@ -1219,6 +1225,40 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
     }
     const precipVBO   = renderer.createBuffer(precipData);
 
+    // ── TORNADO FUNNEL MESH ───────────────────────────────────────────────────
+    // Grid of (theta_norm, y_norm) vertices forming the funnel surface.
+    const FUNNEL_SEG_Y     = 28;  // vertical rings
+    const FUNNEL_SEG_THETA = 36;  // vertices per ring
+    const funnelVerts: number[] = [];
+    const funnelIdx:   number[] = [];
+    for (let yi = 0; yi <= FUNNEL_SEG_Y; yi++) {
+      const yNorm = yi / FUNNEL_SEG_Y;
+      for (let ti = 0; ti <= FUNNEL_SEG_THETA; ti++) {
+        funnelVerts.push(ti / FUNNEL_SEG_THETA, yNorm);
+      }
+    }
+    for (let yi = 0; yi < FUNNEL_SEG_Y; yi++) {
+      for (let ti = 0; ti < FUNNEL_SEG_THETA; ti++) {
+        const row = yi * (FUNNEL_SEG_THETA + 1);
+        const a = row + ti, b = row + ti + 1;
+        const c = a + FUNNEL_SEG_THETA + 1, d = b + FUNNEL_SEG_THETA + 1;
+        funnelIdx.push(a, b, c,  b, d, c);
+      }
+    }
+    const funnelVBO      = renderer.createBuffer(new Float32Array(funnelVerts));
+    const funnelIBO      = renderer.createBuffer(new Uint32Array(funnelIdx), gl.ELEMENT_ARRAY_BUFFER);
+    const funnelTriCount = funnelIdx.length;
+
+    // ── SMOKE SEEDS (wildfire plume) ─────────────────────────────────────────
+    const smokeCount = 12000;
+    const smokeData  = new Float32Array(smokeCount * 3);
+    for (let i = 0; i < smokeData.length; i += 3) {
+      smokeData[i]   = Math.random();   // angle seed
+      smokeData[i+1] = Math.random();   // phase 0-1
+      smokeData[i+2] = Math.random();   // radius seed
+    }
+    const smokeVBO = renderer.createBuffer(smokeData);
+
     // Keep legacy particleVBO alias for old pass (tornado only)
     const particleCount = 60000;
     const pData = new Float32Array(particleCount * 3);
@@ -1228,6 +1268,33 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
       pData[i+2] = Math.random() * worldSpanZ - areaHalfZ;
     }
     const particleVBO = renderer.createBuffer(pData);
+
+    // ── TSUNAMI WAVE GRID ────────────────────────────────────────────────────
+    // Dense quad grid in normalised -1..1 XZ. Each vertex = vec2(gridX, gridZ).
+    // The VS displaces Y based on soliton profile and shoaling.
+    const TWAVE_SEGS = 120; // 120×120 grid = 14,400 quads = 28,800 triangles
+    const tsunamiGridVerts: number[] = [];
+    const tsunamiGridIdx:   number[] = [];
+    for (let iz = 0; iz <= TWAVE_SEGS; iz++) {
+      for (let ix = 0; ix <= TWAVE_SEGS; ix++) {
+        tsunamiGridVerts.push(
+          (ix / TWAVE_SEGS) * 2.0 - 1.0,  // x: -1..1
+          (iz / TWAVE_SEGS) * 2.0 - 1.0   // z: -1..1
+        );
+      }
+    }
+    for (let iz = 0; iz < TWAVE_SEGS; iz++) {
+      for (let ix = 0; ix < TWAVE_SEGS; ix++) {
+        const tl = iz * (TWAVE_SEGS + 1) + ix;
+        const tr = tl + 1;
+        const bl = tl + (TWAVE_SEGS + 1);
+        const br = bl + 1;
+        tsunamiGridIdx.push(tl, bl, tr, tr, bl, br);
+      }
+    }
+    const tsunamiWaveVBO  = renderer.createBuffer(new Float32Array(tsunamiGridVerts));
+    const tsunamiWaveIBO  = renderer.createBuffer(new Uint32Array(tsunamiGridIdx), gl.ELEMENT_ARRAY_BUFFER);
+    const tsunamiWaveCount = tsunamiGridIdx.length;
 
     // ── SEMANTIC VBOs ─────────────────────────────────────────────────────────
     const semTerrainVBO  = renderer.createBuffer(new Float32Array([0,0,0, 0,0, 0,0, 0]));
@@ -1685,6 +1752,40 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
       const time   = (Date.now() - startTime) / 1000;
       const reveal = Math.min(1.0, time / 2.0);
 
+      // ── DISASTER PHYSICS (hoisted — used by terrain, buildings, camera) ──────
+      const isQuake  = simData.type === 'EARTHQUAKE';
+      const isTsunami = simData.type === 'TSUNAMI';
+      const quakeMag = isQuake ? Math.min(9.0, simData.magnitude ?? 5.0) / 9.0 : 0.0;
+      const quakePWave = isQuake
+        ? quakeMag * Math.min(1.0, time * 2.0) * Math.exp(-Math.max(0, time - 0.8) * 1.0)
+        : 0.0;
+      const sWaveBase = isQuake
+        ? quakeMag * Math.min(1.0, Math.max(0, time - 1.5) / 1.5) * Math.exp(-Math.max(0, time - 2.5) * 0.20)
+        : 0.0;
+      const afterT     = time - 18.0;
+      const aftershock = isQuake && afterT > 0
+        ? quakeMag * 0.32 * Math.max(0, Math.sin(afterT * 0.41) - 0.72) / 0.28
+          * Math.exp(-((afterT % (Math.PI / 0.41)) * 2.5))
+        : 0.0;
+      const quakeSWave     = Math.min(1.0, sWaveBase + aftershock);
+      const quakeCollapse  = isQuake ? Math.max(0, (quakeMag - 0.61) / 0.39) : 0.0;
+      const quakeOriginX   = 0.5;
+      const quakeOriginZ   = 0.5;
+      // Tsunami phases
+      const tsunamiPhase = !isTsunami ? 0
+        : time < 5  ? 0 : time < 15 ? 1 : time < 25 ? 2 : time < 80 ? 3 : 4;
+      const tsunamiDrawback = isTsunami && tsunamiPhase === 1
+        ? Math.min(1.0, (time - 5.0) / 8.0) : 0.0;
+      const tsunamiDirRad = Math.PI;
+      const waveProgress  = isTsunami && tsunamiPhase >= 2
+        ? Math.min(1.0, (time - 15.0) / 10.0) : 0.0;
+      const wHalfX = blueprint.areaBounds
+        ? (blueprint.areaBounds.maxX - blueprint.areaBounds.minX) / 2 * CM : 15000;
+      const wHalfZ = blueprint.areaBounds
+        ? (blueprint.areaBounds.maxZ - blueprint.areaBounds.minZ) / 2 * CM : 15000;
+      const waveFrontZ = wHalfZ - waveProgress * wHalfZ * 2.2;
+      const waveFrontX = 0.0;
+
       // ── CHARACTER: snap to terrain every frame ─────────────────────────────
       charPosRef.current[1] = sampleTerrainCPU(charPosRef.current[0], charPosRef.current[2]);
 
@@ -1769,33 +1870,56 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
         compassBearingRef.current = cam.current.yaw;
       }
 
-      // Earthquake camera shake
-      if (simData.type === 'EARTHQUAKE' && (simData.magnitude ?? 0) > 0) {
-        const mag     = Math.min(9.0, simData.magnitude ?? 0) / 9.0;
-        const decay   = Math.exp(-Math.max(0, time - 2.0) * 0.4);
-        const shakeAmp = mag * 120 * decay; // 120 cm max shake = 1.2 m
+      // Earthquake camera shake — phase-aware (P-wave vertical, S-wave lateral, aftershocks)
+      if (isQuake && quakeMag > 0) {
+        // P-wave: fast vertical bounce, first 2 seconds
+        const pAmp = quakePWave * 45;
+        const pY   = Math.abs(Math.sin(time * 18.0)) * pAmp;
+
+        // S-wave: strong lateral shaking
+        const sDecay = Math.exp(-Math.max(0, time - 2.0) * 0.4);
+        const sAmp   = quakeMag * 130 * sDecay;
+        const sX     = Math.sin(time * 24.0) * sAmp;
+        const sZ     = Math.sin(time * 31.0 + 1.2) * sAmp * 0.8;
+
+        // Aftershock pulses
+        const asT   = time - 18.0;
+        const asPulse = asT > 0
+          ? quakeMag * 50 * Math.max(0, Math.sin(asT * 0.41) - 0.72) / 0.28
+            * Math.exp(-((asT % (Math.PI / 0.41)) * 2.0))
+          : 0.0;
+        const asX = Math.sin(time * 17.3) * asPulse;
+        const asZ = Math.sin(time * 21.7 + 0.8) * asPulse;
+
         finalCamPos = [
-          finalCamPos[0] + Math.sin(time * 24.0) * shakeAmp,
-          finalCamPos[1] + Math.abs(Math.sin(time * 19.0)) * shakeAmp * 0.4,
-          finalCamPos[2] + Math.sin(time * 31.0 + 1.2) * shakeAmp * 0.8,
+          finalCamPos[0] + sX + asX,
+          finalCamPos[1] + pY,
+          finalCamPos[2] + sZ + asZ,
         ];
+      }
+
+      // Tsunami: distant tremor rumble during pre-phase (t < 5s)
+      if (isTsunami && tsunamiPhase === 0) {
+        const rumble = 0.2 * Math.sin(time * 11.0) * Math.sin(time * 7.3);
+        finalCamPos = [finalCamPos[0] + rumble * 20, finalCamPos[1], finalCamPos[2] + rumble * 15];
       }
 
       const { width, height } = canvasRef.current;
       renderer.setViewport(width, height);
       renderer.clear(0.01, 0.02, 0.04, 1.0);
 
-      // Dynamic sun: simulate a full day in 180 s; sun rises from east, arcs to zenith, sets west
-      const dayPeriod = 180.0; // seconds for a simulated day
-      const dayFrac   = (time % dayPeriod) / dayPeriod; // 0-1
-      const sunEl     = Math.sin(dayFrac * Math.PI) * 72; // elevation: 0° dawn/dusk, 72° noon
-      const sunAz     = (dayFrac - 0.25) * Math.PI * 2;  // azimuth sweep
+      // Fixed midday sun: elevation 65°, azimuth 215° (SSW) — crisp directional shadows
+      // sunSync mode overrides with real astronomical position from GISMath.
+      const SUN_ELEV_DEG = 65.0;
+      const SUN_AZ_DEG   = 215.0; // SSW: diagonal lighting, avoids flat top-down look
+      const sunElRad = SUN_ELEV_DEG * Math.PI / 180;
+      const sunAzRad = SUN_AZ_DEG   * Math.PI / 180;
       const dynamicLightDir: [number,number,number] = layers?.sunSync
         ? (() => { const now = new Date(); const [az,el] = GISMath.sunPosition(centerLat,centerLng,now); return GISMath.sunToLightDir(az,el); })()
         : [
-            Math.sin(sunAz) * Math.cos(sunEl * Math.PI / 180),
-            Math.sin(sunEl * Math.PI / 180),
-            Math.cos(sunAz) * Math.cos(sunEl * Math.PI / 180),
+            Math.sin(sunAzRad) * Math.cos(sunElRad),   // x ≈ -0.390
+            Math.sin(sunElRad),                         // y ≈  0.906  (sin 65°)
+            Math.cos(sunAzRad) * Math.cos(sunElRad),   // z ≈ -0.168
           ];
 
       // FP mode: wider FOV + closer near clip for immersive first-person feel
@@ -1809,7 +1933,10 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
 
       const soilType  = resultData?.soil?.type || 'Clay';
       const soilColor = soilType.includes('Clay') ? [0.35, 0.15, 0.08] : [0.25, 0.25, 0.18];
-      const L_COLOR   = [1.1, 1.1, 1.2] as [number, number, number];
+      // Midday sun color at 65° elevation: warm white (very slight yellow tint from Rayleigh)
+      // At high elevations the sun is nearly white; slight warmth from residual scattering.
+      const L_COLOR   = [1.18, 1.10, 0.95] as [number, number, number];
+      const L_INTENSITY = Math.max(lightIntensity, 1.35); // boost for noon brightness
 
       const isRealMode = 1; // Always use solid realistic colours — satellite is for semantic data only
 
@@ -1850,7 +1977,7 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
         renderer.setUniform1f('u_topoOffset', topoOffset);
         renderer.setUniform1f('u_reveal', reveal);
         renderer.setUniform1f('u_time', time);
-        renderer.setUniform1f('u_lightIntensity', lightIntensity);
+        renderer.setUniform1f('u_lightIntensity', L_INTENSITY);
         renderer.setUniform3f('u_soilColor', soilColor[0], soilColor[1], soilColor[2]);
         // Terrain always uses solid topographic colours — satellite used only for semantic data
         renderer.setUniform1i('u_topoMode', layers.topography ? 1 : 0);
@@ -1875,9 +2002,21 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
         const fireScorch = simData.type === 'WILDFIRE'
           ? Math.min(1.0, ((simData.spreadRate ?? 100) / 800.0) * Math.min(1.0, time / 8.0))
           : 0.0;
-        renderer.setUniform1f('u_wetness',      wetness);
-        renderer.setUniform1f('u_fireScorch',   fireScorch);
-        renderer.setUniform1i('u_earthquakeMod', simData.type === 'EARTHQUAKE' ? 1 : 0);
+        renderer.setUniform1f('u_wetness',          wetness);
+        renderer.setUniform1f('u_fireScorch',       fireScorch);
+        renderer.setUniform1i('u_earthquakeMod',    isQuake ? 1 : 0);
+        renderer.setUniform1f('u_time',             time);
+        renderer.setUniform1f('u_quakeOriginX',     quakeOriginX);
+        renderer.setUniform1f('u_quakeOriginZ',     quakeOriginZ);
+        renderer.setUniform1f('u_tsunamiDrawback',  tsunamiDrawback);
+        renderer.setUniform1f('u_droughtMod',
+          (simData.type === 'DROUGHT' || simData.type === 'DEFORESTATION')
+            ? Math.min(1.0, (simData.intensity ?? 50) / 100.0)
+            : 0.0);
+        renderer.setUniform1f('u_mudslideMod',
+          (simData.type === 'MUDSLIDE' || simData.type === 'LANDSLIDE')
+            ? Math.min(1.0, (simData.intensity ?? 50) / 100.0 * Math.min(1.0, time / 4.0))
+            : 0.0);
 
         gl.bindBuffer(gl.ARRAY_BUFFER, terrainVBO);
         renderer.setAttribute('a_position', 3, gl.FLOAT, false, 8 * 4, 0);
@@ -1901,7 +2040,7 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
         renderer.setUniform1f('u_reveal', reveal);
         renderer.setUniform3f('u_lightDir', dynamicLightDir[0], dynamicLightDir[1], dynamicLightDir[2]);
         renderer.setUniform3f('u_lightColor', L_COLOR[0], L_COLOR[1], L_COLOR[2]);
-        renderer.setUniform1f('u_lightIntensity', lightIntensity);
+        renderer.setUniform1f('u_lightIntensity', L_INTENSITY);
         renderer.bindTexture(topoTexture, 2);
         renderer.setUniform1i('u_topoMap', 2);
 
@@ -2036,6 +2175,60 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
         gl.drawArrays(gl.LINES, 0, waterwayVertices.length / 3);
       }
 
+      // ── BUILDING DISASTER UNIFORMS (computed once, applied to all building draws) ──
+      const bDisasterType  = getDisasterTypeInt(simData.type);
+      const bDisasterInt   = Math.min(1.0, (simData.intensity ?? 50) / 100.0);
+      const buildingDamage = (() => {
+        switch (simData.type) {
+          case 'EARTHQUAKE':
+            return Math.min(1.0, ((simData.magnitude ?? 0) / 9.0) * bDisasterInt * 1.3);
+          case 'HURRICANE': case 'CYCLONE':
+            return Math.min(1.0, ((simData.windSpeed ?? 0) / 280.0) * bDisasterInt);
+          case 'TORNADO':
+            return Math.min(1.0, ((simData.windSpeed ?? 0) / 400.0) * bDisasterInt * 1.2);
+          case 'WILDFIRE':
+            return Math.min(1.0, ((simData.spreadRate ?? 0) / 600.0) * Math.min(1.0, time / 8.0));
+          case 'FLOOD': case 'TSUNAMI':
+            return Math.min(1.0, (simData.waterLevel ?? 0) / 12.0);
+          case 'MUDSLIDE': case 'LANDSLIDE':
+            return Math.min(1.0, bDisasterInt * 0.65);
+          default:
+            return 0.0;
+        }
+      })();
+
+      // ── Wave impulse (tsunami) and animated waterLevel ───────────────────────
+      const waveImpulse = isTsunami
+        ? (tsunamiPhase === 2 ? Math.min(1.0, (time - 15.0) / 5.0) * buildingDamage
+         : tsunamiPhase === 3 ? buildingDamage * 0.6
+         : 0.0)
+        : 0.0;
+      // Animated waterLevel for tsunami: rises progressively during inundation
+      const tsunamiWaterLevel = isTsunami
+        ? (tsunamiPhase >= 3
+           ? Math.min(simData.waterLevel ?? 10, ((time - 25.0) / 20.0) * (simData.waterLevel ?? 10))
+           : 0.0)
+        : (simData.waterLevel ?? 0);
+
+      // Animated waterLevel for FLOOD: water rises over first third of event duration
+      const floodRiseDuration = Math.max(10.0, (simData.duration ?? 60) / 3.0);
+      const floodAnimWaterLevel = simData.type === 'FLOOD'
+        ? Math.min(simData.waterLevel ?? 0, (simData.waterLevel ?? 0) * Math.min(1.0, time / floodRiseDuration))
+        : (simData.waterLevel ?? 0);
+
+      // Disaster-specific float param: flood waterLine (cm), snow accum (0-1), mud height (0-1)
+      const buildingDisasterParam = (() => {
+        switch (simData.type) {
+          case 'TSUNAMI':              return tsunamiWaterLevel * CM;
+          case 'FLOOD':                return floodAnimWaterLevel * CM;
+          case 'SNOW':  case 'FROST':  return Math.min(1.0, (simData.snowfall ?? 0) / 40.0);
+          case 'HAIL':               return Math.min(1.0, (simData.intensity ?? 50) / 100.0);
+          case 'DROUGHT': case 'DEFORESTATION': return Math.min(1.0, (simData.intensity ?? 50) / 100.0);
+          case 'MUDSLIDE': case 'LANDSLIDE': return Math.min(1.0, (simData.soilMoisture ?? 50) / 100.0);
+          default:                     return 0.0;
+        }
+      })();
+
       // ── 5. BUILDINGS ──────────────────────────────────────────────────────────
       if ((layers.buildings || layers.residential) && vertexCount > 0) {
         gl.enable(gl.POLYGON_OFFSET_FILL);
@@ -2054,7 +2247,7 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
         renderer.setUniform1i('u_realisticMode', isRealMode);
         renderer.setUniform3f('u_lightDir', dynamicLightDir[0], dynamicLightDir[1], dynamicLightDir[2]);
         renderer.setUniform3f('u_lightColor', L_COLOR[0], L_COLOR[1], L_COLOR[2]);
-        renderer.setUniform1f('u_lightIntensity', lightIntensity);
+        renderer.setUniform1f('u_lightIntensity', L_INTENSITY);
         renderer.bindTexture(topoTexture, 1);
         renderer.setUniform1i('u_topoMap', 1);
 
@@ -2073,6 +2266,23 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
         } else {
           renderer.setUniform4f('u_highlightAABB', 1e9, 1e9, -1e9, -1e9);
         }
+
+        // Disaster response — earthquake + tsunami uniforms
+        renderer.setUniform1f('u_buildingDamage',  buildingDamage);
+        renderer.setUniform1i('u_disasterType',    bDisasterType);
+        renderer.setUniform1f('u_disasterParam',   buildingDisasterParam);
+        // Earthquake wave physics
+        renderer.setUniform1f('u_quakePWave',      quakePWave);
+        renderer.setUniform1f('u_quakeSWave',      quakeSWave);
+        renderer.setUniform1f('u_quakeOriginX',    quakeOriginX);
+        renderer.setUniform1f('u_quakeOriginZ',    quakeOriginZ);
+        renderer.setUniform1f('u_quakeCollapse',   quakeCollapse);
+        // Tsunami wave impulse
+        renderer.setUniform1f('u_tsunamiPhase',    tsunamiPhase);
+        renderer.setUniform1f('u_tsunamiDir',      tsunamiDirRad);
+        renderer.setUniform1f('u_waveFrontX',      waveFrontX);
+        renderer.setUniform1f('u_waveFrontZ',      waveFrontZ);
+        renderer.setUniform1f('u_waveImpulse',     waveImpulse);
 
         gl.bindBuffer(gl.ARRAY_BUFFER, buildingVBO);
         renderer.setAttribute('a_position', 3, gl.FLOAT, false, 7 * 4, 0);
@@ -2100,11 +2310,27 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
         renderer.setUniform1i('u_realisticMode', isRealMode);
         renderer.setUniform3f('u_lightDir', dynamicLightDir[0], dynamicLightDir[1], dynamicLightDir[2]);
         renderer.setUniform3f('u_lightColor', L_COLOR[0], L_COLOR[1], L_COLOR[2]);
-        renderer.setUniform1f('u_lightIntensity', lightIntensity);
+        renderer.setUniform1f('u_lightIntensity', L_INTENSITY);
         renderer.bindTexture(topoTexture, 1);
         renderer.setUniform1i('u_topoMap', 1);
         renderer.setUniform1i('u_buildingType', 0); // residential
         renderer.setUniform4f('u_highlightAABB', 1e9, 1e9, -1e9, -1e9);
+
+        // Disaster response — earthquake + tsunami uniforms (mirrored from OSM draw)
+        renderer.setUniform1f('u_buildingDamage',  buildingDamage);
+        renderer.setUniform1i('u_disasterType',    bDisasterType);
+        renderer.setUniform1f('u_disasterParam',   buildingDisasterParam);
+        renderer.setUniform1f('u_quakePWave',      quakePWave);
+        renderer.setUniform1f('u_quakeSWave',      quakeSWave);
+        renderer.setUniform1f('u_quakeOriginX',    quakeOriginX);
+        renderer.setUniform1f('u_quakeOriginZ',    quakeOriginZ);
+        renderer.setUniform1f('u_quakeCollapse',   quakeCollapse);
+        renderer.setUniform1f('u_tsunamiPhase',    tsunamiPhase);
+        renderer.setUniform1f('u_tsunamiDir',      tsunamiDirRad);
+        renderer.setUniform1f('u_waveFrontX',      waveFrontX);
+        renderer.setUniform1f('u_waveFrontZ',      waveFrontZ);
+        renderer.setUniform1f('u_waveImpulse',     waveImpulse);
+
         gl.bindBuffer(gl.ARRAY_BUFFER, lcBuildingVBO);
         renderer.setAttribute('a_position', 3, gl.FLOAT, false, 7 * 4, 0);
         renderer.setAttribute('a_meta',     4, gl.FLOAT, false, 7 * 4, 3 * 4);
@@ -2146,18 +2372,52 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
         gl.disable(gl.BLEND);
       }
 
-      // ── 6. FLOOD WATER ────────────────────────────────────────────────────────
-      if (simData.type === 'FLOOD' && simData.waterLevel > 0) {
+      // ── 6a. TSUNAMI WAVE FRONT ────────────────────────────────────────────────
+      if (isTsunami && (tsunamiPhase === 2 || tsunamiPhase === 3) && waveProgress > 0.01) {
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+        gl.depthMask(false);
+
+        renderer.useProgram(tsunamiWaveProgram);
+        renderer.setUniformMatrix4('u_projectionMatrix', projMatrix);
+        renderer.setUniformMatrix4('u_viewMatrix', viewMatrix);
+        renderer.setUniformMatrix4('u_modelMatrix', modelMatrix);
+        renderer.bindTexture(topoTexture, 0);
+        renderer.setUniform1i('u_topoMap', 0);
+        renderer.setUniform1f('u_topoScale',    effectiveTopoScale);
+        renderer.setUniform1f('u_time',         time);
+        renderer.setUniform1f('u_areaHalfX',    areaHalfX);
+        renderer.setUniform1f('u_areaHalfZ',    areaHalfZ);
+        renderer.setUniform1f('u_reveal',       reveal);
+        renderer.setUniform1f('u_waveProgress', waveProgress);
+        renderer.setUniform1f('u_tsunamiDir',   tsunamiDirRad);
+        renderer.setUniform1f('u_waveHeight',   Math.max(500, (simData.waveHeight ?? 10) * CM));
+        renderer.setUniform1f('u_waveFrontX',   waveFrontX);
+        renderer.setUniform1f('u_waveFrontZ',   waveFrontZ);
+        renderer.setUniform1f('u_waveWidth',    wHalfZ * 0.15); // width ≈ 15% of city span
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, tsunamiWaveVBO);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, tsunamiWaveIBO);
+        renderer.setAttribute('a_gridPos', 2, gl.FLOAT, false, 2 * 4, 0);
+        gl.drawElements(gl.TRIANGLES, tsunamiWaveCount, gl.UNSIGNED_INT, 0);
+
+        gl.depthMask(true);
+        gl.disable(gl.BLEND);
+      }
+
+      // ── 6b. FLOOD WATER / TSUNAMI INUNDATION ─────────────────────────────────
+      const floodWaterLevel = isTsunami ? tsunamiWaterLevel : floodAnimWaterLevel;
+      if ((simData.type === 'FLOOD' || (isTsunami && tsunamiPhase >= 3)) && floodWaterLevel > 0) {
         renderer.useProgram(waterProgram);
         renderer.setUniformMatrix4('u_projectionMatrix', projMatrix);
         renderer.setUniformMatrix4('u_viewMatrix', viewMatrix);
         renderer.setUniformMatrix4('u_modelMatrix', modelMatrix);
         renderer.setUniform3f('u_lightDir', dynamicLightDir[0], dynamicLightDir[1], dynamicLightDir[2]);
         renderer.setUniform3f('u_lightColor', L_COLOR[0], L_COLOR[1], L_COLOR[2]);
-        renderer.setUniform1f('u_lightIntensity', lightIntensity);
+        renderer.setUniform1f('u_lightIntensity', L_INTENSITY);
         renderer.setUniform1f('u_topoScale', effectiveTopoScale);
         renderer.setUniform1f('u_topoOffset', topoOffset);
-        renderer.setUniform1f('u_waterLevel', (simData.waterLevel ?? 0) * CM);
+        renderer.setUniform1f('u_waterLevel', floodWaterLevel * CM);
         renderer.setUniform1f('u_time', time);
         renderer.setUniform1f('u_reveal', reveal);
         renderer.bindTexture(topoTexture, 0);
@@ -2214,23 +2474,89 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
           gl.disable(gl.BLEND);
         }
 
-        // Legacy TORNADO vortex particles (use old particle shader)
+        // TORNADO: 3D funnel cone + debris vortex particles
         if (simData.type === 'TORNADO') {
+          const tWind    = simData.windSpeed ?? 80.0;
+          const tIntens  = Math.min(1.0, (simData.intensity ?? 50) / 100.0);
+          // Cloud base altitude — use cloud base heuristic
+          const tCloudBase = Math.max(3000, Math.min(8000, (25 - (simData.temp ?? 25)) * 123 + 2000)) * CM;
+          // Funnel reaches from cloud base down, with tip ~100m above ground
+          const funnelH    = tCloudBase * 0.85;
+          // Base radius (at cloud base): EF scale → radius 300-1200m
+          const funnelR    = Math.min(120000, Math.max(15000, tIntens * 80000 + 15000));
+
+          // 3D funnel cone
           gl.enable(gl.BLEND);
           gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+          gl.disable(gl.CULL_FACE);
           gl.depthMask(false);
+          renderer.useProgram(tornadoProgram);
+          renderer.setUniformMatrix4('u_projMatrix',  projMatrix);
+          renderer.setUniformMatrix4('u_viewMatrix',  viewMatrix);
+          renderer.setUniform1f('u_time',              time);
+          renderer.setUniform1f('u_reveal',            reveal);
+          renderer.setUniform1f('u_intensity',         tIntens);
+          renderer.setUniform1f('u_funnelBaseRadius',  funnelR);
+          renderer.setUniform1f('u_funnelHeight',      funnelH);
+          renderer.setUniform1f('u_funnelCenterX',     0.0);
+          renderer.setUniform1f('u_funnelCenterZ',     0.0);
+          renderer.setUniform1f('u_funnelBaseY',       tCloudBase);
+          renderer.setUniform1f('u_windSpeed',         tWind);
+          gl.bindBuffer(gl.ARRAY_BUFFER, funnelVBO);
+          renderer.setAttribute('a_uv', 2, gl.FLOAT, false, 0, 0);
+          gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, funnelIBO);
+          gl.drawElements(gl.TRIANGLES, funnelTriCount, gl.UNSIGNED_INT, 0);
+
+          // Debris vortex particles orbiting the funnel base
           renderer.useProgram(particleProgram);
           renderer.setUniformMatrix4('u_projectionMatrix', projMatrix);
           renderer.setUniformMatrix4('u_viewMatrix', viewMatrix);
           renderer.setUniform1f('u_time', time);
           renderer.setUniform1f('u_reveal', reveal);
           renderer.setUniform1i('u_type', 1);
-          renderer.setUniform1f('u_windSpeed', simData.windSpeed ?? 10.0);
+          renderer.setUniform1f('u_windSpeed', tWind);
           renderer.setUniform1f('u_windDirection', simData.windDirection ?? 0.0);
-          renderer.setUniform1f('u_pressure', simData.pressure ?? 1013.0);
+          renderer.setUniform1f('u_pressure', simData.pressure ?? 990.0);
           gl.bindBuffer(gl.ARRAY_BUFFER, particleVBO);
           renderer.setAttribute('a_position', 3, gl.FLOAT, false, 0, 0);
           gl.drawArrays(gl.POINTS, 0, Math.floor(particleCount * Math.min(1.0, particleIntensity)));
+          gl.depthMask(true);
+          gl.enable(gl.CULL_FACE);
+          gl.disable(gl.BLEND);
+        }
+
+        // WILDFIRE smoke plume (rising billboard particles)
+        if (simData.type === 'WILDFIRE' && (simData.intensity ?? 0) > 5) {
+          const fireRadius = Math.max(4000, (((simData.spreadRate ?? 200) / 3600) * time * 4 + 60) * CM);
+          const windRad2   = ((simData.windDirection ?? 45) * Math.PI) / 180;
+          const windMs2    = ((simData.windSpeed ?? 10) / 3.6) * CM;
+          const fireInten  = Math.min(1.0, (simData.intensity ?? 50) / 60.0);
+          // Smoke altitude: fire radius determines convective column height (1.5× radius)
+          const smokeAlt   = Math.min(fireRadius * 1.5, 25000);
+          gl.enable(gl.BLEND);
+          gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+          gl.depthMask(false);
+          renderer.useProgram(smokeProgram);
+          renderer.setUniformMatrix4('u_projMatrix',  projMatrix);
+          renderer.setUniformMatrix4('u_viewMatrix',  viewMatrix);
+          renderer.setUniform1f('u_time',        time);
+          renderer.setUniform1f('u_reveal',      reveal);
+          renderer.setUniform1f('u_areaHalfX',   areaHalfX);
+          renderer.setUniform1f('u_areaHalfZ',   areaHalfZ);
+          renderer.setUniform1f('u_cloudBase',   smokeAlt);
+          renderer.setUniform1f('u_windX',       Math.sin(windRad2) * windMs2);
+          renderer.setUniform1f('u_windZ',       Math.cos(windRad2) * windMs2);
+          renderer.setUniform1f('u_fireRadius',  fireRadius * 0.6);  // emit from inner 60% of fire zone
+          renderer.setUniform1f('u_fireCenterX', 0.0);
+          renderer.setUniform1f('u_fireCenterZ', 0.0);
+          renderer.setUniform1f('u_intensity',   fireInten);
+          renderer.bindTexture(topoTexture, 0);
+          renderer.setUniform1i('u_topoMap',     0);
+          renderer.setUniform1f('u_topoScale',   effectiveTopoScale);
+          renderer.setUniform1f('u_topoOffset',  topoOffset);
+          gl.bindBuffer(gl.ARRAY_BUFFER, smokeVBO);
+          renderer.setAttribute('a_seeds', 3, gl.FLOAT, false, 0, 0);
+          gl.drawArrays(gl.POINTS, 0, smokeCount);
           gl.depthMask(true);
           gl.disable(gl.BLEND);
         }
@@ -2254,7 +2580,7 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
         renderer.setUniform1f('u_reveal', reveal);
         renderer.setUniform3f('u_lightDir', dynamicLightDir[0], dynamicLightDir[1], dynamicLightDir[2]);
         renderer.setUniform3f('u_lightColor', L_COLOR[0], L_COLOR[1], L_COLOR[2]);
-        renderer.setUniform1f('u_lightIntensity', lightIntensity);
+        renderer.setUniform1f('u_lightIntensity', L_INTENSITY);
         renderer.bindTexture(topoTexture, 0);
         renderer.setUniform1i('u_topoMap', 0);
 
@@ -2336,7 +2662,7 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
         renderer.setUniform1f('u_charYaw', charYawRef.current);
         renderer.setUniform3f('u_lightDir', dynamicLightDir[0], dynamicLightDir[1], dynamicLightDir[2]);
         renderer.setUniform3f('u_lightColor', L_COLOR[0], L_COLOR[1], L_COLOR[2]);
-        renderer.setUniform1f('u_lightIntensity', lightIntensity);
+        renderer.setUniform1f('u_lightIntensity', L_INTENSITY);
         gl.bindBuffer(gl.ARRAY_BUFFER, charVBO);
         renderer.setAttribute('a_position', 3, gl.FLOAT, false, 0, 0);
         gl.drawArrays(gl.TRIANGLES, 0, charVertCount);
@@ -2429,6 +2755,9 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
       gl.deleteBuffer(buildingVBO);
       gl.deleteBuffer(particleVBO);
       gl.deleteBuffer(precipVBO);
+      gl.deleteBuffer(smokeVBO);
+      gl.deleteBuffer(funnelVBO);
+      gl.deleteBuffer(funnelIBO);
       gl.deleteBuffer(skyQuadVBO);
       gl.deleteBuffer(waterwayVBO);
       gl.deleteBuffer(waterAreaVBO);
@@ -2470,6 +2799,8 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
       if (lcVegVBO) gl.deleteBuffer(lcVegVBO);
       if (lcWaterVBO) gl.deleteBuffer(lcWaterVBO);
       gl.deleteProgram(fireProgram);
+      gl.deleteProgram(smokeProgram);
+      gl.deleteProgram(tornadoProgram);
     };
   }, [
     centerLat, centerLng, layersKey, resultData, blueprint, heightMapUrl,

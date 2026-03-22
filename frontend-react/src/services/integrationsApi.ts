@@ -1,13 +1,29 @@
 import { apiClient } from './apiClient';
 
+export interface WeatherCurrent {
+  temperature: number;
+  humidity: number;
+  windSpeed: number;
+  precipitation: number;
+  weatherCode: number;
+}
+
+export interface WeatherDay {
+  date: string;
+  maxTemp: number;
+  minTemp: number;
+  precipitationSum: number;
+  weatherCode: number;
+}
+
 export interface WeatherForecastDto {
   source: string;
   lat: number;
   lon: number;
   timezone?: string;
-  current?: Record<string, unknown>;
-  hourly?: Record<string, unknown>;
-  daily?: Record<string, unknown>;
+  current?: WeatherCurrent;
+  daily?: WeatherDay[];
+  error?: string;
   cacheHit?: boolean;
 }
 
@@ -16,9 +32,11 @@ export interface AlertDto {
   event: string;
   severity: string;
   source: string;
+  area?: string[];
+  score?: number;
+  alertCount?: number;
   effective?: string;
   expires?: string;
-  area?: string[];
   polygons?: string[];
 }
 

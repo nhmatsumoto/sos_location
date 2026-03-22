@@ -24,7 +24,7 @@ const navItems = [
   { to: '/app/risk-assessment', label: 'nav.risk', icon: ShieldAlert },
   { to: '/app/support', label: 'nav.support', icon: Coins },
   { to: '/app/admin/sources', label: 'nav.sources', icon: Cog, admin: true },
-  { to: '/map', label: 'nav.map', icon: Globe },
+
   { to: '/app/settings', label: 'nav.settings', icon: Settings },
 ];
 
@@ -100,35 +100,36 @@ export const Sidebar = memo(function Sidebar(props: BoxProps) {
           );
         })}
 
-        <Divider borderColor="whiteAlpha.100" my={2} />
-        <Text fontSize="10px" color="whiteAlpha.400" fontWeight="black" mb={1} ml={3} textTransform="uppercase">{t('nav.public') || 'PUBLIC'}</Text>
-        {publicItems.map((item) => {
-          const Icon = item.icon;
-          const active = location.pathname === item.to;
-          return (
-            <Link
-              as={RouterLink}
-              key={item.to}
-              to={item.to}
-              display="flex"
-              alignItems="center"
-              gap={3}
-              px={3}
-              py={2}
-              fontSize="xs"
-              borderRadius="md"
-              transition="all 0.2s"
-              color={active ? "white" : "whiteAlpha.600"}
-              _hover={{
-                bg: "whiteAlpha.200",
-                textDecoration: 'none'
-              }}
-            >
-              <Icon size={14} color="whiteAlpha.500" />
-              <Text fontWeight="medium">{t(item.label)}</Text>
-            </Link>
-          );
-        })}
+        {publicItems.length > 0 && (
+          <>
+            <Divider borderColor="whiteAlpha.100" my={2} />
+            <Text fontSize="10px" color="whiteAlpha.400" fontWeight="black" mb={1} ml={3} textTransform="uppercase">{t('nav.public') || 'PUBLIC'}</Text>
+            {publicItems.map((item) => {
+              const Icon = item.icon;
+              const active = location.pathname === item.to;
+              return (
+                <Link
+                  as={RouterLink}
+                  key={item.to}
+                  to={item.to}
+                  display="flex"
+                  alignItems="center"
+                  gap={3}
+                  px={3}
+                  py={2}
+                  fontSize="xs"
+                  borderRadius="md"
+                  transition="all 0.2s"
+                  color={active ? "white" : "whiteAlpha.600"}
+                  _hover={{ bg: "whiteAlpha.200", textDecoration: 'none' }}
+                >
+                  <Icon size={14} color="whiteAlpha.500" />
+                  <Text fontWeight="medium">{t(item.label)}</Text>
+                </Link>
+              );
+            })}
+          </>
+        )}
       </VStack>
 
       <VStack spacing={2} align="stretch" mt={4}>

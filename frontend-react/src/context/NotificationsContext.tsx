@@ -1,4 +1,5 @@
 import { createContext, useContext, useMemo, useState, useEffect, type ReactNode } from 'react';
+import { toast } from 'react-toastify';
 import { generateUuid } from '../lib/uuid';
 import { setApiNotifier } from '../services/apiClient';
 import { HubConnectionBuilder, LogLevel } from '@microsoft/signalr';
@@ -32,6 +33,15 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       createdAt: new Date().toISOString(),
     };
     setNotices((prev) => [item, ...prev].slice(0, 40));
+
+    const content = notice.message
+      ? `${notice.title} — ${notice.message}`
+      : notice.title;
+    const opts = { position: 'bottom-right' as const, theme: 'dark' as const, autoClose: 4500 };
+    if (notice.type === 'error')   toast.error(content, opts);
+    else if (notice.type === 'success') toast.success(content, opts);
+    else if (notice.type === 'warning') toast.warning(content, opts);
+    else toast.info(content, opts);
   };
 
   const removeNotice = (id: string) => {

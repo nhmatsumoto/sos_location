@@ -34,7 +34,6 @@ const navItems = [
   { to: '/app/tactical-approval',label: 'nav.approval',   icon: ShieldAlert, group: 'admin', admin: true },
   { to: '/app/admin/sources',    label: 'nav.sources',    icon: Cog,         group: 'admin', admin: true },
   { to: '/app/settings',         label: 'nav.settings',   icon: Settings,    group: 'system' },
-  { to: '/map',                  label: 'nav.map',        icon: Globe,       group: 'public' },
 ];
 
 const groupLabels: Record<string, string> = {

@@ -7,6 +7,7 @@ import { frontendLogger } from './lib/logger';
 import './index.css';
 import './i18n';
 import 'leaflet/dist/leaflet.css';
+import 'react-toastify/dist/ReactToastify.css';
 import L from 'leaflet';
 import { ChakraProvider, ColorModeScript } from '@chakra-ui/react';
 import theme from './theme';

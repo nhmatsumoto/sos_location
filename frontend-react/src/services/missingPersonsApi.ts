@@ -7,6 +7,9 @@ export interface MissingPersonApi {
   city: string;
   lastSeenLocation: string;
   contactPhone: string;
+  lat?: number | null;
+  lng?: number | null;
+  additionalInfo?: string;
 }
 
 export interface MissingPersonCreateInput {
@@ -17,6 +20,8 @@ export interface MissingPersonCreateInput {
   additionalInfo?: string;
   contactPhone: string;
   contactName?: string;
+  lat?: number;
+  lng?: number;
 }
 
 export const missingPersonsApi = {

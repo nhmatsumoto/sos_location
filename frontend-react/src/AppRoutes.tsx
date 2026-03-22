@@ -7,9 +7,8 @@ import { Prefetcher } from './components/common/Prefetcher';
 import { useAuthStore } from './store/authStore';
 
 // Lazy loaded pages
-const PublicMapPage = lazy(() => import('./pages/PublicMapPage.tsx').then((m) => ({ default: m.PublicMapPage })));
 const PublicIncidentDashboardPage = lazy(() => import('./pages/PublicIncidentDashboardPage.tsx').then((m) => ({ default: m.PublicIncidentDashboardPage })));
-const SOSPage = lazy(() => import('./pages/SOSPage.tsx').then((m) => ({ default: m.SOSPage })));
+// SOSPage removed — /app/sos now renders GlobalDisastersPage
 const SettingsPage = lazy(() => import('./pages/SettingsPage.tsx').then((m) => ({ default: m.SettingsPage })));
 const VolunteerDashboardPage = lazy(() => import('./pages/VolunteerDashboardPage.tsx').then((m) => ({ default: m.VolunteerDashboardPage })));
 const LogisticsPage = lazy(() => import('./pages/LogisticsPage.tsx').then((m) => ({ default: m.LogisticsPage })));
@@ -62,7 +61,7 @@ function PrivateLayout() {
     '/app/missing-persons'
   ];
   const isTactical = TACTICAL_ROUTES.includes(location.pathname);
-  const navigationMode = location.pathname === '/app/simulations' ? 'expanded' : 'auto';
+  const navigationMode = 'expanded';
 
   return (
     <div className="animate-in fade-in duration-700 ease-out">
@@ -74,7 +73,7 @@ function PrivateLayout() {
       >
         <Suspense fallback={<div style={{ padding: 16 }} className="text-slate-500 font-bold animate-pulse text-center">Iniciando painel de comando...</div>}>
           <Routes>
-            <Route path="/app/sos" element={<ProtectedRoute><SOSPage /></ProtectedRoute>} />
+            <Route path="/app/sos" element={<ProtectedRoute><GlobalDisastersPage /></ProtectedRoute>} />
             <Route path="/app/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
             <Route path="/app/volunteer" element={<ProtectedRoute><VolunteerDashboardPage /></ProtectedRoute>} />
             <Route path="/app/logistics" element={<ProtectedRoute><LogisticsPage /></ProtectedRoute>} />
@@ -113,17 +112,15 @@ export default function AppRoutes() {
       <Routes>
       {/* Root Redirection */}
       <Route path="/" element={
-        authenticated ? 
-        <Navigate to="/app/sos" replace /> : 
-        (hasVisitedOnboarding ? <Navigate to="/map" replace /> : <Suspense fallback={<LoadingScreen />}><OnboardingPage /></Suspense>)
+        authenticated ?
+        <Navigate to="/app/sos" replace /> :
+        (hasVisitedOnboarding ? <Navigate to="/transparency" replace /> : <Suspense fallback={<LoadingScreen />}><OnboardingPage /></Suspense>)
       } />
 
       {/* Public Observation Routes */}
-      <Route path="/map" element={<Suspense fallback={<LoadingScreen />}><PublicMapPage /></Suspense>} />
       <Route path="/transparency" element={<Suspense fallback={<LoadingScreen />}><PublicIncidentDashboardPage /></Suspense>} />
-      
+
       {/* Compatibility Aliases */}
-      <Route path="/public/map" element={<Navigate to="/map" replace />} />
       <Route path="/public/transparency" element={<Navigate to="/transparency" replace />} />
 
       {/* Auth Routes */}

@@ -32,7 +32,7 @@ export function SupportDashboardPage() {
   } = useSupportDashboard();
 
   return (
-    <Box p={8} h="calc(100vh - 80px)" overflowY="auto" className="custom-scrollbar">
+    <Box h="100%" w="100%" bg="sos.dark" overflowY="auto" p={{ base: 4, md: 8 }}>
       {loading && <LoadingOverlay message="Auditando Ledger de Transparência..." />}
 
       {/* Header Shell */}

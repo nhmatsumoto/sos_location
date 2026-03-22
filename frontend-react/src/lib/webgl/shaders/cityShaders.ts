@@ -80,6 +80,14 @@ uniform vec3  u_lightColor;
 uniform float u_wetness;
 uniform float u_fireScorch;
 uniform int   u_earthquakeMod;
+uniform float u_time;          // elapsed simulation time [s]
+uniform float u_quakeOriginX;  // epicenter UV X (0-1)
+uniform float u_quakeOriginZ;  // epicenter UV Z (0-1)
+// Tsunami drawback: expose sea floor when water recedes
+uniform float u_tsunamiDrawback; // 0=normal, 1=full drawback (water receded)
+// Drought / Mudslide terrain modifiers
+uniform float u_droughtMod;   // 0-1 drought severity (drives soil cracking)
+uniform float u_mudslideMod;  // 0-1 mudslide activity (drives flowing mud)
 
 // Satellite / map tile texture
 uniform sampler2D u_satTex;
@@ -107,7 +115,7 @@ void main() {
   vec3 L = normalize(u_lightDir);
 
   float diff   = max(dot(N, L), 0.0);
-  float ambStr = 0.50;
+  float ambStr = 0.64; // midday: stronger sky contribution from all directions
 
   // ── Satellite / map tile mode ────────────────────────────────────────────
   if (u_satMode == 1) {
@@ -167,17 +175,18 @@ void main() {
     terrainColor   = mix(terrainColor, vec3(0.0, 0.62, 0.95), line * 0.55);
   }
 
-  // Hemisphere ambient (sky + ground bounce) with slope AO
-  vec3 skyAmb  = vec3(0.42, 0.52, 0.68) * ambStr * ao;
-  vec3 gndAmb  = u_soilColor * 0.20 * ao;
+  // Hemisphere ambient: midday sky (deep blue-white) from upper hemisphere,
+  // warm diffuse ground bounce from lower hemisphere. Uses normal.y for blend.
+  vec3 skyAmb  = vec3(0.38, 0.54, 0.82) * ambStr * ao; // clear noon sky: deep blue
+  vec3 gndAmb  = (u_soilColor * 0.8 + vec3(0.10, 0.09, 0.06)) * 0.22 * ao; // warm ground bounce
   vec3 ambient = mix(gndAmb, skyAmb, N.y * 0.5 + 0.5);
 
   vec3 diffuse = terrainColor * diff * u_lightColor * u_lightIntensity;
-  // View-dependent specular (approximate camera-up for far terrain)
+  // Harder specular at noon (sun high = tighter specular highlight)
   vec3 V = normalize(vec3(0.0, 1.0, 0.3));
   vec3 H = normalize(L + V);
-  float spec = pow(max(dot(N, H), 0.0), 48.0) * flatness * 0.12;
-  float micro = fract(sin(dot(floor(v_uv * 256.0), vec2(127.1, 311.7))) * 43758.5) * 0.03 - 0.015;
+  float spec = pow(max(dot(N, H), 0.0), 96.0) * flatness * 0.20;
+  float micro = fract(sin(dot(floor(v_uv * 256.0), vec2(127.1, 311.7))) * 43758.5) * 0.025 - 0.012;
 
   if (u_wetness > 0.01) {
     float wet = u_wetness * 0.72;
@@ -186,22 +195,82 @@ void main() {
   }
 
   if (u_earthquakeMod > 0) {
+    float crackProg  = clamp(u_time / 4.0, 0.0, 1.0);
+    float radialProg = clamp((u_time - 0.5) / 2.5, 0.0, 1.0);
+
+    // Random Voronoi fracture network
     vec2 cp = v_uv * 36.0;
     vec2 ci = floor(cp); vec2 cf = fract(cp);
     float md = 1.0;
     for (int dy=-1; dy<=1; dy++) for (int dx=-1; dx<=1; dx++) {
-      vec2 nb = vec2(float(dx), float(dy));
+      vec2 nb   = vec2(float(dx), float(dy));
       vec2 seed = ci + nb;
-      vec2 rp = vec2(fract(sin(dot(seed, vec2(127.1,311.7)))*43758.5),
-                     fract(sin(dot(seed, vec2(269.5,183.3)))*17371.3));
+      vec2 rp   = vec2(fract(sin(dot(seed, vec2(127.1,311.7)))*43758.5),
+                       fract(sin(dot(seed, vec2(269.5,183.3)))*17371.3));
       md = min(md, length(cf - nb - rp));
     }
     float crack = 1.0 - smoothstep(0.0, 0.09, md);
-    terrainColor = mix(terrainColor, vec3(0.01,0.01,0.01), crack * 0.88);
+    terrainColor = mix(terrainColor, vec3(0.01, 0.01, 0.01), crack * 0.88 * crackProg);
+
+    // Radial fault lines radiating from epicenter
+    vec2 toEpic   = v_uv - vec2(u_quakeOriginX, u_quakeOriginZ);
+    float distEpic = length(toEpic);
+    if (distEpic > 0.001) {
+      float radAngle  = atan(toEpic.y, toEpic.x);
+      // 8 radial faults with slight angular offsets per ray
+      float radFault  = abs(sin(radAngle * 4.0)) * (1.0 - smoothstep(0.05, 0.60, distEpic));
+      float radLine   = smoothstep(0.90, 1.0, radFault);
+      terrainColor    = mix(terrainColor, vec3(0.0, 0.0, 0.0), radLine * 0.80 * radialProg);
+      // Darker epicenter zone: ground disruption
+      float epicZone  = (1.0 - smoothstep(0.0, 0.08, distEpic)) * crackProg;
+      terrainColor    = mix(terrainColor, vec3(0.06, 0.05, 0.04), epicZone * 0.55);
+    }
+  }
+
+  // Tsunami drawback: expose sea floor / wet sand
+  if (u_tsunamiDrawback > 0.01) {
+    float db = u_tsunamiDrawback;
+    // Low-lying areas (near sea level) turn to exposed wet sand
+    float lowLying = clamp(1.0 - v_height / (u_topoScale * 0.08 + 1.0), 0.0, 1.0);
+    terrainColor = mix(terrainColor, vec3(0.62, 0.55, 0.38), lowLying * db * 0.70);
+    // Wet sheen on exposed areas
+    float wetSheen = lowLying * db * 0.40;
+    terrainColor = mix(terrainColor, vec3(0.45, 0.50, 0.55), wetSheen);
   }
 
   if (u_fireScorch > 0.01) {
     terrainColor = mix(terrainColor, vec3(0.04,0.02,0.01), u_fireScorch * 0.80);
+  }
+
+  // Drought: bleached/cracked dry earth
+  if (u_droughtMod > 0.01) {
+    float dm = u_droughtMod;
+    // Bleach toward pale straw-tan
+    terrainColor = mix(terrainColor, vec3(0.72, 0.61, 0.38), dm * 0.55);
+    // Desiccation crack network: fine grid lines of dark brown
+    float cx = abs(sin(v_uv.x * 180.0)) < (0.025 * dm) ? 1.0 : 0.0;
+    float cz = abs(sin(v_uv.y * 180.0)) < (0.025 * dm) ? 1.0 : 0.0;
+    float crack = max(cx, cz);
+    // Secondary finer cracks
+    float cx2 = abs(sin(v_uv.x * 420.0 + 0.5)) < (0.018 * dm) ? 1.0 : 0.0;
+    float cz2 = abs(sin(v_uv.y * 420.0 + 0.5)) < (0.018 * dm) ? 1.0 : 0.0;
+    crack = max(crack, max(cx2, cz2) * 0.6);
+    terrainColor = mix(terrainColor, vec3(0.20, 0.14, 0.08), crack * dm * 0.70);
+  }
+
+  // Mudslide: flowing brown mud stream down slopes
+  if (u_mudslideMod > 0.01) {
+    float mm = u_mudslideMod;
+    // Mud flow: animated streaks in slope direction (use UV + time)
+    float flowAnim = fract(v_uv.y * 4.0 - u_time * 0.08 * mm); // flows downslope (increasing v)
+    float flowStripe = smoothstep(0.42, 0.50, flowAnim) * smoothstep(0.70, 0.55, flowAnim);
+    // Only on sloped areas (flatness < 0.85 = N.y < threshold)
+    float N_y = dot(normalize(v_normal), vec3(0.0, 1.0, 0.0));
+    float slopeWeight = clamp(1.0 - N_y / 0.92, 0.0, 1.0);
+    vec3  mudCol = mix(vec3(0.28, 0.18, 0.08), vec3(0.38, 0.28, 0.14), flowAnim);
+    terrainColor = mix(terrainColor, mudCol, flowStripe * slopeWeight * mm * 0.80);
+    // Overall mud tint on low areas
+    terrainColor = mix(terrainColor, vec3(0.30, 0.20, 0.10), mm * slopeWeight * 0.35);
   }
 
   vec3 finalColor = terrainColor * ambient + diffuse + spec + micro;
@@ -290,17 +359,32 @@ void main() {
 layout(location = 0) in vec3 a_position; // x, z_coord, h_offset
 layout(location = 1) in vec4 a_meta;     // is_top, levels, centroidU, centroidV
 
-uniform mat4 u_projectionMatrix;
-uniform mat4 u_viewMatrix;
-uniform mat4 u_modelMatrix;
+uniform mat4  u_projectionMatrix;
+uniform mat4  u_viewMatrix;
+uniform mat4  u_modelMatrix;
 uniform sampler2D u_topoMap;
 uniform float u_topoScale;
-uniform float u_areaHalfX; // half of world span in X (meters)
-uniform float u_areaHalfZ; // half of world span in Z (meters)
+uniform float u_areaHalfX;     // half of world span in X (meters)
+uniform float u_areaHalfZ;     // half of world span in Z (meters)
+uniform int   u_disasterType;  // 0-9 (matches getDisasterTypeInt)
+uniform float u_time;          // elapsed simulation time [s]
+// Earthquake physics uniforms
+uniform float u_quakePWave;    // P-wave envelope amplitude (0-1, magnitude-derived)
+uniform float u_quakeSWave;    // S-wave envelope amplitude (0-1, magnitude-derived)
+uniform float u_quakeOriginX;  // epicenter centroid UV X (0-1, default 0.5)
+uniform float u_quakeOriginZ;  // epicenter centroid UV Z (0-1, default 0.5)
+uniform float u_quakeCollapse; // fraction of buildings that collapse (0-1)
+// Tsunami physics uniforms
+uniform float u_tsunamiPhase;  // 0=pre 1=drawback 2=wavefront 3=inundation 4=recession
+uniform float u_tsunamiDir;    // wave arrival direction [radians, 0=+Z]
+uniform float u_waveFrontX;    // wave front X in world units [cm]
+uniform float u_waveFrontZ;    // wave front Z in world units [cm]
+uniform float u_waveImpulse;   // wave impulse amplitude (0-1)
 
 out float v_floorCount;
 out float v_isTop;
-out vec3 v_worldPos;
+out vec3  v_worldPos;
+out float v_buildingHash; // per-building pseudo-random [0,1]
 
 void main() {
     float x = a_position.x;
@@ -308,6 +392,70 @@ void main() {
     float hOffset = a_position.z;
     v_isTop = a_meta.x;
     v_floorCount = a_meta.y;
+
+    // Per-building pseudo-random seed derived from centroid UV
+    float bHash = fract(sin(dot(a_meta.zw, vec2(127.1, 311.7))) * 43758.5);
+    v_buildingHash = bHash;
+
+    // ── EARTHQUAKE: seismic wave physics ────────────────────────────────────
+    if (u_disasterType == 2) {
+        // Arrival delay: wave propagates from epicenter outward
+        float distUV = length(a_meta.zw - vec2(u_quakeOriginX, u_quakeOriginZ));
+        float delay  = distUV * 0.55; // ~0-0.4s delay across city
+
+        float t = max(0.0, u_time - delay);
+
+        // P-wave: fast vertical bounce, decays by ~t=3s
+        if (u_quakePWave > 0.001) {
+            float pBounce = sin(t * 18.0) * exp(-t * 1.1) * u_quakePWave;
+            hOffset += pBounce * 65.0; // up to 65 cm vertical displacement
+        }
+
+        // S-wave: lateral shaking, peaks at t≈2-4s, persists to ~t=15s
+        if (u_quakeSWave > 0.001) {
+            float sDecay  = exp(-max(0.0, t - 1.5) * 0.22);
+            float sRamp   = clamp(t / 1.5, 0.0, 1.0);
+            float sShake  = sin(t * 9.5 + bHash * 1.57) * sDecay * sRamp * u_quakeSWave;
+            // Secondary harmonic for complex realistic motion
+            float sShake2 = sin(t * 14.3 + bHash * 3.14) * sDecay * 0.45 * sRamp * u_quakeSWave;
+            float leanDir = bHash * 6.2832;
+            x += sin(leanDir)        * sShake  * hOffset * 0.0014;
+            z += cos(leanDir)        * sShake  * hOffset * 0.0014;
+            x += cos(leanDir + 1.57) * sShake2 * hOffset * 0.0009;
+            z += sin(leanDir + 1.57) * sShake2 * hOffset * 0.0009;
+        }
+
+        // Surface wave: slow rolling, large horizontal, fades after t=20s
+        float surfAmp = u_quakeSWave * 0.28 * max(0.0, 1.0 - u_time * 0.045);
+        x += sin(u_time * 2.1 + bHash * 3.14) * surfAmp * 90.0;
+        z += cos(u_time * 1.8 + bHash * 1.57) * surfAmp * 70.0;
+
+        // Partial collapse: high-damage buildings pancake downward after t=3s
+        if (u_quakeCollapse > 0.001) {
+            float cAmt = max(0.0, bHash - (1.0 - u_quakeCollapse * 0.32))
+                       / max(0.001, u_quakeCollapse * 0.32);
+            float cT = clamp((u_time - 2.8) / 3.5, 0.0, 1.0);
+            hOffset = mix(hOffset, hOffset * (1.0 - cAmt * 0.88), cT);
+            // Collapsed buildings tilt heavily in their random direction
+            x += sin(bHash * 6.2832) * cAmt * hOffset * 0.018 * cT;
+            z += cos(bHash * 6.2832) * cAmt * hOffset * 0.018 * cT;
+        }
+    }
+
+    // ── TSUNAMI: hydrodynamic impulse on buildings ───────────────────────────
+    if (u_disasterType == 1 && u_waveImpulse > 0.001) {
+        // Lean buildings in wave direction near the wave front
+        float buildingWorldX = x;
+        float buildingWorldZ = z;
+        float distToFront = (buildingWorldX - u_waveFrontX) * cos(u_tsunamiDir)
+                          + (buildingWorldZ - u_waveFrontZ) * sin(u_tsunamiDir);
+        // Impulse strongest just behind the wave front (0-1500cm behind)
+        float impulse = exp(-max(0.0, distToFront) * 0.0008)
+                      * exp(-max(0.0, -distToFront - 1500.0) * 0.0005)
+                      * u_waveImpulse;
+        x += cos(u_tsunamiDir) * impulse * hOffset * 0.0018;
+        z += sin(u_tsunamiDir) * impulse * hOffset * 0.0018;
+    }
 
     // Use precomputed centroid UV: all corners of a building sample terrain at the same
     // point, giving a flat base even on sloped terrain (inclined buildings on hillsides).
@@ -323,17 +471,22 @@ void main() {
 precision highp float;
 in float v_floorCount;
 in float v_isTop;
-in vec3 v_worldPos;
+in vec3  v_worldPos;
+in float v_buildingHash; // per-building pseudo-random [0,1]
 uniform float u_time;
 uniform float u_reveal;
 uniform int u_aiMode;
 uniform int u_realisticMode;
-uniform int u_buildingType; // 0=residential, 1=commercial, 2=industrial
+uniform int u_buildingType;     // 0=residential, 1=commercial, 2=industrial
 uniform vec3 u_lightDir;
 uniform vec3 u_lightColor;
 uniform float u_lightIntensity;
 // Selection highlight: vec4(minX, minZ, maxX, maxZ) — sentinel (1e9,1e9,-1e9,-1e9) = none
 uniform vec4 u_highlightAABB;
+// Disaster response uniforms
+uniform float u_buildingDamage; // 0-1 physical damage driven by disaster intensity
+uniform int   u_disasterType;   // 0=none 1=flood 2=quake 3=hurricane 4=tornado 5=fire 6=snow 9=mud
+uniform float u_disasterParam;  // flood waterLevel(cm) | snow accum(0-1) | mud height factor(0-1)
 
 out vec4 outColor;
 
@@ -374,10 +527,174 @@ void main() {
             wallColor = mix(wallColor, vec3(0.38, 0.50, 0.68), isWindow * 0.28 * (1.0 - v_isTop));
         }
 
-        float diff = max(dot(normal, L), 0.25);
-        float fog  = smoothstep(15000.0, 50000.0, length(v_worldPos));
-        vec3 color = wallColor * diff * u_lightColor * u_lightIntensity;
-        color = mix(color, vec3(0.04, 0.06, 0.10), fog);
+        // === DISASTER RESPONSE ===
+        if (u_buildingDamage > 0.001 || u_disasterType == 6 || u_disasterType == 1) {
+            float dmg    = u_buildingDamage;
+            float gFloor = fract(v_worldPos.y * 0.003);
+            float gVert  = fract(v_worldPos.x * 0.005 + v_worldPos.z * 0.005);
+            float isWin  = step(0.10, gFloor) * step(gFloor, 0.88)
+                         * step(0.15, gVert)  * step(gVert,  0.85)
+                         * (1.0 - v_isTop);
+
+            if (u_disasterType == 2) {
+                // EARTHQUAKE — progressive Voronoi cracks + dust + broken windows + fire glow
+                float crackProgress  = clamp(u_time / 5.0, 0.0, 1.0);
+                float windowBreak    = clamp(u_time / 4.0, 0.0, 1.0);
+                float dustProgress   = clamp(u_time * 0.4, 0.0, 1.0);
+
+                // Voronoi crack network on walls
+                vec2 cp = v_worldPos.xz * 0.018;
+                vec2 ci = floor(cp); vec2 cf = fract(cp);
+                float md = 1.0;
+                for (int dy = -1; dy <= 1; dy++) for (int dx = -1; dx <= 1; dx++) {
+                    vec2 nb = vec2(float(dx), float(dy));
+                    vec2 sd = ci + nb;
+                    vec2 rp = vec2(fract(sin(dot(sd, vec2(127.1, 311.7))) * 43758.5),
+                                   fract(sin(dot(sd, vec2(269.5, 183.3))) * 17371.3));
+                    md = min(md, length(cf - nb - rp));
+                }
+                float crack = 1.0 - smoothstep(0.0, 0.12, md);
+                wallColor = mix(wallColor, vec3(0.02, 0.02, 0.02), crack * dmg * crackProgress * 0.88);
+
+                // Concrete dust coat — grey-beige powder on damaged surfaces
+                wallColor = mix(wallColor, vec3(0.76, 0.71, 0.65), dmg * dustProgress * 0.32);
+
+                // Progressive window breakage: dark → shattered
+                wallColor = mix(wallColor, vec3(0.01, 0.01, 0.02), isWin * dmg * windowBreak * 0.88);
+
+                // Secondary fires in heavily damaged buildings (gas line ruptures)
+                if (dmg > 0.65) {
+                    float fireAmt = clamp((dmg - 0.65) / 0.35, 0.0, 1.0);
+                    float fireT   = clamp((u_time - 5.0) / 6.0, 0.0, 1.0);
+                    float flicker = sin(u_time * 7.3 + v_buildingHash * 6.28) * 0.5 + 0.5;
+                    wallColor = mix(wallColor, vec3(0.90, 0.28, 0.03),
+                                    isWin * fireAmt * fireT * flicker * 0.60);
+                }
+
+            } else if (u_disasterType == 5) {
+                // WILDFIRE — progressive scorch + animated flame flicker on windows
+                // Scorch intensity increases from base upward (fire chars lower floors first)
+                float scorchFade  = clamp(1.0 - v_worldPos.y * 0.00045, 0.0, 1.0);
+                float charAmt     = dmg * scorchFade;
+                wallColor = mix(wallColor, vec3(0.03, 0.015, 0.005), charAmt * 0.85);
+
+                // Soot streaks above windows: dark vertical smear
+                float sootStreak  = smoothstep(0.80, 0.84, fract(v_worldPos.y * 0.003))
+                                  * step(0.18, fract(v_worldPos.x * 0.0055 + v_worldPos.z * 0.0055))
+                                  * step(fract(v_worldPos.x * 0.0055 + v_worldPos.z * 0.0055), 0.82);
+                wallColor = mix(wallColor, vec3(0.02, 0.01, 0.005), sootStreak * charAmt * 0.70);
+
+                // Animated flame in windows: yellow core → orange mid → red edge, dual-frequency flicker
+                float flicker1 = sin(u_time * 8.2  + v_buildingHash * 6.28) * 0.5 + 0.5;
+                float flicker2 = sin(u_time * 13.7 + v_buildingHash * 9.42) * 0.5 + 0.5;
+                float flicker  = flicker1 * 0.65 + flicker2 * 0.35;
+                float fireGrow = clamp(u_time / 3.5, 0.0, 1.0); // fire spreads in first 3.5s
+                float flameH   = clamp(1.0 - v_worldPos.y * 0.0008, 0.0, 1.0); // stronger at base
+                float flameAmt = isWin * charAmt * fireGrow * (0.45 + flicker * 0.55) * flameH;
+
+                // Flame color: mix yellow tip → orange body → red base
+                float flamePos = flicker * 0.5 + scorchFade * 0.5;
+                vec3 flameCol  = mix(
+                    vec3(0.95, 0.12, 0.01),  // red base
+                    mix(vec3(0.98, 0.42, 0.02), vec3(1.00, 0.82, 0.10), flamePos * 0.8),
+                    flamePos
+                );
+                wallColor = mix(wallColor, flameCol, flameAmt * 0.88);
+
+            } else if (u_disasterType == 1) {
+                // FLOOD / TSUNAMI — submerged wall tint + waterline algae band
+                float wl      = u_disasterParam;
+                float submerge = clamp((wl - v_worldPos.y) / max(wl + 1.0, 1.0), 0.0, 1.0);
+                wallColor = mix(wallColor, vec3(0.10, 0.22, 0.42), submerge * 0.60);
+                float wlFade  = 1.0 - smoothstep(0.0, 60.0, abs(v_worldPos.y - wl));
+                wallColor = mix(wallColor, vec3(0.05, 0.52, 0.25), wlFade * 0.70);
+
+            } else if (u_disasterType == 9) {
+                // MUDSLIDE — mud coating from base up to disasterParam height
+                float mudH = u_disasterParam * 600.0;
+                if (mudH > 1.0) {
+                    float mudCoat = clamp(1.0 - v_worldPos.y / mudH, 0.0, 1.0);
+                    wallColor = mix(wallColor, vec3(0.30, 0.20, 0.10), mudCoat * 0.75);
+                }
+
+            } else if (u_disasterType == 3 || u_disasterType == 4) {
+                // HURRICANE / TORNADO — wall darkening + broken windows + impact debris
+                wallColor = mix(wallColor, wallColor * 0.65, dmg * 0.50);
+                wallColor = mix(wallColor, vec3(0.02, 0.02, 0.03), isWin * dmg * 0.70);
+                // Debris impact marks: random dark streaks on walls
+                float debrisMark = step(0.96, fract(sin(v_buildingHash * 13.7 + v_worldPos.y * 0.001) * 45321.0));
+                wallColor = mix(wallColor, vec3(0.06, 0.05, 0.04), debrisMark * dmg * 0.55);
+
+            } else if (u_disasterType == 8) {
+                // HAIL — animated impact flashes on roof + pockmarks on walls
+                float hailFlash = step(0.96, fract(sin(u_time * 313.0 + v_buildingHash * 29.1) * 43758.5));
+                // White impact flash on roof during active hail
+                if (v_isTop > 0.5) {
+                    wallColor = mix(wallColor, vec3(0.98, 0.98, 1.00), hailFlash * 0.70);
+                    // Accumulating dents: darker pock-marks over time
+                    float pockmarks = fract(sin(v_worldPos.x * 0.03 + v_worldPos.z * 0.04) * 39547.2);
+                    wallColor = mix(wallColor, wallColor * 0.82, step(0.82, pockmarks) * dmg * 0.40);
+                } else {
+                    // Cracked windows
+                    wallColor = mix(wallColor, vec3(0.04, 0.04, 0.06), isWin * dmg * 0.60);
+                }
+
+            } else if (u_disasterType == 7) {
+                // DROUGHT — heat-bleached walls + cracked paint
+                float bleach = clamp(v_worldPos.y * 0.0003, 0.0, 1.0); // stronger on upper floors in sun
+                wallColor = mix(wallColor, wallColor * 1.18 + vec3(0.08, 0.06, 0.02), dmg * 0.45 * bleach);
+                wallColor = clamp(wallColor, 0.0, 1.0);
+                // Peeling/cracked paint: fine dark lines
+                float paintCrack = abs(sin(v_worldPos.y * 0.008 + v_buildingHash * 6.28)) < (0.05 * dmg) ? 1.0 : 0.0;
+                wallColor = mix(wallColor, wallColor * 0.55, paintCrack * dmg * 0.50);
+            }
+
+            // Snow / Frost: white accumulation on rooftops + wall frost
+            if (u_disasterType == 6) {
+                if (v_isTop > 0.5) {
+                    // Gradual snow accumulation based on disasterParam (0-1 = depth)
+                    float snowAccum = u_disasterParam;
+                    wallColor = mix(wallColor, vec3(0.93, 0.95, 0.98), snowAccum * 0.92);
+                } else {
+                    // Frost on lower walls (north-facing analog)
+                    float frostAmt = clamp((1.0 - normal.y) * u_disasterParam * 0.45, 0.0, 0.30);
+                    wallColor = mix(wallColor, vec3(0.85, 0.88, 0.95), frostAmt);
+                }
+            }
+        }
+        // === END DISASTER RESPONSE ===
+
+        // ── Midday hemisphere lighting ────────────────────────────────────────
+        float diffRaw = dot(normal, L);
+        float diff    = max(diffRaw, 0.0);
+
+        // Sky hemisphere ambient: upper faces receive more blue sky light than lower
+        // Ground bounce: warm low-intensity fill from reflected sun on pavement
+        float skyW    = normal.y * 0.5 + 0.5;          // 0=down-facing, 1=up-facing
+        vec3 skyAmb   = vec3(0.38, 0.54, 0.84) * 0.52; // clear noon sky — rich blue
+        vec3 gndAmb   = vec3(0.28, 0.23, 0.16) * 0.18; // warm ground bounce
+        vec3 ambient  = mix(gndAmb, skyAmb, skyW);
+
+        // Sun direct contribution
+        vec3 sunDirect = wallColor * diff * u_lightColor * u_lightIntensity;
+
+        // Specular: glass/commercial buildings get strong noon glint
+        vec3 specular = vec3(0.0);
+        if (u_buildingType == 1 && v_isTop < 0.5 && diff > 0.0) {
+            vec3 V   = normalize(vec3(-0.39, 0.82, -0.42)); // approx SSW→NNE view
+            vec3 Hv  = normalize(L + V);
+            float sp = pow(max(dot(normal, Hv), 0.0), 160.0);
+            specular = vec3(1.05, 1.02, 0.96) * sp * 0.55 * diff;
+        }
+
+        // Subtle wall AO: lower walls slightly shadowed by ground proximity
+        float wallAO = clamp(v_worldPos.y * 0.0004, 0.0, 1.0); // darker near ground
+        wallAO = mix(0.72, 1.0, wallAO);
+
+        vec3 color = (wallColor * ambient + sunDirect) * wallAO + specular;
+
+        float fog  = smoothstep(15000.0, 55000.0, length(v_worldPos));
+        color = mix(color, vec3(0.52, 0.60, 0.72), fog * 0.55); // aerial perspective: blue-grey haze
 
         // Selection highlight
         bool inAABB = v_worldPos.x >= u_highlightAABB.x && v_worldPos.x <= u_highlightAABB.z
@@ -957,6 +1274,114 @@ void main() {
 
 };
 
+// ── TSUNAMI WAVE SHADER ───────────────────────────────────────────────────────
+// Renders the advancing tsunami wave front as a displaced 3D mesh with shoaling.
+// A dense grid quad (subdivided at geometry level) is displaced in Y by a soliton
+// profile. The shoaling factor amplifies wave height as depth decreases (H ∝ d^-0.25).
+export const TSUNAMI_WAVE_VS = `#version 300 es
+layout(location = 0) in vec2 a_gridPos; // normalised -1..1 in XZ
+
+uniform mat4  u_projectionMatrix;
+uniform mat4  u_viewMatrix;
+uniform mat4  u_modelMatrix;
+uniform sampler2D u_topoMap;
+uniform float u_topoScale;
+uniform float u_time;
+uniform float u_areaHalfX;
+uniform float u_areaHalfZ;
+// Wave parameters
+uniform float u_waveProgress;    // 0-1, how far the front has crossed the city
+uniform float u_tsunamiDir;      // direction [rad] wave travels (0=+Z, π/2=+X)
+uniform float u_waveHeight;      // peak wave height in cm (scene units)
+uniform float u_waveFrontX;      // current wave front X [cm]
+uniform float u_waveFrontZ;      // current wave front Z [cm]
+uniform float u_waveWidth;       // decay width of wave profile [cm]
+
+out float v_waveProfile;   // 0=flat water, 1=wave crest
+out float v_foam;          // foam factor at crest
+out float v_alpha;         // transparency
+
+void main() {
+    // Map grid to world XZ
+    float worldX = a_gridPos.x * u_areaHalfX;
+    float worldZ = a_gridPos.y * u_areaHalfZ;
+
+    // UV for terrain height lookup
+    vec2 uv = (a_gridPos + 1.0) * 0.5;
+    float terrainH = texture(u_topoMap, uv).r * u_topoScale;
+
+    // Signed distance from wave front along wave direction
+    vec2 waveNormal = vec2(sin(u_tsunamiDir), cos(u_tsunamiDir));
+    float distToFront = (worldX - u_waveFrontX) * waveNormal.x
+                      + (worldZ - u_waveFrontZ) * waveNormal.y;
+
+    // Soliton profile: exponential rise ahead of front, sharper drop behind
+    float sigma = max(u_waveWidth, 50.0);
+    float ahead  = exp(-max(0.0,  distToFront) / sigma);        // smooth rise ahead
+    float behind = exp(-max(0.0, -distToFront) / (sigma * 0.4)); // steep drop behind
+    float profile = ahead * behind;
+
+    // Shoaling: H ∝ depth^(-0.25). terrain height is elevation above sea floor;
+    // approximate depth as inverse of normalised elevation.
+    float normElev = clamp(terrainH / max(u_topoScale * 0.12, 1.0), 0.0, 1.0);
+    float approxDepth = max(0.05, 1.0 - normElev);  // deeper ocean = high depth
+    float shoal = pow(approxDepth, -0.25);           // Green's law exponent
+    shoal = clamp(shoal, 1.0, 4.5);                  // cap amplification
+
+    // Wave height: rises above terrain
+    float waveY = profile * u_waveHeight * shoal;
+    // Only place wave where it clears terrain (don't sink into hills)
+    float finalY = max(terrainH + 2.0, terrainH + waveY);
+
+    // Undulating secondary waves trailing behind the front
+    float trailDist = -distToFront;
+    float trail = max(0.0, (trailDist - sigma * 0.5) / (sigma * 3.0));
+    float trailWave = exp(-trail * 0.5) * sin(trailDist * 0.003 + u_time * 1.8) * 0.22;
+    finalY += trailWave * u_waveHeight * clamp(trail, 0.0, 1.0);
+
+    v_waveProfile = profile;
+    v_foam = smoothstep(0.65, 1.0, profile);
+    v_alpha = clamp(profile * 1.8 + trail * 0.5, 0.0, 1.0);
+
+    gl_Position = u_projectionMatrix * u_viewMatrix * u_modelMatrix
+                * vec4(worldX, finalY, worldZ, 1.0);
+}
+`;
+
+export const TSUNAMI_WAVE_FS = `#version 300 es
+precision highp float;
+
+in float v_waveProfile;
+in float v_foam;
+in float v_alpha;
+
+uniform float u_time;
+uniform float u_reveal;
+
+out vec4 outColor;
+
+void main() {
+    if (v_alpha < 0.02) discard;
+
+    // Deep ocean blue → green-blue shallows → white foam crest
+    vec3 deepColor     = vec3(0.04, 0.18, 0.42);
+    vec3 shallowColor  = vec3(0.06, 0.42, 0.55);
+    vec3 foamColor     = vec3(0.90, 0.95, 1.00);
+
+    vec3 waterColor = mix(deepColor, shallowColor, clamp(v_waveProfile * 2.0, 0.0, 1.0));
+
+    // Foam at crest with time-animated churn
+    float foamNoise = fract(sin(u_time * 3.7 + v_foam * 17.3) * 437.58) * 0.5 + 0.5;
+    float foamAmt   = v_foam * (0.7 + foamNoise * 0.3);
+    waterColor = mix(waterColor, foamColor, foamAmt * 0.90);
+
+    // Translucency: crest is opaque, flanks more transparent
+    float alpha = clamp(v_alpha * (0.72 + v_foam * 0.28), 0.0, 1.0) * u_reveal;
+
+    outColor = vec4(waterColor, alpha);
+}
+`;
+
 // ── GRASS SHADER ─────────────────────────────────────────────────────────────
 // Ground-level grass tufts rendered as point sprites with wind animation.
 // Reuses the same VBO layout as VEGETATION (vec3 position + vec2 uv).
@@ -1138,4 +1563,173 @@ void main() {
   }
 
   outColor = vec4(col, alpha * u_reveal);
+}`;
+
+// ── TORNADO FUNNEL CONE SHADER ────────────────────────────────────────────────
+// Animated helical funnel: wide at cloud base, narrows to ground-contact tip.
+// Mesh: a_uv.x = theta 0-1 (azimuth), a_uv.y = y_norm 0(tip/ground)→1(cloud base).
+export const TORNADO_VS = `#version 300 es
+layout(location=0) in vec2 a_uv; // [theta_norm 0-1, y_norm 0-1]
+
+uniform mat4  u_projMatrix;
+uniform mat4  u_viewMatrix;
+uniform float u_time;
+uniform float u_funnelBaseRadius; // cm — radius at cloud base (top, y_norm=1)
+uniform float u_funnelHeight;     // cm — total funnel height
+uniform float u_funnelCenterX;
+uniform float u_funnelBaseY;      // cm — Y of cloud base (world)
+uniform float u_funnelCenterZ;
+uniform float u_windSpeed;        // m/s — slight tilt into wind
+
+out float v_yNorm;
+out float v_theta;
+out float v_radius;
+
+void main() {
+  float yNorm  = a_uv.y;             // 0 = ground tip, 1 = cloud base
+  float theta0 = a_uv.x * 6.2832;   // azimuth in radians
+
+  // Funnel radius profile: r = r_base * (1 - yNorm)^0.5 * yNorm^0.12
+  // → zero at tip (yNorm=0), max near cloud base
+  float r = u_funnelBaseRadius * pow(max(0.0, 1.0 - yNorm), 0.55) * pow(yNorm, 0.08);
+
+  // Helix rotation increases toward cloud base (faster at top)
+  float rotRate  = 3.5 + u_windSpeed * 0.04;
+  float angle    = theta0 + u_time * rotRate * (1.0 + yNorm * 2.2);
+
+  // World position
+  float wx = u_funnelCenterX + cos(angle) * r;
+  float wz = u_funnelCenterZ + sin(angle) * r;
+  // Y: tip at terrain level, base at cloud base
+  float wy = u_funnelBaseY - (1.0 - yNorm) * u_funnelHeight;
+
+  v_yNorm  = yNorm;
+  v_theta  = theta0;
+  v_radius = r;
+
+  gl_Position = u_projMatrix * u_viewMatrix * vec4(wx, wy, wz, 1.0);
+}`;
+
+export const TORNADO_FS = `#version 300 es
+precision highp float;
+in float v_yNorm;
+in float v_theta;
+in float v_radius;
+out vec4 outColor;
+uniform float u_time;
+uniform float u_reveal;
+uniform float u_intensity;
+
+float hash(float n) { return fract(sin(n) * 43758.5453); }
+
+void main() {
+  // Color: dark near tip (dense debris), lighter aloft (condensation funnel)
+  vec3 debrisCol   = vec3(0.22, 0.16, 0.10);  // dark earth/debris at tip
+  vec3 funnelCol   = vec3(0.42, 0.38, 0.34);  // mid grey funnel body
+  vec3 cloudCol    = vec3(0.70, 0.68, 0.66);  // pale grey at cloud base
+  vec3 col = v_yNorm < 0.25
+    ? mix(debrisCol, funnelCol, v_yNorm / 0.25)
+    : mix(funnelCol, cloudCol,  (v_yNorm - 0.25) / 0.75);
+
+  // Turbulent surface variation
+  float turb = 0.5 + 0.5 * sin(v_theta * 8.0 + u_time * 4.2 + v_yNorm * 12.0)
+                   * sin(v_theta * 3.0 - u_time * 2.8 + v_yNorm * 5.0);
+  col = mix(col, col * 0.65, turb * 0.40);
+
+  // Alpha: opaque at tip/core, semi-transparent toward cloud merge
+  float alpha = mix(0.88, 0.30, v_yNorm) * u_intensity * u_reveal;
+  // Thin the walls at the cloud base merge zone
+  alpha *= 1.0 - smoothstep(0.75, 1.0, v_yNorm) * 0.6;
+
+  if (alpha < 0.02) discard;
+  outColor = vec4(col, alpha);
+}`;
+
+// ── WILDFIRE SMOKE PLUME SHADER ───────────────────────────────────────────────
+// Seed-based billboard particles rising from fire zone in a wind-bent plume.
+// Each seed: vec3(x_norm 0-1, phase 0-1, z_norm 0-1)  — same layout as precipVBO.
+export const SMOKE_VS = `#version 300 es
+layout(location=0) in vec3 a_seeds; // [x_norm, phase, z_norm]
+
+uniform mat4  u_projMatrix;
+uniform mat4  u_viewMatrix;
+uniform float u_time;
+uniform float u_reveal;
+uniform float u_areaHalfX;
+uniform float u_areaHalfZ;
+uniform float u_cloudBase;   // max smoke altitude (cm)
+uniform float u_windX;       // wind drift X cm/s
+uniform float u_windZ;       // wind drift Z cm/s
+uniform float u_fireRadius;  // fire zone radius (cm)
+uniform float u_fireCenterX;
+uniform float u_fireCenterZ;
+uniform sampler2D u_topoMap;
+uniform float u_topoScale;
+uniform float u_topoOffset;
+
+out float v_age;     // 0=just emitted, 1=about to disappear
+out float v_size;
+
+void main() {
+  float riseSpeed = 280.0;  // cm/s — slow convective rise
+  float cycle = fract(a_seeds.y + u_time * riseSpeed / max(u_cloudBase, 1.0));
+  v_age = cycle;
+
+  // Horizontal seed: scatter within fire radius around fire center
+  float angle = a_seeds.x * 6.2832;
+  float r     = sqrt(a_seeds.z) * u_fireRadius; // sqrt for uniform disk distribution
+  float wx    = u_fireCenterX + cos(angle) * r;
+  float wz    = u_fireCenterZ + sin(angle) * r;
+
+  // Wind drift proportional to height
+  float height = cycle * u_cloudBase;
+  float dt     = cycle * (u_cloudBase / max(riseSpeed, 0.1));
+  wx += u_windX * dt * 0.65;
+  wz += u_windZ * dt * 0.65;
+
+  // Terrain-conform emitter base
+  vec2 uv = clamp(vec2(
+    (wx + u_areaHalfX) / (u_areaHalfX * 2.0),
+    (wz + u_areaHalfZ) / (u_areaHalfZ * 2.0)
+  ), 0.0, 1.0);
+  float terrH = texture(u_topoMap, uv).r * u_topoScale + u_topoOffset;
+  float wy = terrH + height;
+
+  gl_Position = u_projMatrix * u_viewMatrix * vec4(wx, wy, wz, 1.0);
+
+  // Puffs grow as they rise: 8px young → 48px old
+  v_size = mix(8.0, 48.0, sqrt(cycle));
+  gl_PointSize = v_size * u_reveal;
+}`;
+
+export const SMOKE_FS = `#version 300 es
+precision highp float;
+in float v_age;
+in float v_size;
+out vec4 outColor;
+uniform float u_reveal;
+uniform float u_intensity; // fire intensity 0-1
+
+void main() {
+  vec2 pc = gl_PointCoord - 0.5;
+  float d = length(pc);
+  if (d > 0.5) discard;
+
+  // Soft circular puff with turbulent edge
+  float puff   = smoothstep(0.50, 0.15, d);
+
+  // Color: near-black smoke at birth → warm grey → pale silver as dispersed
+  vec3 youngCol = vec3(0.09, 0.07, 0.06);  // dark sooty smoke
+  vec3 midCol   = vec3(0.30, 0.27, 0.24);  // mid grey
+  vec3 oldCol   = vec3(0.62, 0.60, 0.58);  // pale dispersed haze
+  vec3 col = v_age < 0.35
+    ? mix(youngCol, midCol, v_age / 0.35)
+    : mix(midCol,   oldCol, (v_age - 0.35) / 0.65);
+
+  // Alpha: rises from 0, peaks at ~25% age, fades out by 100%
+  float alpha = smoothstep(0.0, 0.12, v_age) * smoothstep(1.0, 0.25, v_age);
+  alpha *= puff * u_intensity * u_reveal * 0.62;
+
+  if (alpha < 0.01) discard;
+  outColor = vec4(col, alpha);
 }`;

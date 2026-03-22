@@ -3,7 +3,7 @@ import { Sidebar } from './Sidebar';
 import { NavigationRail } from './NavigationRail';
 import { Topbar } from './Topbar';
 import { StatusStrip } from './StatusStrip';
-import { ToastStack } from '../feedback/ToastStack';
+import { ToastContainer } from 'react-toastify';
 import { NotificationCenter } from '../feedback/NotificationCenter';
 import { useNotifications } from '../../context/NotificationsContext';
 import { setApiNotifier } from '../../services/apiClient';
@@ -49,29 +49,27 @@ export function AppShell({ children, theme, onToggleTheme, variant = 'default', 
         </Flex>
 
         <NotificationCenter open={openCenter} onClose={() => setOpenCenter(false)} />
-        <ToastStack />
+        <ToastContainer position="bottom-right" theme="dark" newestOnTop closeOnClick pauseOnHover />
       </Box>
     );
   }
 
   // ─── Default Mode: Standard layout with Sidebar + Topbar ─────────────────
   return (
-    <Box minH="100vh" bg="sos.dark">
-      <Grid
-        templateColumns={{ base: '1fr', lg: '280px 1fr' }}
-        gap={4}
-        p={4}
-        maxW="1920px"
-        mx="auto"
-        minH="100vh"
-      >
+    <Box h="100vh" bg="sos.dark" overflow="hidden">
+      <Flex h="100%" gap={4} p={4} maxW="1920px" mx="auto">
+        {/* Fixed-height sidebar — does not scroll with main content */}
         <Sidebar
+          flexShrink={0}
+          w="280px"
+          h="100%"
           borderRadius="2xl"
           border="1px solid rgba(255,255,255,0.06)"
           bg="rgba(14,14,22,0.92)"
           backdropFilter="blur(24px)"
         />
-        <Box as="main" display="flex" flexDirection="column" gap={4}>
+        {/* Main content scrolls independently */}
+        <Flex as="main" flex="1" flexDirection="column" gap={4} h="100%" overflow="hidden">
           <Topbar
             theme={theme}
             onToggleTheme={onToggleTheme}
@@ -79,13 +77,13 @@ export function AppShell({ children, theme, onToggleTheme, variant = 'default', 
             onOpenNotifications={() => setOpenCenter(true)}
           />
           <StatusStrip />
-          <Box flex="1" position="relative">
+          <Box flex="1" position="relative" overflowY="auto">
             {children}
           </Box>
-        </Box>
-      </Grid>
+        </Flex>
+      </Flex>
       <NotificationCenter open={openCenter} onClose={() => setOpenCenter(false)} />
-      <ToastStack />
+      <ToastContainer position="bottom-right" theme="dark" newestOnTop closeOnClick pauseOnHover />
     </Box>
   );
 }

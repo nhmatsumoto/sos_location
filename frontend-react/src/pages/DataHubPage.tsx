@@ -1,8 +1,15 @@
 import { useEffect, useState, useCallback } from 'react';
 import {
   CheckCircle, XCircle, AlertCircle, RefreshCw, Save, Eye, EyeOff,
-  Wifi, WifiOff, ChevronRight, Settings, Activity,
+  Wifi, WifiOff, ChevronRight, Settings, Activity, Database,
 } from 'lucide-react';
+import {
+  Box, Flex, VStack, HStack, Text, Badge, IconButton,
+  Input, Spinner, Divider,
+} from '@chakra-ui/react';
+import { GlassPanel } from '../components/atoms/GlassPanel';
+import { TacticalText } from '../components/atoms/TacticalText';
+import { TacticalButton } from '../components/atoms/TacticalButton';
 import {
   integrationConfigApi,
   type IntegrationConfig,
@@ -25,28 +32,43 @@ const CATEGORY_ORDER = ['weather', 'alerts', 'geodata', 'satellite', 'elevation'
 // ── Status badge ─────────────────────────────────────────────────────────────
 function StatusBadge({ status }: { status: IntegrationConfig['status'] }) {
   if (status === 'configured') return (
-    <span className="flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-400 ring-1 ring-emerald-500/30">
-      <CheckCircle size={9} /> ATIVO
-    </span>
+    <Badge
+      display="flex" alignItems="center" gap="4px"
+      bg="rgba(52,199,89,0.12)" color="#34C759"
+      border="1px solid rgba(52,199,89,0.25)"
+      borderRadius="full" px={2} py={0.5} fontSize="9px" fontWeight="black" letterSpacing="widest"
+    >
+      <CheckCircle size={8} /> ATIVO
+    </Badge>
   );
   if (status === 'error') return (
-    <span className="flex items-center gap-1 rounded-full bg-red-500/15 px-2 py-0.5 text-[10px] font-bold text-red-400 ring-1 ring-red-500/30">
-      <XCircle size={9} /> ERRO
-    </span>
+    <Badge
+      display="flex" alignItems="center" gap="4px"
+      bg="rgba(255,59,48,0.12)" color="#FF3B30"
+      border="1px solid rgba(255,59,48,0.25)"
+      borderRadius="full" px={2} py={0.5} fontSize="9px" fontWeight="black" letterSpacing="widest"
+    >
+      <XCircle size={8} /> ERRO
+    </Badge>
   );
   return (
-    <span className="flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold text-amber-400 ring-1 ring-amber-500/30">
-      <AlertCircle size={9} /> PENDENTE
-    </span>
+    <Badge
+      display="flex" alignItems="center" gap="4px"
+      bg="rgba(255,149,0,0.12)" color="#FF9500"
+      border="1px solid rgba(255,149,0,0.25)"
+      borderRadius="full" px={2} py={0.5} fontSize="9px" fontWeight="black" letterSpacing="widest"
+    >
+      <AlertCircle size={8} /> PENDENTE
+    </Badge>
   );
 }
 
-// ── Dot indicator ─────────────────────────────────────────────────────────────
+// ── Status dot ────────────────────────────────────────────────────────────────
 function StatusDot({ status, enabled }: { status: IntegrationConfig['status']; enabled: boolean }) {
-  if (!enabled) return <span className="h-2 w-2 rounded-full bg-slate-600" />;
-  if (status === 'configured') return <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_6px_#34d399]" />;
-  if (status === 'error')      return <span className="h-2 w-2 rounded-full bg-red-400 shadow-[0_0_6px_#f87171]" />;
-  return <span className="h-2 w-2 rounded-full bg-amber-400" />;
+  if (!enabled) return <Box w="7px" h="7px" borderRadius="full" bg="rgba(255,255,255,0.15)" flexShrink={0} />;
+  if (status === 'configured') return <Box w="7px" h="7px" borderRadius="full" bg="#34C759" boxShadow="0 0 6px #34C759" flexShrink={0} />;
+  if (status === 'error')      return <Box w="7px" h="7px" borderRadius="full" bg="#FF3B30" boxShadow="0 0 6px #FF3B30" flexShrink={0} />;
+  return <Box w="7px" h="7px" borderRadius="full" bg="#FF9500" flexShrink={0} />;
 }
 
 // ── Detail panel ─────────────────────────────────────────────────────────────
@@ -66,7 +88,6 @@ function DetailPanel({ cfg, onUpdate }: DetailPanelProps) {
   const [testMsg,        setTestMsg]        = useState<{ ok: boolean; text: string } | null>(null);
   const [dirty,          setDirty]          = useState(false);
 
-  // Sync form when selection changes
   useEffect(() => {
     setCustomEndpoint(cfg.customEndpoint ?? '');
     setApiKey(cfg.apiKey ?? '');
@@ -90,9 +111,9 @@ function DetailPanel({ cfg, onUpdate }: DetailPanelProps) {
       const updated = await integrationConfigApi.update(cfg.id, dto);
       onUpdate(updated);
       setDirty(false);
-      setSaveMsg('Configuração salva.');
+      setSaveMsg('Configuração salva com sucesso.');
     } catch {
-      setSaveMsg('Falha ao salvar.');
+      setSaveMsg('Falha ao salvar. Tente novamente.');
     } finally {
       setSaving(false);
     }
@@ -107,7 +128,7 @@ function DetailPanel({ cfg, onUpdate }: DetailPanelProps) {
       setTestMsg({
         ok:   result.ok,
         text: result.ok
-          ? `OK · HTTP ${result.statusCode ?? '—'}`
+          ? `Conexão OK · HTTP ${result.statusCode ?? '—'}`
           : `Falha · ${result.error ?? `HTTP ${result.statusCode}`}`,
       });
     } catch {
@@ -120,147 +141,212 @@ function DetailPanel({ cfg, onUpdate }: DetailPanelProps) {
   const effectiveEndpoint = customEndpoint.trim() || cfg.defaultEndpoint;
 
   return (
-    <div className="flex h-full flex-col gap-5 overflow-y-auto p-5">
+    <VStack align="stretch" spacing={5} h="100%" overflowY="auto" p={6}>
 
       {/* Header */}
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h2 className="text-base font-bold text-white">{cfg.name}</h2>
-          <p className="mt-1 text-xs text-slate-400">{cfg.description}</p>
-        </div>
+      <Flex justify="space-between" align="flex-start">
+        <VStack align="flex-start" spacing={1} flex={1}>
+          <TacticalText variant="heading" fontSize="sm">{cfg.name}</TacticalText>
+          <Text fontSize="xs" color="whiteAlpha.500" lineHeight={1.5}>{cfg.description}</Text>
+        </VStack>
         <StatusBadge status={cfg.status} />
-      </div>
+      </Flex>
 
-      <hr className="border-slate-700/60" />
+      <Divider borderColor="whiteAlpha.100" />
 
       {/* Enable toggle */}
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-xs font-semibold text-slate-200">Integração ativa</p>
-          <p className="text-[11px] text-slate-500">Desativar remove esta fonte do pipeline de dados.</p>
-        </div>
-        <button
+      <GlassPanel depth="base" p={4} borderRadius="xl" direction="row" align="center" justify="space-between">
+        <VStack align="flex-start" spacing={0.5}>
+          <Text fontSize="xs" fontWeight="bold" color="white">Integração ativa</Text>
+          <Text fontSize="10px" color="whiteAlpha.400">Desativar remove esta fonte do pipeline de dados.</Text>
+        </VStack>
+        <Box
+          as="button"
           onClick={() => { setEnabled(v => !v); markDirty(); }}
-          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${enabled ? 'bg-cyan-500' : 'bg-slate-700'}`}
+          w="44px" h="24px" borderRadius="full" position="relative"
+          bg={enabled ? 'rgba(0,122,255,0.8)' : 'rgba(255,255,255,0.12)'}
+          border="1px solid"
+          borderColor={enabled ? 'rgba(0,122,255,0.6)' : 'whiteAlpha.200'}
+          transition="all 0.25s"
+          flexShrink={0}
         >
-          <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${enabled ? 'translate-x-6' : 'translate-x-1'}`} />
-        </button>
-      </div>
+          <Box
+            position="absolute" top="3px"
+            left={enabled ? '22px' : '3px'}
+            w="16px" h="16px" borderRadius="full" bg="white"
+            boxShadow="0 1px 4px rgba(0,0,0,0.4)"
+            transition="left 0.25s"
+          />
+        </Box>
+      </GlassPanel>
 
-      {/* Endpoint override */}
-      <div>
-        <label className="mb-1.5 block text-xs font-semibold text-slate-300">
-          Endpoint personalizado
-          <span className="ml-2 font-normal text-slate-500">(deixe vazio para usar o padrão)</span>
-        </label>
-        <input
+      {/* Endpoint */}
+      <VStack align="stretch" spacing={1.5}>
+        <HStack spacing={2}>
+          <Text fontSize="xs" fontWeight="bold" color="whiteAlpha.800">Endpoint personalizado</Text>
+          <Text fontSize="10px" color="whiteAlpha.400">(vazio = padrão)</Text>
+        </HStack>
+        <Input
           type="url"
           value={customEndpoint}
           onChange={e => { setCustomEndpoint(e.target.value); markDirty(); }}
           placeholder={cfg.defaultEndpoint}
-          className="w-full rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-2 text-xs text-white placeholder:text-slate-600 focus:border-cyan-500/60 focus:outline-none focus:ring-1 focus:ring-cyan-500/30"
+          size="sm"
+          bg="rgba(255,255,255,0.04)"
+          border="1px solid"
+          borderColor="whiteAlpha.150"
+          borderRadius="lg"
+          color="white"
+          fontSize="xs"
+          fontFamily="mono"
+          _placeholder={{ color: 'whiteAlpha.250', fontSize: '11px' }}
+          _focus={{ borderColor: 'rgba(0,122,255,0.5)', boxShadow: '0 0 0 1px rgba(0,122,255,0.25)' }}
+          _hover={{ borderColor: 'whiteAlpha.300' }}
         />
-        <p className="mt-1 truncate text-[10px] text-slate-600">
+        <Text fontSize="10px" color="whiteAlpha.300" fontFamily="mono" noOfLines={1}>
           Ativo: {effectiveEndpoint}
-        </p>
-      </div>
+        </Text>
+      </VStack>
 
       {/* API Key */}
       {cfg.authRequired && (
-        <div>
-          <label className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-slate-300">
-            API Key / Token
-            {cfg.authRequired && (
-              <span className="rounded bg-amber-500/15 px-1 py-0.5 text-[10px] text-amber-400">obrigatório</span>
-            )}
-          </label>
-          <div className="relative">
-            <input
+        <VStack align="stretch" spacing={1.5}>
+          <HStack spacing={2}>
+            <Text fontSize="xs" fontWeight="bold" color="whiteAlpha.800">API Key / Token</Text>
+            <Badge bg="rgba(255,149,0,0.12)" color="#FF9500" border="1px solid rgba(255,149,0,0.25)" borderRadius="md" px={1.5} fontSize="9px">
+              obrigatório
+            </Badge>
+          </HStack>
+          <Box position="relative">
+            <Input
               type={showKey ? 'text' : 'password'}
               value={apiKey}
               onChange={e => { setApiKey(e.target.value); markDirty(); }}
               placeholder="Insira o token de acesso..."
-              className="w-full rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-2 pr-9 text-xs text-white placeholder:text-slate-600 focus:border-cyan-500/60 focus:outline-none focus:ring-1 focus:ring-cyan-500/30"
+              size="sm"
+              bg="rgba(255,255,255,0.04)"
+              border="1px solid"
+              borderColor="whiteAlpha.150"
+              borderRadius="lg"
+              color="white"
+              fontSize="xs"
+              pr="36px"
+              _placeholder={{ color: 'whiteAlpha.250' }}
+              _focus={{ borderColor: 'rgba(0,122,255,0.5)', boxShadow: '0 0 0 1px rgba(0,122,255,0.25)' }}
+              _hover={{ borderColor: 'whiteAlpha.300' }}
             />
-            <button
-              type="button"
+            <IconButton
+              aria-label="Mostrar/ocultar chave"
+              icon={showKey ? <EyeOff size={13} /> : <Eye size={13} />}
+              size="xs"
+              variant="ghost"
+              color="whiteAlpha.500"
+              _hover={{ color: 'white' }}
+              position="absolute" right={1} top="50%" transform="translateY(-50%)" zIndex={1}
               onClick={() => setShowKey(v => !v)}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
-            >
-              {showKey ? <EyeOff size={13} /> : <Eye size={13} />}
-            </button>
-          </div>
-        </div>
+            />
+          </Box>
+        </VStack>
       )}
 
-      {/* Action buttons */}
-      <div className="flex flex-wrap gap-2">
-        <button
+      {/* Actions */}
+      <HStack spacing={3}>
+        <TacticalButton
           onClick={handleSave}
-          disabled={saving || !dirty}
-          className="flex items-center gap-1.5 rounded-lg bg-cyan-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-40"
+          isDisabled={saving || !dirty}
+          height="36px"
+          px={4}
+          fontSize="10px"
+          gap={1.5}
+          bg="rgba(0,122,255,0.18)"
+          borderColor="rgba(0,122,255,0.35)"
+          color="white"
+          _hover={{ bg: 'rgba(0,122,255,0.28)', borderColor: 'rgba(0,122,255,0.55)' }}
+          _disabled={{ opacity: 0.35, cursor: 'not-allowed' }}
         >
-          {saving ? <RefreshCw size={12} className="animate-spin" /> : <Save size={12} />}
+          {saving ? <Spinner size="xs" /> : <Save size={12} />}
           {saving ? 'Salvando…' : 'Salvar'}
-        </button>
+        </TacticalButton>
 
-        <button
+        <TacticalButton
           onClick={handleTest}
-          disabled={testing}
-          className="flex items-center gap-1.5 rounded-lg border border-slate-600 bg-slate-800 px-4 py-2 text-xs font-semibold text-slate-200 transition hover:border-slate-500 hover:bg-slate-700 disabled:opacity-40"
+          isDisabled={testing}
+          height="36px"
+          px={4}
+          fontSize="10px"
+          gap={1.5}
+          _disabled={{ opacity: 0.35, cursor: 'not-allowed' }}
         >
-          {testing ? <RefreshCw size={12} className="animate-spin" /> : <Wifi size={12} />}
+          {testing ? <Spinner size="xs" /> : <Wifi size={12} />}
           {testing ? 'Testando…' : 'Testar Conexão'}
-        </button>
-      </div>
+        </TacticalButton>
+      </HStack>
 
-      {/* Feedback messages */}
+      {/* Feedback */}
       {saveMsg && (
-        <p className="text-[11px] text-cyan-400">{saveMsg}</p>
+        <Text fontSize="11px" color="rgba(0,122,255,0.9)">{saveMsg}</Text>
       )}
       {testMsg && (
-        <div className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs ${testMsg.ok ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300' : 'border-red-500/30 bg-red-500/10 text-red-300'}`}>
-          {testMsg.ok ? <Wifi size={12} /> : <WifiOff size={12} />}
-          {testMsg.text}
-        </div>
+        <GlassPanel
+          depth="base"
+          tint={testMsg.ok ? 'green' : 'red'}
+          p={3} borderRadius="xl" direction="row" align="center" gap={2}
+          borderColor={testMsg.ok ? 'rgba(52,199,89,0.25)' : 'rgba(255,59,48,0.25)'}
+        >
+          {testMsg.ok
+            ? <Wifi size={13} color="#34C759" />
+            : <WifiOff size={13} color="#FF3B30" />
+          }
+          <Text fontSize="xs" color={testMsg.ok ? '#34C759' : '#FF3B30'}>{testMsg.text}</Text>
+        </GlassPanel>
       )}
 
-      {/* Last test info */}
+      {/* Last test */}
       {cfg.lastTestedAt && (
-        <p className="text-[10px] text-slate-600">
+        <Text fontSize="10px" color="whiteAlpha.300">
           Último teste: {new Date(cfg.lastTestedAt).toLocaleString('pt-BR')} ·{' '}
-          {cfg.lastTestOk ? <span className="text-emerald-500">sucesso</span> : <span className="text-red-500">falha</span>}
-        </p>
+          <Box as="span" color={cfg.lastTestOk ? '#34C759' : '#FF3B30'}>
+            {cfg.lastTestOk ? 'sucesso' : 'falha'}
+          </Box>
+        </Text>
       )}
 
-      <hr className="border-slate-700/60" />
+      <Divider borderColor="whiteAlpha.100" />
 
-      {/* Info section */}
-      <div className="space-y-2 rounded-xl bg-slate-800/40 p-4">
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">Detalhes</p>
-        <Row label="Categoria"     value={CATEGORY_LABELS[cfg.category] ?? cfg.category} />
-        <Row label="Autenticação"  value={cfg.authRequired ? 'Necessária' : 'Não necessária'} />
-        <Row label="Endpoint padrão" value={cfg.defaultEndpoint} mono />
-      </div>
-    </div>
+      {/* Detail rows */}
+      <GlassPanel depth="base" p={4} borderRadius="xl" direction="column" gap={3}>
+        <TacticalText variant="subheading" fontSize="9px">Detalhes</TacticalText>
+        <InfoRow label="Categoria"      value={CATEGORY_LABELS[cfg.category] ?? cfg.category} />
+        <InfoRow label="Autenticação"   value={cfg.authRequired ? 'Necessária' : 'Não necessária'} />
+        <InfoRow label="Endpoint padrão" value={cfg.defaultEndpoint} mono />
+      </GlassPanel>
+    </VStack>
   );
 }
 
-function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+function InfoRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
-    <div className="flex items-start justify-between gap-2 text-xs">
-      <span className="shrink-0 text-slate-500">{label}</span>
-      <span className={`text-right text-slate-300 ${mono ? 'break-all font-mono text-[10px]' : ''}`}>{value}</span>
-    </div>
+    <Flex justify="space-between" align="flex-start" gap={3}>
+      <Text fontSize="11px" color="whiteAlpha.400" flexShrink={0}>{label}</Text>
+      <Text
+        fontSize={mono ? '10px' : '11px'}
+        fontFamily={mono ? 'mono' : undefined}
+        color="whiteAlpha.700"
+        textAlign="right"
+        wordBreak="break-all"
+      >
+        {value}
+      </Text>
+    </Flex>
   );
 }
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 export function DataHubPage() {
-  const [configs,    setConfigs]    = useState<IntegrationConfig[]>([]);
-  const [loading,    setLoading]    = useState(true);
-  const [selected,   setSelected]   = useState<IntegrationConfig | null>(null);
-  const [error,      setError]      = useState<string | null>(null);
+  const [configs,  setConfigs]  = useState<IntegrationConfig[]>([]);
+  const [loading,  setLoading]  = useState(true);
+  const [selected, setSelected] = useState<IntegrationConfig | null>(null);
+  const [error,    setError]    = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -268,9 +354,7 @@ export function DataHubPage() {
     try {
       const data = await integrationConfigApi.getAll();
       setConfigs(data);
-      if (data.length > 0 && selected === null) {
-        setSelected(data[0]);
-      }
+      if (data.length > 0 && selected === null) setSelected(data[0]);
     } catch {
       setError('Falha ao carregar integrações. Verifique se o backend está disponível.');
     } finally {
@@ -285,7 +369,6 @@ export function DataHubPage() {
     setSelected(updated);
   };
 
-  // Group by category
   const grouped = CATEGORY_ORDER.reduce<Record<string, IntegrationConfig[]>>((acc, cat) => {
     const items = configs.filter(c => c.category === cat);
     if (items.length > 0) acc[cat] = items;
@@ -296,95 +379,146 @@ export function DataHubPage() {
   const errorCount      = configs.filter(c => c.status === 'error').length;
 
   return (
-    <div className="flex h-full overflow-hidden border-t border-slate-700/50 bg-slate-950">
+    <Box h="100%" w="100%" bg="sos.dark" overflowY="auto" p={{ base: 4, md: 6 }}>
+      <VStack spacing={6} align="stretch" maxW="1400px" mx="auto" h="100%">
 
-      {/* ── Sidebar ─────────────────────────────────────────────────────── */}
-      <aside className="flex w-64 shrink-0 flex-col border-r border-slate-700/50">
+        {/* ── Page header ─────────────────────────────────────────────── */}
+        <Flex justify="space-between" align="center" flexWrap="wrap" gap={4}>
+          <HStack spacing={4}>
+            <Box p={3} bg="rgba(0,122,255,0.10)" borderRadius="2xl" boxShadow="0 0 20px rgba(0,122,255,0.15)">
+              <Database size={20} color="rgba(0,122,255,0.9)" />
+            </Box>
+            <VStack align="flex-start" spacing={0.5}>
+              <TacticalText variant="heading" fontSize="lg">Data Hub</TacticalText>
+              <TacticalText variant="subheading" fontSize="10px">
+                Gerenciamento de integrações e fontes de dados
+              </TacticalText>
+            </VStack>
+          </HStack>
 
-        {/* Sidebar header */}
-        <div className="flex items-center justify-between border-b border-slate-700/50 px-4 py-3">
-          <div className="flex items-center gap-2">
-            <Settings size={14} className="text-cyan-400" />
-            <span className="text-xs font-bold text-white">Integrações</span>
-          </div>
-          <button
-            onClick={load}
-            disabled={loading}
-            className="text-slate-500 transition hover:text-slate-300 disabled:opacity-40"
-            title="Recarregar"
+          {/* Stats strip */}
+          {!loading && !error && (
+            <HStack spacing={4}>
+              <GlassPanel depth="base" px={3} py={2} borderRadius="xl" direction="row" align="center" gap={2}>
+                <Activity size={12} color="#34C759" />
+                <Text fontSize="11px" fontFamily="mono" color="whiteAlpha.700">
+                  <Box as="span" fontWeight="bold" color="#34C759">{configuredCount}</Box> ativos
+                </Text>
+              </GlassPanel>
+              {errorCount > 0 && (
+                <GlassPanel depth="base" tint="red" px={3} py={2} borderRadius="xl" direction="row" align="center" gap={2}>
+                  <XCircle size={12} color="#FF3B30" />
+                  <Text fontSize="11px" fontFamily="mono" color="#FF3B30" fontWeight="bold">
+                    {errorCount} erro{errorCount > 1 ? 's' : ''}
+                  </Text>
+                </GlassPanel>
+              )}
+            </HStack>
+          )}
+        </Flex>
+
+        {/* ── Content: sidebar + detail ────────────────────────────────── */}
+        <Flex flex={1} gap={4} align="stretch" minH={0} flexDirection={{ base: 'column', lg: 'row' }}>
+
+          {/* Sidebar */}
+          <GlassPanel
+            depth="raised"
+            w={{ base: '100%', lg: '260px' }}
+            minW={{ lg: '260px' }}
+            direction="column"
+            borderRadius="2xl"
+            overflow="hidden"
+            flexShrink={0}
           >
-            <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
-          </button>
-        </div>
+            {/* Sidebar header */}
+            <Flex
+              px={4} py={3}
+              align="center" justify="space-between"
+              borderBottom="1px solid" borderColor="whiteAlpha.100"
+            >
+              <HStack spacing={2}>
+                <Settings size={13} color="rgba(0,122,255,0.8)" />
+                <TacticalText variant="subheading" fontSize="10px">Integrações</TacticalText>
+              </HStack>
+              <IconButton
+                aria-label="Recarregar"
+                icon={<RefreshCw size={13} />}
+                size="xs"
+                variant="ghost"
+                color="whiteAlpha.400"
+                _hover={{ color: 'white' }}
+                isLoading={loading}
+                onClick={load}
+              />
+            </Flex>
 
-        {/* Summary strip */}
-        {!loading && !error && (
-          <div className="flex items-center gap-3 border-b border-slate-700/50 px-4 py-2">
-            <div className="flex items-center gap-1">
-              <Activity size={10} className="text-emerald-400" />
-              <span className="text-[10px] text-slate-400">{configuredCount} ativos</span>
-            </div>
-            {errorCount > 0 && (
-              <div className="flex items-center gap-1">
-                <XCircle size={10} className="text-red-400" />
-                <span className="text-[10px] text-slate-400">{errorCount} erro{errorCount > 1 ? 's' : ''}</span>
-              </div>
-            )}
-          </div>
-        )}
+            {/* List */}
+            <VStack align="stretch" spacing={0} flex={1} overflowY="auto" py={2}>
+              {loading && (
+                <Flex justify="center" align="center" py={10}>
+                  <Spinner size="sm" color="whiteAlpha.300" />
+                </Flex>
+              )}
 
-        {/* List */}
-        <nav className="flex-1 overflow-y-auto py-2">
-          {loading && (
-            <div className="flex items-center justify-center py-10">
-              <RefreshCw size={16} className="animate-spin text-slate-500" />
-            </div>
-          )}
+              {error && (
+                <Text px={4} py={4} fontSize="11px" color="rgba(255,59,48,0.8)">{error}</Text>
+              )}
 
-          {error && (
-            <p className="px-4 py-4 text-[11px] text-red-400">{error}</p>
-          )}
-
-          {!loading && !error && Object.entries(grouped).map(([cat, items]) => (
-            <div key={cat} className="mb-3">
-              <p className="mb-1 px-4 text-[9px] font-bold uppercase tracking-widest text-slate-600">
-                {CATEGORY_LABELS[cat] ?? cat}
-              </p>
-              {items.map(cfg => (
-                <button
-                  key={cfg.id}
-                  onClick={() => setSelected(cfg)}
-                  className={`flex w-full items-center gap-2 px-4 py-2 text-left transition-colors ${
-                    selected?.id === cfg.id
-                      ? 'bg-slate-800 text-white'
-                      : 'text-slate-300 hover:bg-slate-800/50 hover:text-white'
-                  }`}
-                >
-                  <StatusDot status={cfg.status} enabled={cfg.enabled} />
-                  <span className="flex-1 truncate text-xs">{cfg.name}</span>
-                  {selected?.id === cfg.id && <ChevronRight size={11} className="text-slate-500" />}
-                </button>
+              {!loading && !error && Object.entries(grouped).map(([cat, items]) => (
+                <Box key={cat} mb={3}>
+                  <Text
+                    px={4} py={1}
+                    fontSize="9px" fontWeight="black" letterSpacing="widest"
+                    textTransform="uppercase" color="whiteAlpha.300"
+                  >
+                    {CATEGORY_LABELS[cat] ?? cat}
+                  </Text>
+                  {items.map(cfg => (
+                    <Flex
+                      key={cfg.id}
+                      as="button"
+                      w="100%"
+                      px={4} py={2.5}
+                      align="center" gap={2.5}
+                      textAlign="left"
+                      cursor="pointer"
+                      transition="background 0.15s"
+                      bg={selected?.id === cfg.id ? 'rgba(0,122,255,0.10)' : 'transparent'}
+                      borderLeft="2px solid"
+                      borderColor={selected?.id === cfg.id ? 'rgba(0,122,255,0.6)' : 'transparent'}
+                      _hover={{ bg: selected?.id === cfg.id ? 'rgba(0,122,255,0.12)' : 'rgba(255,255,255,0.04)' }}
+                      onClick={() => setSelected(cfg)}
+                    >
+                      <StatusDot status={cfg.status} enabled={cfg.enabled} />
+                      <Text flex={1} fontSize="xs" color={selected?.id === cfg.id ? 'white' : 'whiteAlpha.700'} noOfLines={1}>
+                        {cfg.name}
+                      </Text>
+                      {selected?.id === cfg.id && <ChevronRight size={11} color="rgba(255,255,255,0.3)" />}
+                    </Flex>
+                  ))}
+                </Box>
               ))}
-            </div>
-          ))}
-        </nav>
-      </aside>
+            </VStack>
+          </GlassPanel>
 
-      {/* ── Main panel ──────────────────────────────────────────────────── */}
-      <main className="flex flex-1 flex-col overflow-hidden">
-        {selected ? (
-          <DetailPanel
-            key={selected.id}
-            cfg={selected}
-            onUpdate={handleUpdate}
-          />
-        ) : (
-          <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
-            <Settings size={32} className="text-slate-700" />
-            <p className="text-sm text-slate-500">Selecione uma integração para configurar</p>
-          </div>
-        )}
-      </main>
-    </div>
+          {/* Detail panel */}
+          <GlassPanel depth="raised" flex={1} direction="column" borderRadius="2xl" overflow="hidden" minH="400px">
+            {selected ? (
+              <DetailPanel key={selected.id} cfg={selected} onUpdate={handleUpdate} />
+            ) : (
+              <Flex flex={1} direction="column" align="center" justify="center" gap={3} p={8}>
+                <Box p={4} bg="rgba(255,255,255,0.04)" borderRadius="2xl">
+                  <Settings size={28} color="rgba(255,255,255,0.15)" />
+                </Box>
+                <TacticalText variant="subheading" textAlign="center">
+                  Selecione uma integração para configurar
+                </TacticalText>
+              </Flex>
+            )}
+          </GlassPanel>
+
+        </Flex>
+      </VStack>
+    </Box>
   );
 }

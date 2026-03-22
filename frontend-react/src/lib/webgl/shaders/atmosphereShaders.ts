@@ -74,29 +74,31 @@ void main() {
   float sunEl  = clamp(u_sunElevDeg, -10.0, 90.0);
   float dayFac = smoothstep(-6.0, 14.0, sunEl);
 
-  // ── Base sky gradient ─────────────────────────────────────────────────────
-  vec3 zenith  = mix(vec3(0.02,0.04,0.14), vec3(0.11,0.34,0.72), dayFac);
+  // ── Base sky gradient — tuned for 65° midday sun ──────────────────────────
+  // Zenith: deep Rayleigh blue at noon. Horizon: bright white-blue (forward scatter).
+  vec3 zenith  = mix(vec3(0.02,0.04,0.14), vec3(0.09,0.28,0.68), dayFac);
   vec3 horizon = mix(
     vec3(0.04,0.07,0.16),
-    mix(vec3(0.88,0.45,0.12), vec3(0.55,0.72,0.90), smoothstep(4.0,28.0,sunEl)),
+    mix(vec3(0.88,0.45,0.12), vec3(0.62,0.78,0.94), smoothstep(4.0,32.0,sunEl)),
     dayFac
   );
-  float hBlend  = pow(max(0.0, 1.0-cosUp), 4.0);
+  float hBlend  = pow(max(0.0, 1.0-cosUp), 3.5); // slightly wider horizon band
   vec3 skyColor = mix(zenith, horizon, hBlend);
 
-  // ── Sun disk + Mie scattering halo + corona ───────────────────────────────
+  // ── Sun disk + Mie forward-scattering halo ────────────────────────────────
   float sunDot = dot(rayDir, normalize(u_sunDir));
-  float disk   = smoothstep(0.9986, 0.9999, sunDot);
-  float corona = smoothstep(0.90,   0.9986, sunDot) * 0.28;
-  float mie    = pow(max(0.0, sunDot), 8.0) * 0.55 * dayFac;
-  vec3  mieCol = mix(vec3(1.0,0.50,0.10), vec3(1.0,0.80,0.55), smoothstep(0.0,20.0,sunEl)/20.0);
-  skyColor    += mieCol * mie * (1.0 - u_cloudCover * 0.6);
-  vec3  sunCol = mix(vec3(1.0,0.78,0.28), vec3(1.0,0.96,0.82), smoothstep(0.0,30.0,sunEl)/30.0);
+  float disk   = smoothstep(0.9988, 0.9999, sunDot);              // sharp disk
+  float corona = smoothstep(0.960,  0.9988, sunDot) * 0.22;       // tight corona
+  float mie    = pow(max(0.0, sunDot), 6.0) * 0.40 * dayFac;     // forward Mie lobe
+  // At 65° sun is nearly white-warm; minimal orange tint
+  vec3  mieCol = mix(vec3(1.0,0.50,0.10), vec3(1.0,0.90,0.72), smoothstep(0.0,30.0,sunEl)/30.0);
+  skyColor    += mieCol * mie * (1.0 - u_cloudCover * 0.55);
+  vec3  sunCol = mix(vec3(1.0,0.82,0.32), vec3(1.05,0.98,0.88), smoothstep(0.0,40.0,sunEl)/40.0);
   skyColor    += sunCol * (disk + corona) * dayFac;
 
-  // ── Atmospheric limb haze ─────────────────────────────────────────────────
-  float limbH   = exp(-pow(cosUp / 0.08, 2.0)) * dayFac * 0.18;
-  vec3  limbCol = mix(vec3(0.88,0.55,0.22), vec3(0.70,0.80,0.98), smoothstep(4.0,28.0,sunEl));
+  // ── Rayleigh haze band at horizon (bright white-blue at noon) ────────────
+  float limbH   = exp(-pow(cosUp / 0.07, 2.0)) * dayFac * 0.22;
+  vec3  limbCol = mix(vec3(0.88,0.60,0.28), vec3(0.78,0.88,1.00), smoothstep(4.0,40.0,sunEl));
   skyColor     += limbCol * limbH;
 
   // ── Stars at night ────────────────────────────────────────────────────────
