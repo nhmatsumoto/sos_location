@@ -7,6 +7,7 @@ export class WaterLayer extends Layer {
   private vbo: WebGLBuffer | null = null;
   private count: number = 0;
   private waterLevel: number = 0.0;
+  private waveProgress: number = 0.0;
 
   constructor(renderer: WebGLRenderer) {
     super(renderer);
@@ -22,6 +23,11 @@ export class WaterLayer extends Layer {
     this.waterLevel = level;
   }
 
+  public setTsunamiState(waterLevel: number, waveProgress: number) {
+    this.waterLevel = waterLevel;
+    this.waveProgress = waveProgress;
+  }
+
   public render(projectionMatrix: Float32Array, viewMatrix: Float32Array) {
     if (!this.visible || !this.program || !this.vbo) return;
 
@@ -32,9 +38,10 @@ export class WaterLayer extends Layer {
     gl.uniformMatrix4fv(gl.getUniformLocation(this.program, 'u_viewMatrix'), false, viewMatrix);
     gl.uniformMatrix4fv(gl.getUniformLocation(this.program, 'u_modelMatrix'), false, new Float32Array([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]));
     gl.uniform1f(gl.getUniformLocation(this.program, 'u_time'), performance.now() / 1000);
+    gl.uniform1f(gl.getUniformLocation(this.program, 'u_waterLevel'), this.waterLevel);
     gl.uniform1f(gl.getUniformLocation(this.program, 'u_reveal'), 1.0);
-    gl.uniform1f(gl.getUniformLocation(this.program, 'u_waveHeight'), 1.5);
-    gl.uniform1f(gl.getUniformLocation(this.program, 'u_waveSpeed'), 1.2);
+    gl.uniform1f(gl.getUniformLocation(this.program, 'u_waveHeight'), 1.5 + this.waveProgress * 5.0);
+    gl.uniform1f(gl.getUniformLocation(this.program, 'u_waveSpeed'), 1.2 + this.waveProgress * 2.0);
     gl.uniform1f(gl.getUniformLocation(this.program, 'u_waveFrequency'), 0.05);
     gl.uniform1f(gl.getUniformLocation(this.program, 'u_waveDirectionX'), 1.0);
     gl.uniform1f(gl.getUniformLocation(this.program, 'u_waveDirectionZ'), 0.5);

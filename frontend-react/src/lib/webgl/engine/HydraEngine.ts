@@ -6,6 +6,7 @@ import { DisasterPhysics } from '../physics/DisasterPhysics';
 import type { DisasterState } from '../physics/DisasterPhysics';
 import { UrbanLayer } from '../layers/UrbanLayer';
 import { WaterLayer } from '../layers/WaterLayer';
+import { TerrainLayer } from '../layers/TerrainLayer';
 
 export class HydraEngine {
   private renderer: WebGLRenderer;
@@ -94,6 +95,10 @@ export class HydraEngine {
       if (layer instanceof WaterLayer) {
         const { waterLevel, waveProgress } = DisasterPhysics.calculateTsunami(state);
         layer.setTsunamiState(waterLevel, waveProgress);
+      }
+      if (layer instanceof TerrainLayer) {
+        const { waterLevel } = DisasterPhysics.calculateTsunami(state);
+        layer.setWaterLevel(waterLevel);
       }
     }
   }

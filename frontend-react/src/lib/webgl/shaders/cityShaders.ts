@@ -84,6 +84,7 @@ uniform mat4 u_projectionMatrix;
 uniform mat4 u_viewMatrix;
 uniform mat4 u_modelMatrix;
 uniform float u_time;
+uniform float u_waterLevel;
 uniform float u_waveHeight;
 uniform float u_waveSpeed;
 uniform float u_waveFrequency;
@@ -101,7 +102,7 @@ void main() {
 
   // Simple sine wave for water surface
   float waveOffset = sin(dot(pos.xz, vec2(u_waveDirectionX, u_waveDirectionZ)) * u_waveFrequency + u_time * u_waveSpeed) * u_waveHeight;
-  pos.y += waveOffset;
+  pos.y += u_waterLevel + waveOffset;
 
   v_worldPos = (u_modelMatrix * vec4(pos, 1.0)).xyz;
   v_normal = normalize((u_modelMatrix * vec4(a_normal, 0.0)).xyz); // Placeholder, proper normal calculation for waves is more complex
@@ -238,6 +239,7 @@ uniform float u_wetness;
 uniform float u_fireScorch;
 uniform highp int   u_earthquakeMod;
 uniform float u_time;          // elapsed simulation time [s]
+uniform float u_waterLevel;    // current water surface height
 uniform float u_quakeOriginX;  // epicenter UV X (0-1)
 uniform float u_quakeOriginZ;  // epicenter UV Z (0-1)
 // Tsunami drawback: expose sea floor when water recedes

@@ -1,16 +1,19 @@
 import { GISMath } from '../GISMath';
 
 export class CameraController {
-  public pos: [number, number, number] = [0, 1000, -2000];
+  // Centimeter scale: [X, Y, Z]
+  // Default: Height 500m (50000cm), Distance from target ~2km (200000cm)
+  public pos: [number, number, number] = [0, 50000, -150000];
   public target: [number, number, number] = [0, 0, 0];
   public up: [number, number, number] = [0, 1, 0];
   public yaw: number = Math.PI;
-  public pitch: number = -0.5;
-  public distance: number = 2000;
-  public speed: number = 10;
+  public pitch: number = -0.45;
+  public distance: number = 180000;
+  public speed: number = 5000; // 50m per sec at base speed
   public keys: Set<string> = new Set();
 
   private isDragging: boolean = false;
+  private dragButton: number = -1;
   private lastX: number = 0;
   private lastY: number = 0;
 
@@ -26,10 +29,11 @@ export class CameraController {
   }
 
   public update(deltaTime: number) {
-    if (this.keys.has('KeyW')) this.moveForward(this.speed * deltaTime);
-    if (this.keys.has('KeyS')) this.moveForward(-this.speed * deltaTime);
-    if (this.keys.has('KeyA')) this.moveRight(-this.speed * deltaTime);
-    if (this.keys.has('KeyD')) this.moveRight(this.speed * deltaTime);
+    const moveAmount = this.speed * deltaTime;
+    if (this.keys.has('KeyW')) this.moveForward(moveAmount);
+    if (this.keys.has('KeyS')) this.moveForward(-moveAmount);
+    if (this.keys.has('KeyA')) this.moveRight(-moveAmount);
+    if (this.keys.has('KeyD')) this.moveRight(moveAmount);
   }
 
   private moveForward(dist: number) {
@@ -45,28 +49,49 @@ export class CameraController {
     this.target = GISMath.add(this.target, GISMath.scale(right, dist)) as [number, number, number];
   }
 
-  public handleMouseDown(x: number, y: number) {
+  public handleMouseDown(e: { clientX: number, clientY: number, button: number }) {
     this.isDragging = true;
-    this.lastX = x;
-    this.lastY = y;
+    this.dragButton = e.button;
+    this.lastX = e.clientX;
+    this.lastY = e.clientY;
   }
 
-  public handleMouseMove(x: number, y: number) {
+  public handleMouseMove(e: { clientX: number, clientY: number, shiftKey: boolean, ctrlKey: boolean }) {
     if (!this.isDragging) return;
-    const dx = x - this.lastX;
-    const dy = y - this.lastY;
-    this.lastX = x;
-    this.lastY = y;
+    const dx = e.clientX - this.lastX;
+    const dy = e.clientY - this.lastY;
+    this.lastX = e.clientX;
+    this.lastY = e.clientY;
 
-    this.yaw -= dx * 0.005;
-    this.pitch = Math.max(-1.5, Math.min(1.5, this.pitch - dy * 0.005));
+    // Blender MMB Orbit (Button 1)
+    if (this.dragButton === 1 && !e.shiftKey && !e.ctrlKey) {
+      this.yaw -= dx * 0.005;
+      this.pitch = Math.max(-1.5, Math.min(1.5, this.pitch - dy * 0.005));
+    }
+    // Blender Shift + MMB Pan
+    else if (this.dragButton === 1 && e.shiftKey) {
+      const fwd = GISMath.normalize(GISMath.subtract(this.target, this.pos));
+      const right = GISMath.normalize(GISMath.cross(this.up, fwd));
+      const upDir = GISMath.normalize(GISMath.cross(fwd, right));
+      
+      const factor = this.distance * 0.001; // Scale pan speed by distance
+      const panX = GISMath.scale(right, -dx * factor);
+      const panY = GISMath.scale(upDir, dy * factor);
+      
+      this.target = GISMath.add(this.target, GISMath.add(panX, panY)) as [number, number, number];
+    }
+    // Blender Ctrl + MMB Zoom (or vertical drag)
+    else if (this.dragButton === 1 && e.ctrlKey) {
+      this.handleWheel(dy * 2);
+    }
   }
 
   public handleMouseUp() {
     this.isDragging = false;
+    this.dragButton = -1;
   }
 
   public handleWheel(deltaY: number) {
-    this.distance = Math.max(50, Math.min(200000, this.distance + deltaY * (this.distance * 0.001)));
+    this.distance = Math.max(100, Math.min(2000000, this.distance + deltaY * (this.distance * 0.002)));
   }
 }

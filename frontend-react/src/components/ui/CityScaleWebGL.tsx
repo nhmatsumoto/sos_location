@@ -92,14 +92,16 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
     if (!canvas || !engineRef.current) return;
     const camera = engineRef.current.getCamera();
 
-    const onMouseDown = (e: MouseEvent) => { e.preventDefault(); camera.handleMouseDown(e.clientX, e.clientY); };
-    const onMouseMove = (e: MouseEvent) => camera.handleMouseMove(e.clientX, e.clientY);
+    const onMouseDown = (e: MouseEvent) => { e.preventDefault(); camera.handleMouseDown(e); };
+    const onMouseMove = (e: MouseEvent) => camera.handleMouseMove(e);
     const onMouseUp = () => camera.handleMouseUp();
     const onWheel = (e: WheelEvent) => { e.preventDefault(); camera.handleWheel(e.deltaY); };
+    const onContextMenu = (e: MouseEvent) => e.preventDefault();
     const onKeyDown = (e: KeyboardEvent) => camera.keys.add(e.code);
     const onKeyUp = (e: KeyboardEvent) => camera.keys.delete(e.code);
 
     canvas.addEventListener('mousedown', onMouseDown);
+    canvas.addEventListener('contextmenu', onContextMenu);
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('mouseup', onMouseUp);
     canvas.addEventListener('wheel', onWheel, { passive: false });
@@ -108,6 +110,7 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
 
     return () => {
       canvas.removeEventListener('mousedown', onMouseDown);
+      canvas.removeEventListener('contextmenu', onContextMenu);
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('mouseup', onMouseUp);
       canvas.removeEventListener('wheel', onWheel);
@@ -129,13 +132,13 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
       const fetchBbox = bbox || blueprint.bbox;
       GeoDataPipeline.fetch(fetchBbox[0], fetchBbox[1], fetchBbox[2], fetchBbox[3], satEnabled)
         .then(geoData => {
-          if (geoData.mapCanvas) {
+          if (geoData.mapCanvas && terrainRef.current) {
             const gl = engine.getRenderer().getContext();
             const tex = gl.createTexture()!;
             gl.bindTexture(gl.TEXTURE_2D, tex);
             gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, geoData.mapCanvas);
             gl.generateMipmap(gl.TEXTURE_2D);
-            terrainRef.current?.setSatellite(tex, 0.82);
+            terrainRef.current.setSatellite(tex, 0.85);
           }
         });
     }

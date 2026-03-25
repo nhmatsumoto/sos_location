@@ -605,23 +605,60 @@ function CatalogsTab() {
         </GlassPanel>
 
         {/* Landsat collections */}
-        <GlassPanel depth="raised" p={4} direction="column" gap={3}>
-          <TacticalText variant="subheading">Coleções Landsat ({landsat.length})</TacticalText>
-          {landsat.length === 0 && !loading && (
-            <TacticalText variant="caption">Nenhuma coleção disponível</TacticalText>
-          )}
-          <VStack spacing={2} align="stretch">
-            {landsat.map((col) => (
-              <GlassPanel key={col.id} depth="base" p={3} direction="column" gap={1} borderRadius="xl">
-                <TacticalText variant="heading" fontSize="xs">{col.title}</TacticalText>
-                <TacticalText variant="caption">{col.provider}</TacticalText>
-                {col.description && (
-                  <Text color="whiteAlpha.600" fontSize="xs" noOfLines={2}>{col.description}</Text>
-                )}
-              </GlassPanel>
-            ))}
-          </VStack>
-        </GlassPanel>
+        <VStack spacing={4} align="stretch">
+          <GlassPanel depth="raised" p={4} direction="column" gap={3}>
+            <TacticalText variant="subheading">Coleções Landsat ({landsat.length})</TacticalText>
+            {landsat.length === 0 && !loading && (
+              <TacticalText variant="caption">Nenhuma coleção disponível</TacticalText>
+            )}
+            <VStack spacing={2} align="stretch">
+              {landsat.map((col) => (
+                <GlassPanel key={col.id} depth="base" p={3} direction="column" gap={1} borderRadius="xl">
+                  <TacticalText variant="heading" fontSize="xs">{col.title}</TacticalText>
+                  <TacticalText variant="caption">{col.provider}</TacticalText>
+                  {col.description && (
+                    <Text color="whiteAlpha.600" fontSize="xs" noOfLines={2}>{col.description}</Text>
+                  )}
+                </GlassPanel>
+              ))}
+            </VStack>
+          </GlassPanel>
+
+          {/* Geofabrik Brazil Catalog */}
+          <GlassPanel depth="raised" p={4} direction="column" gap={3} border="1px solid rgba(0,122,255,0.2)">
+            <HStack justify="space-between">
+              <VStack align="flex-start" spacing={0}>
+                <TacticalText variant="heading" fontSize="xs">Geofabrik: Brasil</TacticalText>
+                <TacticalText variant="caption">Dados OSM de Alta Precisão</TacticalText>
+              </VStack>
+              <Badge colorScheme="blue" variant="subtle" fontSize="9px">OSM.PBF</Badge>
+            </HStack>
+            
+            <VStack spacing={2} align="stretch">
+              {[
+                { name: 'Brasil (Nacional)',   slug: 'brazil',      desc: 'Mapa completo do território nacional' },
+                { name: 'Região Sudeste',     slug: 'southeast',   desc: 'SP, RJ, MG, ES (Alta Densidade)' },
+                { name: 'Região Sul',         slug: 'south',       desc: 'PR, SC, RS' },
+                { name: 'Região Nordeste',    slug: 'northeast',   desc: 'Estados do NE' },
+                { name: 'Região Centro-Oeste', slug: 'center-west', desc: 'MT, MS, GO, DF' },
+                { name: 'Região Norte',       slug: 'north',       desc: 'AM, PA, etc.' },
+              ].map((reg) => (
+                <GlassPanel key={reg.slug} depth="base" p={3} direction="row" align="center" gap={3} borderRadius="xl" _hover={{ bg: 'rgba(0,122,255,0.08)' }}>
+                  <Box flex={1}>
+                    <TacticalText variant="mono" fontSize="10px" color="blue.300">{reg.name}</TacticalText>
+                    <Text color="whiteAlpha.600" fontSize="10px">{reg.desc}</Text>
+                  </Box>
+                  <TacticalButton size="xs" variant="ghost" onClick={() => window.open(`https://download.geofabrik.de/south-america/brazil/${reg.slug}-latest.osm.pbf`, '_blank')}>
+                    PBF
+                  </TacticalButton>
+                </GlassPanel>
+              ))}
+            </VStack>
+            <TacticalText variant="caption" color="whiteAlpha.400" fontSize="9px">
+              Integração via Geofabrik Server · Atualização Diária
+            </TacticalText>
+          </GlassPanel>
+        </VStack>
       </Grid>
     </VStack>
   );

@@ -772,7 +772,7 @@ export function SimulationsPage() {
                     },
                     {
                       label: 'ÁREA AFETADA',
-                      value: `~${(Math.round((config.intensity / 100) * ((blueprint?.worldSpanX ?? 5000) * (blueprint?.worldSpanZ ?? 5000)) / 100_000) / 10).toFixed(1)} km²`,
+                      value: `~${(Math.round((config.intensity / 100) * Math.abs((blueprint?.worldSpanX ?? 5000) * (blueprint?.worldSpanZ ?? 5000)) / 100_000) / 10).toFixed(1)} km²`,
                       color: disasterCatalog[disasterType].color,
                     },
                     {

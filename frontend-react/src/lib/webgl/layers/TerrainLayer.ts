@@ -9,6 +9,7 @@ export class TerrainLayer extends Layer {
   private count: number = 0;
   private satelliteTexture: WebGLTexture | null = null;
   private satBlend: number = 0.0;
+  private waterLevel: number = 0.0;
 
   constructor(renderer: WebGLRenderer) {
     super(renderer);
@@ -25,6 +26,10 @@ export class TerrainLayer extends Layer {
   public setSatellite(texture: WebGLTexture, blend: number = 1.0) {
     this.satelliteTexture = texture;
     this.satBlend = blend;
+  }
+
+  public setWaterLevel(level: number) {
+    this.waterLevel = level;
   }
 
   public render(projectionMatrix: Float32Array, viewMatrix: Float32Array) {
@@ -49,6 +54,8 @@ export class TerrainLayer extends Layer {
     gl.uniformMatrix4fv(gl.getUniformLocation(this.program, 'u_viewMatrix'), false, viewMatrix);
     gl.uniform1f(gl.getUniformLocation(this.program, 'u_satBlend'), this.satBlend);
     gl.uniform1f(gl.getUniformLocation(this.program, 'u_reveal'), 1.0);
+    gl.uniform1f(gl.getUniformLocation(this.program, 'u_waterLevel'), this.waterLevel);
+    gl.uniform1f(gl.getUniformLocation(this.program, 'u_time'), performance.now() / 1000);
     gl.uniformMatrix4fv(gl.getUniformLocation(this.program, 'u_modelMatrix'), false, new Float32Array([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]));
     
     if (this.satelliteTexture) {

@@ -1,11 +1,13 @@
 import {
   SemanticClass,
-  SemanticCell,
-  SemanticGrid,
-  SemanticMetadata,
   SEMANTIC_HEIGHT_M,
   WORLDCOVER_TO_SEMANTIC,
   WORLDCOVER_HIGH_CONFIDENCE,
+} from './SemanticTypes';
+import type {
+  SemanticCell,
+  SemanticGrid,
+  SemanticMetadata,
 } from './SemanticTypes';
 import type { LandCoverGrid } from '../../types';
 
@@ -149,8 +151,7 @@ export class SemanticTileProcessor {
     const b = bSum / pixCount;
 
     const brightness = (r + g + b) / 3.0;
-    // Channel saturation: max-min range across R/G/B
-    let maxC = Math.max(r, g, b), minC = Math.min(r, g, b);
+    const maxC = Math.max(r, g, b), minC = Math.min(r, g, b);
     const saturation = maxC - minC;
 
     let cls: SemanticClass;
@@ -296,7 +297,6 @@ export class SemanticTileProcessor {
           // Tree height: 4–12 m based on intensity
           const treeH = (4 + inten * 8) / metersPerUnit;
           const trunkH = treeH * 0.25;
-          const crownH = treeH * 0.75;
           const crownR = Math.min(cellW, cellH) * 0.38;
 
           // Trunk quad (vertical) facing +X
