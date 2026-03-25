@@ -35,7 +35,7 @@ namespace SOSLocation.API.Controllers
 
         // ─── WEATHER ─────────────────────────────────────────────────────────────
 
-        [HttpGet("weather/forecast")]
+        [HttpGet("weather-forecast")]
         [OutputCache(PolicyName = "Cache5Min")]
         public async Task<IActionResult> GetWeatherForecast(
             [FromQuery] double lat = -23.5505,

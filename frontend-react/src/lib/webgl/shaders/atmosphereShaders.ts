@@ -390,6 +390,7 @@ void main() {
 
 export const FOG_FS = `#version 300 es
 precision mediump float;
+precision highp int;
 in vec2 v_uv;
 out vec4 outColor;
 uniform float u_fogDensity;

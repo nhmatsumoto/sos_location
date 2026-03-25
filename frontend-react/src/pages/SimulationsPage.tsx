@@ -446,6 +446,7 @@ export function SimulationsPage() {
           <CityScaleWebGL
             centerLat={numericLat}
             centerLng={numericLng}
+            bbox={bbox || [numericLat - 0.025, numericLng - 0.025, numericLat + 0.025, numericLng + 0.025]}
             blueprint={blueprint}
             simData={simData}
             topoScale={visualAdjustments.topoScale}

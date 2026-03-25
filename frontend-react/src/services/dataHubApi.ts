@@ -3,7 +3,7 @@ import { apiClient } from './apiClient';
 export const dataHubApi = {
   // Weather — proxied via backend to avoid CORS
   weatherForecast: (lat: number, lng: number) =>
-    apiClient.get('/integrations/weather/forecast', { params: { lat, lon: lng } }),
+    apiClient.get('/integrations/weather-forecast', { params: { lat, lon: lng } }),
 
   // Alerts — from AttentionAlertsController (requires auth)
   alerts: () => apiClient.get('/integrations/alerts'),

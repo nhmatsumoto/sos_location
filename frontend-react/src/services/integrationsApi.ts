@@ -89,7 +89,7 @@ export interface AtlasSourceDto {
 
 export const integrationsApi = {
   async getWeatherForecast(lat: number, lon: number, days = 3) {
-    const response = await apiClient.get<WeatherForecastDto>('/integrations/weather/forecast', { params: { lat, lon, days } });
+    const response = await apiClient.get<WeatherForecastDto>('/integrations/weather-forecast', { params: { lat, lon, days } });
     return response.data;
   },
   async getAlerts(bbox?: string, since?: string) {

@@ -13,7 +13,7 @@ using Microsoft.AspNetCore.Authorization;
 namespace SOSLocation.API.Controllers
 {
     [ApiController]
-    [Route("api/integrations/alerts")]
+    [Route("api/attention-alerts")]
     [AllowAnonymous]
     public class AttentionAlertsController : ControllerBase
     {

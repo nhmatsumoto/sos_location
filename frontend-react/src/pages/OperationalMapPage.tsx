@@ -1,28 +1,28 @@
 import React from 'react';
 import { Suspense, lazy, useMemo } from 'react';
-import type { SelectedPanel, FloatingPanelId } from './types';
+import type { SelectedPanel, FloatingPanelId } from '../types';
 import { 
   Activity
 } from 'lucide-react';
 
 // Hooks & State
-import { useOperationalState } from './hooks/useOperationalState';
-import { ENABLE_SIMULATION } from './constants';
+import { useOperationalState } from '../hooks/useOperationalState';
+import { ENABLE_SIMULATION } from '../constants';
 
 // Components
-import { MapToolsSidebar } from './components/MapToolsSidebar';
-import { OperationalMap } from './components/OperationalMap';
-import { MissingPersonModal } from './components/Modals/MissingPersonModal';
-import { RiskAreaModal } from './components/Modals/RiskAreaModal';
-import { UploadModal } from './components/Modals/UploadModal';
-import { CatastropheModal } from './components/Modals/CatastropheModal';
-import { DemarcationModal } from './components/Modals/DemarcationModal';
-import { DraggablePanel } from './components/features/map/DraggablePanel';
-import { LocalConditionsPanel } from './components/features/map/LocalConditionsPanel';
+import { MapToolsSidebar } from '../components/MapToolsSidebar';
+import { OperationalMap } from '../components/OperationalMap';
+import { MissingPersonModal } from '../components/Modals/MissingPersonModal';
+import { RiskAreaModal } from '../components/Modals/RiskAreaModal';
+import { UploadModal } from '../components/Modals/UploadModal';
+import { CatastropheModal } from '../components/Modals/CatastropheModal';
+import { DemarcationModal } from '../components/Modals/DemarcationModal';
+import { DraggablePanel } from '../components/features/map/DraggablePanel';
+import { LocalConditionsPanel } from '../components/features/map/LocalConditionsPanel';
 
 // Lazy Components
-const LandslideSimulation = lazy(() => import('./LandslideSimulation'));
-const PostDisasterSplat = lazy(() => import('./PostDisasterSplat'));
+const LandslideSimulation = lazy(() => import('../LandslideSimulation'));
+const PostDisasterSplat = lazy(() => import('../PostDisasterSplat'));
 
 export default function App() {
   const state = useOperationalState();

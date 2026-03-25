@@ -81,7 +81,12 @@ namespace SOSLocation.Infrastructure.Services.Gis
             return await _cache.GetOrCreateAsync(cacheKey, async entry =>
             {
                 entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(15);
-                return (UrbanDataResponse?)await provider.FetchDataAsync(minLat, minLon, maxLat, maxLon);
+                try {
+                    return (UrbanDataResponse?)await provider.FetchDataAsync(minLat, minLon, maxLat, maxLon);
+                } catch (Exception ex) {
+                    _logger.LogError(ex, "Failed to fetch urban features for bbox {minLat},{minLon}. Returning empty features.", minLat, minLon);
+                    return new UrbanDataResponse();
+                }
             }) ?? new UrbanDataResponse();
         }
 
@@ -91,10 +96,15 @@ namespace SOSLocation.Infrastructure.Services.Gis
             return await _cache.GetOrCreateAsync(cacheKey, async entry =>
             {
                 entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(24); // Soil is stable
-                var soilProvider = _providers.OfType<SoilGridsProvider>().FirstOrDefault();
-                if (soilProvider == null)
-                    return (object)new SoilDataDto { Type = "Unknown", Source = "NoProvider" };
-                return await soilProvider.FetchDataAsync(minLat, minLon, maxLat, maxLon);
+                try {
+                    var soilProvider = _providers.OfType<SoilGridsProvider>().FirstOrDefault();
+                    if (soilProvider == null)
+                        return (object)new SoilDataDto { Type = "Unknown", Source = "NoProvider" };
+                    return await soilProvider.FetchDataAsync(minLat, minLon, maxLat, maxLon);
+                } catch (Exception ex) {
+                    _logger.LogError(ex, "Failed to fetch soil data. Returning default.");
+                    return (object)new SoilDataDto { Type = "Unknown", Source = "ErrorFallback" };
+                }
             }) ?? new SoilDataDto { Type = "Unknown" };
         }
 
@@ -105,35 +115,44 @@ namespace SOSLocation.Infrastructure.Services.Gis
             {
                 entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(60);
                 
-                // Fetch urban features to see if there are many forests
-                var urbanData = await FetchUrbanFeaturesAsync(minLat, minLon, maxLat, maxLon) as UrbanDataResponse;
-                var earthdataProvider = _providers.OfType<EarthdataProvider>().FirstOrDefault();
+                try {
+                    // Fetch urban features to see if there are many forests
+                    var urbanData = await FetchUrbanFeaturesAsync(minLat, minLon, maxLat, maxLon) as UrbanDataResponse;
+                    var earthdataProvider = _providers.OfType<EarthdataProvider>().FirstOrDefault();
 
-                double ndvi = 0.25; // Base urban NDVI
-                string extraSource = "";
-                
-                if (urbanData != null) {
-                    var forestCount = urbanData.Forests?.Count ?? 0;
-                    ndvi = Math.Min(0.85, 0.25 + (forestCount * 0.05));
-                }
+                    double ndvi = 0.25; // Base urban NDVI
+                    string extraSource = "";
+                    
+                    if (urbanData != null) {
+                        var forestCount = urbanData.Forests?.Count ?? 0;
+                        ndvi = Math.Min(0.85, 0.25 + (forestCount * 0.05));
+                    }
 
-                if (earthdataProvider != null) {
-                    var nasaData = await earthdataProvider.FetchDataAsync(minLat, minLon, maxLat, maxLon);
-                    if (nasaData != null) {
-                        dynamic d = nasaData;
-                        if (d.success == true) {
-                            ndvi = (ndvi + (double)d.refined_ndvi) / 2.0; // Blend OSM with NASA
-                            extraSource = " + NASA_MODIS_REFINED";
+                    if (earthdataProvider != null) {
+                        try {
+                            var nasaData = await earthdataProvider.FetchDataAsync(minLat, minLon, maxLat, maxLon);
+                            if (nasaData != null) {
+                                dynamic d = nasaData;
+                                if (d.success == true) {
+                                    ndvi = (ndvi + (double)d.refined_ndvi) / 2.0; // Blend OSM with NASA
+                                    extraSource = " + NASA_MODIS_REFINED";
+                                }
+                            }
+                        } catch (Exception ex) {
+                            _logger.LogWarning("NASA Earthdata fetch failed in vegetation pipeline: {Msg}", ex.Message);
                         }
                     }
-                }
 
-                return (object)new
-                {
-                    ndvi_mean = ndvi,
-                    density = ndvi > 0.6 ? "High" : (ndvi > 0.4 ? "Moderate" : "Sparse"),
-                    source = "OSM_Derived_Satellite_Correction" + extraSource
-                };
+                    return (object)new
+                    {
+                        ndvi_mean = ndvi,
+                        density = ndvi > 0.6 ? "High" : (ndvi > 0.4 ? "Moderate" : "Sparse"),
+                        source = "OSM_Derived_Satellite_Correction" + extraSource
+                    };
+                } catch (Exception ex) {
+                    _logger.LogError(ex, "Vegetation pipeline failed. Returning sparse default.");
+                    return (object)new { ndvi_mean = 0.1, density = "Sparse", source = "ErrorFallback" };
+                }
             }) ?? new { density = "Unknown" };
         }
 
@@ -146,7 +165,12 @@ namespace SOSLocation.Infrastructure.Services.Gis
             var cached = await _cache.GetOrCreateAsync(cacheKey, async entry =>
             {
                 entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30);
-                return await provider.FetchDataAsync(minLat, minLon, maxLat, maxLon);
+                try {
+                    return await provider.FetchDataAsync(minLat, minLon, maxLat, maxLon);
+                } catch (Exception ex) {
+                    _logger.LogWarning("Climate data fetch failed: {Msg}", ex.Message);
+                    return new { temperature = 25.0 };
+                }
             });
             return cached ?? new { temperature = 25.0 };
         }
@@ -157,10 +181,15 @@ namespace SOSLocation.Infrastructure.Services.Gis
             return await _cache.GetOrCreateAsync(cacheKey, async entry =>
             {
                 entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(72);
-                var provider = _providers.OfType<WorldCoverProvider>().FirstOrDefault();
-                if (provider == null) return (object)new WorldCoverGridDto { IsAvailable = false };
-                return await provider.FetchDataAsync(minLat, minLon, maxLat, maxLon) as WorldCoverGridDto
-                       ?? (object)new WorldCoverGridDto { IsAvailable = false };
+                try {
+                    var provider = _providers.OfType<WorldCoverProvider>().FirstOrDefault();
+                    if (provider == null) return (object)new WorldCoverGridDto { IsAvailable = false };
+                    return await provider.FetchDataAsync(minLat, minLon, maxLat, maxLon) as WorldCoverGridDto
+                           ?? (object)new WorldCoverGridDto { IsAvailable = false };
+                } catch (Exception ex) {
+                    _logger.LogWarning("Land cover fetch failed: {Msg}", ex.Message);
+                    return (object)new WorldCoverGridDto { IsAvailable = false };
+                }
             });
         }
 
@@ -170,10 +199,15 @@ namespace SOSLocation.Infrastructure.Services.Gis
             return await _cache.GetOrCreateAsync(cacheKey, async entry =>
             {
                 entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromDays(7);
-                var provider = _providers.OfType<GhslProvider>().FirstOrDefault();
-                if (provider == null) return (object)new PopulationDensityDto { IsAvailable = false };
-                return await provider.FetchDataAsync(minLat, minLon, maxLat, maxLon) as PopulationDensityDto
-                       ?? (object)new PopulationDensityDto { IsAvailable = false };
+                try {
+                    var provider = _providers.OfType<GhslProvider>().FirstOrDefault();
+                    if (provider == null) return (object)new PopulationDensityDto { IsAvailable = false };
+                    return await provider.FetchDataAsync(minLat, minLon, maxLat, maxLon) as PopulationDensityDto
+                           ?? (object)new PopulationDensityDto { IsAvailable = false };
+                } catch (Exception ex) {
+                    _logger.LogWarning("Population density fetch failed: {Msg}", ex.Message);
+                    return (object)new PopulationDensityDto { IsAvailable = false };
+                }
             });
         }
 

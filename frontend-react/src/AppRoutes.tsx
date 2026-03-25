@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { AppShell } from './components/layout/AppShell';
 import { LoadingScreen } from './components/common/LoadingScreen';
@@ -7,15 +7,16 @@ import { Prefetcher } from './components/common/Prefetcher';
 import { useAuthStore } from './store/authStore';
 
 // Lazy loaded pages
+const LandingPage = lazy(() => import('./pages/LandingPage.tsx').then((m) => ({ default: m.LandingPage })));
 const PublicIncidentDashboardPage = lazy(() => import('./pages/PublicIncidentDashboardPage.tsx').then((m) => ({ default: m.PublicIncidentDashboardPage })));
-// SOSPage removed — /app/sos now renders GlobalDisastersPage
+const SOSPage = lazy(() => import('./pages/SOSPage.tsx').then((m) => ({ default: m.SOSPage })));
+// SOSPage restored — /app/sos renders the tactical war room
 const SettingsPage = lazy(() => import('./pages/SettingsPage.tsx').then((m) => ({ default: m.SettingsPage })));
 const VolunteerDashboardPage = lazy(() => import('./pages/VolunteerDashboardPage.tsx').then((m) => ({ default: m.VolunteerDashboardPage })));
 const LogisticsPage = lazy(() => import('./pages/LogisticsPage.tsx').then((m) => ({ default: m.LogisticsPage })));
 const RiskAssessmentPage = lazy(() => import('./pages/RiskAssessmentPage.tsx').then((m) => ({ default: m.RiskAssessmentPage })));
 const SupportDashboardPage = lazy(() => import('./pages/SupportDashboardPage.tsx').then((m) => ({ default: m.SupportDashboardPage })));
 const LoginPage = lazy(() => import('./pages/LoginPage.tsx').then((m) => ({ default: m.LoginPage })));
-const OnboardingPage = lazy(() => import('./pages/OnboardingPage.tsx').then((m) => ({ default: m.OnboardingPage })));
 const ErrorPage = lazy(() => import('./pages/ErrorPage.tsx').then((m) => ({ default: m.ErrorPage })));
 const DataSourceList = lazy(() => import('./pages/admin/DataSourceList.tsx').then((m) => ({ default: m.DataSourceList })));
 const HotspotsPage = lazy(() => import('./pages/HotspotsPage.tsx').then((m) => ({ default: m.HotspotsPage })));
@@ -28,6 +29,9 @@ const DataHubPage = lazy(() => import('./pages/DataHubPage.tsx').then((m) => ({ 
 const IntegrationsPage = lazy(() => import('./pages/IntegrationsPage.tsx').then((m) => ({ default: m.IntegrationsPage })));
 const MissingPersonsPage = lazy(() => import('./pages/MissingPersonsPage.tsx').then((m) => ({ default: m.MissingPersonsPage })));
 const GlobalDisastersPage = lazy(() => import('./pages/GlobalDisastersPage.tsx').then((m) => ({ default: m.GlobalDisastersPage })));
+const RescueOpsPage = lazy(() => import('./pages/RescueOpsPage.tsx').then((m) => ({ default: m.RescueOpsPage })));
+const OperationalMapPage = lazy(() => import('./pages/OperationalMapPage.tsx').then((m) => ({ default: m.default })));
+const DocsPage = lazy(() => import('./pages/DocsPage.tsx').then((m) => ({ default: m.DocsPage })));
 
 const TacticalAdminPage = lazy(() => import('./pages/TacticalAdminPage.tsx'));
 
@@ -65,15 +69,15 @@ function PrivateLayout() {
 
   return (
     <div className="animate-in fade-in duration-700 ease-out">
-      <AppShell 
-        theme={theme} 
+      <AppShell
+        theme={theme}
         onToggleTheme={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
         variant={isTactical ? 'tactical' : 'default'}
         navigationMode={navigationMode}
       >
         <Suspense fallback={<div style={{ padding: 16 }} className="text-slate-500 font-bold animate-pulse text-center">Iniciando painel de comando...</div>}>
           <Routes>
-            <Route path="/app/sos" element={<ProtectedRoute><GlobalDisastersPage /></ProtectedRoute>} />
+            <Route path="/app/sos" element={<ProtectedRoute><SOSPage /></ProtectedRoute>} />
             <Route path="/app/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
             <Route path="/app/volunteer" element={<ProtectedRoute><VolunteerDashboardPage /></ProtectedRoute>} />
             <Route path="/app/logistics" element={<ProtectedRoute><LogisticsPage /></ProtectedRoute>} />
@@ -90,6 +94,8 @@ function PrivateLayout() {
             <Route path="/app/integrations" element={<ProtectedRoute><IntegrationsPage /></ProtectedRoute>} />
             <Route path="/app/missing-persons" element={<ProtectedRoute><MissingPersonsPage /></ProtectedRoute>} />
             <Route path="/app/global-disasters" element={<ProtectedRoute><GlobalDisastersPage /></ProtectedRoute>} />
+            <Route path="/app/rescue-ops" element={<ProtectedRoute><RescueOpsPage /></ProtectedRoute>} />
+            <Route path="/app/operational-map" element={<ProtectedRoute><OperationalMapPage /></ProtectedRoute>} />
             <Route path="/app/tactical-approval" element={<ProtectedRoute requiredRole="admin"><TacticalAdminPage /></ProtectedRoute>} />
             <Route path="*" element={<Navigate to="/app/sos" replace />} />
           </Routes>
@@ -104,39 +110,36 @@ function PrivateLayout() {
  */
 export default function AppRoutes() {
   const { authenticated } = useAuthStore();
-  const hasVisitedOnboarding = localStorage.getItem('sos_onboarding_visited') === 'true';
 
   return (
     <>
       <Prefetcher />
       <Routes>
-      {/* Root Redirection */}
-      <Route path="/" element={
-        authenticated ?
-        <Navigate to="/app/sos" replace /> :
-        (hasVisitedOnboarding ? <Navigate to="/transparency" replace /> : <Suspense fallback={<LoadingScreen />}><OnboardingPage /></Suspense>)
-      } />
+        {/* Root Redirection */}
+        {/* Root Entry (Landing) */}
+        <Route path="/" element={<Suspense fallback={<LoadingScreen />}><LandingPage /></Suspense>} />
 
-      {/* Public Observation Routes */}
-      <Route path="/transparency" element={<Suspense fallback={<LoadingScreen />}><PublicIncidentDashboardPage /></Suspense>} />
+        {/* Public Observation Routes */}
+        <Route path="/transparency" element={<Suspense fallback={<LoadingScreen />}><PublicIncidentDashboardPage /></Suspense>} />
+        <Route path="/docs" element={<Suspense fallback={<LoadingScreen />}><DocsPage /></Suspense>} />
 
-      {/* Compatibility Aliases */}
-      <Route path="/public/transparency" element={<Navigate to="/transparency" replace />} />
+        {/* Compatibility Aliases */}
+        <Route path="/public/transparency" element={<Navigate to="/transparency" replace />} />
 
-      {/* Auth Routes */}
-      <Route path="/login" element={
-        authenticated ? 
-        <Navigate to="/app/sos" replace /> : 
-        <Suspense fallback={<LoadingScreen />}><LoginPage /></Suspense>
-      } />
+        {/* Auth Routes */}
+        <Route path="/login" element={
+          authenticated ?
+            <Navigate to="/app/sos" replace /> :
+            <Suspense fallback={<LoadingScreen />}><LoginPage /></Suspense>
+        } />
 
-      {/* Operational Domain (Protected) */}
-      <Route path="/app/*" element={<PrivateLayout />} />
+        {/* Operational Domain (Protected) */}
+        <Route path="/app/*" element={<PrivateLayout />} />
 
-      {/* System Routes */}
-      <Route path="/error" element={<Suspense fallback={<LoadingScreen />}><ErrorPage /></Suspense>} />
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+        {/* System Routes */}
+        <Route path="/error" element={<Suspense fallback={<LoadingScreen />}><ErrorPage /></Suspense>} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
     </>
   );
 }

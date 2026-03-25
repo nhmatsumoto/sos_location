@@ -1,13 +1,13 @@
 import { Link } from 'react-router-dom';
 import { Sparkles } from 'lucide-react';
-import { useRescueTasks } from './hooks/useRescueTasks';
-import { useRescueFiltersStore } from './store/rescueFiltersStore';
-import { RescueKpiCards } from './components/features/rescue/RescueKpiCards';
-import { RescueTaskForm } from './components/features/rescue/RescueTaskForm';
-import { RescueTaskTable } from './components/features/rescue/RescueTaskTable';
-import type { RescueTaskInput } from './types/rescue';
+import { useRescueTasks } from '../hooks/useRescueTasks';
+import { useRescueFiltersStore } from '../store/rescueFiltersStore';
+import { RescueKpiCards } from '../components/features/rescue/RescueKpiCards';
+import { RescueTaskForm } from '../components/features/rescue/RescueTaskForm';
+import { RescueTaskTable } from '../components/features/rescue/RescueTaskTable';
+import type { RescueTaskInput } from '../types/rescue';
 
-export default function RescueOpsPage() {
+export function RescueOpsPage() {
   const { loading, tasks, summary, editingTask, setEditingTask, createTask, updateTask, removeTask, updateStatus } = useRescueTasks();
 
   const { query, priority, status, setQuery, setPriority, setStatus } = useRescueFiltersStore();

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 
 /**
@@ -15,7 +15,7 @@ export function Prefetcher() {
         // We use dynamic imports without .tsx to satisfy typical build tool logic
         // and ensure chunks are loaded into browser cache early.
         Promise.all([
-          import('../../App'),
+          import('../../pages/OperationalMapPage'),
           import('../../LandslideSimulation'),
           import('../../PostDisasterSplat'),
           import('../../pages/SOSPage')

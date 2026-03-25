@@ -47,6 +47,8 @@
     "support": "Suporte Financeiro",
     "sources": "Fontes de Dados",
     "map": "Mapa Público",
+    "rescue_ops": "Central de Resgate",
+    "op_map": "Mapa Operacional",
     "settings": "Configurações",
     "logout": "Encerrar Sessão",
     "internal": "Operações",

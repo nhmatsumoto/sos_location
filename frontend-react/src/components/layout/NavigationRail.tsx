@@ -17,6 +17,8 @@ import { useTranslation } from 'react-i18next';
 
 const navItems = [
   { to: '/app/sos',              label: 'nav.monitor',    icon: Radar,       group: 'ops' },
+  { to: '/app/operational-map',  label: 'nav.op_map',     icon: Layers3,     group: 'ops' },
+  { to: '/app/rescue-ops',       label: 'nav.rescue_ops', icon: ShieldAlert, group: 'ops' },
   { to: '/app/hotspots',         label: 'nav.hotspots',   icon: AlertTriangle,group: 'ops' },
   { to: '/app/missing-persons',  label: 'nav.missing',    icon: Users,       group: 'ops' },
   { to: '/app/incidents',        label: 'nav.incidents',  icon: Activity,    group: 'ops' },

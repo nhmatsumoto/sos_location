@@ -28,6 +28,7 @@ export function useSimulationsController() {
   const numericLng = useMemo(() => Number(lng), [lng]);
 
   const isCapturingRef = useRef(false);
+  const blueprintCacheRef = useRef<Map<string, { bp: CityBlueprint, res: UrbanSimulationResult }>>(new Map());
 
   /**
    * Full blueprint capture pipeline:
@@ -51,6 +52,17 @@ export function useSimulationsController() {
       console.warn('[Blueprint] Capture already in progress, ignoring duplicate call');
       return;
     }
+
+    // Check cache first (bbox coordinates rounded to 6 decimals to handle float jitter)
+    const bboxKey = bbox.map(c => c.toFixed(6)).join(',');
+    const cached = blueprintCacheRef.current.get(bboxKey);
+    if (cached) {
+      onProgress?.({ phase: 'COMPILE', percent: 100, label: 'LENDO DO CACHE...' });
+      setResultData(cached.res);
+      setBlueprint(cached.bp);
+      return cached.bp;
+    }
+
     isCapturingRef.current = true;
     setIsSimulating(true);
 
@@ -63,6 +75,9 @@ export function useSimulationsController() {
         simulationsApi.indexUrbanPipeline({
           minLat: bbox[0], minLon: bbox[1],
           maxLat: bbox[2], maxLon: bbox[3],
+        }).catch(err => {
+          console.warn('[Blueprint] Indexing pipeline failed, using empty fallback:', err);
+          return { urbanFeatures: { buildings: [], roads: [], water: [], forests: [] } };
         }),
         gisApi.fetchHotspots(bbox[0], bbox[1], bbox[2], bbox[3])
           .catch(() => [] as HotspotEntry[]),
@@ -81,7 +96,8 @@ export function useSimulationsController() {
         ...osmData,
         hotspots: (hotspots as HotspotEntry[]).length > 0 ? hotspots as HotspotEntry[] : undefined,
       };
-      setResultData(enrichedOsmData as unknown as UrbanSimulationResult);
+      const finalResultData = enrichedOsmData as unknown as UrbanSimulationResult;
+      setResultData(finalResultData);
       onProgress?.({ phase: 'OSM', percent: 25, label: 'DADOS OSM + DEM RECEBIDOS' });
 
       // ── Choose pipeline based on backend availability ────────────────────
@@ -93,18 +109,21 @@ export function useSimulationsController() {
         bp = await CityBlueprintBuilder.buildFromSceneData(
           [bbox[0], bbox[1], bbox[2], bbox[3]] as [number, number, number, number],
           sceneData,
-          enrichedOsmData as unknown as UrbanSimulationResult,
+          finalResultData,
           onProgress,
         );
       } else {
         // Fallback: full frontend pipeline (always reliable)
         bp = await CityBlueprintBuilder.build(
           [bbox[0], bbox[1], bbox[2], bbox[3]] as [number, number, number, number],
-          enrichedOsmData as unknown as UrbanSimulationResult,
+          finalResultData,
           16,
           onProgress,
         );
       }
+
+      // Update cache
+      blueprintCacheRef.current.set(bboxKey, { bp, res: finalResultData });
 
       setBlueprint(bp);
       return bp;

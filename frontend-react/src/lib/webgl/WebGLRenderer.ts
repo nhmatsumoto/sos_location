@@ -61,7 +61,7 @@ export class WebGLRenderer {
     this.program = program;
   }
 
-  public setViewport(width: number, height: number) {
+  public setSize(width: number, height: number) {
     this.gl.viewport(0, 0, width, height);
   }
 

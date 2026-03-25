@@ -8,6 +8,8 @@ import { doLogout } from '../../lib/keycloak';
 
 const navItems = [
   { to: '/app/sos', label: 'nav.monitor', icon: Radar },
+  { to: '/app/operational-map', label: 'nav.op_map', icon: Layers3 },
+  { to: '/app/rescue-ops', label: 'nav.rescue_ops', icon: ShieldAlert },
   { to: '/app/hotspots', label: 'nav.hotspots', icon: AlertTriangle },
   { to: '/app/missing-persons', label: 'nav.missing', icon: Users },
   { to: '/app/tactical-approval', label: 'nav.approval', icon: ShieldAlert, admin: true },
