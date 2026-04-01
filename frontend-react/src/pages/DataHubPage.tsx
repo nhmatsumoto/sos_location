@@ -100,8 +100,7 @@ function DetailPanel({ cfg, onUpdate }: DetailPanelProps) {
   const markDirty = () => { setDirty(true); setSaveMsg(null); };
 
   const handleSave = async () => {
-    setSaving(true);
-    setSaveMsg(null);
+    setSaving(true); setSaveMsg(null);
     try {
       const dto: IntegrationConfigUpdateDto = {
         customEndpoint: customEndpoint.trim() || undefined,
@@ -120,8 +119,7 @@ function DetailPanel({ cfg, onUpdate }: DetailPanelProps) {
   };
 
   const handleTest = async () => {
-    setTesting(true);
-    setTestMsg(null);
+    setTesting(true); setTestMsg(null);
     try {
       const result = await integrationConfigApi.test(cfg.id);
       onUpdate({ ...cfg, lastTestOk: result.ok, lastTestedAt: result.testedAt, status: result.ok ? 'configured' : 'error' });
@@ -131,11 +129,8 @@ function DetailPanel({ cfg, onUpdate }: DetailPanelProps) {
           ? `Conexão OK · HTTP ${result.statusCode ?? '—'}`
           : `Falha · ${result.error ?? `HTTP ${result.statusCode}`}`,
       });
-    } catch {
-      setTestMsg({ ok: false, text: 'Erro ao testar conexão.' });
-    } finally {
-      setTesting(false);
-    }
+    } catch { setTestMsg({ ok: false, text: 'Erro ao testar conexão.' }); }
+    finally { setTesting(false); }
   };
 
   const effectiveEndpoint = customEndpoint.trim() || cfg.defaultEndpoint;
@@ -349,17 +344,14 @@ export function DataHubPage() {
   const [error,    setError]    = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+    setLoading(true); setError(null);
     try {
       const data = await integrationConfigApi.getAll();
       setConfigs(data);
       if (data.length > 0 && selected === null) setSelected(data[0]);
     } catch {
       setError('Falha ao carregar integrações. Verifique se o backend está disponível.');
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   }, []);
 
   useEffect(() => { void load(); }, [load]);

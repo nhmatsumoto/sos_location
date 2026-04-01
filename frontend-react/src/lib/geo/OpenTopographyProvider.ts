@@ -79,7 +79,6 @@ function readInt16LE(buf: DataView, offset: number): number {
 function parseTiffElevation(buffer: ArrayBuffer): Float32Array | null {
   try {
     const view   = new DataView(buffer);
-    const bytes  = new Uint8Array(buffer);
 
     // Byte order magic: 0x4949 = LE, 0x4D4D = BE (OT always returns LE)
     const magic = readUint16LE(view, 0);

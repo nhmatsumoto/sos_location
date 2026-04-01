@@ -1,13 +1,12 @@
-import { memo, useMemo, useState } from 'react';
+import { memo, useMemo } from 'react';
 import {
   Activity, AlertTriangle, BarChart3, FileWarning, Layers3,
   LifeBuoy, Radar, Search, Settings, Users, PlugZap, Globe,
-  Heart, Truck, ShieldAlert, Coins, Cog, LogOut, ChevronRight,
-  Pin, PinOff
+  Heart, Truck, ShieldAlert, Coins, Cog, LogOut
 } from 'lucide-react';
 import { Link as RouterLink, useLocation } from 'react-router-dom';
 import {
-  Box, VStack, Tooltip, IconButton, Divider, Button, Text,
+  Box, Tooltip, Divider, Text,
   HStack, type BoxProps
 } from '@chakra-ui/react';
 import { LogoFull, Logo } from '../brand/Logo';
@@ -64,11 +63,8 @@ export const NavigationRail = memo(function NavigationRail({
   const location = useLocation();
   const { authenticated, roles } = useAuthStore();
   const { t } = useTranslation();
-  const [hovered, setHovered] = useState(false);
-  const [pinned, setPinned] = useState(false);
-
   const isAdmin = roles.includes('admin');
-  const isExpanded = mode === 'expanded' || pinned || (mode === 'auto' && hovered);
+  const isExpanded = mode === 'expanded';
 
   const visibleItems = useMemo(
     () => navItems.filter(item => !item.admin || isAdmin),
@@ -99,9 +95,6 @@ export const NavigationRail = memo(function NavigationRail({
       display="flex"
       flexDirection="column"
       overflow="hidden"
-      transition="width 0.25s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.25s cubic-bezier(0.4, 0, 0.2, 1)"
-      onMouseEnter={() => mode === 'auto' && setHovered(true)}
-      onMouseLeave={() => mode === 'auto' && setHovered(false)}
       {...props}
     >
       {/* Logo */}
@@ -250,22 +243,11 @@ export const NavigationRail = memo(function NavigationRail({
         {/* Status indicator */}
         {isExpanded ? (
           <Box mx={3} mt={2} p={3} borderRadius="xl" bg="rgba(0,122,255,0.06)" border="1px solid rgba(0,122,255,0.12)">
-            <HStack justify="space-between" mb={1}>
-              <HStack spacing={2}>
+            <HStack spacing={2} mb={1}>
                 <Box w={2} h={2} borderRadius="full" bg="sos.green.500" className="animate-pulse" flexShrink={0} />
                 <Text fontSize="10px" fontWeight="800" color="rgba(255,255,255,0.40)" textTransform="uppercase" letterSpacing="ultra">
                   Network
                 </Text>
-              </HStack>
-              <IconButton
-                size="xs"
-                variant="ghost"
-                icon={pinned ? <Pin size={10} /> : <PinOff size={10} />}
-                onClick={() => setPinned(!pinned)}
-                aria-label="Pin sidebar"
-                color="whiteAlpha.400"
-                _hover={{ color: 'white', bg: 'whiteAlpha.100' }}
-              />
             </HStack>
             <Text fontSize="9px" fontFamily="mono" color="rgba(255,255,255,0.30)" lineHeight="1.4">
               GUARDIAN_NET_V3

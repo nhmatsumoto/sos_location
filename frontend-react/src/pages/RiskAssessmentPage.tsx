@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import {
-  ShieldAlert, RefreshCw, Zap, Search, ChevronDown, ChevronUp,
+  ShieldAlert, RefreshCw, Zap, Search,
   Thermometer, Droplets, Activity, AlertTriangle, Globe, Clock,
 } from 'lucide-react';
 import {

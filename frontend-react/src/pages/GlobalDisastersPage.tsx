@@ -4,8 +4,9 @@ import {
 } from 'lucide-react';
 import { 
   Box, VStack, HStack, SimpleGrid, Badge, Icon,
-  Divider, Text, Spinner, Center, Flex, IconButton, Tooltip
+  Divider, Text, Spinner, Center, Flex, IconButton
 } from '@chakra-ui/react';
+import { useState } from 'react';
 import { useGlobalDisasters, type GlobalEvent } from '../hooks/useGlobalDisasters';
 import { GlassPanel } from '../components/atoms/GlassPanel';
 import { TacticalText } from '../components/atoms/TacticalText';
@@ -17,6 +18,8 @@ import { TacticalButton } from '../components/atoms/TacticalButton';
  */
 export function GlobalDisastersPage() {
   const { events, loading } = useGlobalDisasters();
+  const [renderedAtMs] = useState(() => Date.now());
+  const [lastSyncLabel] = useState(() => new Date().toLocaleTimeString());
 
   const getEventIcon = (type: string) => {
     switch(type) {
@@ -38,6 +41,13 @@ export function GlobalDisastersPage() {
     }
   };
 
+  const getMinutesAgo = (timestamp: string) => {
+    const eventMs = Date.parse(timestamp);
+    if (!Number.isFinite(eventMs)) return 'agora';
+    const diffMinutes = Math.max(0, Math.floor((renderedAtMs - eventMs) / 60_000));
+    return `${diffMinutes}m atrás`;
+  };
+
   return (
     <Box h="100%" w="100%" p={8} bg="sos.dark" overflowY="auto">
       <VStack align="stretch" spacing={8} maxW="1600px" mx="auto">
@@ -56,7 +66,7 @@ export function GlobalDisastersPage() {
                   <TacticalText variant="mono" fontSize="10px" color="rgba(255,255,255,0.40)">GDACS_SATELLITE_UPLINK_STABLE</TacticalText>
                 </HStack>
                 <Divider orientation="vertical" h="10px" borderColor="whiteAlpha.300" />
-                <TacticalText variant="mono" fontSize="10px" color="rgba(255,255,255,0.40)">LAST_SYNC: {new Date().toLocaleTimeString()}</TacticalText>
+                <TacticalText variant="mono" fontSize="10px" color="rgba(255,255,255,0.40)">LAST_SYNC: {lastSyncLabel}</TacticalText>
               </HStack>
             </VStack>
           </HStack>
@@ -133,7 +143,7 @@ export function GlobalDisastersPage() {
                     <HStack spacing={1.5}>
                       <Clock size={12} color="rgba(255,255,255,0.30)" />
                       <TacticalText variant="mono" fontSize="9px" color="rgba(255,255,255,0.40)">
-                        {Math.floor(Math.random() * 60)}m atrás
+                        {getMinutesAgo(event.timestamp)}
                       </TacticalText>
                     </HStack>
                   </HStack>
@@ -181,7 +191,19 @@ export function GlobalDisastersPage() {
 }
 
 /** Component for the small tactical KPI cards */
-const KpiCard = ({ label, value, icon: Icon, color, isLive }: any) => (
+const KpiCard = ({
+  label,
+  value,
+  icon: Icon,
+  color,
+  isLive = false,
+}: {
+  label: string;
+  value: string | number;
+  icon: typeof Activity;
+  color: string;
+  isLive?: boolean;
+}) => (
   <GlassPanel depth="base" p={4} gap={4} align="center">
     <Box p={2} bg={`${color}15`} borderRadius="lg">
       <Icon size={18} color={color} />

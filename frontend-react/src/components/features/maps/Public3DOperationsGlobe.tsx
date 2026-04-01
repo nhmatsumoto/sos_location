@@ -1,5 +1,5 @@
-import { useMemo, useRef, useState, Suspense } from 'react';
-import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber';
+import { useEffect, useMemo, useRef, useState, Suspense } from 'react';
+import { Canvas, useFrame, useLoader } from '@react-three/fiber';
 import { OrbitControls, Stars, Text, Float } from '@react-three/drei';
 import { Polygon, Popup, CircleMarker } from 'react-leaflet';
 import * as THREE from 'three';
@@ -84,25 +84,10 @@ function GlobeMarkerMesh({ marker, index }: { marker: GlobeMarker; index: number
   );
 }
 
-function CameraRig() {
-  const { camera } = useThree();
-
-  useFrame(({ clock }) => {
-    const t = clock.getElapsedTime();
-    const targetX = Math.sin(t * 0.15) * 0.45;
-    const targetY = 0.25 + Math.cos(t * 0.2) * 0.1;
-    camera.position.x = THREE.MathUtils.lerp(camera.position.x, targetX, 0.02);
-    camera.position.y = THREE.MathUtils.lerp(camera.position.y, targetY, 0.02);
-    camera.lookAt(0, 0, 0);
-  });
-
-  return null;
-}
-
 function GlobeScene({ markers }: { markers: GlobeMarker[] }) {
   const groupRef = useRef<THREE.Group>(null);
 
-  const [albedoMap, bumpMap, specularMap] = useLoader(THREE.TextureLoader, [
+  const [albedoSource, bumpSource, specularSource] = useLoader(THREE.TextureLoader, [
     'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_atmos_2048.jpg',
     'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_bump_2048.jpg',
     'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_specular_2048.jpg',
@@ -110,14 +95,24 @@ function GlobeScene({ markers }: { markers: GlobeMarker[] }) {
     loader.crossOrigin = 'anonymous';
   });
 
+  const [albedoMap, bumpMap, specularMap] = useMemo(() => {
+    const albedoMap = albedoSource.clone();
+    const bumpMap = bumpSource.clone();
+    const specularMap = specularSource.clone();
 
-  useMemo(() => {
     albedoMap.colorSpace = THREE.SRGBColorSpace;
     [albedoMap, bumpMap, specularMap].forEach((texture) => {
       texture.wrapS = THREE.RepeatWrapping;
       texture.wrapT = THREE.RepeatWrapping;
       texture.anisotropy = 8;
     });
+    return [albedoMap, bumpMap, specularMap] as const;
+  }, [albedoSource, bumpSource, specularSource]);
+
+  useEffect(() => () => {
+    albedoMap.dispose();
+    bumpMap.dispose();
+    specularMap.dispose();
   }, [albedoMap, bumpMap, specularMap]);
 
   useFrame((_, delta) => {
@@ -167,8 +162,7 @@ function GlobeScene({ markers }: { markers: GlobeMarker[] }) {
         <GlobeMarkerMesh key={marker.id} marker={marker} index={index} />
       ))}
 
-      <OrbitControls enablePan={false} minDistance={2.4} maxDistance={6} rotateSpeed={0.8} />
-      <CameraRig />
+      <OrbitControls autoRotate autoRotateSpeed={0.35} enablePan={false} minDistance={2.4} maxDistance={6} rotateSpeed={0.8} />
     </group>
   );
 }

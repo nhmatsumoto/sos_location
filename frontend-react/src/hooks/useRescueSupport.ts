@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { operationsApi, type RiskArea, type SupportPoint } from '../services/operationsApi';
-import { useNotifications } from '../context/NotificationsContext';
+import { useNotifications } from '../context/useNotifications';
 
 type EntityMode = 'support' | 'risk';
 
@@ -35,7 +35,7 @@ export function useRescueSupport() {
       ]);
       setSupportPoints(support);
       setRiskAreas(risk);
-    } catch (error) {
+    } catch {
       pushNotice({ type: 'error', title: 'Erro de Sincronização', message: 'Falha ao carregar ativos operacionais.' });
     } finally {
       setLoading(false);

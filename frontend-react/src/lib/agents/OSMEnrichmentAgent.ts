@@ -58,19 +58,6 @@ function distanceM(lat1: number, lon1: number, lat2: number, lon2: number): numb
   return Math.sqrt(dLat * dLat + dLon * dLon);
 }
 
-// Point-in-polygon test (ray casting)
-function pointInPoly(px: number, py: number, poly: [number, number][]): boolean {
-  let inside = false;
-  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-    const xi = poly[i][0], yi = poly[i][1];
-    const xj = poly[j][0], yj = poly[j][1];
-    const intersect = ((yi > py) !== (yj > py))
-      && (px < (xj - xi) * (py - yi) / (yj - yi) + xi);
-    if (intersect) inside = !inside;
-  }
-  return inside;
-}
-
 export class OSMEnrichmentAgent {
   /**
    * Enrich OSM features with backend simulation result data.
@@ -113,7 +100,9 @@ export class OSMEnrichmentAgent {
           const d = distanceM(bCentLat, bCentLon, sCentLat, sCentLon);
           if (d < minDist) { minDist = d; closest = sb; }
         }
-        if (closest && (closest.height ?? 0) > 0) enriched.enrichedHeight = closest.height;
+        if (closest && typeof closest.height === 'number' && closest.height > 0) {
+          enriched.enrichedHeight = closest.height;
+        }
       }
 
       // Risk score from hotspot overlap

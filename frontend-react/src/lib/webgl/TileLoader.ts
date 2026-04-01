@@ -4,7 +4,7 @@
  * Returns a canvas cropped precisely to the geographic bounding box.
  */
 
-import { buildTileUrl, TILE_PROVIDERS, type TileProvider } from '../geo/MapTileProviders';
+import { buildTileUrl, TILE_PROVIDERS } from '../geo/MapTileProviders';
 
 const TILE_SIZE = 256;
 

@@ -1,4 +1,4 @@
-import { apiClient } from './apiClient';
+import { apiClient, silentRequestConfig } from './apiClient';
 
 export interface SupportPoint {
   id: string;
@@ -113,13 +113,13 @@ export interface OperationsSnapshot {
 
 export const operationsApi = {
   async snapshot() {
-    const response = await apiClient.get<OperationsSnapshot>('/api/operations/snapshot', { __skipGlobalNotify: true } as any);
+    const response = await apiClient.get<OperationsSnapshot>('/api/operations/snapshot', silentRequestConfig);
     return response.data;
   },
 
   async listSupportPoints() {
     try {
-      const response = await apiClient.get<SupportPoint[]>('/api/support-points', { __skipGlobalNotify: true } as any);
+      const response = await apiClient.get<SupportPoint[]>('/api/support-points', silentRequestConfig);
       return response.data;
     } catch {
       return [];
@@ -140,7 +140,7 @@ export const operationsApi = {
 
   async listRiskAreas() {
     try {
-      const response = await apiClient.get<RiskArea[]>('/api/risk-areas', { __skipGlobalNotify: true } as any);
+      const response = await apiClient.get<RiskArea[]>('/api/risk-areas', silentRequestConfig);
       return response.data;
     } catch {
       return [];
@@ -162,7 +162,7 @@ export const operationsApi = {
 
   async listMapAnnotations() {
     try {
-      const response = await apiClient.get<MapAnnotationDto[]>('/api/map-annotations', { __skipGlobalNotify: true } as any);
+      const response = await apiClient.get<MapAnnotationDto[]>('/api/map-annotations', silentRequestConfig);
       return response.data;
     } catch {
       return [];
@@ -189,7 +189,7 @@ export const operationsApi = {
 
   async listRescueGroups() {
     try {
-      const response = await apiClient.get<RescueGroup[]>('/api/rescue-groups', { __skipGlobalNotify: true } as any);
+      const response = await apiClient.get<RescueGroup[]>('/api/rescue-groups', silentRequestConfig);
       return response.data;
     } catch {
       return [];
@@ -210,7 +210,7 @@ export const operationsApi = {
 
   async listSupplies() {
     try {
-      const response = await apiClient.get<SupplyItem[]>('/api/supply-logistics', { __skipGlobalNotify: true } as any);
+      const response = await apiClient.get<SupplyItem[]>('/api/supply-logistics', silentRequestConfig);
       return response.data;
     } catch {
       return [];

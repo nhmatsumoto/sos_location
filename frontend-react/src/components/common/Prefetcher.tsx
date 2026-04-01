@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 
 /**
@@ -10,7 +10,7 @@ export function Prefetcher() {
 
   useEffect(() => {
     // 1. If user is at Onboarding or Landing, prefetch critical main app modules
-    if (location.pathname === '/' || location.pathname === '/login' || location.pathname === '/map') {
+    if (location.pathname === '/' || location.pathname === '/login') {
       const timer = setTimeout(() => {
         // We use dynamic imports without .tsx to satisfy typical build tool logic
         // and ensure chunks are loaded into browser cache early.

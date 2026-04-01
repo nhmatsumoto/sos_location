@@ -98,7 +98,7 @@ async function idbPut(scene: PersistedScene): Promise<void> {
       req.onsuccess = () => resolve();
       req.onerror   = () => reject(req.error);
     });
-  } catch {}
+  } catch { /* persistence is best-effort */ }
 }
 
 async function idbDelete(key: string): Promise<void> {
@@ -109,7 +109,7 @@ async function idbDelete(key: string): Promise<void> {
       tx.objectStore(STORE_NAME).delete(key);
       tx.oncomplete = () => resolve();
     });
-  } catch {}
+  } catch { /* persistence is best-effort */ }
 }
 
 // ── Serialization helpers ─────────────────────────────────────────────────────
@@ -251,7 +251,7 @@ export class ScenePersistence {
       grid:      b64ToUint8(stored.gridB64),
       rows:      stored.rows,
       cols:      stored.cols,
-      stats:     stored.stats as any,
+      stats:     stored.stats as LandCoverGrid['stats'],
       ndviSource: stored.ndviSource,
     };
   }
@@ -277,6 +277,6 @@ export class ScenePersistence {
         if (Date.now() - entry.savedAt > TTL_MS) cursor.delete();
         cursor.continue();
       };
-    } catch {}
+    } catch { /* purge is best-effort */ }
   }
 }

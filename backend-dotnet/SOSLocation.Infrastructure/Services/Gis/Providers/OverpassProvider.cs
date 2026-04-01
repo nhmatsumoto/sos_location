@@ -30,7 +30,7 @@ namespace SOSLocation.Infrastructure.Services.Gis.Providers
         {
             var bb = $"{minLat:F6},{minLon:F6},{maxLat:F6},{maxLon:F6}";
             var query = $@"
-                [out:json][timeout:45];
+                [out:json][timeout:90][maxsize:1073741824];
                 (
                   way[""building""]({bb});
                   relation[""building""]({bb});
@@ -66,7 +66,7 @@ namespace SOSLocation.Infrastructure.Services.Gis.Providers
                 _logger.LogInformation("Fetching Urban Data via Overpass: {minLat},{minLon}", minLat, minLon);
                 var content = new FormUrlEncodedContent(new[] { new KeyValuePair<string, string>("data", query) });
 
-                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(50));
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(100));
                 var response = await _httpClient.PostAsync(_options.OverpassUrl, content, cts.Token);
                 if (response.IsSuccessStatusCode)
                 {
@@ -426,7 +426,7 @@ namespace SOSLocation.Infrastructure.Services.Gis.Providers
                 }
             }
 
-            return new UrbanDataResponse { Buildings = buildings, Highways = highways };
+            return new UrbanDataResponse { Buildings = buildings, Highways = highways, IsSynthetic = true };
         }
     }
 }

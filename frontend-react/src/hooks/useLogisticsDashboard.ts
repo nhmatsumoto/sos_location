@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { logisticsApi, type SupplyItem } from '../services/logisticsApi';
-import { useNotifications } from '../context/NotificationsContext';
+import { useNotifications } from '../context/useNotifications';
 
 /**
  * Controller Hook for LogisticsPage
@@ -27,7 +27,7 @@ export function useLogisticsDashboard() {
     try {
       const data = await logisticsApi.getAll();
       setSupplies(data);
-    } catch (error) {
+    } catch {
       pushNotice({ 
         type: 'error', 
         title: 'Falha na Telemétria', 

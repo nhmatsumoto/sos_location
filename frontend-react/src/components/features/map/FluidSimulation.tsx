@@ -4,10 +4,15 @@ import * as THREE from 'three';
 import { useSimulationStore } from '../../../store/useSimulationStore';
 
 const PARTICLE_COUNT = 1500;
+const pseudoRandom = (seed: number) => {
+  const x = Math.sin(seed * 12.9898) * 43758.5453;
+  return x - Math.floor(x);
+};
 
 export const FluidSimulation: React.FC = () => {
   const { isSimulating, rainIntensity, soilSaturation, soilType, waterLevel, box } = useSimulationStore();
   const meshRef = useRef<THREE.Points>(null);
+  const materialRef = useRef<THREE.ShaderMaterial>(null);
 
   const absorptionRate = useMemo(() => {
     const base = (100 - soilSaturation) / 1000;
@@ -31,13 +36,16 @@ export const FluidSimulation: React.FC = () => {
     const height = box.size[1] / 10000;
 
     for (let i = 0; i < PARTICLE_COUNT; i++) {
-        pos[i * 3] = xPos + (Math.random() - 0.5) * width;
-        pos[i * 3 + 1] = 5 + Math.random() * 10;
-        pos[i * 3 + 2] = zPos + (Math.random() - 0.5) * height;
-        
-        rand[i * 3] = Math.random();
-        rand[i * 3 + 1] = Math.random();
-        rand[i * 3 + 2] = Math.random();
+        const rx = pseudoRandom(i * 3 + 1);
+        const ry = pseudoRandom(i * 3 + 2);
+        const rz = pseudoRandom(i * 3 + 3);
+        pos[i * 3] = xPos + (rx - 0.5) * width;
+        pos[i * 3 + 1] = 5 + ry * 10;
+        pos[i * 3 + 2] = zPos + (rz - 0.5) * height;
+
+        rand[i * 3] = pseudoRandom(i * 3 + 4);
+        rand[i * 3 + 1] = pseudoRandom(i * 3 + 5);
+        rand[i * 3 + 2] = pseudoRandom(i * 3 + 6);
     }
     return [pos, rand];
   }, [box]);
@@ -48,17 +56,19 @@ export const FluidSimulation: React.FC = () => {
     uAbsorptionRate: { value: absorptionRate },
     uIntensity: { value: rainIntensity },
     uColor: { value: new THREE.Color("#38bdf8") }
-  }), []);
+  }), [absorptionRate, rainIntensity, waterLevel]);
 
   useEffect(() => {
-    uniforms.uWaterLevel.value = waterLevel;
-    uniforms.uAbsorptionRate.value = absorptionRate;
-    uniforms.uIntensity.value = rainIntensity;
-  }, [waterLevel, absorptionRate, rainIntensity, uniforms]);
+    const material = materialRef.current;
+    if (!material) return;
+    material.uniforms.uWaterLevel.value = waterLevel;
+    material.uniforms.uAbsorptionRate.value = absorptionRate;
+    material.uniforms.uIntensity.value = rainIntensity;
+  }, [waterLevel, absorptionRate, rainIntensity]);
 
   useFrame((state) => {
-    if (meshRef.current && isSimulating && rainIntensity > 0) {
-      (meshRef.current.material as THREE.ShaderMaterial).uniforms.uTime.value = state.clock.elapsedTime;
+    if (meshRef.current && materialRef.current && isSimulating && rainIntensity > 0) {
+      materialRef.current.uniforms.uTime.value = state.clock.elapsedTime;
     }
   });
 
@@ -71,6 +81,7 @@ export const FluidSimulation: React.FC = () => {
         <bufferAttribute attach="attributes-aRandom" args={[randomness, 3]} />
       </bufferGeometry>
       <shaderMaterial
+        ref={materialRef}
         transparent
         depthWrite={false}
         blending={THREE.AdditiveBlending}

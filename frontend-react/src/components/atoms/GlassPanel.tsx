@@ -1,4 +1,6 @@
-import { Box, Flex, forwardRef } from '@chakra-ui/react';
+import React from 'react';
+import { Box } from '@chakra-ui/react';
+import type { BoxProps } from '@chakra-ui/react';
 
 type Depth = 'base' | 'raised' | 'float' | 'modal';
 type Tint  = 'none' | 'blue' | 'red' | 'green' | 'amber';
@@ -34,12 +36,16 @@ const tintStyles: Record<Tint, string> = {
   amber: 'linear-gradient(135deg, rgba(255,149,0,0.06) 0%, transparent 60%)',
 };
 
-interface GlassPanelProps {
+interface GlassPanelProps extends BoxProps {
   depth?: Depth;
   tint?: Tint;
   /** @deprecated use depth='base' | 'raised' | 'float'. Kept for back-compat */
   intensity?: 'low' | 'medium' | 'high' | 'ultra';
-  [key: string]: any;
+  variant?: string;
+  align?: BoxProps['alignItems'];
+  justify?: BoxProps['justifyContent'];
+  direction?: BoxProps['flexDirection'];
+  wrap?: BoxProps['flexWrap'];
 }
 
 // Map legacy intensity prop to new depth system
@@ -52,16 +58,38 @@ const legacyDepthMap: Record<string, Depth> = {
  * Core transparent container with Apple-inspired depth layering.
  * Subtle top highlight simulates physical glass surface.
  */
-export const GlassPanel = forwardRef<GlassPanelProps, 'div'>(
-  ({ children, depth, tint = 'none', intensity, ...props }, ref) => {
+export const GlassPanel = React.forwardRef<HTMLDivElement, GlassPanelProps>(
+  ({
+    children,
+    depth,
+    tint = 'none',
+    intensity,
+    variant,
+    align,
+    justify,
+    direction,
+    wrap,
+    alignItems,
+    justifyContent,
+    flexDirection,
+    flexWrap,
+    ...props
+  }, ref) => {
+    void variant;
+
     // Resolve depth — support legacy intensity prop
     const resolvedDepth: Depth = depth || (intensity ? legacyDepthMap[intensity] : 'raised');
     const style = depthStyles[resolvedDepth];
     const tintGrad = tintStyles[tint];
 
     return (
-      <Flex
+      <Box
         ref={ref}
+        display="flex"
+        alignItems={alignItems ?? align}
+        justifyContent={justifyContent ?? justify}
+        flexDirection={flexDirection ?? direction}
+        flexWrap={flexWrap ?? wrap}
         bg={style.bg}
         backdropFilter="blur(20px) saturate(180%)"
         border="1px solid"
@@ -94,7 +122,7 @@ export const GlassPanel = forwardRef<GlassPanelProps, 'div'>(
           />
         )}
         {children}
-      </Flex>
+      </Box>
     );
   }
 );

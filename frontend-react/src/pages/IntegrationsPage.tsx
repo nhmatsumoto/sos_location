@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
-  Box, Flex, VStack, HStack, Grid, GridItem,
+  Box, Flex, VStack, HStack, Grid,
   Spinner, Input, Badge, Switch, Text,
 } from '@chakra-ui/react';
 import {
   Cloud, AlertTriangle, FileText, Satellite, Database,
   Thermometer, Droplets, Wind, Zap, MapPin, Search,
+  type LucideIcon,
 } from 'lucide-react';
 import { GlassPanel } from '../components/atoms/GlassPanel';
 import { TacticalText } from '../components/atoms/TacticalText';
@@ -21,7 +22,7 @@ import {
   type WeatherCurrent,
   type WeatherDay,
 } from '../services/integrationsApi';
-import { useNotifications } from '../context/NotificationsContext';
+import { useNotifications } from '../context/useNotifications';
 
 type Tab = 'weather' | 'alerts' | 'transparency' | 'satellite' | 'catalogs';
 
@@ -62,7 +63,7 @@ function severityBg(sev: string): string {
 }
 
 // ─── Tab config ───────────────────────────────────────────────────────────────
-const TABS: { id: Tab; label: string; icon: React.FC<any> }[] = [
+const TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
   { id: 'weather',      label: 'Clima',          icon: Cloud },
   { id: 'alerts',       label: 'Alertas',        icon: AlertTriangle },
   { id: 'transparency', label: 'Transparência',  icon: FileText },

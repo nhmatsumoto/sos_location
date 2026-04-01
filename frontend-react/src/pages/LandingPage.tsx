@@ -1,4 +1,3 @@
-import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { keycloak } from '../lib/keycloak';
 import { LandingNavbar } from '../components/layout/LandingNavbar';
@@ -242,6 +241,7 @@ const useCases = [
   { title: 'Logística Humanitária', desc: 'Organização ágil de suprimentos e definição estratégica de pontos de apoio e abrigos temporários.' },
 ];
 
+/* ─── Page ───────────────────────────────────────────────────────────────── */
 export function LandingPage() {
   const navigate = useNavigate();
 

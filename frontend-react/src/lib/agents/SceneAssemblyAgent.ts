@@ -22,8 +22,8 @@
  * The assembled SceneData is ready to be consumed directly by CityScaleWebGL.
  */
 
-import { ImageProcessingAgent, type ImageProcessingResult } from './ImageProcessingAgent';
-import { TopographyModelingAgent, type TopographyModelingResult } from './TopographyModelingAgent';
+import { ImageProcessingAgent } from './ImageProcessingAgent';
+import { TopographyModelingAgent } from './TopographyModelingAgent';
 import { OSMEnrichmentAgent, type EnrichedSceneFeatures } from './OSMEnrichmentAgent';
 import { ScenePersistence } from '../geo/ScenePersistence';
 import type { LandCoverGrid } from '../geo/SpectralAnalyzer';
@@ -95,12 +95,6 @@ export class SceneAssemblyAgent {
     onProgress?: (evt: AssemblyProgress) => void,
   ): Promise<AssembledScene> {
     const emit = (evt: AssemblyProgress) => onProgress?.(evt);
-    const blank: EnrichedSceneFeatures = {
-      buildings: [], highways: [], waterways: [],
-      waterAreas: [], naturalAreas: [], landUseZones: [],
-      amenities: [], hotspotCount: 0, processedAt: new Date().toISOString(),
-    };
-
     // ── 1. Check IndexedDB cache ──────────────────────────────────────────────
     if (!forceRefresh) {
       emit({ phase: 'checking_cache' });

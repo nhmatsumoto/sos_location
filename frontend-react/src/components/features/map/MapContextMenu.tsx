@@ -37,7 +37,7 @@ export function MapContextMenu({ x, y, onClose, lat, lng, onMarkRiskArea }: MapC
         position: 'top-right'
       });
       onClose();
-    } catch (error) {
+    } catch {
       toast({
         title: 'Erro operacional',
         description: 'Falha ao processar comando tático.',

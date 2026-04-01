@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supportApi, type Campaign, type Donation, type Expense } from '../services/supportApi';
-import { useNotifications } from '../context/NotificationsContext';
+import { useNotifications } from '../context/useNotifications';
 
 /**
  * Controller Hook for SupportDashboardPage

@@ -1,5 +1,5 @@
 import { Bell, X } from 'lucide-react';
-import { useNotifications } from '../../context/NotificationsContext';
+import { useNotifications } from '../../context/useNotifications';
 
 interface NotificationCenterProps {
   open: boolean;

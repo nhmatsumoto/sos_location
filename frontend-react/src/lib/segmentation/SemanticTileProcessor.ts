@@ -151,7 +151,9 @@ export class SemanticTileProcessor {
     const b = bSum / pixCount;
 
     const brightness = (r + g + b) / 3.0;
-    const maxC = Math.max(r, g, b), minC = Math.min(r, g, b);
+    // Channel saturation: max-min range across R/G/B
+    const maxC = Math.max(r, g, b);
+    const minC = Math.min(r, g, b);
     const saturation = maxC - minC;
 
     let cls: SemanticClass;

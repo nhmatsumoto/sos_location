@@ -24,7 +24,7 @@ export function MapAutoBounds({ news }: MapAutoBoundsProps) {
     if (bounds.isValid() && mounted) {
       try {
         map.fitBounds(bounds, { padding: [50, 50], maxZoom: 12 });
-      } catch (_) {
+      } catch {
         // suppress stale animation on unmount
       }
     }

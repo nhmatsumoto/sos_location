@@ -2,37 +2,45 @@ import React, { useRef, useMemo, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
+const pseudoRandom = (seed: number) => {
+  const x = Math.sin(seed * 12.9898) * 43758.5453;
+  return x - Math.floor(x);
+};
+
 export const WeatherParticles: React.FC<{ intensity: number; isSimulating: boolean }> = ({ intensity, isSimulating }) => {
   const meshRef = useRef<THREE.Points>(null);
+  const materialRef = useRef<THREE.ShaderMaterial>(null);
   const count = 2000;
   
   const [positions, randomness] = useMemo(() => {
     const p = new Float32Array(count * 3);
     const r = new Float32Array(count);
     for (let i = 0; i < count; i++) {
-      p[i * 3] = (Math.random() - 0.5) * 500;
-      p[i * 3 + 1] = Math.random() * 200;
-      p[i * 3 + 2] = (Math.random() - 0.5) * 500;
-      r[i] = Math.random();
+      p[i * 3] = (pseudoRandom(i * 4 + 1) - 0.5) * 500;
+      p[i * 3 + 1] = pseudoRandom(i * 4 + 2) * 200;
+      p[i * 3 + 2] = (pseudoRandom(i * 4 + 3) - 0.5) * 500;
+      r[i] = pseudoRandom(i * 4 + 4);
     }
     return [p, r];
-  }, []);
+  }, [count]);
 
   const uniforms = useMemo(() => ({
     uTime: { value: 0 },
     uIntensity: { value: intensity },
     uColor: { value: new THREE.Color("#93c5fd") },
     uSpeed: { value: isSimulating ? 2.5 : 1.5 }
-  }), []);
+  }), [intensity, isSimulating]);
 
   useEffect(() => {
-    uniforms.uIntensity.value = intensity;
-    uniforms.uSpeed.value = isSimulating ? 2.5 : 1.5;
-  }, [intensity, isSimulating, uniforms]);
+    const material = materialRef.current;
+    if (!material) return;
+    material.uniforms.uIntensity.value = intensity;
+    material.uniforms.uSpeed.value = isSimulating ? 2.5 : 1.5;
+  }, [intensity, isSimulating]);
 
   useFrame((state) => {
-    if (meshRef.current) {
-      (meshRef.current.material as THREE.ShaderMaterial).uniforms.uTime.value = state.clock.elapsedTime;
+    if (meshRef.current && materialRef.current) {
+      materialRef.current.uniforms.uTime.value = state.clock.elapsedTime;
     }
   });
 
@@ -45,6 +53,7 @@ export const WeatherParticles: React.FC<{ intensity: number; isSimulating: boole
         <bufferAttribute attach="attributes-aRandom" args={[randomness, 1]} />
       </bufferGeometry>
       <shaderMaterial
+        ref={materialRef}
         transparent
         depthWrite={false}
         blending={THREE.AdditiveBlending}

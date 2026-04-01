@@ -32,7 +32,7 @@ import { GlassPanel } from '../components/atoms/GlassPanel';
 import { TacticalText } from '../components/atoms/TacticalText';
 import { TacticalButton } from '../components/atoms/TacticalButton';
 import { reportsApi, type ReportItemApi } from '../services/reportsApi';
-import { useNotifications } from '../context/NotificationsContext';
+import { useNotifications } from '../context/useNotifications';
 import { TacticalMap } from '../components/features/map/TacticalMap';
 
 export function ReportsPage() {

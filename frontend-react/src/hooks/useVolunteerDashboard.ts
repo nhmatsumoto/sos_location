@@ -28,7 +28,7 @@ export function useVolunteerDashboard() {
         isClosable: true,
         variant: "subtle"
       });
-    } catch (error) {
+    } catch {
       toast({
         title: "Falha de Atribuição",
         description: "Não foi possível sincronizar sua presença nesta missão.",

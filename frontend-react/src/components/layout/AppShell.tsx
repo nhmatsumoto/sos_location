@@ -5,9 +5,9 @@ import { Topbar } from './Topbar';
 import { StatusStrip } from './StatusStrip';
 import { ToastContainer } from 'react-toastify';
 import { NotificationCenter } from '../feedback/NotificationCenter';
-import { useNotifications } from '../../context/NotificationsContext';
+import { useNotifications } from '../../context/useNotifications';
 import { setApiNotifier } from '../../services/apiClient';
-import { Box, Flex, Grid, Spinner, Center, Text } from '@chakra-ui/react';
+import { Box, Flex, Spinner, Center, Text } from '@chakra-ui/react';
 
 interface AppShellProps {
   children: ReactNode;

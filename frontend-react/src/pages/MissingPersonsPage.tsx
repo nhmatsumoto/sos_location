@@ -17,7 +17,7 @@ import { TacticalText } from '../components/atoms/TacticalText';
 import { TacticalButton } from '../components/atoms/TacticalButton';
 import { missingPersonsApi, type MissingPersonApi } from '../services/missingPersonsApi';
 import { resolveApiUrl } from '../lib/apiBaseUrl';
-import { useNotifications } from '../context/NotificationsContext';
+import { useNotifications } from '../context/useNotifications';
 import { TacticalMap } from '../components/features/map/TacticalMap';
 
 // ─── Leaflet icon para pessoas desaparecidas ─────────────────────────────────

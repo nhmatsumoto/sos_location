@@ -4,7 +4,7 @@ import { operationsApi, type MapAnnotationDto, type OperationsSnapshot } from '.
 import { eventsApi, type DomainEvent } from '../services/eventsApi';
 import { integrationsApi, type AlertDto } from '../services/integrationsApi';
 import { gisApi, type ActiveAlert } from '../services/gisApi';
-import { useNotifications } from '../context/NotificationsContext';
+import { useNotifications } from '../context/useNotifications';
 
 export function useSOSPageData() {
   const { pushNotice } = useNotifications();

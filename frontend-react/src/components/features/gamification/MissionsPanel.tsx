@@ -1,5 +1,5 @@
 import { Target, CheckCircle2, ChevronRight, Rocket, Shield, Map } from 'lucide-react';
-import { Box, Flex, VStack, Text, Icon, HStack, Progress, Badge, Divider, Skeleton, SkeletonText } from '@chakra-ui/react';
+import { Box, Flex, VStack, Icon, HStack, Progress, Badge, Divider, Skeleton } from '@chakra-ui/react';
 
 interface Mission {
   id: string;

@@ -1,4 +1,3 @@
-import React from 'react';
 import { LandingNavbar } from '../components/layout/LandingNavbar';
 
 export function DocsPage() {

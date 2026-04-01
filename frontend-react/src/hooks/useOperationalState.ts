@@ -288,7 +288,7 @@ export function useOperationalState() {
       setShowDemarcationModal(false);
       setDemarcationForm(initialDemarcationForm);
       setDemarcationDraftPoint(null);
-    } catch (err) {
+    } catch {
       setDemarcationError('Falha ao salvar demarcação.');
     } finally {
       setSavingDemarcation(false);

@@ -15,7 +15,7 @@
 import { TileLoader } from '../webgl/TileLoader';
 import { TerrainTileLoader, type DEMResult } from './TerrainTileLoader';
 import { WeatherDataFetcher, type WeatherContext } from './WeatherDataFetcher';
-import { TILE_PROVIDERS, type TileProvider } from './MapTileProviders';
+import { TILE_PROVIDERS } from './MapTileProviders';
 import { OpenTopographyProvider } from './OpenTopographyProvider';
 import { NasaGibsProvider } from './NasaGibsProvider';
 import { SpectralAnalyzer, type LandCoverGrid } from './SpectralAnalyzer';
@@ -66,7 +66,7 @@ function sessionGet<T>(key: string, ttl: number): T | null {
   } catch { return null; }
 }
 function sessionSet(key: string, data: unknown): void {
-  try { sessionStorage.setItem(key, JSON.stringify({ ts: Date.now(), data })); } catch {}
+  try { sessionStorage.setItem(key, JSON.stringify({ ts: Date.now(), data })); } catch { /* ignore cache write failures */ }
 }
 
 export class GeoDataPipeline {
@@ -121,7 +121,7 @@ export class GeoDataPipeline {
         const canvas = await TileLoader.loadSatelliteTiles(
           minLat, minLon, maxLat, maxLon, provider.urlTemplate
         );
-        try { sessionSet(cacheKey, { dataUrl: canvas.toDataURL('image/jpeg', 0.82) }); } catch {}
+        try { sessionSet(cacheKey, { dataUrl: canvas.toDataURL('image/jpeg', 0.82) }); } catch { /* ignore cache write failures */ }
         return canvas;
       } catch {
         return null;
@@ -145,7 +145,7 @@ export class GeoDataPipeline {
           sessionSet(demKey, otDem);
           return { dem: otDem, source: 'OpenTopography' };
         }
-      } catch {}
+      } catch { /* fall back to AWS Terrarium */ }
 
       // Fall back to AWS Terrarium
       try {
@@ -264,7 +264,7 @@ export class GeoDataPipeline {
         k.startsWith(prefix) || k.startsWith('dem:') || k.startsWith('weather:')
       );
       keys.forEach(k => sessionStorage.removeItem(k));
-    } catch {}
+    } catch { /* sessionStorage may be unavailable */ }
     await ScenePersistence.invalidate(minLat, minLon, maxLat, maxLon);
   }
 }

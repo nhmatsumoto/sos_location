@@ -1,6 +1,6 @@
 import React from 'react';
 import { Suspense, lazy, useMemo } from 'react';
-import type { SelectedPanel, FloatingPanelId } from '../types';
+import type { Catastrophe, CatastropheEvent, FloatingPanelId, SelectedPanel } from '../types';
 import { 
   Activity
 } from 'lucide-react';
@@ -26,6 +26,7 @@ const PostDisasterSplat = lazy(() => import('../PostDisasterSplat'));
 
 export default function App() {
   const state = useOperationalState();
+  const [newsCutoffMs] = React.useState(() => Date.now() - (7 * 24 * 60 * 60 * 1000));
 
   const displayedHotspots = useMemo(() => {
     return state.hotspots.filter((hotspot) => {
@@ -36,20 +37,19 @@ export default function App() {
   }, [state.hotspots]);
 
   const filteredNewsUpdates = useMemo(() => {
-    const oneWeekAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
     const rainKeywords = ['chuva', 'chuvas', 'alagamento', 'enxurrada', 'temporal', 'precipitação'];
 
     return state.newsUpdates
       .filter((news) => {
         const publishedMs = Date.parse(news.publishedAtUtc);
-        const isWithinWeek = Number.isFinite(publishedMs) ? publishedMs >= oneWeekAgo : true;
+        const isWithinWeek = Number.isFinite(publishedMs) ? publishedMs >= newsCutoffMs : true;
         const text = `${news.title} ${news.source}`.toLowerCase();
         const mentionsRain = rainKeywords.some((keyword) => text.includes(keyword));
         const cityMatches = state.selectedNewsCity === 'Todas' || news.city === state.selectedNewsCity;
         return isWithinWeek && mentionsRain && cityMatches;
       })
       .sort((a, b) => Date.parse(b.publishedAtUtc) - Date.parse(a.publishedAtUtc));
-  }, [state.newsUpdates, state.selectedNewsCity]);
+  }, [newsCutoffMs, state.newsUpdates, state.selectedNewsCity]);
 
   const flowPathLatLng = useMemo(
     () => state.flowResult?.mainPath.map((p) => [p.lat, p.lng] as [number, number]) ?? [],
@@ -63,7 +63,7 @@ export default function App() {
 
   const handleCreateCatastrophe = (e: React.FormEvent) => {
     e.preventDefault();
-    const payload = {
+    const payload: Catastrophe = {
       id: `CT-${Date.now()}`,
       name: state.catastropheForm.name,
       type: state.catastropheForm.type,
@@ -73,7 +73,7 @@ export default function App() {
       createdAtUtc: new Date().toISOString(),
       events: [],
     };
-    state.setCatastrophes((prev) => [payload as any, ...prev]);
+    state.setCatastrophes((prev) => [payload, ...prev]);
     state.setSelectedCatastropheId(payload.id);
     state.setShowCatastropheModal(false);
   };
@@ -82,7 +82,7 @@ export default function App() {
     e.preventDefault();
     if (!state.activeCatastrophe || !state.lastMapClick) return;
 
-    const newEvent = {
+    const newEvent: CatastropheEvent = {
       id: `CTE-${Date.now()}`,
       title: state.catastropheEventForm.title,
       description: state.catastropheEventForm.description,
@@ -94,7 +94,7 @@ export default function App() {
 
     state.setCatastrophes((prev) => prev.map((item) => (
       item.id === state.activeCatastrophe?.id
-        ? { ...item, events: [newEvent as any, ...item.events] }
+        ? { ...item, events: [newEvent, ...item.events] }
         : item
     )));
   };

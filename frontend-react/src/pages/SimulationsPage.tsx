@@ -6,14 +6,12 @@ import {
   HStack,
   Divider,
   Flex,
-  Grid,
   Slider,
   SliderTrack,
   SliderFilledTrack,
   SliderThumb,
   Switch,
   SimpleGrid,
-  Select,
   Badge,
   Alert,
   AlertIcon
@@ -40,13 +38,10 @@ import {
   Gauge,
   Clock,
   BarChart2,
-  ChevronDown,
   Building2,
   Trees,
-  Eye,
-  EyeOff,
 } from 'lucide-react';
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 
 // Atomic Components
 import { CityScaleWebGL } from '../components/ui/CityScaleWebGL';
@@ -57,9 +52,69 @@ import { TacticalStat } from '../components/molecules/TacticalStat';
 import { EventTimeline } from '../components/ui/EventTimeline';
 import { useSimulationsController } from '../hooks/useSimulationsController';
 import { MiniMapPicker } from '../components/ui/MiniMapPicker';
-import { captureApi } from '../services/captureApi';
 
 type SimStep = 'LOCATION' | 'INDEXING' | 'SCENARIO' | 'SIMULATION';
+type SimulationConfig = {
+  intensity: number;
+  duration: number;
+  resolution: number;
+  urbanDensity: number;
+  pressure: number;
+  precipitation: number;
+  windSpeed: number;
+  windDirection: number;
+  humidity: number;
+  temp: number;
+  waterLevel: number;
+  floodVelocity: number;
+  waveHeight: number;
+  waveVelocity: number;
+  stormSurge: number;
+  magnitude: number;
+  geologyIndex: number;
+  faultDepth: number;
+  slopeInstability: number;
+  soilSaturation: number;
+  spreadRate: number;
+  fireTemp: number;
+  snowfall: number;
+  snowAccumulation: number;
+  frostDepth: number;
+  rainfallDeficit: number;
+  soilMoisture: number;
+};
+
+type SimulationParamKey = keyof SimulationConfig;
+
+const DEFAULT_SIMULATION_CONFIG: SimulationConfig = {
+  intensity: 75,
+  duration: 120,
+  resolution: 120,
+  urbanDensity: 0.65,
+  pressure: 1013,
+  precipitation: 45,
+  windSpeed: 120,
+  windDirection: 45,
+  humidity: 65,
+  temp: 25,
+  waterLevel: 5,
+  floodVelocity: 2.5,
+  waveHeight: 0,
+  waveVelocity: 0,
+  stormSurge: 0,
+  magnitude: 6.0,
+  geologyIndex: 2.5,
+  faultDepth: 10,
+  slopeInstability: 5,
+  soilSaturation: 70,
+  spreadRate: 500,
+  fireTemp: 800,
+  snowfall: 0,
+  snowAccumulation: 0,
+  frostDepth: 0,
+  rainfallDeficit: 50,
+  soilMoisture: 30,
+};
 
 /**
  * Guardian Simulation Engine v4.0.0 — "HYDRA WIZARD"
@@ -71,42 +126,7 @@ export function SimulationsPage() {
   const [disasterType, setDisasterType] = useState('FLOOD');
 
   // Advanced Simulation State — covers all disaster types
-  const [config, setConfig] = useState({
-    // General
-    intensity: 75,
-    duration: 120,
-    resolution: 120,
-    urbanDensity: 0.65,
-    // Atmospheric / Hydro
-    pressure: 1013,
-    precipitation: 45,
-    windSpeed: 120,
-    windDirection: 45,
-    humidity: 65,
-    temp: 25,
-    // Hydrological
-    waterLevel: 5,
-    floodVelocity: 2.5,
-    waveHeight: 0,
-    waveVelocity: 0,
-    stormSurge: 0,
-    // Geological
-    magnitude: 6.0,
-    geologyIndex: 2.5,
-    faultDepth: 10,
-    slopeInstability: 5,
-    soilSaturation: 70,
-    // Wildfire / Thermal
-    spreadRate: 500,
-    fireTemp: 800,
-    // Snow / Ice
-    snowfall: 0,
-    snowAccumulation: 0,
-    frostDepth: 0,
-    // Drought
-    rainfallDeficit: 50,
-    soilMoisture: 30,
-  });
+  const [config, setConfig] = useState<SimulationConfig>(DEFAULT_SIMULATION_CONFIG);
 
   const [layers, setLayers] = useState({
     buildings: true,
@@ -150,7 +170,6 @@ export function SimulationsPage() {
   const [captureRotation, setCaptureRotation] = useState(0);
 
   const [bbox, setBbox] = useState<number[] | undefined>(undefined);
-  const [showControlPanel, setShowControlPanel] = useState(true);
   const [activeToolPanel, setActiveToolPanel] = useState<'layers' | 'event' | 'terrain' | 'atmosphere' | 'severity' | 'log' | null>(null);
 
   const {
@@ -186,9 +205,6 @@ export function SimulationsPage() {
   }, [actions, bbox, isSimulating, numericLat, numericLng]);
 
 
-  const mapTileTypeRef = useRef(mapTileType);
-  useEffect(() => { mapTileTypeRef.current = mapTileType; }, [mapTileType]);
-
   const handleStartSimulation = () => {
     setActiveStep('SIMULATION');
     setActiveToolPanel(null);
@@ -197,7 +213,7 @@ export function SimulationsPage() {
 
 
   type SeverityKey = 'LOW' | 'MODERATE' | 'HIGH' | 'EXTREME';
-  type ConfigPatch = Partial<typeof config>;
+  type ConfigPatch = Partial<SimulationConfig>;
 
   interface DisasterMeta {
     label: string;
@@ -207,7 +223,7 @@ export function SimulationsPage() {
     bgColor: string;
     icon: React.ElementType;
     description: string;
-    params: (keyof typeof config)[];
+    params: SimulationParamKey[];
     presets: Record<SeverityKey, ConfigPatch>;
   }
 
@@ -446,7 +462,7 @@ export function SimulationsPage() {
           <CityScaleWebGL
             centerLat={numericLat}
             centerLng={numericLng}
-            bbox={bbox || [numericLat - 0.025, numericLng - 0.025, numericLat + 0.025, numericLng + 0.025]}
+            bbox={(bbox as [number, number, number, number] | undefined) ?? [numericLat - 0.025, numericLng - 0.025, numericLat + 0.025, numericLng + 0.025]}
             blueprint={blueprint}
             simData={simData}
             topoScale={visualAdjustments.topoScale}
@@ -460,6 +476,18 @@ export function SimulationsPage() {
             resultData={resultData}
             layers={layers}
           />
+        </Box>
+      )}
+
+      {/* --- AVISO: DADOS SINTÉTICOS (OSM INDISPONÍVEL) --- */}
+      {resultData?.urbanFeatures?.isSynthetic && (
+        <Box position="absolute" bottom={4} left="50%" transform="translateX(-50%)" zIndex={200}>
+          <Alert status="warning" borderRadius="md" py={2} px={4} bg="orange.900" border="1px solid" borderColor="orange.500" maxW="420px">
+            <AlertIcon color="orange.300" />
+            <TacticalText variant="caption" color="orange.200" letterSpacing="0.15em">
+              DADOS SINTÉTICOS — OSM indisponível para esta região
+            </TacticalText>
+          </Alert>
         </Box>
       )}
 
@@ -807,7 +835,7 @@ export function SimulationsPage() {
 
               {PARAM_GROUPS.map(group => {
                 const relevantKeys = group.keys.filter(
-                  k => disasterCatalog[disasterType].params.includes(k as keyof typeof config) && k !== 'intensity' && k !== 'duration'
+                  k => disasterCatalog[disasterType].params.includes(k) && k !== 'intensity' && k !== 'duration'
                 );
                 if (relevantKeys.length === 0) return null;
                 return (
@@ -1449,7 +1477,7 @@ const LAYER_GROUPS: {
 ];
 
 // Maps config param keys to human-readable label, unit, min, max, step
-const PARAM_META: Record<string, { label: string; unit: string; min: number; max: number; step?: number }> = {
+const PARAM_META: Record<SimulationParamKey, { label: string; unit: string; min: number; max: number; step?: number }> = {
   waterLevel:       { label: 'Nível da Água',        unit: 'm',     min: 0,    max: 50,   step: 0.5 },
   precipitation:    { label: 'Precipitação',          unit: 'mm/h',  min: 0,    max: 400,  step: 5 },
   floodVelocity:    { label: 'Velocidade do Fluxo',   unit: 'm/s',   min: 0,    max: 15,   step: 0.5 },
@@ -1476,9 +1504,10 @@ const PARAM_META: Record<string, { label: string; unit: string; min: number; max
   intensity:        { label: 'Intensidade',           unit: '%',     min: 0,    max: 100,  step: 1 },
   duration:         { label: 'Duração',               unit: 'min',   min: 5,    max: 1440, step: 5 },
   resolution:       { label: 'Resolução 3D',          unit: 'v',     min: 64,   max: 512,  step: 32 },
+  urbanDensity:     { label: 'Densidade Urbana',      unit: '%',     min: 0,    max: 100,  step: 1 },
 };
 
-const PARAM_GROUPS: { label: string; icon: React.ElementType; keys: string[] }[] = [
+const PARAM_GROUPS: { label: string; icon: React.ElementType; keys: SimulationParamKey[] }[] = [
   {
     label: 'METEOROLOGIA',
     icon: CloudRain,
@@ -1501,19 +1530,17 @@ const PARAM_GROUPS: { label: string; icon: React.ElementType; keys: string[] }[]
   },
 ];
 
-type AnyConfig = Record<string, number>;
-
 const DisasterParamSlider = ({
   param, config, setConfig, compact = false
 }: {
-  param: string;
-  config: AnyConfig;
-  setConfig: React.Dispatch<React.SetStateAction<AnyConfig>>;
+  param: SimulationParamKey;
+  config: SimulationConfig;
+  setConfig: React.Dispatch<React.SetStateAction<SimulationConfig>>;
   compact?: boolean;
 }) => {
   const meta = PARAM_META[param];
   if (!meta || config[param] === undefined) return null;
-  const val = config[param] as number;
+  const val = config[param];
   return (
     <Box>
       <Flex justify="space-between" mb={compact ? 1 : 2}>
@@ -1523,7 +1550,7 @@ const DisasterParamSlider = ({
         </TacticalText>
       </Flex>
       <Slider min={meta.min} max={meta.max} step={meta.step ?? 1} value={val}
-        onChange={(v) => setConfig((prev: AnyConfig) => ({ ...prev, [param]: v }))}>
+        onChange={(v) => setConfig((prev) => ({ ...prev, [param]: v }))}>
         <SliderTrack bg="whiteAlpha.100"><SliderFilledTrack bg="sos.blue.500" /></SliderTrack>
         <SliderThumb boxSize={compact ? 2.5 : 3} bg="white" />
       </Slider>

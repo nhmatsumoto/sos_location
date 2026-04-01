@@ -1,20 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Box, VStack, HStack, Text, Badge, Spinner, Center,
-  Select, Grid, IconButton, Tooltip, Progress, Flex
+  Box, VStack, HStack, Text, Spinner, Center,
+  IconButton, Tooltip, Progress, Flex
 } from '@chakra-ui/react';
-import { AlertTriangle, MapPin, RefreshCw, Layers, Filter, Activity } from 'lucide-react';
+import { AlertTriangle, MapPin, RefreshCw, Layers, Activity } from 'lucide-react';
 import { hotspotsApi, type HotspotApi } from '../services/hotspotsApi';
-import { useNotifications } from '../context/NotificationsContext';
-import { GlassPanel } from '../components/atoms/GlassPanel';
+import { useNotifications } from '../context/useNotifications';
 import { TacticalText } from '../components/atoms/TacticalText';
 import { MapPanel } from '../components/features/maps/MapPanel';
 
 const getSeverityColor = (severity: string) => {
   const s = severity.toLowerCase();
-  if (s.includes('emergencia') || s.includes('tier 1') || s.includes('crítico')) return 'sos.red.500';
-  if (s.includes('alerta') || s.includes('tier 2') || s.includes('alto')) return 'sos.amber.500';
-  return 'sos.blue.500';
+  if (s.includes('emergencia') || s.includes('tier 1') || s.includes('crítico')) return '#FF3B30';
+  if (s.includes('alerta') || s.includes('tier 2') || s.includes('alto')) return '#FF9500';
+  return '#007AFF';
 };
 
 export function HotspotsPage() {
@@ -31,10 +30,10 @@ export function HotspotsPage() {
       setRaw(data || []);
     } catch {
       setRaw([]);
-      pushNotice({ 
-        type: 'warning', 
-        title: 'Hotspots indisponíveis', 
-        message: 'Falha ao conectar com o motor de análise.' 
+      pushNotice({
+        type: 'warning',
+        title: 'Hotspots indisponíveis',
+        message: 'Falha ao conectar com o motor de análise.',
       });
     } finally {
       setLoading(false);
@@ -43,184 +42,239 @@ export function HotspotsPage() {
 
   useEffect(() => { void load(); }, []);
 
-  const types = useMemo(() => Array.from(new Set(raw.map(h => h.type).filter(Boolean))), [raw]);
+  const types      = useMemo(() => Array.from(new Set(raw.map(h => h.type).filter(Boolean))), [raw]);
   const severities = useMemo(() => Array.from(new Set(raw.map(h => h.urgency).filter(Boolean))), [raw]);
 
-  const filtered = useMemo(() => {
-    return raw.filter(h => {
-      const matchType = !filterType || h.type === filterType;
-      const matchSeverity = !filterSeverity || h.urgency === filterSeverity;
-      return matchType && matchSeverity;
-    }).map(h => ({
-      id: h.id,
-      nome: `Setor ${h.id.slice(0, 4).toUpperCase()}`,
-      tipoRisco: h.type,
-      severidade: h.urgency || 'Normal',
-      score: Math.round(h.score)
-    }));
-  }, [raw, filterType, filterSeverity]);
+  const filtered = useMemo(() =>
+    raw
+      .filter(h => (!filterType || h.type === filterType) && (!filterSeverity || h.urgency === filterSeverity))
+      .map(h => ({
+        id:         h.id,
+        nome:       `Setor ${h.id.slice(0, 4).toUpperCase()}`,
+        tipoRisco:  h.type,
+        severidade: h.urgency || 'Normal',
+        score:      Math.round(h.score),
+      }))
+      .sort((a, b) => b.score - a.score),
+  [raw, filterType, filterSeverity]);
+
+  const selectStyle = {
+    background: 'rgba(255,255,255,0.05)',
+    border: '1px solid rgba(255,255,255,0.10)',
+    borderRadius: '8px',
+    color: 'white',
+    fontSize: '12px',
+    padding: '6px 10px',
+    outline: 'none',
+    width: '100%',
+  };
 
   return (
-    <Box h="100%" w="100%" p={6} bg="sos.dark" overflowY="auto">
-      <VStack spacing={6} align="stretch" maxW="1600px" mx="auto">
-        
-        {/* Header Section */}
-        <Flex justify="space-between" align="center">
-          <HStack spacing={4}>
-            <Box p={2.5} bg="rgba(255,149,0,0.12)" borderRadius="xl">
-              <AlertTriangle size={22} color="#FF9500" />
-            </Box>
-            <VStack align="start" spacing={0}>
-              <TacticalText variant="heading" fontSize="xl" color="white">
-                Análise de Hotspots
-              </TacticalText>
-              <Text fontSize="xs" color="rgba(255,255,255,0.40)" mt={0.5}>
-                Monitoramento de zonas críticas em tempo real
-              </Text>
-            </VStack>
-          </HStack>
+    <Flex h="full" direction="column" overflow="hidden" bg="sos.dark">
 
-          <HStack spacing={3}>
-             <Tooltip label="Recarregar dados">
-              <IconButton
-                icon={<RefreshCw size={18} />}
-                aria-label="Reload"
-                onClick={() => void load()}
-                isLoading={loading}
-                variant="ghost"
-                borderRadius="xl"
-                color="rgba(255,255,255,0.50)"
-                _hover={{ color: 'white', bg: 'rgba(255,255,255,0.08)' }}
-              />
-            </Tooltip>
-          </HStack>
-        </Flex>
+      {/* ── Compact header ── */}
+      <Flex
+        flexShrink={0}
+        align="center"
+        justify="space-between"
+        px={5}
+        py={3}
+        borderBottom="1px solid"
+        borderColor="whiteAlpha.100"
+      >
+        <HStack spacing={3}>
+          <Box p={2} bg="rgba(255,149,0,0.12)" borderRadius="lg">
+            <AlertTriangle size={18} color="#FF9500" />
+          </Box>
+          <VStack align="start" spacing={0}>
+            <TacticalText variant="heading" fontSize="sm" color="white">Análise de Hotspots</TacticalText>
+            <Text fontSize="10px" color="whiteAlpha.400">Monitoramento de zonas críticas em tempo real</Text>
+          </VStack>
+        </HStack>
 
-        {/* Filters Panel */}
-        <GlassPanel depth="base" p={4} flexDirection={{ base: 'column', md: 'row' }} gap={4} alignItems="center">
-          <HStack flex={1} spacing={4} w="full">
-            <Box flex={1}>
-              <TacticalText variant="caption" mb={2} color="rgba(255,255,255,0.30)">TIPO DE RISCO</TacticalText>
-              <Select 
-                placeholder="Todos os riscos" 
-                value={filterType} 
-                onChange={e => setFilterType(e.target.value)}
-                variant="tactical"
-              >
-                {types.map(t => <option key={t} value={t}>{t}</option>)}
-              </Select>
-            </Box>
-            <Box flex={1}>
-              <TacticalText variant="caption" mb={2} color="rgba(255,255,255,0.30)">SEVERIDADE</TacticalText>
-              <Select 
-                placeholder="Todas as severidades" 
-                value={filterSeverity} 
-                onChange={e => setFilterSeverity(e.target.value)}
-                variant="tactical"
-              >
-                {severities.map(s => <option key={s} value={s}>{s}</option>)}
-              </Select>
-            </Box>
-          </HStack>
-          <Box h="40px" w="1px" bg="rgba(255,255,255,0.08)" display={{ base: 'none', md: 'block' }} mx={2} />
-          <HStack spacing={4} w={{ base: 'full', md: 'auto' }}>
-            <VStack align="end" spacing={0}>
-              <TacticalText variant="mono" fontSize="md" color="sos.blue.400">{filtered.length}</TacticalText>
-              <TacticalText variant="caption" fontSize="9px">ZONAS FILTRADAS</TacticalText>
-            </VStack>
-            <Box p={2.5} bg="rgba(0,122,255,0.12)" borderRadius="lg">
-              <Filter size={18} color="#007AFF" />
-            </Box>
-          </HStack>
-        </GlassPanel>
+        <Tooltip label="Recarregar dados">
+          <IconButton
+            icon={<RefreshCw size={16} />}
+            aria-label="Reload"
+            onClick={() => void load()}
+            isLoading={loading}
+            variant="ghost"
+            size="sm"
+            borderRadius="lg"
+            color="whiteAlpha.500"
+            _hover={{ color: 'white', bg: 'whiteAlpha.100' }}
+          />
+        </Tooltip>
+      </Flex>
 
-        {/* Main Grid: Map + List */}
-        <Grid templateColumns={{ base: '1fr', xl: '1.2fr 1fr' }} gap={6}>
-          
-          {/* Spatial Visualization */}
-          <GlassPanel depth="raised" overflow="hidden" position="relative" minH="500px">
-            <Box w="full" h="full" p={0}>
-               <MapPanel title="Distribuição Espacial de Riscos" />
-            </Box>
-            {/* Legend Overlay */}
-            <Box position="absolute" bottom={4} left={4} p={3} bg="rgba(8,8,15,0.80)" backdropFilter="blur(16px)" borderRadius="xl" border="1px solid rgba(255,255,255,0.10)" zIndex={10}>
-              <VStack align="start" spacing={2}>
-                <HStack spacing={2}><Box w={2} h={2} bg="sos.red.500" borderRadius="full" /><Text fontSize="9px" fontWeight="700" color="white">Emergência</Text></HStack>
-                <HStack spacing={2}><Box w={2} h={2} bg="sos.amber.500" borderRadius="full" /><Text fontSize="9px" fontWeight="700" color="white">Alerta Alto</Text></HStack>
-                <HStack spacing={2}><Box w={2} h={2} bg="sos.blue.500" borderRadius="full" /><Text fontSize="9px" fontWeight="700" color="white">Monitoramento</Text></HStack>
-              </VStack>
-            </Box>
-          </GlassPanel>
+      {/* ── Main content: Map 70% | Panel 30% ── */}
+      <Flex flex={1} overflow="hidden">
 
-          {/* List/Table View */}
-          <GlassPanel depth="raised" p={5} flexDirection="column" maxH="700px">
-            <HStack mb={4} justify="space-between">
+        {/* Map — 70% */}
+        <Box flex="7" position="relative" overflow="hidden">
+          <MapPanel title="Distribuição Espacial de Riscos" />
+
+          {/* Legend overlay */}
+          <Box
+            position="absolute" bottom={4} left={4} zIndex={10}
+            p={3} borderRadius="xl"
+            bg="rgba(8,8,15,0.85)" backdropFilter="blur(16px)"
+            border="1px solid rgba(255,255,255,0.10)"
+          >
+            <VStack align="start" spacing={1.5}>
               <HStack spacing={2}>
-                <Activity size={16} color="rgba(255,255,255,0.40)" />
-                <TacticalText variant="subheading">Prioridades de Intervenção</TacticalText>
+                <Box w={2} h={2} borderRadius="full" bg="#FF3B30" style={{ boxShadow: '0 0 4px #FF3B30' }} />
+                <Text fontSize="9px" fontWeight="700" color="white">Emergência</Text>
               </HStack>
-              <Box px={2} py={0.5} bg="rgba(255,255,255,0.06)" borderRadius="md">
-                <TacticalText variant="mono" fontSize="9px">SCORE_RANKING</TacticalText>
-              </Box>
-            </HStack>
-
-            <VStack spacing={3} overflowY="auto" flex={1} pr={2} className="no-scrollbar" align="stretch">
-              {loading ? (
-                <Center h="full" flexDir="column" gap={4}>
-                  <Spinner size="lg" color="sos.blue.500" />
-                  <TacticalText variant="mono" opacity={0.4}>Processando dados de sensor...</TacticalText>
-                </Center>
-              ) : filtered.length === 0 ? (
-                <Center h="full" flexDir="column" opacity={0.3} gap={4} py={20}>
-                  <Layers size={40} />
-                  <TacticalText>Nenhum dado encontrado</TacticalText>
-                </Center>
-              ) : (
-                filtered.sort((a,b) => b.score - a.score).map(row => (
-                  <GlassPanel 
-                    key={row.id} 
-                    depth="base" 
-                    p={4} 
-                    gap={4}
-                    _hover={{ bg: 'rgba(255,255,255,0.04)', transform: 'translateX(4px)' }}
-                    transition="all 0.2s"
-                    cursor="pointer"
-                  >
-                    <VStack align="start" spacing={1} flex={1}>
-                      <HStack w="full" justify="space-between">
-                        <TacticalText variant="heading" fontSize="xs" color="white">{row.nome}</TacticalText>
-                        <Badge fontSize="9px" bg="transparent" border="1px solid" borderColor={getSeverityColor(row.severidade)} color={getSeverityColor(row.severidade)}>
-                          {row.severidade}
-                        </Badge>
-                      </HStack>
-                      <HStack spacing={4} mt={1}>
-                        <HStack spacing={1}>
-                          <MapPin size={10} color="rgba(255,255,255,0.30)" />
-                          <Text fontSize="10px" color="rgba(255,255,255,0.40)">{row.tipoRisco}</Text>
-                        </HStack>
-                        <HStack spacing={1}>
-                          <TacticalText variant="mono" fontSize="10px" color="rgba(255,255,255,0.30)">SCORE:</TacticalText>
-                          <TacticalText variant="mono" fontSize="10px" color={row.score > 80 ? 'sos.red.400' : 'sos.blue.400'}>{row.score}</TacticalText>
-                        </HStack>
-                      </HStack>
-                      <Box w="full" mt={3}>
-                        <Progress 
-                          value={row.score} 
-                          size="xs" 
-                          borderRadius="full" 
-                          bg="rgba(255,255,255,0.06)" 
-                          colorScheme={row.score > 80 ? 'red' : 'blue'}
-                        />
-                      </Box>
-                    </VStack>
-                  </GlassPanel>
-                ))
-              )}
+              <HStack spacing={2}>
+                <Box w={2} h={2} borderRadius="full" bg="#FF9500" style={{ boxShadow: '0 0 4px #FF9500' }} />
+                <Text fontSize="9px" fontWeight="700" color="white">Alerta Alto</Text>
+              </HStack>
+              <HStack spacing={2}>
+                <Box w={2} h={2} borderRadius="full" bg="#007AFF" style={{ boxShadow: '0 0 4px #007AFF' }} />
+                <Text fontSize="9px" fontWeight="700" color="white">Monitoramento</Text>
+              </HStack>
             </VStack>
-          </GlassPanel>
+          </Box>
+        </Box>
 
-        </Grid>
-      </VStack>
-    </Box>
+        {/* Divider */}
+        <Box w="1px" bg="whiteAlpha.100" flexShrink={0} />
+
+        {/* Priority panel — 30% */}
+        <Flex flex="3" direction="column" overflow="hidden" bg="rgba(8,8,15,0.6)" minW="280px" maxW="420px">
+
+          {/* Panel header */}
+          <Flex px={4} py={3} align="center" justify="space-between" borderBottom="1px solid" borderColor="whiteAlpha.100" flexShrink={0}>
+            <HStack spacing={2}>
+              <Activity size={14} color="rgba(255,255,255,0.40)" />
+              <TacticalText variant="subheading" fontSize="xs">Prioridades de Intervenção</TacticalText>
+            </HStack>
+            <Box px={2} py={0.5} bg="whiteAlpha.100" borderRadius="md">
+              <TacticalText variant="mono" fontSize="9px">{filtered.length} ZONAS</TacticalText>
+            </Box>
+          </Flex>
+
+          {/* Filters */}
+          <Box px={4} py={3} borderBottom="1px solid" borderColor="whiteAlpha.100" flexShrink={0}>
+            <VStack spacing={2} align="stretch">
+              <Box>
+                <Text fontSize="9px" fontWeight="700" color="whiteAlpha.300" textTransform="uppercase" letterSpacing="wider" mb={1}>
+                  Tipo de Risco
+                </Text>
+                <select
+                  value={filterType}
+                  onChange={e => setFilterType(e.target.value)}
+                  style={selectStyle}
+                >
+                  <option value="">Todos os riscos</option>
+                  {types.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </Box>
+              <Box>
+                <Text fontSize="9px" fontWeight="700" color="whiteAlpha.300" textTransform="uppercase" letterSpacing="wider" mb={1}>
+                  Severidade
+                </Text>
+                <select
+                  value={filterSeverity}
+                  onChange={e => setFilterSeverity(e.target.value)}
+                  style={selectStyle}
+                >
+                  <option value="">Todas</option>
+                  {severities.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </Box>
+            </VStack>
+          </Box>
+
+          {/* List */}
+          <Box flex={1} overflowY="auto" px={3} py={3} className="custom-scrollbar">
+            {loading ? (
+              <Center h="full" flexDir="column" gap={3}>
+                <Spinner size="md" color="sos.blue.500" />
+                <TacticalText variant="mono" fontSize="10px" opacity={0.4}>Processando sensores...</TacticalText>
+              </Center>
+            ) : filtered.length === 0 ? (
+              <Center h="full" flexDir="column" opacity={0.3} gap={3} py={16}>
+                <Layers size={32} color="white" />
+                <TacticalText fontSize="xs">Nenhum dado encontrado</TacticalText>
+              </Center>
+            ) : (
+              <VStack spacing={2} align="stretch">
+                {filtered.map((row, idx) => {
+                  const color = getSeverityColor(row.severidade);
+                  return (
+                    <Box
+                      key={row.id}
+                      p={3}
+                      borderRadius="xl"
+                      border="1px solid"
+                      borderColor="whiteAlpha.100"
+                      bg="rgba(255,255,255,0.02)"
+                      cursor="pointer"
+                      transition="all 0.15s"
+                      _hover={{ bg: 'rgba(255,255,255,0.05)', borderColor: 'whiteAlpha.200', transform: 'translateX(2px)' }}
+                    >
+                      {/* Rank + name + badge */}
+                      <HStack justify="space-between" mb={2}>
+                        <HStack spacing={2}>
+                          <Text
+                            fontSize="10px"
+                            fontWeight="900"
+                            fontFamily="mono"
+                            color="whiteAlpha.300"
+                            w="18px"
+                          >
+                            #{idx + 1}
+                          </Text>
+                          <Text fontSize="xs" fontWeight="700" color="white" noOfLines={1}>
+                            {row.nome}
+                          </Text>
+                        </HStack>
+                        <Box
+                          px={1.5} py={0.5}
+                          borderRadius="full"
+                          border="1px solid"
+                          style={{ borderColor: color + '60', backgroundColor: color + '18' }}
+                        >
+                          <Text fontSize="9px" fontWeight="700" style={{ color }}>
+                            {row.severidade}
+                          </Text>
+                        </Box>
+                      </HStack>
+
+                      {/* Type + score */}
+                      <HStack justify="space-between" mb={2}>
+                        <HStack spacing={1}>
+                          <MapPin size={9} color="rgba(255,255,255,0.25)" />
+                          <Text fontSize="10px" color="whiteAlpha.400" noOfLines={1}>{row.tipoRisco}</Text>
+                        </HStack>
+                        <Text
+                          fontSize="sm"
+                          fontWeight="900"
+                          fontFamily="mono"
+                          style={{ color }}
+                        >
+                          {row.score}
+                        </Text>
+                      </HStack>
+
+                      {/* Progress bar */}
+                      <Progress
+                        value={row.score}
+                        size="xs"
+                        borderRadius="full"
+                        bg="whiteAlpha.100"
+                        colorScheme={row.score > 80 ? 'red' : row.score > 50 ? 'orange' : 'blue'}
+                      />
+                    </Box>
+                  );
+                })}
+              </VStack>
+            )}
+          </Box>
+        </Flex>
+      </Flex>
+    </Flex>
   );
 }

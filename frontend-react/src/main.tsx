@@ -14,7 +14,7 @@ import theme from './theme';
 
 
 // Fix for Leaflet default icon 404s in bundled apps
-// @ts-ignore
+// @ts-expect-error Leaflet mutates a private prototype helper here.
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',

@@ -75,6 +75,7 @@ namespace SOSLocation.Application.DTOs.Simulation
         /// <summary>Barriers: walls, fences, hedges</summary>
         public List<GisFeatureDto> Barriers { get; set; } = new();
         public double AreaScale { get; set; } = 200.0;
+        public bool IsSynthetic { get; set; } = false;
         public Dictionary<string, object> Metadata { get; set; } = new();
     }
 

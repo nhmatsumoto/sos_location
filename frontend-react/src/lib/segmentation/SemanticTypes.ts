@@ -3,18 +3,20 @@
  * Each pixel/tile of the satellite canvas is classified into one of these categories,
  * which drives color-coded 3D reconstruction without textures.
  */
-export enum SemanticClass {
-  UNKNOWN       = 0,
-  VEGETATION    = 1,  // Parks, forest, fields — green (varying by NDVI density)
-  WATER         = 2,  // Rivers, lakes, sea — blue
-  ROAD          = 3,  // Asphalt, paving — medium gray
-  BUILDING_LOW  = 4,  // Houses, low residential — dark gray / black
-  BUILDING_HIGH = 5,  // Towers, commercial — purple
-  BRIDGE        = 6,  // Bridges, overpasses — yellow-orange
-  BARE_GROUND   = 7,  // Sand, dirt, exposed soil — tan/brown
-  SLUM          = 8,  // Informal settlements — red-orange
-  SPORTS        = 9,  // Stadiums, pitches, courts — lime green
-}
+export const SemanticClass = {
+  UNKNOWN: 0,
+  VEGETATION: 1,    // Parks, forest, fields — green (varying by NDVI density)
+  WATER: 2,         // Rivers, lakes, sea — blue
+  ROAD: 3,          // Asphalt, paving — medium gray
+  BUILDING_LOW: 4,  // Houses, low residential — dark gray / black
+  BUILDING_HIGH: 5, // Towers, commercial — purple
+  BRIDGE: 6,        // Bridges, overpasses — yellow-orange
+  BARE_GROUND: 7,   // Sand, dirt, exposed soil — tan/brown
+  SLUM: 8,          // Informal settlements — red-orange
+  SPORTS: 9,        // Stadiums, pitches, courts — lime green
+} as const;
+
+export type SemanticClass = (typeof SemanticClass)[keyof typeof SemanticClass];
 
 export interface SemanticCell {
   class: SemanticClass;

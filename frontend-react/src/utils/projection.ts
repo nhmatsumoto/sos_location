@@ -9,6 +9,11 @@ export const PROJECTION_CONFIG = {
   SCALE: 1113.2,   // 1 unit = 100 meters (1 degree approx 111,320m)
 };
 
+export const setProjectionReference = (lat: number, lon: number) => {
+  PROJECTION_CONFIG.LAT_REF = lat;
+  PROJECTION_CONFIG.LON_REF = lon;
+};
+
 /**
  * Projects Lat/Lon to 3D World Coordinates (X, Z)
  */

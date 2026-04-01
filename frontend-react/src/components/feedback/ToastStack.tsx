@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { CircleAlert, CircleCheckBig, Info, TriangleAlert, X } from 'lucide-react';
-import { useNotifications } from '../../context/NotificationsContext';
+import { useNotifications } from '../../context/useNotifications';
 
 const styleMap = {
   info: 'border-cyan-500/50 bg-slate-900 text-cyan-100',

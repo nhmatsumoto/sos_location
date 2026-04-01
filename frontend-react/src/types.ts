@@ -9,6 +9,8 @@ export interface Hotspot {
   riskFactors: string[];
   urgency: string;
   humanExposure: string;
+  intensity?: number;
+  radius?: number;
 }
 
 export interface NewsUpdate {
@@ -223,6 +225,7 @@ export interface UrbanSimulationResult {
     waterways?: GISWaterway[];
     buildings?: GISBuilding[];
     areaScale?: number; // world scale in world units (≈200 for a ~5km area)
+    isSynthetic?: boolean; // true when real OSM data was unavailable and fallback synthetic data was used
     waterAreas?: GISWaterArea[];
     parks?: GISPark[];
     naturalAreas?: GISNaturalArea[];

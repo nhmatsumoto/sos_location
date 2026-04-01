@@ -111,13 +111,27 @@ const toSceneHeight = (terrainGrid: TerrainGrid, elevation: number) => {
 const UrbanInfrastructure = ({ sourceLat, sourceLng, radiusMeters, terrainGrid }: { sourceLat: number, sourceLng: number, radiusMeters: number, terrainGrid: TerrainGrid }) => {
   const [buildings, setBuildings] = useState<BuildingData[]>([]);
   const halfExtent = Math.max(12, radiusMeters / 50);
-  
-  const material = useMemo(() => new THREE.ShaderMaterial({
-    ...BuildingShader,
-    transparent: true,
-    depthWrite: true,
-    clipping: true
-  }), []);
+  const material = useMemo(
+    () =>
+      new THREE.ShaderMaterial({
+        uniforms: THREE.UniformsUtils.clone(BuildingShader.uniforms),
+        vertexShader: BuildingShader.vertexShader,
+        fragmentShader: BuildingShader.fragmentShader,
+        transparent: true,
+        depthWrite: true,
+        clipping: true,
+      }),
+    [],
+  );
+  const materialRef = useRef<THREE.ShaderMaterial | null>(null);
+
+  useEffect(() => {
+    materialRef.current = material;
+    return () => {
+      materialRef.current = null;
+      material.dispose();
+    };
+  }, [material]);
 
   useEffect(() => {
     const minLat = sourceLat - (radiusMeters / METERS_PER_DEG_LAT);
@@ -141,8 +155,9 @@ const UrbanInfrastructure = ({ sourceLat, sourceLng, radiusMeters, terrainGrid }
   }, [sourceLat, sourceLng, radiusMeters]);
 
   useFrame((state) => {
-    if (material.uniforms.uTime) {
-      material.uniforms.uTime.value = state.clock.elapsedTime;
+    const currentMaterial = materialRef.current;
+    if (currentMaterial?.uniforms.uTime) {
+      currentMaterial.uniforms.uTime.value = state.clock.elapsedTime;
     }
   });
 
@@ -184,7 +199,7 @@ const UrbanInfrastructure = ({ sourceLat, sourceLng, radiusMeters, terrainGrid }
         // Position so base is at groundY
         geometry.translate(0, groundY + sceneBHeight/2, 0); 
         return <mesh key={b.id} geometry={geometry} material={material} castShadow receiveShadow />;
-      } catch (e) {
+      } catch {
         return null; // Skip invalid geometries
       }
     });

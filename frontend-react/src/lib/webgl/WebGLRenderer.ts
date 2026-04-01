@@ -65,6 +65,10 @@ export class WebGLRenderer {
     this.gl.viewport(0, 0, width, height);
   }
 
+  public setViewport(width: number, height: number) {
+    this.setSize(width, height);
+  }
+
   public clear(r = 0, g = 0, b = 0, a = 0) {
     this.gl.clearColor(r, g, b, a);
     this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);

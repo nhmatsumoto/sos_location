@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { modulesApi } from '../services/modulesApi';
 import { useIncidentStore } from '../store/incidentStore';
-import { useNotifications } from '../context/NotificationsContext';
+import { useNotifications } from '../context/useNotifications';
 import {
   Box, VStack, HStack, Text, Badge, Spinner, Center,
   Input, Select, Flex, IconButton

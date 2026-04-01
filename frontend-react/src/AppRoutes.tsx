@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useEffect, useState } from 'react';
+import { Suspense, lazy, useEffect, useState } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { AppShell } from './components/layout/AppShell';
 import { LoadingScreen } from './components/common/LoadingScreen';
@@ -7,8 +7,9 @@ import { Prefetcher } from './components/common/Prefetcher';
 import { useAuthStore } from './store/authStore';
 
 // Lazy loaded pages
-const LandingPage = lazy(() => import('./pages/LandingPage.tsx').then((m) => ({ default: m.LandingPage })));
 const PublicIncidentDashboardPage = lazy(() => import('./pages/PublicIncidentDashboardPage.tsx').then((m) => ({ default: m.PublicIncidentDashboardPage })));
+const LandingPage = lazy(() => import('./pages/LandingPage.tsx').then((m) => ({ default: m.LandingPage })));
+const DocsIndexPage = lazy(() => import('./pages/DocsIndexPage.tsx').then((m) => ({ default: m.DocsIndexPage })));
 const SOSPage = lazy(() => import('./pages/SOSPage.tsx').then((m) => ({ default: m.SOSPage })));
 // SOSPage restored — /app/sos renders the tactical war room
 const SettingsPage = lazy(() => import('./pages/SettingsPage.tsx').then((m) => ({ default: m.SettingsPage })));
@@ -31,7 +32,6 @@ const MissingPersonsPage = lazy(() => import('./pages/MissingPersonsPage.tsx').t
 const GlobalDisastersPage = lazy(() => import('./pages/GlobalDisastersPage.tsx').then((m) => ({ default: m.GlobalDisastersPage })));
 const RescueOpsPage = lazy(() => import('./pages/RescueOpsPage.tsx').then((m) => ({ default: m.RescueOpsPage })));
 const OperationalMapPage = lazy(() => import('./pages/OperationalMapPage.tsx').then((m) => ({ default: m.default })));
-const DocsPage = lazy(() => import('./pages/DocsPage.tsx').then((m) => ({ default: m.DocsPage })));
 
 const TacticalAdminPage = lazy(() => import('./pages/TacticalAdminPage.tsx'));
 
@@ -115,13 +115,18 @@ export default function AppRoutes() {
     <>
       <Prefetcher />
       <Routes>
-        {/* Root Redirection */}
-        {/* Root Entry (Landing) */}
-        <Route path="/" element={<Suspense fallback={<LoadingScreen />}><LandingPage /></Suspense>} />
+        {/* Landing Page — entry point for all unauthenticated users */}
+        <Route path="/" element={
+          authenticated ?
+            <Navigate to="/app/sos" replace /> :
+            <Suspense fallback={<LoadingScreen />}><LandingPage /></Suspense>
+        } />
+
+        {/* Documentation */}
+        <Route path="/docs" element={<Suspense fallback={<LoadingScreen />}><DocsIndexPage /></Suspense>} />
 
         {/* Public Observation Routes */}
         <Route path="/transparency" element={<Suspense fallback={<LoadingScreen />}><PublicIncidentDashboardPage /></Suspense>} />
-        <Route path="/docs" element={<Suspense fallback={<LoadingScreen />}><DocsPage /></Suspense>} />
 
         {/* Compatibility Aliases */}
         <Route path="/public/transparency" element={<Navigate to="/transparency" replace />} />

@@ -34,7 +34,7 @@ export function SOSPage() {
     events, domainEvents, alerts, mapAnnotations, opsSnapshot,
     country, setCountry,
     currentDisplayEvents,
-    saveOps, sidebarAlerts
+    saveOps,
   } = useSOSPageData();
 
   const { states, actions } = useSOSPageController(saveOps);
@@ -48,9 +48,8 @@ export function SOSPage() {
     return (events as any[]).find(e => `${e.provider}-${e.provider_event_id}` === states.hoveredId)
       || domainEvents.find(e => e.id === states.hoveredId)
       || (alerts as any[]).find(a => `alert-${a.id}` === states.hoveredId)
-      || (mapAnnotations as any[]).find(m => `ann-${m.id}` === states.hoveredId)
-      || (sidebarAlerts as any[]).find((a: any) => a.id === states.hoveredId);
-  }, [states.hoveredId, events, domainEvents, alerts, mapAnnotations, sidebarAlerts]);
+      || (mapAnnotations as any[]).find(m => `ann-${m.id}` === states.hoveredId);
+  }, [states.hoveredId, events, domainEvents, alerts, mapAnnotations]);
 
   return (
     <Box h="100%" w="100%" position="relative" overflow="hidden" bg="sos.dark">
@@ -64,16 +63,12 @@ export function SOSPage() {
       />
 
       {/* Header HUD */}
-      <SOSHeaderHUD 
-        country={country} 
+      <SOSHeaderHUD
+        country={country}
         setCountry={setCountry}
         onReset={actions.resetMap}
         activeTool={states.tool}
         setTool={actions.setTool}
-        onSearchSelect={(lat, lon) => {
-          actions.setMapCenter([lat, lon]);
-          actions.setMapZoom(14);
-        }}
         stats={{
           activeTeams: opsSnapshot?.kpis?.activeTeams ?? '--',
           criticalAlerts: opsSnapshot?.kpis?.criticalAlerts ?? '--',
@@ -98,19 +93,23 @@ export function SOSPage() {
           w="320px"
           className="animate-panel"
         >
-          <AlertSidebar 
-            alerts={sidebarAlerts.map((a: any) => ({
-              ...a,
-              description: a.description || `Tactical alert — ${a.source || 'system'}`,
+          <AlertSidebar
+            alerts={(alerts as any[]).map((a: any) => ({
+              id: a.id,
+              title: a.event || a.title || 'Alerta',
+              description: Array.isArray(a.area) ? a.area.join(', ') : (a.description || a.source || '—'),
+              severity: a.severity,
+              source: a.source,
+              timestamp: a.effective || a.timestamp,
               lat: a.lat,
-              lon: a.lon
+              lon: a.lon,
             }))}
             kpis={{
               criticalAlerts: opsSnapshot?.kpis?.criticalAlerts || 0,
               activeTeams: opsSnapshot?.kpis?.activeTeams || 0,
               missingPersons: opsSnapshot?.layers?.missingPersons?.length || 0
             }}
-            onAlertClick={(alert) => {
+            onAlertClick={(alert: any) => {
               if (alert.lat && alert.lon) {
                 actions.setMapCenter([alert.lat, alert.lon]);
                 actions.setMapZoom(15);

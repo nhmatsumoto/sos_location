@@ -8,11 +8,16 @@ COPY frontend-react/package.json frontend-react/bun.lock* ./
 RUN --mount=type=cache,target=/root/.bun/install/cache \
     bun install
 
+# Cache bust: qualquer mudança no commit hash invalida o cache daqui para baixo
+ARG BUILD_HASH=dev
+RUN echo "BUILD_HASH=${BUILD_HASH}"
+
 # Copiar códigos fonte
 COPY frontend-react/ .
 
-# Resolver link simbólico quebrado para docs (se existir)
+# Copiar documentação do projeto para ser servida como arquivos estáticos
 RUN rm -rf public/docs && mkdir -p public/docs
+COPY docs/ public/docs/
 
 # Configurações de ambiente para o build
 ARG VITE_API_BASE_URL="http://localhost:8001"

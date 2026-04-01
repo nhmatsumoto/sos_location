@@ -1,15 +1,24 @@
-import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios';
+import axios, { AxiosError, type AxiosRequestConfig, type InternalAxiosRequestConfig } from 'axios';
 import { decode, encode } from '@msgpack/msgpack';
 import { inferApiBaseUrl } from '../lib/apiBaseUrl';
 import { frontendLogger } from '../lib/logger';
 import { getSessionToken } from '../lib/authSession';
 import { useAuthStore } from '../store/authStore';
 
+declare module 'axios' {
+  interface AxiosRequestConfig {
+    __retryCount?: number;
+    __skipGlobalNotify?: boolean;
+  }
+
+  interface InternalAxiosRequestConfig {
+    __retryCount?: number;
+    __skipGlobalNotify?: boolean;
+  }
+}
+
 // Type definitions
-type RetryableConfig = InternalAxiosRequestConfig & {
-  __retryCount?: number;
-  __skipGlobalNotify?: boolean;
-};
+type RetryableConfig = InternalAxiosRequestConfig;
 
 // State for notifications
 let notifyError: ((title: string, message: string) => void) | null = null;
@@ -84,6 +93,10 @@ export const apiClient = axios.create({
 
 export const setApiNotifier = (handler: (title: string, message: string) => void) => {
   notifyError = handler;
+};
+
+export const silentRequestConfig: AxiosRequestConfig = {
+  __skipGlobalNotify: true,
 };
 
 // Request Interceptor
@@ -190,6 +203,6 @@ apiClient.interceptors.response.use(
 );
 
 export const checkBackendHealth = async () => {
-  const response = await apiClient.get('/health', { __skipGlobalNotify: true } as any);
+  const response = await apiClient.get('/health', silentRequestConfig);
   return response.data;
 };

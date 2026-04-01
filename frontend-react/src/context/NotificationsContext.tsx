@@ -1,32 +1,36 @@
-import { createContext, useContext, useMemo, useState, useEffect, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { toast } from 'react-toastify';
+import { HubConnectionBuilder, LogLevel } from '@microsoft/signalr';
 import { generateUuid } from '../lib/uuid';
 import { setApiNotifier } from '../services/apiClient';
-import { HubConnectionBuilder, LogLevel } from '@microsoft/signalr';
 import { useAuthStore } from '../store/authStore';
+import {
+  NotificationsContext,
+  type NoticeItem,
+} from './notificationsContext';
 
-export type NoticeType = 'info' | 'success' | 'error' | 'warning';
-
-export interface NoticeItem {
-  id: string;
+interface AlertNotificationPayload {
   title: string;
   message: string;
-  type: NoticeType;
-  createdAt: string;
+  severity?: 'critical' | 'extreme' | 'high' | 'medium' | 'low' | string;
 }
 
-interface NotificationsContextValue {
-  notices: NoticeItem[];
-  pushNotice: (notice: Omit<NoticeItem, 'id' | 'createdAt'>) => void;
-  removeNotice: (id: string) => void;
+interface RiskUpdatePayload {
+  location: string;
+  level: string;
+  score: number;
 }
 
-const NotificationsContext = createContext<NotificationsContextValue | null>(null);
+interface WeatherUpdatePayload {
+  locationName?: string;
+  condition: string;
+  temperature: number;
+}
 
 export function NotificationsProvider({ children }: { children: ReactNode }) {
   const [notices, setNotices] = useState<NoticeItem[]>([]);
 
-  const pushNotice = (notice: Omit<NoticeItem, 'id' | 'createdAt'>) => {
+  const pushNotice = useCallback((notice: Omit<NoticeItem, 'id' | 'createdAt'>) => {
     const item: NoticeItem = {
       ...notice,
       id: generateUuid(),
@@ -38,22 +42,21 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       ? `${notice.title} — ${notice.message}`
       : notice.title;
     const opts = { position: 'bottom-right' as const, theme: 'dark' as const, autoClose: 4500 };
-    if (notice.type === 'error')   toast.error(content, opts);
+    if (notice.type === 'error') toast.error(content, opts);
     else if (notice.type === 'success') toast.success(content, opts);
     else if (notice.type === 'warning') toast.warning(content, opts);
     else toast.info(content, opts);
-  };
+  }, []);
 
-  const removeNotice = (id: string) => {
-    setNotices((prev) => prev.filter((n) => n.id !== id));
-  };
+  const removeNotice = useCallback((id: string) => {
+    setNotices((prev) => prev.filter((notice) => notice.id !== id));
+  }, []);
 
   useEffect(() => {
     setApiNotifier((title, message) => {
       pushNotice({ title, message, type: 'error' });
     });
 
-    // SignalR Connection
     const token = useAuthStore.getState().token;
     if (!token) return;
 
@@ -65,7 +68,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       .configureLogging(LogLevel.Information)
       .build();
 
-    connection.on('ReceiveAlert', (alert: any) => {
+    connection.on('ReceiveAlert', (alert: AlertNotificationPayload) => {
       pushNotice({
         title: alert.title,
         message: alert.message,
@@ -73,7 +76,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       });
     });
 
-    connection.on('UpdateRisk', (risk: any) => {
+    connection.on('UpdateRisk', (risk: RiskUpdatePayload) => {
       pushNotice({
         title: `Risco Atualizado: ${risk.location}`,
         message: `Novo nível de risco: ${risk.level} (${risk.score}%)`,
@@ -81,7 +84,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       });
     });
 
-    connection.on('UpdateWeather', (weather: any) => {
+    connection.on('UpdateWeather', (weather: WeatherUpdatePayload) => {
       pushNotice({
         title: `Clima: ${weather.locationName || 'Local'}`,
         message: `${weather.condition}: ${weather.temperature}°C`,
@@ -89,21 +92,13 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       });
     });
 
-    connection.start().catch((err: any) => console.error('SignalR Error: ', err));
+    connection.start().catch((error: unknown) => console.error('SignalR Error: ', error));
 
     return () => {
-      connection.stop();
+      void connection.stop();
     };
-  }, []);
+  }, [pushNotice]);
 
-  const value = useMemo(() => ({ notices, pushNotice, removeNotice }), [notices]);
+  const value = useMemo(() => ({ notices, pushNotice, removeNotice }), [notices, pushNotice, removeNotice]);
   return <NotificationsContext.Provider value={value}>{children}</NotificationsContext.Provider>;
-}
-
-export function useNotifications() {
-  const context = useContext(NotificationsContext);
-  if (!context) {
-    throw new Error('useNotifications must be used within NotificationsProvider');
-  }
-  return context;
 }

@@ -4,7 +4,7 @@ import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { TacticalMap } from '../features/map/TacticalMap';
 import { Globe, Mountain, Moon } from 'lucide-react';
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 
 // Fix Leaflet marker icon
 const customIcon = new L.DivIcon({

@@ -1,13 +1,12 @@
 import React from 'react';
 import {
   ShieldAlert, Crosshair, MousePointer2, MapPin,
-  Camera, Activity, Users, PackageOpen, Globe, Bell, BellOff, BarChart2,
+  Camera, Activity, Users, PackageOpen, Bell, BellOff, BarChart2,
   type LucideIcon
 } from 'lucide-react';
 import {
-  Box, Flex, HStack, Tooltip, IconButton, Divider
+  Box, HStack, Tooltip, IconButton
 } from '@chakra-ui/react';
-import { CitySearch } from './CitySearch';
 import { CountryDropdown } from './CountryDropdown';
 import { ToolButton } from './ToolButton';
 import { Logo } from '../brand/Logo';
@@ -15,6 +14,7 @@ import { useSOSHeaderHUD } from '../../hooks/useSOSHeaderHUD';
 import { TacticalText } from '../atoms/TacticalText';
 import { AnimatedNumber } from '../atoms/AnimatedNumber';
 import { useTranslation } from 'react-i18next';
+import type { ToolMode } from '../features/map/MapInteractions';
 
 interface Stats {
   activeTeams: string | number;
@@ -28,9 +28,8 @@ interface SOSHeaderHUDProps {
   setCountry: (val: string) => void;
   onReset: () => void;
   activeTool: string;
-  setTool: (tool: any) => void;
+  setTool: React.Dispatch<React.SetStateAction<ToolMode>>;
   stats?: Stats;
-  onSearchSelect?: (lat: number, lon: number, displayName: string, bbox?: string[]) => void;
   // Panel Toggles
   alertPanelOpen: boolean;
   onToggleAlerts: () => void;
@@ -86,10 +85,10 @@ const KpiPill = ({ value, label, icon: Icon, color }: {
  * compact but information-dense. Apple HIG-inspired balance.
  */
 export const SOSHeaderHUD: React.FC<SOSHeaderHUDProps> = ({
-  country, setCountry, onReset, activeTool, setTool, stats, onSearchSelect,
+  country, setCountry, onReset, activeTool, setTool, stats,
   alertPanelOpen, onToggleAlerts, gamificationOpen, onToggleMissions
 }) => {
-  const { user, handleLogout, goToPublicMap } = useSOSHeaderHUD();
+  const { user } = useSOSHeaderHUD();
   const { t } = useTranslation();
 
   return (
@@ -130,11 +129,8 @@ export const SOSHeaderHUD: React.FC<SOSHeaderHUDProps> = ({
 
       <Box h="32px" w="1px" bg="rgba(255,255,255,0.08)" flexShrink={0} />
 
-      {/* Search + Country */}
-      <HStack spacing={2} flex={{ base: 1, xl: 'none' }}>
-        <CitySearch onSelect={onSearchSelect} />
-        <CountryDropdown value={country} onChange={setCountry} />
-      </HStack>
+      {/* Country filter */}
+      <CountryDropdown value={country} onChange={setCountry} />
 
       <Box h="32px" w="1px" bg="rgba(255,255,255,0.08)" flexShrink={0} display={{ base: 'none', xl: 'block' }} />
 
@@ -245,19 +241,6 @@ export const SOSHeaderHUD: React.FC<SOSHeaderHUDProps> = ({
 
         <Box h="24px" w="1px" bg="rgba(255,255,255,0.08)" mx={1} />
 
-        <Tooltip label="Ir ao Mapa Público">
-          <IconButton
-            icon={<Globe size={18} />}
-            aria-label="Public Map"
-            variant="ghost"
-            onClick={goToPublicMap}
-            borderRadius="xl"
-            w="40px"
-            h="40px"
-            color="rgba(255,255,255,0.50)"
-            _hover={{ color: 'white', bg: 'rgba(255,255,255,0.08)' }}
-          />
-        </Tooltip>
         <Tooltip label="Centralizar Mapa">
           <IconButton
             icon={<Crosshair size={18} />}

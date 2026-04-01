@@ -36,7 +36,7 @@ import { GlassPanel } from '../components/atoms/GlassPanel';
 import { TacticalText } from '../components/atoms/TacticalText';
 import { TacticalButton } from '../components/atoms/TacticalButton';
 import { searchedAreasApi, type SearchedAreaApi } from '../services/searchedAreasApi';
-import { useNotifications } from '../context/NotificationsContext';
+import { useNotifications } from '../context/useNotifications';
 import { Circle, Popup } from 'react-leaflet';
 import { TacticalMap } from '../components/features/map/TacticalMap';
 import 'leaflet/dist/leaflet.css';

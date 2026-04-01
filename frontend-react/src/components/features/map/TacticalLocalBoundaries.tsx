@@ -1,4 +1,6 @@
 import { useState, memo } from 'react';
+import type { Feature, GeoJsonObject } from 'geojson';
+import L, { type Layer } from 'leaflet';
 import { GeoJSON, useMap, useMapEvents } from 'react-leaflet';
 
 interface TacticalLocalBoundariesProps {
@@ -11,7 +13,7 @@ interface TacticalLocalBoundariesProps {
  * only when zoomed in deep enough (to avoid performance degradation).
  */
 export const TacticalLocalBoundaries = memo(({ onSelect }: TacticalLocalBoundariesProps) => {
-  const [localData, setLocalData] = useState<any>(null);
+  const [localData, setLocalData] = useState<GeoJsonObject | null>(null);
   const [zoom, setZoom] = useState(4);
   const map = useMap();
 
@@ -51,25 +53,29 @@ export const TacticalLocalBoundaries = memo(({ onSelect }: TacticalLocalBoundari
         method: 'POST',
         body: query
       });
-      const data = await res.json();
+      const data: { elements?: unknown[] } = await res.json();
       
       // Convert Overpass to GeoJSON (Simplified logic for the simulation)
       if (data.elements) {
          // Placeholder for real conversion logic if needed, but for now we'll simulate
          // situational awareness using a mock if API is slow
       }
-    } catch (e) {
+    } catch {
       console.warn('Local Intelligence Gathering Timed Out');
     }
   };
 
-  const onEachFeature = (feature: any, layer: any) => {
-    const name = feature.properties.name || "Setor Local";
+  const onEachFeature = (feature: Feature | undefined, layer: Layer) => {
+    const properties = feature?.properties;
+    const name = typeof properties?.name === 'string' ? properties.name : 'Setor Local';
     
     layer.on({
-      click: (e: any) => {
+      click: (event: L.LeafletMouseEvent) => {
         onSelect(name);
-        map.fitBounds(e.target.getBounds(), { padding: [20, 20] });
+        const target = event.target as Layer & { getBounds?: () => L.LatLngBounds };
+        if (typeof target.getBounds === 'function') {
+          map.fitBounds(target.getBounds(), { padding: [20, 20] });
+        }
       }
     });
   };

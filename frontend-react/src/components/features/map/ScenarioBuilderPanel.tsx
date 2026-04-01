@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Box, Layers, Play, Settings2, ShieldAlert } from "lucide-react";
-import { useNotifications } from "../../../context/NotificationsContext";
+import { useNotifications } from "../../../context/useNotifications";
 import { useSimulationStore } from "../../../store/useSimulationStore";
 
 export const ScenarioBuilderPanel: React.FC<{ onClose: () => void }> = ({

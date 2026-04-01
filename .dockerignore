@@ -17,7 +17,6 @@ brain
 artifacts
 scripts
 infra
-docs
 geolocations_service
 risk_agent
 setup.cfg

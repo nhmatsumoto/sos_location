@@ -8,10 +8,14 @@ export function ErrorPage() {
   
   const handleBack = () => {
     if (window.history.length > 2) {
-      navigate(-1 as any);
+      window.history.back();
     } else {
       navigate('/');
     }
+  };
+
+  const redirectHome = () => {
+    window.location.assign('/');
   };
 
   const errorConfigs = {
@@ -19,7 +23,7 @@ export function ErrorPage() {
       title: 'Sessão Expirada',
       message: 'Sua autenticação expirou ou você tentou acessar um setor restrito sem as credenciais necessárias.',
       icon: <Lock className="w-16 h-16 text-amber-500" />,
-      action: () => window.location.href = '/',
+      action: redirectHome,
       actionLabel: 'RE-AUTENTICAR AGORA',
     },
     '404': {

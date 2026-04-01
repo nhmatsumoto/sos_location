@@ -123,7 +123,7 @@ export class CityBlueprintBuilder {
       tileSize: backendSem.tileSize,
       cells:    backendSem.grid.map(row =>
         row.map(cell => ({
-          class:     cell.class,
+          class:     cell.class as import('../segmentation/SemanticTypes').SemanticClass,
           intensity: cell.intensity,
           r: cell.r, g: cell.g, b: cell.b,
         }))

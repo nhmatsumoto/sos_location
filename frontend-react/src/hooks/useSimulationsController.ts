@@ -148,7 +148,7 @@ export function useSimulationsController() {
     try {
       let finalBbox = bbox;
       if (!finalBbox) {
-        const span = 0.012;
+        const span = 0.025;
         finalBbox = [numericLat - span, numericLng - span, numericLat + span, numericLng + span];
       }
       await simulationsApi.runSimulation({

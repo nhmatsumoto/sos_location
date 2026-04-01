@@ -26,7 +26,6 @@ const navItems = [
   { to: '/app/risk-assessment', label: 'nav.risk', icon: ShieldAlert },
   { to: '/app/support', label: 'nav.support', icon: Coins },
   { to: '/app/admin/sources', label: 'nav.sources', icon: Cog, admin: true },
-
   { to: '/app/settings', label: 'nav.settings', icon: Settings },
 ];
 

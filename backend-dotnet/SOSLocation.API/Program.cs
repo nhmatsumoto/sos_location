@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Mvc.Authorization;
 using Microsoft.AspNetCore.OutputCaching;
 using Microsoft.AspNetCore.RateLimiting;
 using System;
+using System.Linq;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -91,7 +92,13 @@ builder.Services.AddRateLimiter(options =>
 
 builder.Services.AddCors(options =>
 {
-    var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins").Get<string[]>() ?? new[] { "http://localhost:8088" };
+    var allowedOrigins = builder.Configuration.GetSection("AllowedOrigins")
+        .Get<string[]>()?
+        .Where(origin => !string.IsNullOrWhiteSpace(origin) && origin != "*")
+        .Distinct()
+        .ToArray()
+        ?? new[] { "http://localhost:8088" };
+
     options.AddPolicy("SOSPolicy", policy =>
     {
         policy.WithOrigins(allowedOrigins)
@@ -107,6 +114,8 @@ builder.Services.AddCors(options =>
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
+        var validateAudience = builder.Configuration.GetValue("Keycloak:VerifyAudience", true);
+
         options.Authority = builder.Configuration["Keycloak:Authority"];
         options.Audience = builder.Configuration["Keycloak:Audience"];
         options.RequireHttpsMetadata = builder.Configuration.GetValue<bool>("Keycloak:RequireHttpsMetadata");
@@ -124,8 +133,12 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 "https://localhost:8080/realms/sos-location",
                 "http://localhost:8080/realms/sos-location"
             },
+<<<<<<< HEAD
             ValidateAudience = true,
             ValidAudiences = audiences,
+=======
+            ValidateAudience = validateAudience,
+>>>>>>> 665439a (updates)
             ValidateLifetime = true
         };
 
@@ -158,9 +171,13 @@ var app = builder.Build();
 
 app.UseForwardedHeaders();
 
+var applyMigrationsOnStartup = builder.Configuration.GetValue("Database:ApplyMigrationsOnStartup", true);
+var seedOnStartup = builder.Configuration.GetValue("Database:SeedOnStartup", true);
+
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<SOSLocationDbContext>();
+<<<<<<< HEAD
     // Migrations are applied as a deployment step (dotnet ef database update).
     // EnsureCreated is used only for local/dev convenience when no migrations are pending.
     if (app.Environment.IsDevelopment())
@@ -168,6 +185,28 @@ using (var scope = app.Services.CreateScope())
         context.Database.EnsureCreated();
     }
     SOSLocationDbSeeder.Seed(context);
+=======
+
+    if (applyMigrationsOnStartup)
+    {
+        Log.Information("Applying database migrations on startup.");
+        context.Database.Migrate();
+    }
+    else
+    {
+        Log.Information("Skipping database migrations on startup.");
+    }
+
+    if (seedOnStartup)
+    {
+        Log.Information("Seeding database on startup.");
+        SOSLocationDbSeeder.Seed(context);
+    }
+    else
+    {
+        Log.Information("Skipping database seed on startup.");
+    }
+>>>>>>> 665439a (updates)
 }
 
 

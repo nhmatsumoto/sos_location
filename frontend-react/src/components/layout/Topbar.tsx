@@ -1,11 +1,29 @@
-import { Bell, Bolt, Moon, Search, Sun, LogOut, LayoutGrid, Globe, Languages } from 'lucide-react';
-import { Box, Flex, HStack, IconButton, Input, InputGroup, InputLeftElement, Select, Badge, Button, Menu, MenuButton, MenuList, MenuItem, Avatar, Text, MenuDivider, Tooltip } from '@chakra-ui/react';
-import { useAuthStore } from '../../store/authStore';
-import { doLogout } from '../../lib/keycloak';
+import { memo } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-
-import { memo } from 'react';
+import { Bell, Bolt, Globe, Languages, LayoutGrid, LogOut, Moon, Search, Sun } from 'lucide-react';
+import {
+  Avatar,
+  Badge,
+  Box,
+  Button,
+  Flex,
+  HStack,
+  IconButton,
+  Input,
+  InputGroup,
+  InputLeftElement,
+  Menu,
+  MenuButton,
+  MenuDivider,
+  MenuItem,
+  MenuList,
+  Select,
+  Text,
+  Tooltip,
+} from '@chakra-ui/react';
+import { doLogout } from '../../lib/keycloak';
+import { useAuthStore } from '../../store/authStore';
 
 interface TopbarProps {
   theme: 'dark' | 'light';
@@ -15,43 +33,42 @@ interface TopbarProps {
   minimal?: boolean;
 }
 
-export const Topbar = memo(function Topbar({ theme, onToggleTheme, notificationCount, onOpenNotifications, minimal }: TopbarProps) {
-  const { user } = useAuthStore();
-  const { t, i18n } = useTranslation();
+interface UserMenuProps {
+  displayName: string;
+  secondaryLabel?: string;
+  settingsLabel: string;
+}
 
-  const changeLanguage = (lng: string) => {
-    i18n.changeLanguage(lng);
-  };
-
-  const UserMenu = () => (
+const UserMenu = memo(function UserMenu({ displayName, secondaryLabel, settingsLabel }: UserMenuProps) {
+  return (
     <Menu>
       <MenuButton
         as={IconButton}
         size="md"
-        icon={<Avatar size="xs" name={user?.name || user?.preferredUsername} bg="sos.blue.500" />}
+        icon={<Avatar size="xs" name={displayName} bg="sos.blue.500" />}
         variant="ghost"
         borderRadius="full"
         _hover={{ bg: 'whiteAlpha.200' }}
       />
       <MenuList bg="rgba(10, 11, 16, 0.95)" backdropFilter="blur(20px)" border="1px solid" borderColor="whiteAlpha.200" boxShadow="dark-lg" py={2} zIndex={2000}>
         <Box px={4} py={3}>
-          <Text fontSize="sm" fontWeight="bold" color="white">{user?.name || 'Operador'}</Text>
-          <Text fontSize="xs" color="whiteAlpha.600">{user?.email || user?.preferredUsername}</Text>
+          <Text fontSize="sm" fontWeight="bold" color="white">{displayName}</Text>
+          <Text fontSize="xs" color="whiteAlpha.600">{secondaryLabel ?? ''}</Text>
         </Box>
         <MenuDivider borderColor="whiteAlpha.100" />
-        <MenuItem 
-          icon={<LayoutGrid size={14} />} 
-          bg="transparent" 
-          _hover={{ bg: 'whiteAlpha.100' }} 
+        <MenuItem
+          icon={<LayoutGrid size={14} />}
+          bg="transparent"
+          _hover={{ bg: 'whiteAlpha.100' }}
           fontSize="sm"
           color="white"
         >
-          {t('nav.settings')}
+          {settingsLabel}
         </MenuItem>
-        <MenuItem 
-          icon={<LogOut size={14} />} 
+        <MenuItem
+          icon={<LogOut size={14} />}
           onClick={doLogout}
-          bg="transparent" 
+          bg="transparent"
           color="sos.red.400"
           _hover={{ bg: 'sos.red.500', color: 'white' }}
           fontSize="sm"
@@ -61,7 +78,18 @@ export const Topbar = memo(function Topbar({ theme, onToggleTheme, notificationC
       </MenuList>
     </Menu>
   );
+});
 
+export const Topbar = memo(function Topbar({ theme, onToggleTheme, notificationCount, onOpenNotifications, minimal }: TopbarProps) {
+  const { user } = useAuthStore();
+  const { t, i18n } = useTranslation();
+  const displayName = user?.name || user?.preferredUsername || 'Operador';
+  const secondaryLabel = user?.email || user?.preferredUsername;
+  const settingsLabel = t('nav.settings');
+
+  const changeLanguage = (lng: string) => {
+    i18n.changeLanguage(lng);
+  };
 
   if (minimal) {
     return (
@@ -103,20 +131,20 @@ export const Topbar = memo(function Topbar({ theme, onToggleTheme, notificationC
               _hover={{ bg: 'whiteAlpha.100' }}
             />
           </Tooltip>
-          <UserMenu />
+          <UserMenu displayName={displayName} secondaryLabel={secondaryLabel} settingsLabel={settingsLabel} />
         </HStack>
       </Box>
     );
   }
 
   return (
-    <Box 
-      as="header" 
-      px={5} 
-      py={3} 
-      bg="rgba(8, 8, 15, 0.85)" 
-      backdropFilter="blur(24px) saturate(180%)" 
-      border="1px solid rgba(255,255,255,0.10)" 
+    <Box
+      as="header"
+      px={5}
+      py={3}
+      bg="rgba(8, 8, 15, 0.85)"
+      backdropFilter="blur(24px) saturate(180%)"
+      border="1px solid rgba(255,255,255,0.10)"
       borderRadius="2xl"
       boxShadow="0 4px 24px rgba(0,0,0,0.4)"
       m={4}
@@ -128,7 +156,7 @@ export const Topbar = memo(function Topbar({ theme, onToggleTheme, notificationC
         <HStack spacing={6}>
           <HStack spacing={3} borderRight="1px solid" borderColor="whiteAlpha.200" pr={6}>
             <Box p={2} bg="sos.blue.500" borderRadius="xl" boxShadow="0 0 12px rgba(0,122,255,0.3)">
-                <Text fontSize="14px" fontWeight="900" color="white" letterSpacing="widest">G</Text>
+              <Text fontSize="14px" fontWeight="900" color="white" letterSpacing="widest">G</Text>
             </Box>
             <Box display={{ base: 'none', md: 'block' }}>
               <Text fontSize="16px" fontWeight="900" color="white" letterSpacing="tighter">
@@ -139,12 +167,12 @@ export const Topbar = memo(function Topbar({ theme, onToggleTheme, notificationC
               </Text>
             </Box>
           </HStack>
-          
+
           <HStack spacing={3} display={{ base: 'none', lg: 'flex' }}>
-            <Select 
-              size="sm" 
+            <Select
+              size="sm"
               variant="unstyled"
-              maxW="220px" 
+              maxW="220px"
               color="whiteAlpha.700"
               fontSize="xs"
               fontWeight="bold"
@@ -160,9 +188,9 @@ export const Topbar = memo(function Topbar({ theme, onToggleTheme, notificationC
               <InputLeftElement pointerEvents="none">
                 <Search size={14} color="gray" />
               </InputLeftElement>
-              <Input 
-                placeholder="SEARCH_INTEL..." 
-                bg="whiteAlpha.50" 
+              <Input
+                placeholder="SEARCH_INTEL..."
+                bg="whiteAlpha.50"
                 border="1px solid"
                 borderColor="whiteAlpha.100"
                 borderRadius="lg"
@@ -185,7 +213,7 @@ export const Topbar = memo(function Topbar({ theme, onToggleTheme, notificationC
               onClick={() => changeLanguage('en')}
               _hover={{ bg: 'whiteAlpha.100' }}
             />
-             <IconButton
+            <IconButton
               size="sm"
               icon={<Text fontSize="9px" fontWeight="black">PT</Text>}
               aria-label="Idioma Português"
@@ -219,12 +247,12 @@ export const Topbar = memo(function Topbar({ theme, onToggleTheme, notificationC
               />
             )}
           </Box>
-          <Button 
-            leftIcon={<Bolt size={14} />} 
+          <Button
+            leftIcon={<Bolt size={14} />}
             variant="solid"
             bg="sos.blue.500"
             color="white"
-            size="sm" 
+            size="sm"
             fontSize="xs"
             fontWeight="black"
             _hover={{ bg: 'sos.blue.400' }}
@@ -234,7 +262,7 @@ export const Topbar = memo(function Topbar({ theme, onToggleTheme, notificationC
           </Button>
 
           <HStack spacing={1} pl={4} borderLeft="1px solid" borderColor="whiteAlpha.100">
-             <IconButton
+            <IconButton
               icon={theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
               size="md"
               aria-label="Alternar tema"
@@ -257,7 +285,7 @@ export const Topbar = memo(function Topbar({ theme, onToggleTheme, notificationC
                 {t('nav.map').toUpperCase()}
               </Button>
             </Tooltip>
-            <UserMenu />
+            <UserMenu displayName={displayName} secondaryLabel={secondaryLabel} settingsLabel={settingsLabel} />
           </HStack>
         </HStack>
       </Flex>
