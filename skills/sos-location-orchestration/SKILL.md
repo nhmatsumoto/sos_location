@@ -1,37 +1,46 @@
 ---
-name: mg-location-orchestration
-description: Use when translating MG Location natural-language requests into structured requirement cards, specialist-agent execution plans, routing matrices, and validation checklists across software, operations, and domain experts.
+name: sos-location-orchestration
+description: Use when translating SOS Location natural-language requests into a structured software-engineering plan, including domain language, specialist agents/skills, simulation flows, and AI refinement pipeline requirements.
 ---
 
-# MG Location Orchestration
+# SOS Location Orchestration
 
 ## Quando usar
-Use esta skill quando a demanda vier em linguagem natural e precisar virar plano técnico executável no contexto MG Location.
+Use esta skill quando a demanda vier em linguagem natural e precisar virar plano técnico executável para o SS/SOS Location, especialmente em simulação de desastres, IA e painéis operacionais.
 
 ## Workflow padrão
-1. Classificar a demanda por domínios (software, operação, ciência aplicada, emergência).
-2. Preencher Requirement Card usando `references/requirement-card-template.md`.
-3. Selecionar agentes + skills usando `references/agent-skill-routing-matrix.md`.
-4. Definir plano de execução com dependências explícitas e sincronização entre especialistas.
-5. Criar checklist de validação com comandos objetivos.
-6. Registrar decisão, trade-off e aprendizado no learning log.
+1. Mapear contexto, objetivos e restrições do pedido em até 10 bullets objetivos.
+2. Formalizar Linguagem Ubíqua (entidades, eventos, fluxos e invariantes).
+3. Preencher Requirement Card em `references/requirement-card-template.md`.
+4. Selecionar agentes + skills com `references/agent-skill-routing-matrix.md`.
+5. Definir backlog executável por etapas (dados, backend, frontend, IA e operação).
+6. Especificar observabilidade (logs, métricas, trilha de decisão e learning log).
+7. Publicar riscos, mitigação, critérios de aceite e rollback.
 
-## Sincronização obrigatória do orquestrador
-- Consolidar backlog técnico em uma fila única por prioridade.
-- Declarar handoff entre agentes (entrada esperada -> saída esperada).
-- Evitar execução paralela quando houver dependência bloqueante.
-- Validar cobertura completa de skills para cada requisito.
-- Publicar estado final: entregue, pendente, risco e rollback.
+## Especialização para Simulação de Desastres
+Para pedidos com simulação 3D e IA:
+- Modelar no mínimo os fluxos **Entrada → Simulação → Painel**.
+- Registrar integrações externas com estratégia de fallback (ex.: NASA, OSM).
+- Explicitar separação entre camada de domínio, aplicação e infraestrutura.
+- Definir contrato de dados de treino contínuo e validação de campo antes/depois.
+- Planejar pipeline incremental em AWS Step Functions com checkpoints auditáveis.
 
 ## Saída mínima obrigatória
-- Requirement Card com escopo **in/out**.
-- Plano por etapas com dependências explícitas.
+- Requirement Card com escopo in/out.
+- Plano de execução por etapas com dependências explícitas.
 - Matriz agente-skill usada no roteamento.
-- Checklist de validação (comandos reproduzíveis).
+- Checklist de validação com comandos reproduzíveis.
 - Riscos, mitigação e estratégia de rollback.
+
+## Template de prompt para Codex CLI
+Quando o usuário pedir “adaptar para o Codex CLI”, reutilize `references/codex-cli-disaster-prompt.md` e personalize apenas:
+- nome do projeto,
+- fontes de dados,
+- stack real do repositório,
+- critérios de aceite mensuráveis.
 
 ## Guardrails
 - Não implementar sem critérios de aceite verificáveis.
-- Não liberar endpoint crítico sem autenticação/autorização testada.
-- Não publicar fluxo novo sem observabilidade mínima (logs + erro explícito).
-- Não fechar tarefa sem registro de aprendizado reutilizável.
+- Não acoplar IA de treino e inferência sem fronteiras explícitas.
+- Não liberar fluxo crítico sem logs estruturados e correlação de eventos.
+- Não fechar tarefa sem learning log reutilizável.
