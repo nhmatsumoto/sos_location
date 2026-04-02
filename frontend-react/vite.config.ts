@@ -1,5 +1,5 @@
 /// <reference types="vitest" />
-import { defineConfig, loadEnv } from 'vite'
+import { defineConfig, loadEnv, type PluginOption } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
 import { fileURLToPath } from 'url'
@@ -51,8 +51,8 @@ export default defineConfig(({ mode }) => {
         filename: 'dist/stats.html',
         gzipSize: true,
         brotliSize: true,
-      }) as any,
-    ].filter(Boolean),
+      }),
+    ].filter(Boolean) as PluginOption[],
     build: {
       chunkSizeWarningLimit: 1200,
       minify: 'esbuild',

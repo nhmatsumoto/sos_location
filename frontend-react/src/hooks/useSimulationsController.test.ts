@@ -35,7 +35,7 @@ describe('useSimulationsController', () => {
       maxDepth: 1.5,
       floodedCells: 120
     };
-    vi.mocked(simulationsApi.runFlow).mockResolvedValue(mockData as any);
+    vi.mocked(simulationsApi.runFlow).mockResolvedValue(mockData as never);
 
     const { result } = renderHook(() => useSimulationsController());
 

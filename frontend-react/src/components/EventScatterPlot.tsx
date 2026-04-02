@@ -11,7 +11,7 @@ export type ScatterPoint = {
   timestamp: string;
   severity: number;
   isOffline?: boolean;
-  metadata?: any;
+  metadata?: unknown;
 };
 
 interface EventScatterPlotProps {

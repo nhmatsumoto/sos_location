@@ -1,10 +1,12 @@
 import { VStack, SimpleGrid, FormControl, FormLabel, Input } from '@chakra-ui/react';
 import { TacticalButton } from '../atoms/TacticalButton';
 import { TacticalText } from '../atoms/TacticalText';
+import type { Dispatch, SetStateAction } from 'react';
+import type { OpsFormState, OpsRecordType } from '../../types';
 
 interface TacticalOpsFormProps {
-  opsForm: any;
-  setOpsForm: (form: any) => void;
+  opsForm: OpsFormState;
+  setOpsForm: Dispatch<SetStateAction<OpsFormState>>;
   onSave: () => void;
 }
 
@@ -13,7 +15,7 @@ interface TacticalOpsFormProps {
  * Refined with the premium Tactical Design System.
  */
 export function TacticalOpsForm({ opsForm, setOpsForm, onSave }: TacticalOpsFormProps) {
-  const modes = [
+  const modes: Array<{ id: OpsRecordType; label: string }> = [
     { id: 'voluntario', label: 'Voluntário' },
     { id: 'doacao', label: 'Doação' },
     { id: 'resgate', label: 'Equipe Resgate' },
@@ -29,7 +31,7 @@ export function TacticalOpsForm({ opsForm, setOpsForm, onSave }: TacticalOpsForm
         {modes.map((mode) => (
           <TacticalButton
             key={mode.id}
-            onClick={() => setOpsForm({ ...opsForm, recordType: mode.id as any })}
+            onClick={() => setOpsForm((prev) => ({ ...prev, recordType: mode.id }))}
             h="60px"
             variant="unstyled"
             borderColor={opsForm.recordType === mode.id ? 'sos.blue.500' : 'whiteAlpha.100'}

@@ -2,6 +2,21 @@ import { useState, useCallback } from 'react';
 import { apiClient } from '../services/apiClient';
 import type { ClimakiSnapshot } from '../types';
 
+interface ClimateProviderEntry {
+  provider?: string;
+}
+
+interface ClimateIntegrationsResponse {
+  fetchedAtUtc?: string;
+  summary?: {
+    rainfallMm24h?: number;
+    relativeHumidityPercent?: number;
+    temperatureCelsius?: number;
+    temperatureC?: number;
+  };
+  providers?: ClimateProviderEntry[];
+}
+
 export function useClimate() {
   const [climakiSnapshot, setClimakiSnapshot] = useState<ClimakiSnapshot | null>(null);
   const [loadingClimaki, setLoadingClimaki] = useState(true);
@@ -12,7 +27,7 @@ export function useClimate() {
     setClimakiError('');
 
     try {
-      const { data } = await apiClient.get<any>('/api/climate/integrations?lat=-21.1215&lng=-42.9427');
+      const { data } = await apiClient.get<ClimateIntegrationsResponse>('/api/climate/integrations?lat=-21.1215&lng=-42.9427');
       const summary = data?.summary ?? {};
       const rainLast24hMm = Number(summary?.rainfallMm24h) || 0;
       const rainLast72hMm = Math.round(rainLast24hMm * 1.8 * 10) / 10;

@@ -1,16 +1,27 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Polygon } from 'react-leaflet';
 import { useParams } from 'react-router-dom';
 import { MapPanel } from '../components/features/maps/MapPanel';
 import { modulesApi } from '../services/modulesApi';
 
+interface SearchAreaRow {
+  id: string | number;
+  status?: string;
+  geometry_json?: {
+    coordinates?: number[][][];
+  };
+}
+
 export function RescueSearchAreasPage() {
   const { id } = useParams();
-  const [rows, setRows] = useState<any[]>([]);
+  const [rows, setRows] = useState<SearchAreaRow[]>([]);
   const [geojson, setGeojson] = useState('{"type":"Polygon","coordinates":[[[-42.94,-21.12],[-42.93,-21.12],[-42.93,-21.11],[-42.94,-21.12]]]}');
 
-  const load = () => modulesApi.listSearchAreas(Number(id)).then(setRows).catch(() => setRows([]));
-  useEffect(() => { void load(); }, [id]);
+  const load = useCallback(
+    () => modulesApi.listSearchAreas(Number(id)).then((data) => setRows((data ?? []) as SearchAreaRow[])).catch(() => setRows([])),
+    [id],
+  );
+  useEffect(() => { void load(); }, [load]);
 
   const create = async () => {
     await modulesApi.createSearchArea(Number(id), { name: 'Nova área', geometry_json: JSON.parse(geojson), status: 'Pending' });

@@ -17,7 +17,7 @@ export interface ActiveAlert {
 }
 
 // Memory cache as L1, IndexedDB as L2
-const memoryCache = new Map<string, { data: any; timestamp: number }>();
+const memoryCache = new Map<string, { data: unknown; timestamp: number }>();
 const CACHE_TTL = 1000 * 60 * 60 * 24; // 24 hours for persistent data
 
 const getFromCache = async (key: string) => {
@@ -37,13 +37,13 @@ const getFromCache = async (key: string) => {
   return null;
 };
 
-const setInCache = async (key: string, data: any) => {
+const setInCache = async (key: string, data: unknown) => {
   memoryCache.set(key, { data, timestamp: Date.now() });
   await persistentCache.set(key, data);
 };
 
 // Pending requests pool to avoid duplicate concurrent calls
-const pendingRequests = new Map<string, Promise<any>>();
+const pendingRequests = new Map<string, Promise<unknown>>();
 
 export const gisApi = {
   getElevationGrid: async (minLat: number, minLon: number, maxLat: number, maxLon: number, resolution: number = 128) => {

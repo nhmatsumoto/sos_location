@@ -4,7 +4,17 @@ import { DraggablePanel } from '../features/map/DraggablePanel';
 import { TacticalText } from '../atoms/TacticalText';
 
 interface SituationIntelPanelProps {
-  event: any;
+  event: {
+    id?: string | number;
+    title?: string;
+    description?: string;
+    severity: number;
+    lat?: number;
+    lon?: number;
+    affectedPopulation?: number;
+    riskScore?: number;
+    estimatedCost?: string;
+  };
   onClose: () => void;
 }
 

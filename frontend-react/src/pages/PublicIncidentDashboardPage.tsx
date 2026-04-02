@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Polygon } from 'react-leaflet';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
@@ -30,6 +30,23 @@ interface KpiItemProps {
   icon: React.ElementType;
   color: string;
   trend?: string;
+}
+
+interface PublicSnapshotData {
+  searchAreas?: { total?: number; completed?: number };
+  supportSummary?: { totalReceivedMoney?: number; totalSpentMoney?: number };
+}
+
+interface PublicSnapshotResponse {
+  data?: PublicSnapshotData;
+}
+
+interface PublicSearchArea {
+  id: string | number;
+  status?: string;
+  geometry_json?: {
+    coordinates?: number[][][];
+  };
 }
 
 const KpiItem: React.FC<KpiItemProps> = ({ label, value, icon, color, trend }) => (
@@ -66,11 +83,11 @@ const KpiItem: React.FC<KpiItemProps> = ({ label, value, icon, color, trend }) =
 export function PublicIncidentDashboardPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [snapshot, setSnapshot] = useState<any | null>(null);
-  const [areas, setAreas] = useState<any[]>([]);
+  const [snapshot, setSnapshot] = useState<PublicSnapshotResponse | null>(null);
+  const [areas, setAreas] = useState<PublicSearchArea[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const load = async (isInitial = false) => {
+  const load = useCallback(async (isInitial = false) => {
     if (isInitial) setLoading(true);
     if (!id || isNaN(Number(id))) {
       if (isInitial) setLoading(false);
@@ -82,20 +99,20 @@ export function PublicIncidentDashboardPage() {
         modulesApi.publicSnapshot(incidentId), 
         modulesApi.publicSearchAreas(incidentId)
       ]);
-      setSnapshot(snap);
-      setAreas(searchAreas);
+      setSnapshot((snap ?? null) as PublicSnapshotResponse | null);
+      setAreas((searchAreas ?? []) as PublicSearchArea[]);
     } catch (err) {
       console.error(err);
     } finally {
       if (isInitial) setLoading(false);
     }
-  };
+  }, [id]);
 
   useEffect(() => { 
     void load(true); 
     const t = setInterval(() => { void load(); }, 30000); 
     return () => clearInterval(t); 
-  }, [id]);
+  }, [load]);
 
   const stats = useMemo(() => snapshot?.data || {}, [snapshot]);
 
@@ -184,7 +201,7 @@ export function PublicIncidentDashboardPage() {
           value={stats.searchAreas?.completed ?? 0} 
           icon={CheckCircle} 
           color="sos.green.400"
-          trend={`${stats.searchAreas?.total ? Math.round((stats.searchAreas.completed / stats.searchAreas.total) * 100) : 0}%`}
+          trend={`${stats.searchAreas?.total ? Math.round((((stats.searchAreas.completed ?? 0) / stats.searchAreas.total) * 100)) : 0}%`}
         />
         <KpiItem 
           label="Doações" 

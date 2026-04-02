@@ -86,9 +86,12 @@ async function fetchEpicLatest(): Promise<{ url: string | null; capturedAt: stri
   try {
     const meta = await fetch('https://epic.gsfc.nasa.gov/api/natural/images?count=1', { signal: AbortSignal.timeout(6000) });
     if (!meta.ok) return { url: null, capturedAt: null };
-    const data: any[] = await meta.json();
-    if (!data?.length) return { url: null, capturedAt: null };
-    const img = data[0];
+    const data = await meta.json() as unknown;
+    if (!Array.isArray(data) || data.length === 0) return { url: null, capturedAt: null };
+    const img = data[0] as { date?: string; image?: string };
+    if (typeof img.date !== 'string' || typeof img.image !== 'string') {
+      return { url: null, capturedAt: null };
+    }
     const d = img.date.substring(0, 10).replace(/-/g, '/');
     const url = `https://epic.gsfc.nasa.gov/archive/natural/${d}/jpg/${img.image}.jpg`;
     return { url, capturedAt: img.date };

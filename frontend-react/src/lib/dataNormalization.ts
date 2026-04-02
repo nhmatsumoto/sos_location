@@ -3,29 +3,32 @@
  * Handles various backend response shapes (Result<T>, ListResponseDto, PascalCase vs camelCase).
  */
 
-export const extractList = <T>(payload: any): T[] => {
+export const extractList = <T>(payload: unknown): T[] => {
   if (!payload) return [];
-  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload)) return payload as T[];
+  if (typeof payload !== 'object') return [];
   
   // Handle results wrapped in a Result<T>.data object (though apiClient should handle this)
-  const data = payload.data ?? payload.Data ?? payload;
-  if (Array.isArray(data)) return data;
+  const payloadRecord = payload as Record<string, unknown>;
+  const data = payloadRecord.data ?? payloadRecord.Data ?? payload;
+  if (Array.isArray(data)) return data as T[];
+  if (typeof data !== 'object' || !data) return [];
   
   // Handle ListResponseDto (.items or .Items)
-  if (data?.items && Array.isArray(data.items)) return data.items;
-  if (data?.Items && Array.isArray(data.Items)) return data.Items;
+  const dataRecord = data as Record<string, unknown>;
+  if (Array.isArray(dataRecord.items)) return dataRecord.items as T[];
+  if (Array.isArray(dataRecord.Items)) return dataRecord.Items as T[];
   
   // Fallback for simple single-property objects if they happen
-  if (typeof data === 'object') {
-     // Search for any array property if it's likely a list response
-     for (const key in data) {
-       if (Array.isArray(data[key])) return data[key];
-     }
+  // Search for any array property if it's likely a list response.
+  for (const key of Object.keys(dataRecord)) {
+    const value = dataRecord[key];
+    if (Array.isArray(value)) return value as T[];
   }
   
   return [];
 };
 
-export const ensureArray = <T>(val: any): T[] => {
+export const ensureArray = <T>(val: unknown): T[] => {
   return Array.isArray(val) ? val : [];
 };

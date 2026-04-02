@@ -1,11 +1,18 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import * as THREE from 'three';
-import { integrationsApi } from '../../../services/integrationsApi';
+import { integrationsApi, type GeeAnalysisResponse } from '../../../services/integrationsApi';
 import { useSimulationStore } from '../../../store/useSimulationStore';
+
+interface GeeMeshPoint {
+  x: number;
+  z: number;
+  color: string;
+  val: number;
+}
 
 export const GEELayer: React.FC = () => {
   const { dynamicBounds, isSimulating, showGEE, geeAnalysisType } = useSimulationStore();
-  const [analysisData, setAnalysisData] = useState<any>(null);
+  const [analysisData, setAnalysisData] = useState<GeeAnalysisResponse | null>(null);
   
   useEffect(() => {
     if (!dynamicBounds || !isSimulating || !showGEE) return;
@@ -24,18 +31,19 @@ export const GEELayer: React.FC = () => {
   }, [dynamicBounds, isSimulating, showGEE, geeAnalysisType]);
 
   const meshData = useMemo(() => {
-    if (!analysisData || !analysisData.data) return null;
+    if (!analysisData || !Array.isArray(analysisData.data)) return null;
     
     const grid = analysisData.data;
-    const size = 10;
-    
+    const bboxParts = analysisData.bbox.split(',').map(Number);
+    if (bboxParts.length !== 4 || bboxParts.some(Number.isNaN)) return null;
+    const [minLat, minLon, maxLat, maxLon] = bboxParts;
+    const rowCount = Math.max(1, grid.length - 1);
+
     return grid.map((row: number[], i: number) => {
+      const colCount = Math.max(1, row.length - 1);
       return row.map((val: number, j: number) => {
-        const bboxParts = analysisData.bbox.split(',').map(Number);
-        const [minLat, minLon, maxLat, maxLon] = bboxParts;
-        
-        const lat = minLat + (i / (size - 1)) * (maxLat - minLat);
-        const lon = minLon + (j / (size - 1)) * (maxLon - minLon);
+        const lat = minLat + (i / rowCount) * (maxLat - minLat);
+        const lon = minLon + (j / colCount) * (maxLon - minLon);
         
         const x = (lon + 51.9) * 2;
         const z = -(lat + 14.2) * 2;
@@ -53,7 +61,7 @@ export const GEELayer: React.FC = () => {
 
   return (
     <group position={[0, -0.15, 0]}>
-      {meshData.map((p: any, idx: number) => (
+      {meshData.map((p: GeeMeshPoint, idx: number) => (
         <mesh key={idx} position={[p.x, 0, p.z]} rotation={[-Math.PI / 2, 0, 0]}>
           <planeGeometry args={[2, 2]} />
           <meshBasicMaterial 

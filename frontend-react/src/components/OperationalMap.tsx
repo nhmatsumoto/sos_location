@@ -15,6 +15,28 @@ import { MapFocusController } from './features/map/MapFocusController';
 import { MapClickSelector } from './features/map/MapClickSelector';
 import { TacticalMap } from './features/map/TacticalMap';
 
+interface FlowFormState {
+  sourceLat: string;
+  sourceLng: string;
+  rainfallMmPerHour: string;
+  scenario: 'encosta' | 'urbano' | 'rural';
+  [key: string]: unknown;
+}
+
+interface RiskFormState {
+  title: string;
+  message: string;
+  severity: string;
+  radiusMeters: string;
+  addMissingPerson: boolean;
+  personName: string;
+  city: string;
+  contactName: string;
+  contactPhone: string;
+  additionalInfo: string;
+  [key: string]: unknown;
+}
+
 interface OperationalMapProps {
   activeCatastrophe: Catastrophe | null;
   catastrophes: Catastrophe[];
@@ -33,12 +55,12 @@ interface OperationalMapProps {
   setMapActionMode: (m: 'none' | 'incident' | 'risk' | 'support' | 'demarcation') => void;
   demarcations: MapDemarcation[];
   setDemarcations: (d: (prev: MapDemarcation[]) => MapDemarcation[]) => void;
-  setFlowForm: (f: (prev: any) => any) => void;
+  setFlowForm: (f: (prev: FlowFormState) => FlowFormState) => void;
   setRiskDraftPoint: (p: { lat: number, lng: number } | null) => void;
   setShowRiskModal: (s: boolean) => void;
   setDemarcationDraftPoint: (p: { lat: number, lng: number } | null) => void;
   setShowDemarcationModal: (s: boolean) => void;
-  setRiskForm: (f: (prev: any) => any) => void;
+  setRiskForm: (f: (prev: RiskFormState) => RiskFormState) => void;
   openPanel: (p: SelectedPanel) => void;
   sidebarTab: string;
 }
@@ -77,7 +99,7 @@ export const OperationalMap: React.FC<OperationalMapProps> = (props) => {
 
             if (mapActionMode === 'incident') {
               setSelectedIncidentPoint({ lat, lng });
-              setFlowForm((prev: { sourceLat: string; sourceLng: string }) => ({ ...prev, sourceLat: lat.toFixed(5), sourceLng: lng.toFixed(5) }));
+              setFlowForm((prev) => ({ ...prev, sourceLat: lat.toFixed(5), sourceLng: lng.toFixed(5) }));
               setMapActionMode('none');
               return;
             }
@@ -86,7 +108,7 @@ export const OperationalMap: React.FC<OperationalMapProps> = (props) => {
               setRiskDraftPoint({ lat, lng });
               setShowRiskModal(true);
               setMapActionMode('none');
-              setRiskForm((prev: { message: string }) => ({
+              setRiskForm((prev) => ({
                 ...prev,
                 message: `Risco reportado próximo a ${lat.toFixed(5)}, ${lng.toFixed(5)}.`,
               }));

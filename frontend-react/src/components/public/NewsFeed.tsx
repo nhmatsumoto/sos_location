@@ -13,9 +13,25 @@ import { GlassPanel } from '../atoms/GlassPanel';
 import { TacticalButton } from '../atoms/TacticalButton';
 
 interface NewsFeedProps {
-  news: any[]; 
+  news: NewsFeedItem[];
   isLoading: boolean;
-  onSelect?: (item: any) => void;
+  onSelect?: (item: NewsFeedItem) => void;
+}
+
+export interface NewsFeedItem {
+  id: string | number;
+  title: string;
+  description?: string;
+  content?: string;
+  category?: string;
+  status?: string;
+  riskScore?: number;
+  emergencyLevel?: number;
+  latitude?: number;
+  longitude?: number;
+  publishedAt?: string;
+  at?: string;
+  externalUrl?: string;
 }
 
 export const NewsFeed: React.FC<NewsFeedProps> = ({ news, isLoading, onSelect }) => {
@@ -125,12 +141,15 @@ export const NewsFeed: React.FC<NewsFeedProps> = ({ news, isLoading, onSelect })
                         {item.latitude ? `${item.latitude.toFixed(4)}, ${item.longitude?.toFixed(4)}` : 'REGIONAL_ZONE'}
                       </TacticalText>
                     </HStack>
-                    <HStack spacing={1.5}>
-                      <Calendar size={10} color="gray" />
-                      <TacticalText fontSize="9px" color="whiteAlpha.400">
-                        {item.publishedAt || item.at ? format(new Date(item.publishedAt || item.at), "dd/MM HH:mm", { locale: ptBR }) : '--/-- --:--'}
-                      </TacticalText>
-                    </HStack>
+	                    <HStack spacing={1.5}>
+	                      <Calendar size={10} color="gray" />
+	                      <TacticalText fontSize="9px" color="whiteAlpha.400">
+	                        {(() => {
+	                          const publishedAt = item.publishedAt ?? item.at;
+	                          return publishedAt ? format(new Date(publishedAt), "dd/MM HH:mm", { locale: ptBR }) : '--/-- --:--';
+	                        })()}
+	                      </TacticalText>
+	                    </HStack>
                   </VStack>
 
                   <HStack spacing={2}>

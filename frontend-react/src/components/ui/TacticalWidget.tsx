@@ -8,7 +8,7 @@ interface TacticalWidgetProps {
   children: React.ReactNode;
   defaultPosition?: { x: number, y: number };
   width?: string;
-  icon?: any;
+  icon?: React.ElementType;
 }
 
 const MotionBox = motion(Box);
@@ -82,4 +82,3 @@ export function TacticalWidget({ title, children, defaultPosition, width = "300p
     </MotionBox>
   );
 }
-

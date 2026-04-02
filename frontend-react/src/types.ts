@@ -295,6 +295,7 @@ export interface SituationalSnapshot {
 
 export type OpsRecordType =
   | 'risk_area'
+  | 'missing_person'
   | 'voluntario'
   | 'doacao'
   | 'resgate'

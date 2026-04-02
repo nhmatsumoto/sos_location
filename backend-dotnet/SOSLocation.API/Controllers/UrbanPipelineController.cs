@@ -122,6 +122,9 @@ namespace SOSLocation.API.Controllers
             [FromQuery] double maxLat, [FromQuery] double maxLon)
         {
             var result = await _gisService.FetchLandCoverAsync(minLat, minLon, maxLat, maxLon);
+            if (result is null)
+                return StatusCode(502, Result<object>.Failure("Falha ao obter dados de cobertura do solo.", statusCode: 502));
+
             return Ok(Result<object>.Success(result));
         }
 
@@ -132,6 +135,9 @@ namespace SOSLocation.API.Controllers
             [FromQuery] double maxLat, [FromQuery] double maxLon)
         {
             var result = await _gisService.FetchPopulationDensityAsync(minLat, minLon, maxLat, maxLon);
+            if (result is null)
+                return StatusCode(502, Result<object>.Failure("Falha ao obter dados de densidade populacional.", statusCode: 502));
+
             return Ok(Result<object>.Success(result));
         }
     }

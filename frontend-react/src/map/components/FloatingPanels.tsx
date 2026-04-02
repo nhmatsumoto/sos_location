@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import type { OperationsSnapshot } from '../../services/operationsApi';
 import { summarizeWeather, type OpenMeteoResponse } from '../../services/openMeteo';
 import { useMapStore } from '../store/mapStore';
+import type { PanelState } from '../store/mapStore';
 import { FloatingPanel } from './FloatingPanel';
 import { TimelineControl } from './TimelineControl';
 
@@ -14,7 +15,7 @@ export function FloatingPanels({ weatherData, snapshot }: { weatherData: OpenMet
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return;
     try {
-      const parsed = JSON.parse(raw) as Record<string, Partial<typeof panels.climate>>;
+      const parsed = JSON.parse(raw) as Record<string, Partial<PanelState>>;
       Object.entries(parsed).forEach(([id, config]) => setPanelState(id, config));
     } catch {
       // ignore persistence failures

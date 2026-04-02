@@ -1,10 +1,10 @@
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 
-const CACHE = new Map<string, any>();
+const CACHE = new Map<string, unknown>();
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 2000;
 
-export const fetchOSMData = async (query: string): Promise<any> => {
+export const fetchOSMData = async (query: string): Promise<unknown> => {
   if (CACHE.has(query)) {
     return CACHE.get(query);
   }
@@ -17,8 +17,8 @@ export const fetchOSMData = async (query: string): Promise<any> => {
       });
       CACHE.set(query, response.data);
       return response.data;
-    } catch (error: any) {
-      const status = error.response?.status;
+    } catch (error: unknown) {
+      const status = error instanceof AxiosError ? error.response?.status : undefined;
       if (status === 429 || status === 504) {
         retries++;
         console.warn(`OSM Fetch Retry ${retries}/${MAX_RETRIES} due to status ${status}`);

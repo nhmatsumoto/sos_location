@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import type { ComponentProps } from 'react';
 import { 
   Box, VStack, Text, Table, Tbody, Tr, Td, Th, Thead, 
   Badge, HStack, useToast, Icon, Flex,
@@ -19,11 +20,7 @@ export default function TacticalAdminPage() {
   const [loading, setLoading] = useState(true);
   const toast = useToast();
 
-  useEffect(() => {
-    void loadPoints();
-  }, []);
-
-  const loadPoints = async () => {
+  const loadPoints = useCallback(async () => {
     try {
       setLoading(true);
       const data = await tacticalIntelApi.getPoints();
@@ -39,7 +36,11 @@ export default function TacticalAdminPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
+
+  useEffect(() => {
+    void loadPoints();
+  }, [loadPoints]);
 
   const handleApprove = async (id: string) => {
     try {
@@ -214,4 +215,4 @@ export default function TacticalAdminPage() {
 }
 
 // Small helper
-const Divider = ({ ...props }: any) => <Box h="1px" w="full" bg="rgba(255,255,255,0.08)" {...props} />;
+const Divider = (props: ComponentProps<typeof Box>) => <Box h="1px" w="full" bg="rgba(255,255,255,0.08)" {...props} />;

@@ -1,26 +1,37 @@
 import { useState, useEffect } from 'react';
 import { Circle, GeoJSON } from 'react-leaflet';
 import axios from 'axios';
+import type { GeoJsonObject } from 'geojson';
+
+interface NominatimReverseResponse {
+  geojson?: GeoJsonObject;
+}
 
 interface MapAreaProps {
   id: string;
   latitude: number;
   longitude: number;
   category: string;
-  polygon?: any;
+  polygon?: unknown;
 }
 
 // Simple global cache for boundaries to avoid redundant fetches across re-renders/components
-const boundaryCache = new Map<string, any>();
+const boundaryCache = new Map<string, GeoJsonObject>();
+
+const isGeoJsonBoundary = (value: unknown): value is GeoJsonObject => {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as { type?: unknown };
+  return typeof candidate.type === 'string';
+};
 
 export function MapArea({ id, latitude, longitude, category, polygon }: MapAreaProps) {
   const [isHovered, setIsHovered] = useState(false);
-  const [boundary, setBoundary] = useState<any>(polygon || null);
+  const [boundary, setBoundary] = useState<GeoJsonObject | null>(isGeoJsonBoundary(polygon) ? polygon : null);
   const [isLoadingBoundary, setIsLoadingBoundary] = useState(false);
   const styles = getCategoryStyles(category);
 
   useEffect(() => {
-    if (polygon) {
+    if (isGeoJsonBoundary(polygon)) {
       setBoundary(polygon);
       return;
     }
@@ -28,7 +39,10 @@ export function MapArea({ id, latitude, longitude, category, polygon }: MapAreaP
     const cacheKey = `${latitude.toFixed(3)},${longitude.toFixed(3)}`;
     
     if (boundaryCache.has(cacheKey)) {
-      setBoundary(boundaryCache.get(cacheKey));
+      const cachedBoundary = boundaryCache.get(cacheKey);
+      if (cachedBoundary) {
+        setBoundary(cachedBoundary);
+      }
       return;
     }
 
@@ -37,7 +51,7 @@ export function MapArea({ id, latitude, longitude, category, polygon }: MapAreaP
       try {
         // Fetch regional boundary (city level) using Nominatim reverse geocoding
         // zoom=10 typically targets the city/municipality level
-        const response = await axios.get(`https://nominatim.openstreetmap.org/reverse`, {
+        const response = await axios.get<NominatimReverseResponse>('https://nominatim.openstreetmap.org/reverse', {
           params: {
             format: 'json',
             lat: latitude,
@@ -60,7 +74,7 @@ export function MapArea({ id, latitude, longitude, category, polygon }: MapAreaP
 
     const timer = setTimeout(fetchBoundary, 500); // Debounce to avoid hitting rate limits during panning
     return () => clearTimeout(timer);
-  }, [latitude, longitude]);
+  }, [latitude, longitude, polygon]);
 
   // If we have a boundary, render GeoJSON
   if (boundary) {

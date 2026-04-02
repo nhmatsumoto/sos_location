@@ -1,4 +1,4 @@
-import { apiClient } from './apiClient';
+import { apiClient, silentRequestConfig } from './apiClient';
 
 export interface WeatherCurrent {
   temperature: number;
@@ -30,9 +30,14 @@ export interface WeatherForecastDto {
 export interface AlertDto {
   id: string;
   event: string;
+  title?: string;
+  description?: string;
   severity: string;
   source: string;
   area?: string[];
+  lat?: number;
+  lon?: number;
+  timestamp?: string;
   score?: number;
   alertCount?: number;
   effective?: string;
@@ -87,6 +92,20 @@ export interface AtlasSourceDto {
   scene3dUsage: string;
 }
 
+export interface DisasterIntelligenceResponse {
+  hotspots?: Array<Record<string, unknown>>;
+  alerts?: AlertDto[];
+  summary?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+export interface GeeAnalysisResponse {
+  type: string;
+  bbox: string;
+  data: number[][];
+  [key: string]: unknown;
+}
+
 export const integrationsApi = {
   async getWeatherForecast(lat: number, lon: number, days = 3) {
     const response = await apiClient.get<WeatherForecastDto>('/integrations/weather-forecast', { params: { lat, lon, days } });
@@ -133,11 +152,16 @@ export const integrationsApi = {
     return response.data;
   },
   async getDisasterIntelligence(params: { city?: string; state?: string; lat?: number; lon?: number; bbox?: string; since?: string }) {
-    const response = await apiClient.get<any>('/integrations/alerts/intelligence', { params, __skipGlobalNotify: true } as any);
+    const response = await apiClient.get<DisasterIntelligenceResponse>('/integrations/alerts/intelligence', {
+      params,
+      ...silentRequestConfig,
+    });
     return response.data;
   },
   async getGeeAnalysis(bbox: string, analysisType: 'ndvi' | 'moisture' | 'thermal' = 'ndvi') {
-    const response = await apiClient.get<any>('/integrations/satellite/gee/analysis', { params: { bbox, analysisType } });
+    const response = await apiClient.get<GeeAnalysisResponse>('/integrations/satellite/gee/analysis', {
+      params: { bbox, analysisType },
+    });
     return response.data;
   },
 };

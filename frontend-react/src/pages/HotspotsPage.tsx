@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Box, VStack, HStack, Text, Spinner, Center,
   IconButton, Tooltip, Progress, Flex
@@ -23,7 +23,7 @@ export function HotspotsPage() {
   const [filterSeverity, setFilterSeverity] = useState('');
   const { pushNotice } = useNotifications();
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const data = await hotspotsApi.list();
@@ -38,9 +38,9 @@ export function HotspotsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [pushNotice]);
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => { void load(); }, [load]);
 
   const types      = useMemo(() => Array.from(new Set(raw.map(h => h.type).filter(Boolean))), [raw]);
   const severities = useMemo(() => Array.from(new Set(raw.map(h => h.urgency).filter(Boolean))), [raw]);

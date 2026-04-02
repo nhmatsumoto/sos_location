@@ -5,7 +5,7 @@ const DB_VERSION = 2;
 
 interface GisCacheEntry {
   key: string;
-  data: any;
+  data: unknown;
   timestamp: number;
 }
 
@@ -45,7 +45,7 @@ export const gisCache = {
     }
   },
 
-  async set(key: string, data: any) {
+  async set(key: string, data: unknown) {
     try {
       const db = await getDB();
       await db.put('gis_data', {

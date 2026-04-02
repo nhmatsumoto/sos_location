@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { modulesApi } from '../services/modulesApi';
 import { useIncidentStore } from '../store/incidentStore';
@@ -25,8 +25,17 @@ const STATUS_COLORS: Record<string, string> = {
 const getStatusColor = (status: string) =>
   STATUS_COLORS[status?.toLowerCase()] || '#8E8E93';
 
-function IncidentCard({ incident, isSelected, onSelect }: { incident: any; isSelected: boolean; onSelect: () => void }) {
-  const statusColor = getStatusColor(incident.status);
+interface IncidentRow {
+  id: string | number;
+  name?: string;
+  title?: string;
+  type?: string;
+  region?: string;
+  status?: string;
+}
+
+function IncidentCard({ incident, isSelected, onSelect }: { incident: IncidentRow; isSelected: boolean; onSelect: () => void }) {
+  const statusColor = getStatusColor(incident.status ?? '');
   return (
     <GlassPanel
       depth="raised"
@@ -114,27 +123,27 @@ function IncidentCard({ incident, isSelected, onSelect }: { incident: any; isSel
 }
 
 export function IncidentsPage() {
-  const [rows, setRows] = useState<any[]>([]);
+  const [rows, setRows] = useState<IncidentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const { selectedIncidentId, setSelectedIncidentId } = useIncidentStore();
   const { pushNotice } = useNotifications();
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const data = await modulesApi.listIncidents();
-      setRows(data || []);
+      setRows((data ?? []) as IncidentRow[]);
     } catch {
       setRows([]);
       pushNotice({ type: 'warning', title: 'Incidentes indisponíveis', message: 'Sem conexão com o servidor.' });
     } finally {
       setLoading(false);
     }
-  };
+  }, [pushNotice]);
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => { void load(); }, [load]);
 
   const filtered = useMemo(() => {
     return rows.filter(r => {
@@ -229,8 +238,8 @@ export function IncidentsPage() {
               <IncidentCard
                 key={incident.id}
                 incident={incident}
-                isSelected={selectedIncidentId === incident.id}
-                onSelect={() => setSelectedIncidentId(incident.id)}
+                isSelected={selectedIncidentId === Number(incident.id)}
+                onSelect={() => setSelectedIncidentId(Number(incident.id))}
               />
             ))}
           </VStack>

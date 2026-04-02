@@ -4,7 +4,7 @@ import { modulesApi } from '../services/modulesApi';
 
 export function SupportSimplePage({ kind }: { kind: 'campaigns' | 'donations' | 'expenses' }) {
   const { id } = useParams();
-  const [rows, setRows] = useState<any[]>([]);
+  const [rows, setRows] = useState<unknown[]>([]);
   const [jsonPayload, setJsonPayload] = useState('{"currency":"BRL"}');
 
   const load = () => {

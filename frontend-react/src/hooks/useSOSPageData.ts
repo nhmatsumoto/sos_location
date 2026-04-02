@@ -1,16 +1,46 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useCallback, useState, useEffect, useMemo } from 'react';
 import { getEvents } from '../services/disastersApi';
 import { operationsApi, type MapAnnotationDto, type OperationsSnapshot } from '../services/operationsApi';
 import { eventsApi, type DomainEvent } from '../services/eventsApi';
 import { integrationsApi, type AlertDto } from '../services/integrationsApi';
 import { gisApi, type ActiveAlert } from '../services/gisApi';
 import { useNotifications } from '../context/useNotifications';
+import type { DisasterEvent, OpsFormState } from '../types';
+
+interface SOSDisplayEvent extends Partial<DisasterEvent> {
+  id: string | number;
+  severity: number;
+  lat: number;
+  lon?: number;
+  lng?: number;
+  type?: string;
+  provider?: string;
+  provider_event_id?: string | number;
+  country_code?: string;
+  is_gis_alert?: boolean;
+  source?: string;
+  category?: string;
+  polygon?: ActiveAlert['polygon'];
+  [key: string]: unknown;
+}
+
+const normalizeSeverity = (value: unknown): number => {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const normalized = value.toLowerCase();
+    if (normalized === 'critical' || normalized === 'extremo') return 5;
+    if (normalized === 'high' || normalized === 'perigo') return 4;
+    if (normalized === 'medium' || normalized === 'moderado') return 3;
+    if (normalized === 'low' || normalized === 'baixa') return 2;
+  }
+  return 1;
+};
 
 export function useSOSPageData() {
   const { pushNotice } = useNotifications();
   
   // Data States
-  const [events, setEvents] = useState<any[]>([]);
+  const [events, setEvents] = useState<SOSDisplayEvent[]>([]);
   const [domainEvents, setDomainEvents] = useState<DomainEvent[]>([]);
   const [alerts, setAlerts] = useState<AlertDto[]>([]);
   const [mapAnnotations, setMapAnnotations] = useState<MapAnnotationDto[]>([]);
@@ -23,18 +53,26 @@ export function useSOSPageData() {
   const [initialLoading, setInitialLoading] = useState(true);
   const [savingOps, setSavingOps] = useState(false);
 
-  const loadData = async (isInitial = false) => {
+  const loadData = useCallback(async (isInitial = false) => {
     if (isInitial) setInitialLoading(true);
     try {
-      let finalEvents = events;
-      let finalAlerts = alerts;
-      let finalGisAlerts = gisAlerts;
+      let finalEvents: SOSDisplayEvent[] = [];
+      let finalAlerts: AlertDto[] = [];
+      let finalGisAlerts: ActiveAlert[] = [];
 
       // 1. Core Events
       try {
         const resp = await getEvents({ country: country || undefined, minSeverity, page: 1, pageSize: 500 });
         if (resp && Array.isArray(resp.items)) {
-          finalEvents = resp.items;
+          finalEvents = resp.items
+            .filter((item): item is DisasterEvent => typeof item.lat === 'number')
+            .map((item) => ({
+              ...item,
+              severity: normalizeSeverity(item.severity),
+              type: item.eventType,
+              provider_event_id: item.providerEventId,
+              country_code: item.countryCode,
+            }));
           setEvents(finalEvents);
         }
       } catch (e) { console.error('Error loading core events:', e); }
@@ -95,16 +133,16 @@ export function useSOSPageData() {
     } finally {
       if (isInitial) setInitialLoading(false);
     }
-  };
+  }, [country, minSeverity]);
 
   useEffect(() => {
     void loadData(true);
     const interval = setInterval(() => void loadData(), 15000);
     return () => clearInterval(interval);
-  }, [country, minSeverity]);
+  }, [loadData]);
 
   const currentDisplayEvents = useMemo(() => {
-    const mappedAlerts = gisAlerts.map(a => {
+    const mappedAlerts: SOSDisplayEvent[] = gisAlerts.map(a => {
       let lat = -20.91, lon = -42.98;
       if (a.polygon && a.polygon.coordinates.length > 0 && a.polygon.coordinates[0].length > 0) {
          lon = a.polygon.coordinates[0][0][0];
@@ -123,7 +161,7 @@ export function useSOSPageData() {
       };
     });
 
-    const timelineAlerts = (opsSnapshot?.layers?.timeline || []).map(t => ({
+    const timelineAlerts: SOSDisplayEvent[] = (opsSnapshot?.layers?.timeline || []).map(t => ({
       id: t.id,
       title: t.title,
       description: t.description || `Alerta de ${t.source}`,
@@ -138,16 +176,24 @@ export function useSOSPageData() {
       sourceUrl: t.sourceUrl
     }));
 
-    const combined = [...(events || []), ...mappedAlerts, ...timelineAlerts].filter(e => 
-      e && typeof e.lat === 'number' && (typeof e.lon === 'number' || typeof e.lng === 'number')
-    ).map(e => ({
-      ...e,
-      lon: e.lon ?? (e as any).lng // Harmonize to lon for EventMarker
-    }));
-    return country ? combined.filter(e => (e as any).country_code === country || (e as any).is_gis_alert) : combined;
+    const combined: SOSDisplayEvent[] = [...events, ...mappedAlerts, ...timelineAlerts]
+      .filter((e): e is SOSDisplayEvent =>
+        Boolean(e) && typeof e.lat === 'number' && (typeof e.lon === 'number' || typeof e.lng === 'number')
+      )
+      .map((e) => ({
+        ...e,
+        severity: normalizeSeverity(e.severity),
+        lon: e.lon ?? e.lng, // Harmonize to lon for EventMarker
+      }));
+    return country ? combined.filter((e) => e.country_code === country || e.is_gis_alert) : combined;
   }, [events, country, gisAlerts, opsSnapshot]);
 
-  const saveOps = async (opsForm: any, lastClickedCoords: [number, number] | null, setOpenOpsModal: (v: boolean) => void, setLastClickedCoords: (v: any) => void) => {
+  const saveOps = async (
+    opsForm: OpsFormState,
+    lastClickedCoords: [number, number] | null,
+    setOpenOpsModal: (v: boolean) => void,
+    setLastClickedCoords: (v: [number, number] | null) => void,
+  ) => {
     if (!lastClickedCoords) {
       pushNotice({ type: 'warning', title: 'Coordenadas ausentes', message: 'Clique no mapa para selecionar o local.' });
       return;
@@ -155,8 +201,11 @@ export function useSOSPageData() {
 
     setSavingOps(true);
     try {
+      const recordType = opsForm.recordType === 'risk_area' || opsForm.recordType === 'missing_person'
+        ? opsForm.recordType
+        : 'support_point';
       await operationsApi.createMapAnnotation({
-        recordType: opsForm.recordType,
+        recordType,
         title: opsForm.incidentTitle || (opsForm.recordType === 'missing_person' ? `Busca: ${opsForm.personName}` : 'Solicitação de Campo'),
         lat: lastClickedCoords[0],
         lng: lastClickedCoords[1],

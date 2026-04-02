@@ -28,6 +28,6 @@ backend-test:
 	DOTNET_CLI_HOME=/tmp/sos-location-dotnet-home DOTNET_SKIP_FIRST_TIME_EXPERIENCE=1 dotnet test backend-dotnet/SOSLocation.slnx --nologo
 
 python-test:
-	python3 -m pytest risk-analysis-unit/tests -q
+	PYTHONPATH=risk-analysis-unit python3 -m unittest discover -s risk-analysis-unit/tests -p "test_*.py"
 
 checks: frontend-typecheck frontend-lint backend-test python-test

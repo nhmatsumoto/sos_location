@@ -57,7 +57,12 @@ export const SimulationAreaModal: React.FC<SimulationAreaModalProps> = ({
             />
             <select 
               value={unit} 
-              onChange={e => setUnit(e.target.value as any)}
+              onChange={(e) => {
+                const nextUnit = e.target.value;
+                if (nextUnit === 'm' || nextUnit === 'km' || nextUnit === 'mi') {
+                  setUnit(nextUnit);
+                }
+              }}
               className="bg-slate-900 border border-slate-700 rounded px-3 py-2 text-sm font-mono text-slate-300 outline-none focus:border-cyan-500"
             >
               <option value="m">Metros</option>

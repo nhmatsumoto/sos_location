@@ -95,7 +95,7 @@ function DetailPanel({ cfg, onUpdate }: DetailPanelProps) {
     setDirty(false);
     setSaveMsg(null);
     setTestMsg(null);
-  }, [cfg.id]);
+  }, [cfg.id, cfg.customEndpoint, cfg.apiKey, cfg.enabled]);
 
   const markDirty = () => { setDirty(true); setSaveMsg(null); };
 
@@ -348,7 +348,7 @@ export function DataHubPage() {
     try {
       const data = await integrationConfigApi.getAll();
       setConfigs(data);
-      if (data.length > 0 && selected === null) setSelected(data[0]);
+      setSelected(prev => (data.length > 0 && prev === null ? data[0] : prev));
     } catch {
       setError('Falha ao carregar integrações. Verifique se o backend está disponível.');
     } finally { setLoading(false); }

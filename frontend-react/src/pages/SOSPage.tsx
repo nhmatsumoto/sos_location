@@ -45,11 +45,30 @@ export function SOSPage() {
 
   const selectedEvent = useMemo(() => {
     if (!states.hoveredId) return null;
-    return (events as any[]).find(e => `${e.provider}-${e.provider_event_id}` === states.hoveredId)
+    return events.find(e => `${e.provider}-${e.provider_event_id}` === states.hoveredId)
       || domainEvents.find(e => e.id === states.hoveredId)
-      || (alerts as any[]).find(a => `alert-${a.id}` === states.hoveredId)
-      || (mapAnnotations as any[]).find(m => `ann-${m.id}` === states.hoveredId);
+      || alerts.find(a => `alert-${a.id}` === states.hoveredId)
+      || mapAnnotations.find(m => `ann-${m.id}` === states.hoveredId);
   }, [states.hoveredId, events, domainEvents, alerts, mapAnnotations]);
+
+  const selectedIntelEvent = useMemo(() => {
+    if (!selectedEvent) return null;
+    const raw = selectedEvent as Record<string, unknown>;
+    const severity = typeof raw.severity === 'number' ? raw.severity : 1;
+    const lat = typeof raw.lat === 'number' ? raw.lat : undefined;
+    const lon = typeof raw.lon === 'number' ? raw.lon : (typeof raw.lng === 'number' ? raw.lng : undefined);
+    return {
+      id: typeof raw.id === 'string' || typeof raw.id === 'number' ? raw.id : undefined,
+      title: typeof raw.title === 'string' ? raw.title : undefined,
+      description: typeof raw.description === 'string' ? raw.description : undefined,
+      severity,
+      lat,
+      lon,
+      affectedPopulation: typeof raw.affectedPopulation === 'number' ? raw.affectedPopulation : undefined,
+      riskScore: typeof raw.riskScore === 'number' ? raw.riskScore : undefined,
+      estimatedCost: typeof raw.estimatedCost === 'string' ? raw.estimatedCost : undefined,
+    };
+  }, [selectedEvent]);
 
   return (
     <Box h="100%" w="100%" position="relative" overflow="hidden" bg="sos.dark">
@@ -94,7 +113,7 @@ export function SOSPage() {
           className="animate-panel"
         >
           <AlertSidebar
-            alerts={(alerts as any[]).map((a: any) => ({
+            alerts={alerts.map((a) => ({
               id: a.id,
               title: a.event || a.title || 'Alerta',
               description: Array.isArray(a.area) ? a.area.join(', ') : (a.description || a.source || '—'),
@@ -109,8 +128,8 @@ export function SOSPage() {
               activeTeams: opsSnapshot?.kpis?.activeTeams || 0,
               missingPersons: opsSnapshot?.layers?.missingPersons?.length || 0
             }}
-            onAlertClick={(alert: any) => {
-              if (alert.lat && alert.lon) {
+            onAlertClick={(alert) => {
+              if (typeof alert.lat === 'number' && typeof alert.lon === 'number') {
                 actions.setMapCenter([alert.lat, alert.lon]);
                 actions.setMapZoom(15);
               }
@@ -150,9 +169,9 @@ export function SOSPage() {
       />
 
       {/* Intel panel on marker hover */}
-      {states.intelPanelOpen && selectedEvent && (
+      {states.intelPanelOpen && selectedIntelEvent && (
         <SituationIntelPanel 
-          event={selectedEvent} 
+          event={selectedIntelEvent} 
           onClose={() => {
             actions.setIntelPanelOpen(false);
             actions.setHoveredId(null);
@@ -193,18 +212,25 @@ export function SOSPage() {
               {/* Temporarily disabled clustering for debug */}
               {(currentDisplayEvents || []).map((e) => {
                 if (!e) return null;
-                const eventId = e.id || `${e.provider}-${e.provider_event_id}`;
+                const lon = typeof e.lon === 'number' ? e.lon : (typeof e.lng === 'number' ? e.lng : undefined);
+                if (typeof e.lat !== 'number' || typeof lon !== 'number') return null;
+                const eventId = String(e.id || `${e.provider}-${e.provider_event_id}`);
+                const markerEvent = {
+                  ...e,
+                  lon,
+                  severity: typeof e.severity === 'number' ? e.severity : 1,
+                };
                 return (
                   <Fragment key={`group-${eventId}`}>
                     <MapArea 
                       id={eventId}
                       latitude={e.lat}
-                      longitude={e.lon}
+                      longitude={lon}
                       category={e.category || e.type || 'disaster_alert'}
                       polygon={e.polygon}
                     />
                     <MemoizedEventMarker
-                      e={e} 
+                      e={markerEvent} 
                       isHovered={states.hoveredId === eventId}
                       onHover={actions.handleMarkerHover}
                       onUnhover={actions.handleMarkerUnhover}

@@ -1,4 +1,4 @@
-import { apiClient } from './apiClient';
+import { apiClient, silentRequestConfig } from './apiClient';
 
 export interface SearchedAreaApi {
   id: string;
@@ -13,7 +13,7 @@ export interface SearchedAreaApi {
 export const searchedAreasApi = {
   async list() {
     try {
-      const response = await apiClient.get<SearchedAreaApi[]>('/api/searched-areas', { __skipGlobalNotify: true } as any);
+      const response = await apiClient.get<SearchedAreaApi[]>('/api/searched-areas', silentRequestConfig);
       return response.data;
     } catch {
       return [];

@@ -3,14 +3,25 @@ import { Marker, Tooltip } from 'react-leaflet';
 import L from 'leaflet';
 
 interface EventMarkerProps {
-    e: any;
+    e: {
+      id?: string | number;
+      provider?: string;
+      provider_event_id?: string | number;
+      is_gis_alert?: boolean;
+      type?: string;
+      severity: number;
+      lat: number;
+      lon: number;
+      title?: string;
+      description?: string;
+    };
     isHovered: boolean;
     onHover: (id: string) => void;
     onUnhover: () => void;
 }
 
 export const MemoizedEventMarker = memo(({ e, isHovered, onHover, onUnhover }: EventMarkerProps) => {
-  const id = e.is_gis_alert ? e.id : `${e.provider}-${e.provider_event_id}`;
+  const id = e.is_gis_alert ? String(e.id ?? '') : `${e.provider}-${e.provider_event_id}`;
   
   const isAlert = e.type === 'disaster_alert';
   const color = getSeverityColor(e.severity);

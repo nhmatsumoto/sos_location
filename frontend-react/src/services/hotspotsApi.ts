@@ -1,4 +1,4 @@
-import { apiClient } from './apiClient';
+import { apiClient, silentRequestConfig } from './apiClient';
 
 export interface HotspotApi {
   id: string;
@@ -11,7 +11,7 @@ export interface HotspotApi {
 export const hotspotsApi = {
   async list() {
     try {
-      const response = await apiClient.get<HotspotApi[]>('/api/hotspots', { __skipGlobalNotify: true } as any);
+      const response = await apiClient.get<HotspotApi[]>('/api/hotspots', silentRequestConfig);
       return response.data;
     } catch {
       return [];

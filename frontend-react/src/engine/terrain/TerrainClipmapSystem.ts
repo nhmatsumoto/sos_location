@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { RenderOrchestrator } from '../core/RenderOrchestrator';
+import type { TerrainLayerConfig } from '../core/RenderOrchestrator';
 import { TerrainShader } from '../shaders/TerrainShader';
 import { gisApi } from '../../services/gisApi';
 import { TerrainTileManager } from './TerrainTileManager';
@@ -47,7 +48,7 @@ export class TerrainClipmapSystem {
     }
   }
 
-  public update(lat: number, lon: number, layers?: any) {
+  public update(lat: number, lon: number, layers?: TerrainLayerConfig) {
     const [worldX, worldZ] = this.orchestrator.streamManager.project(lat, lon);
 
     // Dynamic heightmap fetching with tiling
@@ -61,8 +62,9 @@ export class TerrainClipmapSystem {
         this.material.uniforms.uShowVegetation.value = layers.vegetation ? 1.0 : 0.0;
         
         if (layers.showGEE) {
-            this.material.uniforms.uIndicesType.value = layers.geeAnalysisType === 'ndvi' ? 1.0 : 2.0;
-            this.maybeFetchIndicesData(lat, lon, layers.geeAnalysisType);
+            const geeType = layers.geeAnalysisType ?? 'ndvi';
+            this.material.uniforms.uIndicesType.value = geeType === 'ndvi' ? 1.0 : 2.0;
+            this.maybeFetchIndicesData(lat, lon, geeType);
         } else {
             this.material.uniforms.uIndicesType.value = 0.0;
         }

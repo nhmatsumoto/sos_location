@@ -2,13 +2,22 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { modulesApi } from '../services/modulesApi';
 
+interface IncidentDetail {
+  id: string | number;
+  name?: string;
+  type?: string;
+  status?: string;
+  country?: string;
+  region?: string;
+}
+
 export function IncidentDetailPage() {
   const { id } = useParams();
-  const [incident, setIncident] = useState<any | null>(null);
+  const [incident, setIncident] = useState<IncidentDetail | null>(null);
 
   useEffect(() => {
     if (!id) return;
-    modulesApi.getIncident(Number(id)).then(setIncident).catch(() => setIncident(null));
+    modulesApi.getIncident(Number(id)).then((data) => setIncident((data ?? null) as IncidentDetail | null)).catch(() => setIncident(null));
   }, [id]);
 
   if (!incident) return <div className="text-slate-200">Incidente não encontrado.</div>;

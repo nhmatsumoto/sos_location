@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useCallback, useEffect, useState, useMemo } from 'react';
 import {
   ShieldAlert, RefreshCw, Zap, Search,
   Thermometer, Droplets, Activity, AlertTriangle, Globe, Clock,
@@ -318,13 +318,13 @@ export function RiskAssessmentPage() {
   const [search,     setSearch]     = useState('');
   const toast = useToast();
 
-  const load = async (silent = false) => {
+  const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     else setRefreshing(true);
     try {
       const data = await riskApi.getAssessment();
       setAssessment(data);
-      if (!selected && data.riskMap.length > 0) setSelected(data.riskMap[0]);
+      setSelected(prev => (prev ?? data.riskMap[0] ?? null));
     } catch {
       toast({
         title:       'Falha na Matriz de Risco',
@@ -337,9 +337,9 @@ export function RiskAssessmentPage() {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [toast]);
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => { void load(); }, [load]);
 
   const handleSync = async () => {
     setRefreshing(true);

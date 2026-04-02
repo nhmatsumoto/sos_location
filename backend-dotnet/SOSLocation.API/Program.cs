@@ -27,7 +27,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
     options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
-    options.KnownNetworks.Clear();
+    options.KnownIPNetworks.Clear();
     options.KnownProxies.Clear();
 });
 
@@ -133,12 +133,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 "https://localhost:8080/realms/sos-location",
                 "http://localhost:8080/realms/sos-location"
             },
-<<<<<<< HEAD
-            ValidateAudience = true,
-            ValidAudiences = audiences,
-=======
             ValidateAudience = validateAudience,
->>>>>>> 665439a (updates)
+            ValidAudiences = audiences,
             ValidateLifetime = true
         };
 
@@ -177,15 +173,6 @@ var seedOnStartup = builder.Configuration.GetValue("Database:SeedOnStartup", tru
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<SOSLocationDbContext>();
-<<<<<<< HEAD
-    // Migrations are applied as a deployment step (dotnet ef database update).
-    // EnsureCreated is used only for local/dev convenience when no migrations are pending.
-    if (app.Environment.IsDevelopment())
-    {
-        context.Database.EnsureCreated();
-    }
-    SOSLocationDbSeeder.Seed(context);
-=======
 
     if (applyMigrationsOnStartup)
     {
@@ -195,6 +182,10 @@ using (var scope = app.Services.CreateScope())
     else
     {
         Log.Information("Skipping database migrations on startup.");
+        if (app.Environment.IsDevelopment())
+        {
+            context.Database.EnsureCreated();
+        }
     }
 
     if (seedOnStartup)
@@ -206,7 +197,6 @@ using (var scope = app.Services.CreateScope())
     {
         Log.Information("Skipping database seed on startup.");
     }
->>>>>>> 665439a (updates)
 }
 
 

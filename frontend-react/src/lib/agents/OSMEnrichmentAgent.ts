@@ -88,7 +88,8 @@ export class OSMEnrichmentAgent {
       const enriched: EnrichedBuilding = { ...b };
 
       // Match against simulation result buildings by proximity
-      const simBuildings = (resultData as any)?.buildings as GISBuilding[] | undefined;
+      const legacySimBuildings = (resultData as { buildings?: GISBuilding[] } | null | undefined)?.buildings;
+      const simBuildings = resultData?.urbanFeatures?.buildings ?? legacySimBuildings;
       if (simBuildings?.length) {
         const bCentLat = b.coordinates.reduce((s, c) => s + c[0], 0) / b.coordinates.length;
         const bCentLon = b.coordinates.reduce((s, c) => s + c[1], 0) / b.coordinates.length;

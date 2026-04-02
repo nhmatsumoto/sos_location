@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getEvents } from '../services/disastersApi';
+import type { DisasterEvent } from '../types';
 
 export interface GlobalEvent {
   id: string;
@@ -46,15 +47,15 @@ export function useGlobalDisasters() {
         const resp = await getEvents({ page: 1, pageSize: 50 });
         if (cancelled) return;
         const mapped: GlobalEvent[] = (resp?.items ?? [])
-          .filter((e: any) => typeof e.lat === 'number' && typeof e.lon === 'number')
-          .map((e: any): GlobalEvent => ({
+          .filter((e: DisasterEvent) => typeof e.lat === 'number' && typeof e.lon === 'number')
+          .map((e: DisasterEvent): GlobalEvent => ({
             id: String(e.id ?? e.providerEventId ?? Math.random()),
-            title: e.title ?? e.name ?? 'Evento',
-            type: toEventType(e.eventType ?? e.type),
+            title: e.title ?? 'Evento',
+            type: toEventType(e.eventType),
             severity: toSeverity(e.severity),
-            location: e.countryName ?? e.location ?? '',
+            location: e.countryName ?? '',
             countryCode: e.countryCode ?? '',
-            timestamp: e.startAt ?? e.createdAt ?? new Date().toISOString(),
+            timestamp: e.startAt ?? new Date().toISOString(),
             lat: e.lat,
             lon: e.lon,
             description: e.description ?? '',

@@ -1,17 +1,103 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type RefObject } from 'react';
 import { useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { WebGLRenderer } from '../../../lib/webgl/WebGLRenderer';
 
+interface OverlayDrawParams {
+  viewMatrix: Float32Array;
+  zoom: number;
+  center: L.LatLng;
+  pixelOrigin: L.Point;
+  map: L.Map;
+}
+
 interface WebGLOverlayProps {
-  onDraw: (renderer: WebGLRenderer, params: {
-    viewMatrix: Float32Array;
-    zoom: number;
-    center: L.LatLng;
-    pixelOrigin: L.Point;
-    map: L.Map;
-  }) => void;
+  onDraw: (renderer: WebGLRenderer, params: OverlayDrawParams) => void;
   onInit: (renderer: WebGLRenderer) => void;
+}
+
+class LeafletOverlayLayer extends L.Layer {
+  private readonly mapRef: L.Map;
+  private readonly canvasRef: RefObject<HTMLCanvasElement | null>;
+  private readonly rendererRef: RefObject<WebGLRenderer | null>;
+  private readonly renderer: WebGLRenderer;
+  private readonly onDraw: (renderer: WebGLRenderer, params: OverlayDrawParams) => void;
+
+  constructor(
+    mapRef: L.Map,
+    canvasRef: RefObject<HTMLCanvasElement | null>,
+    rendererRef: RefObject<WebGLRenderer | null>,
+    renderer: WebGLRenderer,
+    onDraw: (renderer: WebGLRenderer, params: OverlayDrawParams) => void,
+  ) {
+    super();
+    this.mapRef = mapRef;
+    this.canvasRef = canvasRef;
+    this.rendererRef = rendererRef;
+    this.renderer = renderer;
+    this.onDraw = onDraw;
+  }
+
+  private update = () => {
+    const canvas = this.canvasRef.current;
+    if (!canvas || !this.rendererRef.current) return;
+
+    const size = this.mapRef.getSize();
+    if (canvas.width !== size.x || canvas.height !== size.y) {
+      canvas.width = size.x;
+      canvas.height = size.y;
+      this.renderer.setViewport(size.x, size.y);
+    }
+
+    const pos = this.mapRef.containerPointToLayerPoint([0, 0]);
+    L.DomUtil.setPosition(canvas, pos);
+    this.renderOverlay();
+  };
+
+  private renderOverlay = () => {
+    const canvas = this.canvasRef.current;
+    const activeRenderer = this.rendererRef.current;
+    if (!canvas || !activeRenderer) return;
+
+    const zoom = this.mapRef.getZoom();
+    const center = this.mapRef.getCenter();
+    const pixelOrigin = this.mapRef.getPixelOrigin();
+
+    // Simple Ortho projection matrix for testing
+    // In full GIS modal, we'd use a projection matrix that maps LatLng to NDC
+    const viewMatrix = new Float32Array([
+      2 / canvas.width, 0, 0, 0,
+      0, -2 / canvas.height, 0, 0,
+      0, 0, 1, 0,
+      -1, 1, 0, 1,
+    ]);
+
+    this.onDraw(activeRenderer, {
+      viewMatrix,
+      zoom,
+      center,
+      pixelOrigin,
+      map: this.mapRef,
+    });
+  };
+
+  onAdd(mapInstance: L.Map): this {
+    const pane = mapInstance.getPane('overlayPane');
+    if (pane && this.canvasRef.current) {
+      pane.appendChild(this.canvasRef.current);
+    }
+    mapInstance.on('move', this.update);
+    this.update();
+    return this;
+  }
+
+  onRemove(mapInstance: L.Map): this {
+    if (this.canvasRef.current?.parentNode) {
+      this.canvasRef.current.parentNode.removeChild(this.canvasRef.current);
+    }
+    mapInstance.off('move', this.update);
+    return this;
+  }
 }
 
 /**
@@ -31,73 +117,12 @@ export function LeafletWebGLOverlay({ onDraw, onInit }: WebGLOverlayProps) {
     rendererRef.current = renderer;
     onInit(renderer);
 
-    const CustomLayer = L.Layer.extend({
-      onAdd: function (map: L.Map) {
-        const pane = map.getPane('overlayPane');
-        if (pane) {
-          pane.appendChild(canvasRef.current!);
-        }
-        map.on('move', this._update, this);
-        this._update();
-      },
-
-      onRemove: function (map: L.Map) {
-        if (canvasRef.current?.parentNode) {
-          canvasRef.current.parentNode.removeChild(canvasRef.current);
-        }
-        map.off('move', this._update, this);
-      },
-
-      _update: function () {
-        const size = map.getSize();
-        const canvas = canvasRef.current!;
-        
-        // Sync canvas size with map size
-        if (canvas.width !== size.x || canvas.height !== size.y) {
-          canvas.width = size.x;
-          canvas.height = size.y;
-          renderer.setViewport(size.x, size.y);
-        }
-
-        // Adjust canvas position
-        const pos = map.containerPointToLayerPoint([0, 0]);
-        L.DomUtil.setPosition(canvas, pos);
-
-        this._render();
-      },
-
-      _render: function () {
-        const canvas = canvasRef.current;
-        if (!rendererRef.current || !canvas) return;
-
-        const zoom = map.getZoom();
-        const center = map.getCenter();
-        const pixelOrigin = (map as any)._getNewPixelOrigin(center, zoom);
-
-        // Simple Ortho projection matrix for testing
-        // In full GIS modal, we'd use a projection matrix that maps LatLng to NDC
-        const viewMatrix = new Float32Array([
-          2 / canvas.width, 0, 0, 0,
-          0, -2 / canvas.height, 0, 0,
-          0, 0, 1, 0,
-          -1, 1, 0, 1
-        ]);
-
-        onDraw(rendererRef.current, {
-          viewMatrix,
-          zoom,
-          center,
-          pixelOrigin,
-          map: map // Pass map for projection
-        });
-      }
-    });
-
-    const layer = new (CustomLayer as any)();
+    const layer = new LeafletOverlayLayer(map, canvasRef, rendererRef, renderer, onDraw);
     map.addLayer(layer);
 
     return () => {
       map.removeLayer(layer);
+      rendererRef.current = null;
     };
   }, [map, onDraw, onInit]);
 

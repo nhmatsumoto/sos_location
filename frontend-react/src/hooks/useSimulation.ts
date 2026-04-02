@@ -4,6 +4,14 @@ import type { FlowSimulationResponse } from '../types';
 import { initialFlowForm, ENABLE_SIMULATION } from '../constants';
 import { resolveApiUrl } from '../lib/apiBaseUrl';
 
+interface ScenarioConfig {
+  steps: number;
+  gridSize: number;
+  cellSizeMeters: number;
+  volumeFactor: number;
+  label: string;
+}
+
 export function useSimulation() {
   const [flowForm, setFlowForm] = useState(initialFlowForm);
   const [flowResult, setFlowResult] = useState<FlowSimulationResponse | null>(null);
@@ -21,7 +29,7 @@ export function useSimulation() {
     }
 
     setRunningFlow(true);
-    const scenarioConfig: Record<string, any> = {
+    const scenarioConfig: Record<string, ScenarioConfig> = {
       encosta: { steps: 130, gridSize: 44, cellSizeMeters: 20, volumeFactor: 0.055, label: 'Encosta crítica' },
       urbano: { steps: 110, gridSize: 38, cellSizeMeters: 22, volumeFactor: 0.045, label: 'Bairro urbano' },
       rural: { steps: 95, gridSize: 34, cellSizeMeters: 26, volumeFactor: 0.038, label: 'Área rural' },
@@ -41,7 +49,7 @@ export function useSimulation() {
     };
 
     try {
-      const { data } = await apiClient.post<any>('/api/simulation/easy', payload);
+      const { data } = await apiClient.post('/api/simulation/easy', payload);
       const flowData = data?.flowSimulation ?? data;
       if (!flowData) throw new Error('Resposta inválida da simulação.');
       setFlowResult(flowData);
@@ -62,7 +70,7 @@ export function useSimulation() {
       payload.append('longitude', formData.longitude);
       payload.append('video', formData.video);
 
-      const { data } = await apiClient.post<any>('/api/splat/convert', payload);
+      const { data } = await apiClient.post('/api/splat/convert', payload);
       return { 
         success: true, 
         data: {

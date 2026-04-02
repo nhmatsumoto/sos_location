@@ -18,7 +18,7 @@ export const AnimatedBarrier: React.FC<AnimatedBarrierProps> = ({
   speed = 1
 }) => {
   const meshRef = useRef<THREE.Mesh>(null);
-  const materialRef = useRef<THREE.MeshStandardMaterial>(null);
+  const materialRef = useRef<THREE.MeshPhysicalMaterial>(null);
 
   // Create a wall geometry along the path
   const geometry = useMemo(() => {
@@ -64,7 +64,7 @@ export const AnimatedBarrier: React.FC<AnimatedBarrierProps> = ({
   return (
     <mesh ref={meshRef} geometry={geometry}>
       <meshPhysicalMaterial
-        ref={materialRef as any}
+        ref={materialRef}
         color={color}
         transparent
         opacity={0.15}

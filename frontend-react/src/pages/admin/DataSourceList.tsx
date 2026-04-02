@@ -15,6 +15,15 @@ interface DataSource {
   lastErrorMessage?: string;
 }
 
+const DATA_SOURCE_TYPES: DataSource['type'][] = ['News', 'Weather', 'People', 'Risk'];
+const PROVIDER_TYPES: DataSource['providerType'][] = ['JsonApi', 'RSS', 'Scraper', 'Inmet', 'Cemaden'];
+
+const isDataSourceType = (value: string): value is DataSource['type'] =>
+  DATA_SOURCE_TYPES.includes(value as DataSource['type']);
+
+const isProviderType = (value: string): value is DataSource['providerType'] =>
+  PROVIDER_TYPES.includes(value as DataSource['providerType']);
+
 export function DataSourceList() {
   const [sources, setSources] = useState<DataSource[]>([]);
   const [loading, setLoading] = useState(true);
@@ -156,7 +165,12 @@ export function DataSourceList() {
                   <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">Tipo</label>
                   <select 
                     value={newSource.type}
-                    onChange={e => setNewSource({...newSource, type: e.target.value as any})}
+                    onChange={(e) => {
+                      const nextType = e.target.value;
+                      if (isDataSourceType(nextType)) {
+                        setNewSource({ ...newSource, type: nextType });
+                      }
+                    }}
                     className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:border-cyan-500 outline-none"
                   >
                     <option value="News">News</option>
@@ -169,7 +183,12 @@ export function DataSourceList() {
                   <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">Provedor</label>
                   <select 
                     value={newSource.providerType}
-                    onChange={e => setNewSource({...newSource, providerType: e.target.value as any})}
+                    onChange={(e) => {
+                      const nextProviderType = e.target.value;
+                      if (isProviderType(nextProviderType)) {
+                        setNewSource({ ...newSource, providerType: nextProviderType });
+                      }
+                    }}
                     className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:border-cyan-500 outline-none"
                   >
                     <option value="JsonApi">JSON API</option>

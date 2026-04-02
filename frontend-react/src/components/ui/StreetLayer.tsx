@@ -4,8 +4,13 @@ import { gisApi } from '../../services/gisApi';
 import { useSimulationStore } from '../../store/useSimulationStore';
 import { projectTo3D } from '../../utils/projection';
 
+interface StreetFeature {
+  category?: string;
+  coordinates: [number, number][];
+}
+
 export const StreetLayer: React.FC = () => {
-  const [streets, setStreets] = useState<any[]>([]);
+  const [streets, setStreets] = useState<StreetFeature[]>([]);
   const store = useSimulationStore();
   const { box: simulationBox, activeLayers } = store;
   const lastFetchedBbox = useRef<string | null>(null);
@@ -33,7 +38,7 @@ export const StreetLayer: React.FC = () => {
         const data = await gisApi.getUrbanFeatures(minLat, minLon, maxLat, maxLon);
         if (data && data.buildings) {
           // In the updated backend, buildings list also contains highways with category='highway'
-          const highwayData = data.buildings.filter((b: any) => b.category === 'highway');
+          const highwayData = data.buildings.filter((b: { category?: string }) => b.category === 'highway');
           setStreets(highwayData);
         }
       } catch (error) {

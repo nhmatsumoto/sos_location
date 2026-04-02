@@ -7,10 +7,18 @@ interface CitySearchProps {
   onSelect?: (lat: number, lon: number, displayName: string, bbox?: string[]) => void;
 }
 
+interface NominatimResult {
+  place_id: number;
+  lat: string;
+  lon: string;
+  display_name: string;
+  boundingbox?: string[];
+}
+
 export const CitySearch: React.FC<CitySearchProps> = ({ onSelect }) => {
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
-  const [results, setResults] = useState<any[]>([]);
+  const [results, setResults] = useState<NominatimResult[]>([]);
   const setHeroPosition = useSimulationStore(state => state.setHeroPosition);
 
   const handleSearch = async (e: React.FormEvent) => {
@@ -20,7 +28,7 @@ export const CitySearch: React.FC<CitySearchProps> = ({ onSelect }) => {
     setLoading(true);
     try {
       // Use Nominatim OpenStreetMap Search API
-      const res = await axios.get(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`);
+      const res = await axios.get<NominatimResult[]>(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`);
       setResults(res.data);
     } catch (err) {
       console.error("Geocoding failed:", err);
@@ -55,7 +63,7 @@ export const CitySearch: React.FC<CitySearchProps> = ({ onSelect }) => {
 
       {results.length > 0 && (
         <div className="absolute top-full left-0 right-0 mt-2 bg-slate-900/90 border border-white/10 rounded-xl overflow-hidden backdrop-blur-xl shadow-2xl z-50">
-          {results.map((res: any) => (
+          {results.map((res) => (
             <button
               key={res.place_id}
               onClick={() => selectCity(res.lat, res.lon, res.display_name, res.boundingbox)}

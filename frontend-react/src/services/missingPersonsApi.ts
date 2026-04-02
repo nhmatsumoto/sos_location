@@ -1,4 +1,4 @@
-import { apiClient } from './apiClient';
+import { apiClient, silentRequestConfig } from './apiClient';
 
 export interface MissingPersonApi {
   id: string;
@@ -27,7 +27,7 @@ export interface MissingPersonCreateInput {
 export const missingPersonsApi = {
   async list() {
     try {
-      const response = await apiClient.get<MissingPersonApi[]>('/api/missing-persons', { __skipGlobalNotify: true } as any);
+      const response = await apiClient.get<MissingPersonApi[]>('/api/missing-persons', silentRequestConfig);
       return response.data;
     } catch {
       return [];

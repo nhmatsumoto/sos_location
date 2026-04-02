@@ -220,7 +220,7 @@ export class OpenTopographyProvider {
     outputSize = 256,
     apiKey?: string,
   ): Promise<DEMResult | null> {
-    const key = apiKey ?? (import.meta as any).env?.VITE_OT_API_KEY ?? '';
+    const key = apiKey ?? import.meta.env.VITE_OT_API_KEY ?? '';
     if (!key) return null; // API key required
 
     // Clamp bbox to OT_MAX_SPAN

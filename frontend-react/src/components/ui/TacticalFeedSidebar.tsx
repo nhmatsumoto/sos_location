@@ -1,12 +1,12 @@
 import { Box, Flex, HStack, Badge, Progress, VStack } from '@chakra-ui/react';
 import { Zap } from 'lucide-react';
-import { NewsFeed } from '../public/NewsFeed';
+import { NewsFeed, type NewsFeedItem } from '../public/NewsFeed';
 import { TacticalText } from '../atoms/TacticalText';
 
 interface TacticalFeedSidebarProps {
-  news: any[];
+  news: NewsFeedItem[];
   isLoading: boolean;
-  onSelect?: (item: any) => void;
+  onSelect?: (item: NewsFeedItem) => void;
 }
 
 /**

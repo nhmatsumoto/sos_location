@@ -4,6 +4,15 @@ import { TerrainClipmapSystem } from '../terrain/TerrainClipmapSystem';
 import { InstanceObjectRenderer } from '../instancing/InstanceObjectRenderer';
 import { SimulationOverlaySystem } from '../simulation/SimulationOverlaySystem';
 
+export interface TerrainLayerConfig {
+  satellite: boolean;
+  relief: boolean;
+  streets: boolean;
+  vegetation: boolean;
+  showGEE?: boolean;
+  geeAnalysisType?: 'ndvi' | 'moisture' | 'thermal';
+}
+
 export class RenderOrchestrator {
   private static instance: RenderOrchestrator;
   
@@ -45,9 +54,14 @@ export class RenderOrchestrator {
     }
   }
 
-  private activeLayers: any = {};
+  private activeLayers: TerrainLayerConfig = {
+    satellite: false,
+    relief: false,
+    streets: false,
+    vegetation: false,
+  };
 
-  public setActiveLayers(layers: any) {
+  public setActiveLayers(layers: TerrainLayerConfig) {
     this.activeLayers = layers;
     // If terrain system already exists, propagate immediately
     if (this.terrainSystem) {
@@ -57,7 +71,7 @@ export class RenderOrchestrator {
     }
   }
 
-  public update(lat: number, lon: number, activeLayers?: any) {
+  public update(lat: number, lon: number, activeLayers?: TerrainLayerConfig) {
     if (activeLayers) this.activeLayers = activeLayers;
     this.streamManager.update(lat, lon);
     this.streamManager.update(lat, lon);

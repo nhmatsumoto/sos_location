@@ -5,8 +5,13 @@ import { gisApi } from '../../services/gisApi';
 import { useSimulationStore } from '../../store/useSimulationStore';
 import { projectTo3D } from '../../utils/projection';
 
+interface VegetationFeature {
+  type?: string;
+  coordinates: [number, number][];
+}
+
 export const VegetationLayer: React.FC = () => {
-  const [zones, setZones] = useState<any[]>([]);
+  const [zones, setZones] = useState<VegetationFeature[]>([]);
   const store = useSimulationStore();
   const { box: simulationBox, activeLayers } = store;
   const lastFetchedBbox = useRef<string | null>(null);
@@ -33,7 +38,7 @@ export const VegetationLayer: React.FC = () => {
       try {
         const data = await gisApi.getUrbanFeatures(minLat, minLon, maxLat, maxLon);
         if (data && data.buildings) {
-          const vegData = data.buildings.filter((b: any) => b.type === 'vegetation');
+          const vegData = data.buildings.filter((b: { type?: string }) => b.type === 'vegetation');
           setZones(vegData);
         }
       } catch (error) {

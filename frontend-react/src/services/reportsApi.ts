@@ -1,4 +1,4 @@
-import { apiClient } from './apiClient';
+import { apiClient, silentRequestConfig } from './apiClient';
 
 export interface ReportItemApi {
   id: string;
@@ -21,7 +21,7 @@ export interface ReportCreateInput {
 export const reportsApi = {
   async list() {
     try {
-      const response = await apiClient.get<ReportItemApi[]>('/api/report-info', { __skipGlobalNotify: true } as any);
+      const response = await apiClient.get<ReportItemApi[]>('/api/report-info', silentRequestConfig);
       return response.data;
     } catch {
       return [];

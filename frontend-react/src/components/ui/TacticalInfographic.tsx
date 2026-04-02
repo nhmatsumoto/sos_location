@@ -106,7 +106,7 @@ export function TacticalInfographic({ news }: TacticalInfographicProps) {
 interface StatBoxProps {
   label: string;
   value: number;
-  icon: any;
+  icon: React.ElementType;
   color: string;
 }
 
