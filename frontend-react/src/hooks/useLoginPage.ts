@@ -1,14 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { keycloak, doRegister } from '../lib/keycloak';
-
-const normalizeRedirectPath = (value: string | null) => {
-  if (!value) return null;
-  const trimmed = value.trim();
-  if (!trimmed.startsWith('/')) return null;
-  if (trimmed === '/' || trimmed === '/login') return null;
-  if (trimmed.includes('?') || trimmed.includes('#') || trimmed.includes('loggedOut')) return null;
-  return trimmed;
-};
+import { DEFAULT_PRIVATE_ROUTE, normalizeRedirectPath } from '../lib/appRouteManifest';
 
 /**
  * Hook for LoginPage logic
@@ -21,7 +13,7 @@ export function useLoginPage() {
     localStorage.setItem('sos_onboarding_visited', 'true');
     const redirectPath = normalizeRedirectPath(localStorage.getItem('sos_login_redirect'));
     if (!redirectPath) {
-      localStorage.setItem('sos_login_redirect', '/app/sos');
+      localStorage.setItem('sos_login_redirect', DEFAULT_PRIVATE_ROUTE);
     }
     keycloak.login();
   };

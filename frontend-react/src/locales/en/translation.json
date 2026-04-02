@@ -48,9 +48,12 @@
     "sources": "Data Sources",
     "map": "Public Map",
     "transparency": "Public Transparency",
+    "rescue_ops": "Rescue Command",
+    "op_map": "Operational Map",
     "settings": "Settings",
     "logout": "Logout",
     "internal": "Operations",
+    "admin": "Administration",
     "public": "Public Access",
     "status": "OPERATIONAL STATUS"
   },

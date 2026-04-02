@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Modelos Analíticos e Físicos - SOS Location</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #07131a;
+      --panel: #0f172a;
+      --text: #e5e7eb;
+      --muted: #94a3b8;
+      --line: #1f2937;
+      --accent: #22d3ee;
+      --accent-2: #f59e0b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      background: radial-gradient(circle at top, rgba(34,211,238,0.08), transparent 30%), var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+    }
+    main { max-width: 1080px; margin: 0 auto; padding: 48px 24px 96px; }
+    a { color: var(--accent); }
+    h1 { font-size: 2.6rem; margin-bottom: 0.4rem; }
+    h2 { margin-top: 2.6rem; font-size: 1.55rem; }
+    h3 { margin-top: 1.6rem; font-size: 1.1rem; }
+    .eyebrow { color: var(--accent); text-transform: uppercase; letter-spacing: 0.26em; font-size: 0.72rem; font-weight: 800; }
+    .lede { color: var(--muted); max-width: 780px; }
+    .panel {
+      background: rgba(15,23,42,0.84);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 22px 24px;
+      margin-top: 20px;
+    }
+    code {
+      background: rgba(148,163,184,0.12);
+      padding: 0.15rem 0.35rem;
+      border-radius: 6px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      color: #c4b5fd;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 16px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    th, td { padding: 12px 14px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+    th { background: rgba(34,211,238,0.08); color: var(--accent); }
+    .formula {
+      padding: 14px 16px;
+      border-radius: 12px;
+      background: rgba(34,211,238,0.06);
+      border: 1px solid rgba(34,211,238,0.18);
+      margin: 14px 0;
+      overflow-x: auto;
+    }
+    .note {
+      border-left: 3px solid var(--accent-2);
+      padding-left: 14px;
+      color: var(--muted);
+    }
+    .back { display: inline-flex; margin-bottom: 20px; color: var(--muted); text-decoration: none; }
+  </style>
+  <script>
+    window.MathJax = {
+      loader: { load: ['input/asciimath', 'output/chtml'] },
+      asciimath: { delimiters: [['[=', '=]']] }
+    };
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/startup.js"></script>
+</head>
+<body>
+  <main>
+    <a class="back" href="/docs">Voltar para /docs</a>
+    <div class="eyebrow">SOS Location / Analytics</div>
+    <h1>Modelos Analíticos, Físicos e AsciiMath</h1>
+    <p class="lede">
+      Referência da formulação matemática e física realmente implementada no repositório. O objetivo é eliminar
+      documentação aspiracional e dar base objetiva para produto, frontend e integração.
+    </p>
+
+    <div class="panel">
+      <h2>Notação AsciiMath</h2>
+      <p>O projeto agora adota <code>AsciiMath</code> com delimitador <code>[= ... =]</code>.</p>
+      <div class="formula">[= s = arctan(sqrt((dz/dx)^2 + (dz/dz)^2)) =]</div>
+      <div class="formula">[= A(i) = 1 + sum_(k : flowTo(k) = i) A(k) =]</div>
+      <div class="formula">[= R = min(100, max(5, 20(L+1) + 10A + B_H + B_T)) =]</div>
+    </div>
+
+    <h2>1. Escore composto de risco</h2>
+    <p>Implementado em <code>RiskEngineService</code>. O nível discreto é estimado a partir de alertas, umidade, temperatura e sismicidade.</p>
+    <div class="formula">[= sigma = f_A(A) + f_H(H_u) + f_T(T) + f_S(S) =]</div>
+    <div class="formula">[= L = {:(0, sigma <= 1.0),(1, sigma <= 2.5),(2, sigma <= 4.5),(3, sigma > 4.5):} =]</div>
+    <div class="formula">[= R = min(100, max(5, 20(L + 1) + 10A + B_H + B_T)) =]</div>
+    <p>Onde <code>B_H = 15</code> se a umidade passar de 85 e <code>B_T = 10</code> se a temperatura passar de 38.</p>
+
+    <h2>2. Segmentação semântica</h2>
+    <p>O serviço atual usa heurísticas RGB por tile, sem rede neural em produção.</p>
+    <div class="formula">[= r = (1/N) sum R_i =]</div>
+    <div class="formula">[= g = (1/N) sum G_i =]</div>
+    <div class="formula">[= b = (1/N) sum B_i =]</div>
+    <div class="formula">[= I = (r + g + b) / 3 =]</div>
+    <div class="formula">[= sat = max(r, g, b) - min(r, g, b) =]</div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Classe</th>
+          <th>Regra simplificada</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Água</td><td><span class="formula">[= b > 1.15r and b > 1.05g and I < 165 =]</span></td></tr>
+        <tr><td>Vegetação</td><td><span class="formula">[= g > r + 6 and g > b + 4 =]</span></td></tr>
+        <tr><td>Via</td><td><span class="formula">[= sat < 22 and 95 < I < 185 =]</span></td></tr>
+        <tr><td>Favela</td><td><span class="formula">[= r > 1.08g and r > 1.25b and I < 155 and sat > 15 =]</span></td></tr>
+      </tbody>
+    </table>
+
+    <h2>3. Declividade por Horn</h2>
+    <p>A declividade é computada no frontend e no backend com o mesmo kernel.</p>
+    <div class="formula">[= dz/dx = ((d + 2f + i) - (a + 2e + g)) / (8Delta_x) =]</div>
+    <div class="formula">[= dz/dz = ((g + 2h + i) - (a + 2b + d)) / (8Delta_z) =]</div>
+    <div class="formula">[= slope_deg = arctan(sqrt((dz/dx)^2 + (dz/dz)^2)) * 180 / pi =]</div>
+
+    <h2>4. Hidrologia D8</h2>
+    <div class="formula">[= flowTo(i) = argmin_(j in N_8(i)) h_j =]</div>
+    <div class="formula">[= A(i) = 1 + sum_(k : flowTo(k) = i) A(k) =]</div>
+    <div class="formula">[= T = max(5, f_s * max(A)) =]</div>
+    <p>O limiar <code>T</code> define o que vira canal drenante no mapa tático.</p>
+
+    <h2>5. Simulação multi-hazard</h2>
+    <h3>Incêndio</h3>
+    <div class="formula">[= spread = min(1, 0.45(W/60) + 0.3(1 - H/100) + 0.15F + 0.1V) =]</div>
+    <div class="formula">[= exposure = min(1, 0.55U + 0.45spread) =]</div>
+
+    <h3>Enchente</h3>
+    <div class="formula">[= runoff = min(1, 0.5(R/100) + 0.35I + 0.15(1 - D)) =]</div>
+    <div class="formula">[= accumulation = min(1, runoff * (1 - min(0.9, S))) =]</div>
+
+    <h3>Sismo</h3>
+    <div class="formula">[= intensity = min(1, 0.6(M/9) + 0.2(1 - min(Z/120, 1)) + 0.2A_s) =]</div>
+    <div class="formula">[= damage = min(1, 0.6intensity + 0.4V_b) =]</div>
+
+    <h3>Tsunami</h3>
+    <div class="formula">[= amplification = min(1, 0.45(H_w/8) + 0.25(1 - min(S_c/0.2, 1)) + 0.3min(T_l/2.5,1)) =]</div>
+    <div class="formula">[= impact = min(1, 0.65amplification + 0.35E_c) =]</div>
+    <div class="formula">[= ETA = max(8, floor(D_s / 8)) =]</div>
+
+    <h2>6. Física visual</h2>
+    <div class="formula">[= dx = 12alpha sin(15t) + 4alpha sin(43.1t) =]</div>
+    <div class="formula">[= dy = 8alpha cos(18t) =]</div>
+    <div class="formula">[= dz = 11alpha cos(13.5t) + 5alpha sin(37.8t) =]</div>
+    <div class="formula">[= h_f(t) = h_0 + 200alpha + 50alpha sin(0.2t) =]</div>
+
+    <p class="note">
+      Esses modelos são adequados para triagem e suporte operacional rápido. Eles não substituem solver hidrodinâmico,
+      FEM estrutural, segmentação profunda ou análise sísmica de engenharia.
+    </p>
+  </main>
+</body>
+</html>

@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Plano de Refatoração Total do Frontend - SOS Location</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0a0f1c;
+      --panel: #111827;
+      --text: #e5e7eb;
+      --muted: #94a3b8;
+      --line: #1f2937;
+      --accent: #f43f5e;
+      --accent-2: #22d3ee;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      background: radial-gradient(circle at top, rgba(244,63,94,0.08), transparent 28%), var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+    }
+    main { max-width: 1100px; margin: 0 auto; padding: 48px 24px 96px; }
+    a { color: var(--accent-2); }
+    h1 { font-size: 2.6rem; margin-bottom: 0.4rem; }
+    h2 { margin-top: 2.6rem; font-size: 1.55rem; }
+    h3 { margin-top: 1.5rem; font-size: 1.12rem; }
+    .eyebrow { color: var(--accent); text-transform: uppercase; letter-spacing: 0.26em; font-size: 0.72rem; font-weight: 800; }
+    .lede { color: var(--muted); max-width: 800px; }
+    .panel {
+      background: rgba(17,24,39,0.84);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 22px 24px;
+      margin-top: 20px;
+    }
+    code {
+      background: rgba(148,163,184,0.12);
+      padding: 0.15rem 0.35rem;
+      border-radius: 6px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      color: #f9a8d4;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 16px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    th, td { padding: 12px 14px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+    th { background: rgba(244,63,94,0.08); color: #fda4af; }
+    .back { display: inline-flex; margin-bottom: 20px; color: var(--muted); text-decoration: none; }
+    .phase {
+      border-left: 3px solid var(--accent);
+      padding-left: 14px;
+      margin-top: 16px;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <a class="back" href="/docs">Voltar para /docs</a>
+    <div class="eyebrow">SOS Location / Refactor</div>
+    <h1>Plano de Refatoração Total do Frontend</h1>
+    <p class="lede">
+      A refatoração deve transformar o frontend de coleção de dashboards em sistema de comando orientado por incidente,
+      com domínios claros, rotas estáveis, acesso coerente e analytics alinhado aos modelos matemáticos documentados.
+    </p>
+
+    <div class="panel">
+      <h2>Diagnóstico</h2>
+      <ul>
+        <li>Rotas demais para o mesmo domínio operacional.</li>
+        <li><code>/app/*</code> mistura operação, analytics, administração e legados.</li>
+        <li>Quase toda área privada usa apenas autenticação simples.</li>
+        <li>O incidente ainda não é a unidade principal de navegação.</li>
+      </ul>
+    </div>
+
+    <h2>Arquitetura alvo de rotas</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Domínio</th>
+          <th>Rotas alvo</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Público</td>
+          <td><code>/</code>, <code>/transparency</code>, <code>/transparency/incidents</code>, <code>/transparency/incidents/:incidentId</code>, <code>/docs</code>, <code>/status</code>, <code>/login</code></td>
+        </tr>
+        <tr>
+          <td>Operacional</td>
+          <td><code>/app/overview</code>, <code>/app/incidents</code>, <code>/app/incidents/:incidentId</code>, <code>/app/incidents/:incidentId/command</code>, <code>/app/map</code>, <code>/app/field</code>, <code>/app/resources</code>, <code>/app/analytics</code>, <code>/app/simulations</code>, <code>/app/integrations</code>, <code>/app/settings</code></td>
+        </tr>
+        <tr>
+          <td>Admin</td>
+          <td><code>/admin/users</code>, <code>/admin/access</code>, <code>/admin/integrations</code>, <code>/admin/data-sources</code>, <code>/admin/audit</code>, <code>/admin/approvals</code></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Consolidação de páginas</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Atual</th>
+          <th>Destino</th>
+          <th>Motivo</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td><code>/app/sos</code></td><td><code>/app/overview</code></td><td>Home operacional precisa ser quadro situacional, não nome legado.</td></tr>
+        <tr><td><code>/app/operational-map</code></td><td><code>/app/map</code></td><td>Mapa operacional deve ter nome único.</td></tr>
+        <tr><td><code>/app/incidents</code> + <code>/app/reports</code> + <code>/app/searched-areas</code></td><td><code>/app/incidents/:incidentId/command</code></td><td>Esses fluxos pertencem ao contexto do incidente.</td></tr>
+        <tr><td><code>/app/rescue-support</code> + <code>/app/logistics</code> + <code>/app/volunteer</code></td><td><code>/app/resources</code> e <code>/app/field</code></td><td>Separar gestão de recursos de execução em campo.</td></tr>
+        <tr><td><code>/app/data-hub</code> + <code>/app/risk-assessment</code> + <code>/app/global-disasters</code></td><td><code>/app/analytics</code></td><td>Analytics precisa taxonomia única.</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Matriz de acesso alvo</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Área</th>
+          <th>public</th>
+          <th>volunteer</th>
+          <th>coordinator</th>
+          <th>admin</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Transparência</td><td>leitura</td><td>leitura</td><td>leitura</td><td>leitura</td></tr>
+        <tr><td>Mapa operacional</td><td>não</td><td>leitura limitada</td><td>leitura/escrita</td><td>leitura/escrita</td></tr>
+        <tr><td>Incidentes</td><td>não</td><td>leitura do incidente atribuído</td><td>leitura/escrita</td><td>leitura/escrita</td></tr>
+        <tr><td>Campo</td><td>não</td><td>leitura/escrita da própria tarefa</td><td>leitura/escrita</td><td>leitura/escrita</td></tr>
+        <tr><td>Admin</td><td>não</td><td>não</td><td>leitura limitada</td><td>leitura/escrita</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Estrutura técnica alvo</h2>
+    <p>O frontend deve ter manifesto único de rotas e permissões, shells separados e organização por domínio.</p>
+    <div class="panel">
+      <code>
+        src/app/router<br />
+        src/app/shell<br />
+        src/domains/public<br />
+        src/domains/incidents<br />
+        src/domains/operations<br />
+        src/domains/resources<br />
+        src/domains/analytics<br />
+        src/domains/simulations<br />
+        src/domains/admin<br />
+        src/shared
+      </code>
+    </div>
+
+    <h2>Roadmap executivo</h2>
+    <div class="phase">
+      <h3>Fase 0. Contrato e limpeza</h3>
+      <p>Congelar taxonomia de rotas, limpar legado documental e alinhar contratos de API.</p>
+    </div>
+    <div class="phase">
+      <h3>Fase 1. Router e guardas</h3>
+      <p>Introduzir route manifest, guards por capability e shells público, operacional e admin.</p>
+    </div>
+    <div class="phase">
+      <h3>Fase 2. Incidente como agregado</h3>
+      <p>Mover reports, searched areas, support e operações para o contexto do incidente.</p>
+    </div>
+    <div class="phase">
+      <h3>Fase 3. Dados e observabilidade</h3>
+      <p>Separar sessão, UI local e estado remoto com cache por domínio.</p>
+    </div>
+    <div class="phase">
+      <h3>Fase 4. UX operacional</h3>
+      <p>Redesenhar overview, map, command e resources orientados a tarefa.</p>
+    </div>
+    <div class="phase">
+      <h3>Fase 5. Remoção de legado</h3>
+      <p>Eliminar aliases, páginas redundantes e hooks obsoletos.</p>
+    </div>
+  </main>
+</body>
+</html>

@@ -1,5 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { keycloak } from '../../lib/keycloak';
+import { DEFAULT_PRIVATE_ROUTE, PUBLIC_TRANSPARENCY_ROUTE } from '../../lib/appRouteManifest';
 
 const s = {
   nav: {
@@ -114,7 +115,7 @@ export function LandingNavbar() {
             Documentação
           </Link>
           <Link
-            to="/transparency"
+            to={PUBLIC_TRANSPARENCY_ROUTE}
             style={s.link}
             onMouseEnter={e => (e.currentTarget.style.color = '#22d3ee')}
             onMouseLeave={e => (e.currentTarget.style.color = '#64748b')}
@@ -125,7 +126,7 @@ export function LandingNavbar() {
           <div style={s.separator} />
 
           <button
-            onClick={() => (keycloak.authenticated ? navigate('/app/sos') : keycloak.login())}
+            onClick={() => (keycloak.authenticated ? navigate(DEFAULT_PRIVATE_ROUTE) : keycloak.login())}
             style={s.loginBtn}
             onMouseEnter={e => {
               e.currentTarget.style.background = 'rgba(6,182,212,0.16)';

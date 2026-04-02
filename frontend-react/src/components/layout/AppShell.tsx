@@ -8,6 +8,7 @@ import { NotificationCenter } from '../feedback/NotificationCenter';
 import { useNotifications } from '../../context/useNotifications';
 import { setApiNotifier } from '../../services/apiClient';
 import { Box, Flex, Spinner, Center, Text } from '@chakra-ui/react';
+import type { AppRouteGroup } from '../../lib/appRouteManifest';
 
 interface AppShellProps {
   children: ReactNode;
@@ -15,9 +16,23 @@ interface AppShellProps {
   onToggleTheme: () => void;
   variant?: 'default' | 'tactical';
   navigationMode?: 'compact' | 'expanded' | 'auto';
+  navigationGroups?: AppRouteGroup[];
+  showStatusStrip?: boolean;
+  minimalTopbar?: boolean;
+  sidebarSectionLabelKey?: string;
 }
 
-export function AppShell({ children, theme, onToggleTheme, variant = 'default', navigationMode = 'auto' }: AppShellProps) {
+export function AppShell({
+  children,
+  theme,
+  onToggleTheme,
+  variant = 'default',
+  navigationMode = 'auto',
+  navigationGroups,
+  showStatusStrip = true,
+  minimalTopbar = false,
+  sidebarSectionLabelKey,
+}: AppShellProps) {
   const { notices, pushNotice } = useNotifications();
   const [openCenter, setOpenCenter] = useState(false);
 
@@ -31,7 +46,7 @@ export function AppShell({ children, theme, onToggleTheme, variant = 'default', 
       <Box minH="100vh" bg="sos.dark" color="white" overflow="hidden">
         <Flex h="100vh" w="full" overflow="hidden">
           {/* Compact Navigation Rail — icon-only, expands on hover */}
-          <NavigationRail mode={navigationMode} h="full" flexShrink={0} />
+          <NavigationRail mode={navigationMode} routeGroups={navigationGroups} h="full" flexShrink={0} />
 
           {/* Main Content Area */}
           <Box as="main" flex="1" h="100%" position="relative" overflow="hidden" bg="sos.dark">
@@ -60,6 +75,8 @@ export function AppShell({ children, theme, onToggleTheme, variant = 'default', 
       <Flex h="100%" gap={4} p={4} maxW="1920px" mx="auto">
         {/* Fixed-height sidebar — does not scroll with main content */}
         <Sidebar
+          routeGroups={navigationGroups}
+          sectionLabelKey={sidebarSectionLabelKey}
           flexShrink={0}
           w="280px"
           h="100%"
@@ -75,8 +92,9 @@ export function AppShell({ children, theme, onToggleTheme, variant = 'default', 
             onToggleTheme={onToggleTheme}
             notificationCount={notices.length}
             onOpenNotifications={() => setOpenCenter(true)}
+            minimal={minimalTopbar}
           />
-          <StatusStrip />
+          {showStatusStrip && <StatusStrip />}
           <Box flex="1" position="relative" overflowY="auto">
             {children}
           </Box>

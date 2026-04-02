@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { keycloak } from '../lib/keycloak';
 import { LandingNavbar } from '../components/layout/LandingNavbar';
+import { DEFAULT_PRIVATE_ROUTE } from '../lib/appRouteManifest';
 
 const s = {
   root: {
@@ -265,7 +266,7 @@ export function LandingPage() {
           <div style={s.ctas}>
             <button
               style={s.btnPrimary}
-              onClick={() => navigate('/app/sos')}
+              onClick={() => navigate(DEFAULT_PRIVATE_ROUTE)}
               onMouseEnter={e => { (e.currentTarget.style.transform = 'scale(1.04)'); (e.currentTarget.style.boxShadow = '0 0 36px rgba(8,145,178,0.5)'); }}
               onMouseLeave={e => { (e.currentTarget.style.transform = 'scale(1)'); (e.currentTarget.style.boxShadow = '0 0 24px rgba(8,145,178,0.35)'); }}
             >
@@ -273,7 +274,7 @@ export function LandingPage() {
             </button>
             <button
               style={s.btnSecondary}
-              onClick={() => keycloak.authenticated ? navigate('/app/sos') : keycloak.login()}
+              onClick={() => keycloak.authenticated ? navigate(DEFAULT_PRIVATE_ROUTE) : keycloak.login()}
               onMouseEnter={e => { (e.currentTarget.style.background = 'rgba(6,182,212,0.1)'); (e.currentTarget.style.borderColor = 'rgba(6,182,212,0.5)'); }}
               onMouseLeave={e => { (e.currentTarget.style.background = 'rgba(6,182,212,0.04)'); (e.currentTarget.style.borderColor = 'rgba(6,182,212,0.25)'); }}
             >

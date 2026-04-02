@@ -1,17 +1,28 @@
-import { Suspense, lazy, useEffect, useState } from 'react';
+import { Suspense, lazy, useEffect, useState, type ReactElement } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { AppShell } from './components/layout/AppShell';
 import { LoadingScreen } from './components/common/LoadingScreen';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { Prefetcher } from './components/common/Prefetcher';
 import { useAuthStore } from './store/authStore';
+import {
+  ADMIN_APPROVALS_ROUTE,
+  ADMIN_HOME_ROUTE,
+  APP_ROUTE_BY_ID,
+  APP_ROUTE_MANIFEST,
+  DEFAULT_PRIVATE_ROUTE,
+  PUBLIC_TRANSPARENCY_ROUTE,
+  getFirstAccessibleRoute,
+  isTacticalRoutePath,
+} from './lib/appRouteManifest';
+import type { AppRouteGroup } from './lib/appRouteManifest';
 
 // Lazy loaded pages
 const PublicIncidentDashboardPage = lazy(() => import('./pages/PublicIncidentDashboardPage.tsx').then((m) => ({ default: m.PublicIncidentDashboardPage })));
 const LandingPage = lazy(() => import('./pages/LandingPage.tsx').then((m) => ({ default: m.LandingPage })));
 const DocsIndexPage = lazy(() => import('./pages/DocsIndexPage.tsx').then((m) => ({ default: m.DocsIndexPage })));
 const SOSPage = lazy(() => import('./pages/SOSPage.tsx').then((m) => ({ default: m.SOSPage })));
-// SOSPage restored — /app/sos renders the tactical war room
+// SOSPage remains the operational overview while /app/sos stays as a legacy alias.
 const SettingsPage = lazy(() => import('./pages/SettingsPage.tsx').then((m) => ({ default: m.SettingsPage })));
 const VolunteerDashboardPage = lazy(() => import('./pages/VolunteerDashboardPage.tsx').then((m) => ({ default: m.VolunteerDashboardPage })));
 const LogisticsPage = lazy(() => import('./pages/LogisticsPage.tsx').then((m) => ({ default: m.LogisticsPage })));
@@ -36,10 +47,44 @@ const PublicIncidentsPage = lazy(() => import('./pages/PublicIncidentsPage.tsx')
 
 const TacticalAdminPage = lazy(() => import('./pages/TacticalAdminPage.tsx'));
 
-/**
- * PrivateLayout wraps protected routes with the AppShell.
- */
-function PrivateLayout() {
+const OPERATIONAL_NAV_GROUPS: AppRouteGroup[] = ['ops', 'intel', 'resources', 'system'];
+const ADMIN_NAV_GROUPS: AppRouteGroup[] = ['admin'];
+
+const privateRouteElements: Array<{ routeId: string; element: ReactElement }> = [
+  { routeId: 'overview', element: <SOSPage /> },
+  { routeId: 'settings', element: <SettingsPage /> },
+  { routeId: 'volunteer', element: <VolunteerDashboardPage /> },
+  { routeId: 'logistics', element: <LogisticsPage /> },
+  { routeId: 'risk-assessment', element: <RiskAssessmentPage /> },
+  { routeId: 'support', element: <SupportDashboardPage /> },
+  { routeId: 'hotspots', element: <HotspotsPage /> },
+  { routeId: 'reports', element: <ReportsPage /> },
+  { routeId: 'searched-areas', element: <SearchedAreasPage /> },
+  { routeId: 'rescue-support', element: <RescueSupportPage /> },
+  { routeId: 'incidents', element: <IncidentsPage /> },
+  { routeId: 'simulations', element: <SimulationsPage /> },
+  { routeId: 'data-hub', element: <DataHubPage /> },
+  { routeId: 'integrations', element: <IntegrationsPage /> },
+  { routeId: 'missing-persons', element: <MissingPersonsPage /> },
+  { routeId: 'global-disasters', element: <GlobalDisastersPage /> },
+  { routeId: 'rescue-ops', element: <RescueOpsPage /> },
+  { routeId: 'operational-map', element: <OperationalMapPage /> },
+];
+
+const adminRouteElements: Array<{ routeId: string; element: ReactElement }> = [
+  { routeId: 'tactical-approval', element: <TacticalAdminPage /> },
+  { routeId: 'admin-sources', element: <DataSourceList /> },
+];
+
+function AdminIndexRedirect() {
+  const authenticated = useAuthStore((state) => state.authenticated);
+  const roles = useAuthStore((state) => state.roles);
+  const firstAdminRoute = getFirstAccessibleRoute(authenticated, roles, { groups: [...ADMIN_NAV_GROUPS] });
+
+  return <Navigate to={firstAdminRoute?.path ?? DEFAULT_PRIVATE_ROUTE} replace />;
+}
+
+function OperationalLayout() {
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const location = useLocation();
 
@@ -47,25 +92,7 @@ function PrivateLayout() {
     document.documentElement.dataset.theme = theme;
   }, [theme]);
 
-  // Pages that need full-viewport layout (tactical variant = NavigationRail + no grid padding)
-  const TACTICAL_ROUTES = [
-    '/app/sos',
-    '/app/simulations',
-    '/app/volunteer',
-    '/app/global-disasters',
-    '/app/tactical-approval',
-    '/app/logistics',
-    '/app/risk-assessment',
-    '/app/hotspots',
-    '/app/incidents',
-    '/app/reports',
-    '/app/searched-areas',
-    '/app/rescue-support',
-    '/app/data-hub',
-    '/app/integrations',
-    '/app/missing-persons'
-  ];
-  const isTactical = TACTICAL_ROUTES.includes(location.pathname);
+  const isTactical = isTacticalRoutePath(location.pathname);
   const navigationMode = 'expanded';
 
   return (
@@ -75,30 +102,105 @@ function PrivateLayout() {
         onToggleTheme={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
         variant={isTactical ? 'tactical' : 'default'}
         navigationMode={navigationMode}
+        navigationGroups={[...OPERATIONAL_NAV_GROUPS]}
       >
         <Suspense fallback={<div style={{ padding: 16 }} className="text-slate-500 font-bold animate-pulse text-center">Iniciando painel de comando...</div>}>
           <Routes>
-            <Route path="/app/sos" element={<ProtectedRoute><SOSPage /></ProtectedRoute>} />
-            <Route path="/app/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
-            <Route path="/app/volunteer" element={<ProtectedRoute><VolunteerDashboardPage /></ProtectedRoute>} />
-            <Route path="/app/logistics" element={<ProtectedRoute><LogisticsPage /></ProtectedRoute>} />
-            <Route path="/app/risk-assessment" element={<ProtectedRoute><RiskAssessmentPage /></ProtectedRoute>} />
-            <Route path="/app/support" element={<ProtectedRoute><SupportDashboardPage /></ProtectedRoute>} />
-            <Route path="/app/admin/sources" element={<ProtectedRoute requiredRole="admin"><DataSourceList /></ProtectedRoute>} />
-            <Route path="/app/hotspots" element={<ProtectedRoute><HotspotsPage /></ProtectedRoute>} />
-            <Route path="/app/reports" element={<ProtectedRoute><ReportsPage /></ProtectedRoute>} />
-            <Route path="/app/searched-areas" element={<ProtectedRoute><SearchedAreasPage /></ProtectedRoute>} />
-            <Route path="/app/rescue-support" element={<ProtectedRoute><RescueSupportPage /></ProtectedRoute>} />
-            <Route path="/app/incidents" element={<ProtectedRoute><IncidentsPage /></ProtectedRoute>} />
-            <Route path="/app/simulations" element={<ProtectedRoute><SimulationsPage /></ProtectedRoute>} />
-            <Route path="/app/data-hub" element={<ProtectedRoute><DataHubPage /></ProtectedRoute>} />
-            <Route path="/app/integrations" element={<ProtectedRoute><IntegrationsPage /></ProtectedRoute>} />
-            <Route path="/app/missing-persons" element={<ProtectedRoute><MissingPersonsPage /></ProtectedRoute>} />
-            <Route path="/app/global-disasters" element={<ProtectedRoute><GlobalDisastersPage /></ProtectedRoute>} />
-            <Route path="/app/rescue-ops" element={<ProtectedRoute><RescueOpsPage /></ProtectedRoute>} />
-            <Route path="/app/operational-map" element={<ProtectedRoute><OperationalMapPage /></ProtectedRoute>} />
-            <Route path="/app/tactical-approval" element={<ProtectedRoute requiredRole="admin"><TacticalAdminPage /></ProtectedRoute>} />
-            <Route path="*" element={<Navigate to="/app/sos" replace />} />
+            {privateRouteElements.map(({ routeId, element }) => {
+              const route = APP_ROUTE_BY_ID[routeId];
+
+              return (
+                <Route
+                  key={route.id}
+                  path={route.path}
+                  element={
+                    <ProtectedRoute
+                      requiredRoles={route.requiredRoles}
+                      requiredCapabilities={route.requiredCapabilities}
+                    >
+                      {element}
+                    </ProtectedRoute>
+                  }
+                />
+              );
+            })}
+
+            {APP_ROUTE_MANIFEST.flatMap((route) =>
+              (route.aliases ?? [])
+                .filter((alias) => alias.startsWith('/app/'))
+                .map((alias) => (
+                <Route
+                  key={`${route.id}:${alias}`}
+                  path={alias}
+                  element={
+                    <ProtectedRoute
+                      requiredRoles={route.requiredRoles}
+                      requiredCapabilities={route.requiredCapabilities}
+                    >
+                      <Navigate to={route.path} replace />
+                    </ProtectedRoute>
+                  }
+                />
+                )),
+            )}
+
+            <Route path="*" element={<Navigate to={DEFAULT_PRIVATE_ROUTE} replace />} />
+          </Routes>
+        </Suspense>
+      </AppShell>
+    </div>
+  );
+}
+
+function AdminLayout() {
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+  }, [theme]);
+
+  return (
+    <div className="animate-in fade-in duration-700 ease-out">
+      <AppShell
+        theme={theme}
+        onToggleTheme={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
+        variant="default"
+        navigationGroups={[...ADMIN_NAV_GROUPS]}
+        minimalTopbar
+        showStatusStrip={false}
+        sidebarSectionLabelKey="nav.admin"
+      >
+        <Suspense fallback={<div style={{ padding: 16 }} className="text-slate-500 font-bold animate-pulse text-center">Carregando centro administrativo...</div>}>
+          <Routes>
+            <Route
+              path={ADMIN_HOME_ROUTE}
+              element={
+                <ProtectedRoute>
+                  <AdminIndexRedirect />
+                </ProtectedRoute>
+              }
+            />
+
+            {adminRouteElements.map(({ routeId, element }) => {
+              const route = APP_ROUTE_BY_ID[routeId];
+
+              return (
+                <Route
+                  key={route.id}
+                  path={route.path}
+                  element={
+                    <ProtectedRoute
+                      requiredRoles={route.requiredRoles}
+                      requiredCapabilities={route.requiredCapabilities}
+                    >
+                      {element}
+                    </ProtectedRoute>
+                  }
+                />
+              );
+            })}
+
+            <Route path="*" element={<Navigate to={ADMIN_APPROVALS_ROUTE} replace />} />
           </Routes>
         </Suspense>
       </AppShell>
@@ -119,7 +221,7 @@ export default function AppRoutes() {
         {/* Landing Page — entry point for all unauthenticated users */}
         <Route path="/" element={
           authenticated ?
-            <Navigate to="/app/sos" replace /> :
+            <Navigate to={DEFAULT_PRIVATE_ROUTE} replace /> :
             <Suspense fallback={<LoadingScreen />}><LandingPage /></Suspense>
         } />
 
@@ -127,23 +229,26 @@ export default function AppRoutes() {
         <Route path="/docs" element={<Suspense fallback={<LoadingScreen />}><DocsIndexPage /></Suspense>} />
 
         {/* Public Observation Routes */}
-        <Route path="/transparency" element={<Suspense fallback={<LoadingScreen />}><PublicIncidentsPage /></Suspense>} />
-        <Route path="/transparency/:id" element={<Suspense fallback={<LoadingScreen />}><PublicIncidentDashboardPage /></Suspense>} />
-        <Route path="/public/incidents" element={<Navigate to="/transparency" replace />} />
+        <Route path={PUBLIC_TRANSPARENCY_ROUTE} element={<Suspense fallback={<LoadingScreen />}><PublicIncidentsPage /></Suspense>} />
+        <Route path={`${PUBLIC_TRANSPARENCY_ROUTE}/:id`} element={<Suspense fallback={<LoadingScreen />}><PublicIncidentDashboardPage /></Suspense>} />
+        <Route path="/public/incidents" element={<Navigate to={PUBLIC_TRANSPARENCY_ROUTE} replace />} />
         <Route path="/public/incidents/:id" element={<Suspense fallback={<LoadingScreen />}><PublicIncidentDashboardPage /></Suspense>} />
 
         {/* Compatibility Aliases */}
-        <Route path="/public/transparency" element={<Navigate to="/transparency" replace />} />
+        <Route path="/public/transparency" element={<Navigate to={PUBLIC_TRANSPARENCY_ROUTE} replace />} />
 
         {/* Auth Routes */}
         <Route path="/login" element={
           authenticated ?
-            <Navigate to="/app/sos" replace /> :
+            <Navigate to={DEFAULT_PRIVATE_ROUTE} replace /> :
             <Suspense fallback={<LoadingScreen />}><LoginPage /></Suspense>
         } />
 
         {/* Operational Domain (Protected) */}
-        <Route path="/app/*" element={<PrivateLayout />} />
+        <Route path="/app/*" element={<OperationalLayout />} />
+
+        {/* Administrative Domain (Protected) */}
+        <Route path="/admin/*" element={<AdminLayout />} />
 
         {/* System Routes */}
         <Route path="/error" element={<Suspense fallback={<LoadingScreen />}><ErrorPage /></Suspense>} />

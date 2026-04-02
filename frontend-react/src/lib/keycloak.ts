@@ -2,6 +2,7 @@ import Keycloak from 'keycloak-js';
 import { frontendLogger } from './logger';
 import { useAuthStore } from '../store/authStore';
 import { clearSessionToken, setSessionToken } from './authSession';
+import { DEFAULT_PRIVATE_ROUTE, normalizeRedirectPath } from './appRouteManifest';
 
 // --- KEYCLOAK INITIALIZATION ---
 const keycloakConfig = {
@@ -35,15 +36,6 @@ const syncAuthStore = () => {
   }
 };
 
-const normalizeRedirectPath = (value: string | null) => {
-  if (!value) return null;
-  const trimmed = value.trim();
-  if (!trimmed.startsWith('/')) return null;
-  if (trimmed === '/' || trimmed === '/login') return null;
-  if (trimmed.includes('?') || trimmed.includes('#') || trimmed.includes('loggedOut')) return null;
-  return trimmed;
-};
-
 let refreshInFlight: Promise<boolean> | null = null;
 
 export const refreshSessionToken = async (minimumValidity = 30) => {
@@ -67,7 +59,7 @@ export const refreshSessionToken = async (minimumValidity = 30) => {
     })
     .catch((error) => {
       frontendLogger.error('Failed to refresh token', { error });
-      const currentPath = normalizeRedirectPath(window.location.pathname) ?? '/app/sos';
+      const currentPath = normalizeRedirectPath(window.location.pathname) ?? DEFAULT_PRIVATE_ROUTE;
       localStorage.setItem('sos_login_redirect', currentPath);
       keycloak.clearToken();
       useAuthStore.getState().clearAuth();

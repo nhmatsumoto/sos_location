@@ -1,9 +1,5 @@
 import { memo, useMemo } from 'react';
-import {
-  Activity, AlertTriangle, BarChart3, FileWarning, Layers3,
-  LifeBuoy, Radar, Search, Settings, Users, PlugZap, Globe,
-  Heart, Truck, ShieldAlert, Coins, Cog, LogOut
-} from 'lucide-react';
+import { LogOut } from 'lucide-react';
 import { Link as RouterLink, useLocation } from 'react-router-dom';
 import {
   Box, Tooltip, Divider, Text,
@@ -13,29 +9,7 @@ import { LogoFull, Logo } from '../brand/Logo';
 import { useAuthStore } from '../../store/authStore';
 import { doLogout } from '../../lib/keycloak';
 import { useTranslation } from 'react-i18next';
-
-const navItems = [
-  { to: '/app/sos',              label: 'nav.monitor',    icon: Radar,       group: 'ops' },
-  { to: '/app/operational-map',  label: 'nav.op_map',     icon: Layers3,     group: 'ops' },
-  { to: '/app/rescue-ops',       label: 'nav.rescue_ops', icon: ShieldAlert, group: 'ops' },
-  { to: '/app/hotspots',         label: 'nav.hotspots',   icon: AlertTriangle,group: 'ops' },
-  { to: '/app/missing-persons',  label: 'nav.missing',    icon: Users,       group: 'ops' },
-  { to: '/app/incidents',        label: 'nav.incidents',  icon: Activity,    group: 'ops' },
-  { to: '/app/searched-areas',   label: 'nav.searched',   icon: Search,      group: 'ops' },
-  { to: '/app/rescue-support',   label: 'nav.rescue',     icon: LifeBuoy,    group: 'ops' },
-  { to: '/app/reports',          label: 'nav.reports',    icon: FileWarning, group: 'ops' },
-  { to: '/app/simulations',      label: 'nav.simulations',icon: BarChart3,   group: 'intel' },
-  { to: '/app/data-hub',         label: 'nav.datahub',    icon: Layers3,     group: 'intel' },
-  { to: '/app/integrations',     label: 'nav.integrations',icon: PlugZap,    group: 'intel' },
-  { to: '/app/global-disasters', label: 'nav.global',     icon: Globe,       group: 'intel' },
-  { to: '/app/logistics',        label: 'nav.logistics',  icon: Truck,       group: 'resources' },
-  { to: '/app/volunteer',        label: 'nav.volunteer',  icon: Heart,       group: 'resources' },
-  { to: '/app/risk-assessment',  label: 'nav.risk',       icon: ShieldAlert, group: 'resources' },
-  { to: '/app/support',          label: 'nav.support',    icon: Coins,       group: 'resources' },
-  { to: '/app/tactical-approval',label: 'nav.approval',   icon: ShieldAlert, group: 'admin', admin: true },
-  { to: '/app/admin/sources',    label: 'nav.sources',    icon: Cog,         group: 'admin', admin: true },
-  { to: '/app/settings',         label: 'nav.settings',   icon: Settings,    group: 'system' },
-];
+import { getVisibleNavigationRoutes, matchesAppRoute, type AppRouteGroup } from '../../lib/appRouteManifest';
 
 const groupLabels: Record<string, string> = {
   ops:       'Operações',
@@ -49,6 +23,7 @@ const groupLabels: Record<string, string> = {
 interface NavigationRailProps extends BoxProps {
   /** If true, shows icon only. If false, shows icon + label. Default: 'auto' (hover to expand) */
   mode?: 'compact' | 'expanded' | 'auto';
+  routeGroups?: AppRouteGroup[];
 }
 
 /**
@@ -58,23 +33,23 @@ interface NavigationRailProps extends BoxProps {
  */
 export const NavigationRail = memo(function NavigationRail({
   mode = 'auto',
+  routeGroups,
   ...props
 }: NavigationRailProps) {
   const location = useLocation();
   const authenticated = useAuthStore((state) => state.authenticated);
   const roles = useAuthStore((state) => state.roles);
   const { t } = useTranslation();
-  const isAdmin = roles.includes('admin');
   const isExpanded = mode === 'expanded';
 
   const visibleItems = useMemo(
-    () => navItems.filter(item => !item.admin || isAdmin),
-    [isAdmin]
+    () => getVisibleNavigationRoutes(authenticated, roles, { groups: routeGroups }),
+    [authenticated, roles, routeGroups]
   );
 
   // Group items by section
   const groups = useMemo(() => {
-    const g: Record<string, typeof navItems> = {};
+    const g: Record<string, typeof visibleItems> = {};
     for (const item of visibleItems) {
       if (!g[item.group]) g[item.group] = [];
       g[item.group].push(item);
@@ -141,18 +116,18 @@ export const NavigationRail = memo(function NavigationRail({
 
             {items.map(item => {
               const Icon = item.icon;
-              const isActive = location.pathname === item.to;
+              const isActive = matchesAppRoute(item, location.pathname);
 
               return (
                 <Tooltip
-                  key={item.to}
-                  label={!isExpanded ? t(item.label) : undefined}
+                  key={item.path}
+                  label={!isExpanded ? t(item.labelKey) : undefined}
                   placement="right"
                   hasArrow
                 >
                   <Box
                     as={RouterLink}
-                    to={item.to}
+                    to={item.path}
                     display="flex"
                     alignItems="center"
                     gap={isExpanded ? 3 : 0}
@@ -195,7 +170,7 @@ export const NavigationRail = memo(function NavigationRail({
                         opacity={isExpanded ? 1 : 0}
                         transition="opacity 0.2s"
                       >
-                        {t(item.label)}
+                        {t(item.labelKey)}
                       </Text>
                     )}
                   </Box>

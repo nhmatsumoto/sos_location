@@ -1,166 +1,167 @@
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" data-content_root="./">
-
+<html lang="pt-BR">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>RBAC por incidente &mdash; SOS Location 2.0 documentation</title>
-  <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=b86133f3" />
-  <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=9edc463e" />
-  <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
-
-
-  <script src="_static/jquery.js?v=5d32c60e"></script>
-  <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
-  <script src="_static/documentation_options.js?v=60dbed4a"></script>
-  <script src="_static/doctools.js?v=fd6eb6e6"></script>
-  <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
-  <script src="_static/clipboard.min.js?v=a7894cd8"></script>
-  <script src="_static/copybutton.js?v=f281be69"></script>
-  <script src="_static/js/theme.js"></script>
-  <link rel="index" title="Index" href="genindex.html" />
-  <link rel="search" title="Search" href="search.html" />
+  <title>Autorização e Papéis - SOS Location</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b1120;
+      --panel: #111827;
+      --text: #e5e7eb;
+      --muted: #94a3b8;
+      --line: #1f2937;
+      --accent: #22d3ee;
+      --accent-2: #fb7185;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, rgba(34,211,238,0.08), transparent 35%), var(--bg);
+      color: var(--text);
+      line-height: 1.65;
+    }
+    main {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 48px 24px 80px;
+    }
+    a { color: var(--accent); }
+    h1, h2, h3 { line-height: 1.2; }
+    h1 { font-size: 2.4rem; margin-bottom: 0.5rem; }
+    h2 { margin-top: 2.5rem; font-size: 1.5rem; }
+    p, li { color: var(--text); }
+    .eyebrow {
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.28em;
+      font-size: 0.72rem;
+      font-weight: 800;
+    }
+    .lede { color: var(--muted); max-width: 760px; }
+    .panel {
+      background: rgba(17,24,39,0.82);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 20px 22px;
+      margin-top: 18px;
+    }
+    code {
+      background: rgba(148,163,184,0.12);
+      padding: 0.15rem 0.35rem;
+      border-radius: 6px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      color: #c4b5fd;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 16px;
+      overflow: hidden;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+    }
+    th, td {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+    th { color: var(--accent); background: rgba(34,211,238,0.06); }
+    .back {
+      display: inline-flex;
+      margin-bottom: 20px;
+      color: var(--muted);
+      text-decoration: none;
+    }
+    .note {
+      border-left: 3px solid var(--accent-2);
+      padding-left: 14px;
+      color: var(--muted);
+    }
+  </style>
 </head>
+<body>
+  <main>
+    <a class="back" href="/docs">Voltar para /docs</a>
+    <div class="eyebrow">SOS Location / Access</div>
+    <h1>Autorização e Papéis</h1>
+    <p class="lede">
+      Contrato atual e alvo de acesso do frontend. Esta versão substitui o documento legado com roles que não existem
+      mais no Keycloak do projeto.
+    </p>
 
-<body class="wy-body-for-nav">
-  <div class="wy-grid-for-nav">
-    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
-      <div class="wy-side-scroll">
-        <div class="wy-side-nav-search">
+    <div class="panel">
+      <h2>Estado atual</h2>
+      <p>Os papéis reais definidos hoje são <code>public</code>, <code>volunteer</code>, <code>coordinator</code> e <code>admin</code>.</p>
+      <p>No frontend atual, quase todo <code>/app/*</code> exige apenas autenticação. Só <code>/app/tactical-approval</code> e <code>/app/admin/sources</code> exigem <code>admin</code>.</p>
+    </div>
 
+    <h2>Rotas e acesso vigente</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Área</th>
+          <th>Acesso atual</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Público</td>
+          <td><code>/</code>, <code>/docs</code>, <code>/transparency</code>, <code>/transparency/:id</code>, <code>/login</code></td>
+        </tr>
+        <tr>
+          <td>Privado autenticado</td>
+          <td>Todas as demais rotas em <code>/app/*</code></td>
+        </tr>
+        <tr>
+          <td>Admin</td>
+          <td><code>/app/tactical-approval</code>, <code>/app/admin/sources</code></td>
+        </tr>
+      </tbody>
+    </table>
 
+    <h2>Modelo recomendado</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Papel</th>
+          <th>Responsabilidade</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>public</code></td>
+          <td>Consulta de transparência, incidentes públicos, documentação e comunicação de risco.</td>
+        </tr>
+        <tr>
+          <td><code>volunteer</code></td>
+          <td>Execução de campo, atualização de tarefa e consulta do contexto operacional atribuído.</td>
+        </tr>
+        <tr>
+          <td><code>coordinator</code></td>
+          <td>Operação tática, incidentes, mapa, recursos, analytics e simulações.</td>
+        </tr>
+        <tr>
+          <td><code>admin</code></td>
+          <td>Governança, aprovações, integrações, catálogo, auditoria e gestão de acesso.</td>
+        </tr>
+      </tbody>
+    </table>
 
-          <a href="index.html" class="icon icon-home">
-            SOS Location
-          </a>
-          <div role="search">
-            <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
-              <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
-              <input type="hidden" name="check_keywords" value="yes" />
-              <input type="hidden" name="area" value="default" />
-            </form>
-          </div>
-        </div>
-        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-          <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
-          <ul>
-            <li class="toctree-l1"><a class="reference internal" href="introduction.html">Introduction</a></li>
-            <li class="toctree-l1"><a class="reference internal" href="architecture.html">Architecture</a></li>
-            <li class="toctree-l1"><a class="reference internal" href="api_reference.html">API Reference</a></li>
-            <li class="toctree-l1"><a class="reference internal" href="integrations.html">Integrations</a></li>
-            <li class="toctree-l1"><a class="reference internal" href="compliance.html">Compliance &amp; Standards</a>
-            </li>
-          </ul>
+    <h2>Capabilities alvo</h2>
+    <p>
+      O frontend novo deve parar de espalhar lógica baseada apenas em role e passar a usar capabilities explícitas,
+      como <code>incident.read</code>, <code>incident.write</code>, <code>map.operate</code>, <code>simulation.run</code>,
+      <code>integration.write</code> e <code>admin.audit</code>.
+    </p>
 
-        </div>
-      </div>
-    </nav>
-
-    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
-      <nav class="wy-nav-top" aria-label="Mobile navigation menu">
-        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
-        <a href="index.html">SOS Location</a>
-      </nav>
-
-      <div class="wy-nav-content">
-        <div class="rst-content">
-          <div role="navigation" aria-label="Page navigation">
-            <ul class="wy-breadcrumbs">
-              <li><a href="index.html" class="icon icon-home" aria-label="Home"></a></li>
-              <li class="breadcrumb-item active">RBAC por incidente</li>
-              <li class="wy-breadcrumbs-aside">
-                <a href="_sources/AUTHZ_ROLES.md.txt" rel="nofollow"> View page source</a>
-              </li>
-            </ul>
-            <hr />
-          </div>
-          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
-            <div itemprop="articleBody">
-
-              <section class="tex2jax_ignore mathjax_ignore" id="rbac-por-incidente">
-                <h1>RBAC por incidente<a class="headerlink" href="#rbac-por-incidente"
-                    title="Link to this heading"></a></h1>
-                <section id="roles">
-                  <h2>Roles<a class="headerlink" href="#roles" title="Link to this heading"></a></h2>
-                  <ul class="simple">
-                    <li>
-                      <p>Global: <code class="docutils literal notranslate"><span class="pre">AdminGlobal</span></code>
-                      </p>
-                    </li>
-                    <li>
-                      <p>Por incidente: <code
-                          class="docutils literal notranslate"><span class="pre">IncidentAdmin</span></code>, <code
-                          class="docutils literal notranslate"><span class="pre">OpsCoordinator</span></code>, <code
-                          class="docutils literal notranslate"><span class="pre">SupportManager</span></code>, <code
-                          class="docutils literal notranslate"><span class="pre">Volunteer</span></code>, <code
-                          class="docutils literal notranslate"><span class="pre">Auditor</span></code></p>
-                    </li>
-                  </ul>
-                </section>
-                <section id="regras-mvp">
-                  <h2>Regras (MVP)<a class="headerlink" href="#regras-mvp" title="Link to this heading"></a></h2>
-                  <ul class="simple">
-                    <li>
-                      <p><code class="docutils literal notranslate"><span class="pre">/api/incidents</span></code> GET:
-                        autenticado.</p>
-                    </li>
-                    <li>
-                      <p><code class="docutils literal notranslate"><span class="pre">/api/incidents</span></code> POST:
-                        <code class="docutils literal notranslate"><span class="pre">AdminGlobal</span></code>.
-                      </p>
-                    </li>
-                    <li>
-                      <p>Apoio (<code
-                          class="docutils literal notranslate"><span class="pre">/api/incidents/{id}/support/*</span></code>):
-                        <code class="docutils literal notranslate"><span class="pre">SupportManager</span></code> ou
-                        <code class="docutils literal notranslate"><span class="pre">IncidentAdmin</span></code>.
-                      </p>
-                    </li>
-                    <li>
-                      <p>Resgate (<code
-                          class="docutils literal notranslate"><span class="pre">/api/incidents/{id}/rescue/*</span></code>):
-                        <code class="docutils literal notranslate"><span class="pre">OpsCoordinator</span></code> ou
-                        <code class="docutils literal notranslate"><span class="pre">IncidentAdmin</span></code>.
-                      </p>
-                    </li>
-                    <li>
-                      <p>Públicos (<code
-                          class="docutils literal notranslate"><span class="pre">/api/public/*</span></code>): sem
-                        autenticação.</p>
-                    </li>
-                  </ul>
-                </section>
-              </section>
-
-
-            </div>
-          </div>
-          <footer>
-
-            <hr />
-
-            <div role="contentinfo">
-              <p>&#169; Copyright 2026, SOS Location Team.</p>
-            </div>
-
-            Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
-            <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
-            provided by <a href="https://readthedocs.org">Read the Docs</a>.
-
-
-          </footer>
-        </div>
-      </div>
-    </section>
-  </div>
-  <script>
-    jQuery(function () {
-      SphinxRtdTheme.Navigation.enable(true);
-    });
-  </script>
-
+    <p class="note">
+      O detalhamento operacional da migração de acessos e rotas está em
+      <a href="/docs/_build/html/FRONTEND_TOTAL_REFACTOR_PLAN.html">FRONTEND_TOTAL_REFACTOR_PLAN.html</a>.
+    </p>
+  </main>
 </body>
-
 </html>
