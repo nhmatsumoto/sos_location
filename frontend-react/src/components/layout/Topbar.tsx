@@ -24,6 +24,7 @@ import {
 } from '@chakra-ui/react';
 import { doLogout } from '../../lib/keycloak';
 import { useAuthStore } from '../../store/authStore';
+import { PUBLIC_TRANSPARENCY_ROUTE, SHARED_SETTINGS_ROUTE } from '../../lib/appRouteManifest';
 
 interface TopbarProps {
   theme: 'dark' | 'light';
@@ -37,9 +38,10 @@ interface UserMenuProps {
   displayName: string;
   secondaryLabel?: string;
   settingsLabel: string;
+  settingsHref: string;
 }
 
-const UserMenu = memo(function UserMenu({ displayName, secondaryLabel, settingsLabel }: UserMenuProps) {
+const UserMenu = memo(function UserMenu({ displayName, secondaryLabel, settingsLabel, settingsHref }: UserMenuProps) {
   return (
     <Menu>
       <MenuButton
@@ -57,6 +59,8 @@ const UserMenu = memo(function UserMenu({ displayName, secondaryLabel, settingsL
         </Box>
         <MenuDivider borderColor="whiteAlpha.100" />
         <MenuItem
+          as={RouterLink}
+          to={settingsHref}
           icon={<LayoutGrid size={14} />}
           bg="transparent"
           _hover={{ bg: 'whiteAlpha.100' }}
@@ -86,6 +90,7 @@ export const Topbar = memo(function Topbar({ theme, onToggleTheme, notificationC
   const displayName = user?.name || user?.preferredUsername || 'Operador';
   const secondaryLabel = user?.email || user?.preferredUsername;
   const settingsLabel = t('nav.settings');
+  const settingsHref = SHARED_SETTINGS_ROUTE;
 
   const changeLanguage = (lng: string) => {
     i18n.changeLanguage(lng);
@@ -123,7 +128,7 @@ export const Topbar = memo(function Topbar({ theme, onToggleTheme, notificationC
           <Tooltip label="Voltar ao Portal de Transparência" placement="bottom">
             <IconButton
               as={RouterLink}
-              to="/transparency"
+              to={PUBLIC_TRANSPARENCY_ROUTE}
               size="sm"
               icon={<Globe size={14} />}
               aria-label="Portal de Transparência"
@@ -131,7 +136,7 @@ export const Topbar = memo(function Topbar({ theme, onToggleTheme, notificationC
               _hover={{ bg: 'whiteAlpha.100' }}
             />
           </Tooltip>
-          <UserMenu displayName={displayName} secondaryLabel={secondaryLabel} settingsLabel={settingsLabel} />
+          <UserMenu displayName={displayName} secondaryLabel={secondaryLabel} settingsLabel={settingsLabel} settingsHref={settingsHref} />
         </HStack>
       </Box>
     );
@@ -274,7 +279,7 @@ export const Topbar = memo(function Topbar({ theme, onToggleTheme, notificationC
             <Tooltip label={t('nav.transparency')} placement="bottom">
               <Button
                 as={RouterLink}
-                to="/transparency"
+                to={PUBLIC_TRANSPARENCY_ROUTE}
                 size="sm"
                 variant="ghost"
                 leftIcon={<Globe size={14} />}
@@ -285,7 +290,7 @@ export const Topbar = memo(function Topbar({ theme, onToggleTheme, notificationC
                 {t('nav.transparency').toUpperCase()}
               </Button>
             </Tooltip>
-            <UserMenu displayName={displayName} secondaryLabel={secondaryLabel} settingsLabel={settingsLabel} />
+            <UserMenu displayName={displayName} secondaryLabel={secondaryLabel} settingsLabel={settingsLabel} settingsHref={settingsHref} />
           </HStack>
         </HStack>
       </Flex>

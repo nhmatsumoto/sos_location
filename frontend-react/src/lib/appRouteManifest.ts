@@ -23,6 +23,7 @@ import { canAccess, type AccessRequirement } from './accessControl';
 export const DEFAULT_PRIVATE_ROUTE = '/app/overview';
 export const LEGACY_OVERVIEW_ROUTE = '/app/sos';
 export const PUBLIC_TRANSPARENCY_ROUTE = '/transparency';
+export const SHARED_SETTINGS_ROUTE = '/settings';
 export const ADMIN_HOME_ROUTE = '/admin';
 export const ADMIN_APPROVALS_ROUTE = '/admin/approvals';
 export const ADMIN_DATA_SOURCES_ROUTE = '/admin/data-sources';
@@ -202,7 +203,8 @@ export const APP_ROUTE_MANIFEST: AppRouteDefinition[] = [
   },
   {
     id: 'settings',
-    path: '/app/settings',
+    path: SHARED_SETTINGS_ROUTE,
+    aliases: ['/app/settings'],
     labelKey: 'nav.settings',
     icon: Settings,
     group: 'system',

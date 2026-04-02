@@ -1,7 +1,8 @@
 import { useSimulationStore } from '../../../store/useSimulationStore';
 import { DraggablePanel } from './DraggablePanel';
-import { Layers, TreePine, Map, CloudRain, Camera, Shield, Flame, HardHat, Heart, Building2 } from 'lucide-react';
-import { getRoles } from '../../../lib/keycloak';
+import { Layers, TreePine, Map, CloudRain, Camera, Shield, HardHat, Heart } from 'lucide-react';
+import { useAuthStore } from '../../../store/authStore';
+import { getCapabilitiesForRoles } from '../../../lib/accessControl';
 
 interface LiveOpsPanelProps {
   onClose: () => void;
@@ -15,12 +16,14 @@ export function LiveOpsPanel({ onClose }: LiveOpsPanelProps) {
     isPegmanActive, setIsPegmanActive,
   } = useSimulationStore();
 
-  const roles = getRoles();
+  const roles = useAuthStore((state) => state.roles);
+  const capabilities = getCapabilitiesForRoles(roles);
   const isAdmin = roles.includes('admin');
-  const isFirefighter = roles.includes('firefighter') || isAdmin;
-  const isCivilDefense = roles.includes('civil_defense') || isAdmin;
+  const isCoordinator = roles.includes('coordinator') || isAdmin;
   const isVolunteer = roles.includes('volunteer');
-  const isPrivateSector = roles.includes('private_sector');
+  const canManageResources = capabilities.includes('resource.manage');
+  const canOperateMap = capabilities.includes('map.operate');
+  const primaryRole = isAdmin ? 'admin' : isCoordinator ? 'coordinator' : isVolunteer ? 'volunteer' : roles[0] || 'public';
 
   return (
     <DraggablePanel 
@@ -38,11 +41,10 @@ export function LiveOpsPanel({ onClose }: LiveOpsPanelProps) {
           <div>
             <div className="text-[8px] text-slate-500 font-black uppercase tracking-widest">Posto de Comando</div>
             <div className="text-[10px] text-white font-mono flex items-center gap-1">
-               {isFirefighter && <Flame size={10} className="text-red-500" />}
-               {isCivilDefense && <HardHat size={10} className="text-orange-500" />}
+               {isAdmin && <Shield size={10} className="text-cyan-400" />}
+               {!isAdmin && isCoordinator && <HardHat size={10} className="text-orange-500" />}
                {isVolunteer && <Heart size={10} className="text-pink-500" />}
-               {isPrivateSector && <Building2 size={10} className="text-blue-500" />}
-               <span className="uppercase">{roles[0] || 'Visitante'}</span>
+               <span className="uppercase">{primaryRole}</span>
             </div>
           </div>
         </div>
@@ -70,25 +72,35 @@ export function LiveOpsPanel({ onClose }: LiveOpsPanelProps) {
                <input type="checkbox" checked={showStreets} onChange={e => setShowStreets(e.target.checked)} className="h-3 w-3 rounded border-slate-700 bg-slate-800 accent-cyan-500" />
             </label>
 
-            {/* Firefighter Specific: Thermal/Hydrant Mapping (Simulated) */}
-            {isFirefighter && (
+            {/* Resource coordination overlays */}
+            {canManageResources && (
               <label className="flex items-center justify-between text-[10px] cursor-pointer group p-2 bg-red-900/20 rounded-lg border border-red-500/20 hover:border-red-500/50 transition-colors">
                 <div className="flex items-center gap-2 text-red-400">
-                  <Flame size={14} />
-                  <span className="uppercase font-mono font-bold">Hidrantes & Riscos</span>
+                  <HardHat size={14} />
+                  <span className="uppercase font-mono font-bold">Recursos & Riscos</span>
                 </div>
                 <input type="checkbox" defaultChecked className="h-3 w-3 rounded border-red-700 bg-red-800 accent-red-500" />
               </label>
             )}
 
-            {/* Civil Defense Specific: Risk Zones */}
-            {isCivilDefense && (
+            {/* Evacuation planning overlays */}
+            {isCoordinator && (
               <label className="flex items-center justify-between text-[10px] cursor-pointer group p-2 bg-orange-900/20 rounded-lg border border-orange-500/20 hover:border-orange-500/50 transition-colors">
                 <div className="flex items-center gap-2 text-orange-400">
                   <Shield size={14} />
-                  <span className="uppercase font-mono font-bold">Zones de Evacuação</span>
+                  <span className="uppercase font-mono font-bold">Zonas de Evacuação</span>
                 </div>
                 <input type="checkbox" defaultChecked className="h-3 w-3 rounded border-orange-700 bg-orange-800 accent-orange-500" />
+              </label>
+            )}
+
+            {isVolunteer && !isCoordinator && (
+              <label className="flex items-center justify-between text-[10px] cursor-pointer group p-2 bg-pink-900/20 rounded-lg border border-pink-500/20 hover:border-pink-500/50 transition-colors">
+                <div className="flex items-center gap-2 text-pink-400">
+                  <Heart size={14} />
+                  <span className="uppercase font-mono font-bold">Pontos de Apoio</span>
+                </div>
+                <input type="checkbox" defaultChecked className="h-3 w-3 rounded border-pink-700 bg-pink-800 accent-pink-500" />
               </label>
             )}
 
@@ -118,8 +130,13 @@ export function LiveOpsPanel({ onClose }: LiveOpsPanelProps) {
                    <div className="w-3 h-3 bg-yellow-400 rounded-full animate-pulse" />
                    <span className="uppercase font-mono">Ativar SOS Hero</span>
                  </div>
-                 <input type="checkbox" checked={isPegmanActive} onChange={e => setIsPegmanActive(e.target.checked)} className="h-3 w-3 rounded border-slate-700 bg-slate-800 accent-yellow-500" />
+                 <input type="checkbox" checked={isPegmanActive} onChange={e => setIsPegmanActive(e.target.checked)} disabled={!canOperateMap} className="h-3 w-3 rounded border-slate-700 bg-slate-800 accent-yellow-500 disabled:opacity-40" />
               </label>
+              {!canOperateMap && (
+                <div className="text-[9px] font-mono text-slate-500 uppercase tracking-widest">
+                  MAP_OPERATE capability requerida para navegação assistida.
+                </div>
+              )}
             </div>
           </div>
         </div>

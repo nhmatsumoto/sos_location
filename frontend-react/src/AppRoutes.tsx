@@ -6,12 +6,12 @@ import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { Prefetcher } from './components/common/Prefetcher';
 import { useAuthStore } from './store/authStore';
 import {
-  ADMIN_APPROVALS_ROUTE,
   ADMIN_HOME_ROUTE,
   APP_ROUTE_BY_ID,
   APP_ROUTE_MANIFEST,
   DEFAULT_PRIVATE_ROUTE,
   PUBLIC_TRANSPARENCY_ROUTE,
+  SHARED_SETTINGS_ROUTE,
   getFirstAccessibleRoute,
   isTacticalRoutePath,
 } from './lib/appRouteManifest';
@@ -49,10 +49,10 @@ const TacticalAdminPage = lazy(() => import('./pages/TacticalAdminPage.tsx'));
 
 const OPERATIONAL_NAV_GROUPS: AppRouteGroup[] = ['ops', 'intel', 'resources', 'system'];
 const ADMIN_NAV_GROUPS: AppRouteGroup[] = ['admin'];
+const SETTINGS_NAV_GROUPS: AppRouteGroup[] = ['ops', 'intel', 'resources', 'admin', 'system'];
 
 const privateRouteElements: Array<{ routeId: string; element: ReactElement }> = [
   { routeId: 'overview', element: <SOSPage /> },
-  { routeId: 'settings', element: <SettingsPage /> },
   { routeId: 'volunteer', element: <VolunteerDashboardPage /> },
   { routeId: 'logistics', element: <LogisticsPage /> },
   { routeId: 'risk-assessment', element: <RiskAssessmentPage /> },
@@ -200,7 +200,46 @@ function AdminLayout() {
               );
             })}
 
-            <Route path="*" element={<Navigate to={ADMIN_APPROVALS_ROUTE} replace />} />
+            <Route
+              path="*"
+              element={
+                <ProtectedRoute>
+                  <AdminIndexRedirect />
+                </ProtectedRoute>
+              }
+            />
+          </Routes>
+        </Suspense>
+      </AppShell>
+    </div>
+  );
+}
+
+function SharedSettingsLayout() {
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+  }, [theme]);
+
+  return (
+    <div className="animate-in fade-in duration-700 ease-out">
+      <AppShell
+        theme={theme}
+        onToggleTheme={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
+        variant="default"
+        navigationGroups={SETTINGS_NAV_GROUPS}
+      >
+        <Suspense fallback={<div style={{ padding: 16 }} className="text-slate-500 font-bold animate-pulse text-center">Carregando central de configurações...</div>}>
+          <Routes>
+            <Route
+              path={SHARED_SETTINGS_ROUTE}
+              element={
+                <ProtectedRoute>
+                  <SettingsPage />
+                </ProtectedRoute>
+              }
+            />
           </Routes>
         </Suspense>
       </AppShell>
@@ -249,6 +288,9 @@ export default function AppRoutes() {
 
         {/* Administrative Domain (Protected) */}
         <Route path="/admin/*" element={<AdminLayout />} />
+
+        {/* Shared Settings Domain (Protected) */}
+        <Route path="/settings" element={<SharedSettingsLayout />} />
 
         {/* System Routes */}
         <Route path="/error" element={<Suspense fallback={<LoadingScreen />}><ErrorPage /></Suspense>} />
