@@ -5,4 +5,6 @@ import { cleanup } from '@testing-library/react';
 // Runs a cleanup after each test case (e.g. clearing jsdom)
 afterEach(() => {
   cleanup();
+  window.localStorage?.clear?.();
+  window.sessionStorage?.clear?.();
 });
