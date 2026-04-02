@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import type { FormEvent } from 'react';
 import { useLocation } from 'react-router-dom';
 import type { 
@@ -14,8 +14,27 @@ import {
 import { useClimate } from './useClimate';
 import { useEmergencyAlerts } from './useEmergencyAlerts';
 import { useSimulation } from './useSimulation';
-import { apiClient } from '../services/apiClient';
+import { newsApi, type NewsNotification } from '../services/newsApi';
+import { reportsApi } from '../services/reportsApi';
+import { demarcationsApi } from '../services/demarcationsApi';
 import { frontendLogger } from '../lib/logger';
+
+const mapNewsToUpdate = (item: NewsNotification, fallbackCity: string): NewsUpdate => {
+  const publishedAtUtc = item.publishedAtUtc ?? item.publishedAt ?? item.at ?? new Date().toISOString();
+  const city = item.location || item.country || (fallbackCity && fallbackCity !== 'Todas' ? fallbackCity : 'Global');
+  const topic = `${item.category ?? ''} ${item.source ?? ''}`.toLowerCase();
+
+  return {
+    id: item.id,
+    city,
+    title: item.title,
+    source: item.source,
+    url: item.externalUrl || item.sourceUrl || '#',
+    publishedAtUtc,
+    thumbnailUrl: item.thumbnailUrl || 'https://portaldatransparencia.gov.br/favicon.ico',
+    kind: topic.includes('government') || topic.includes('governo') ? 'government_action' : 'alert',
+  };
+};
 
 export function useOperationalState() {
   const { climakiSnapshot, loadingClimaki, climakiError, loadClimakiContext } = useClimate();
@@ -130,28 +149,42 @@ export function useOperationalState() {
     splat: false
   });
 
+  const loadNews = useCallback(async () => {
+    setLoadingNews(true);
+    setNewsUpdates([]);
+
+    try {
+      const selectedLocation = selectedNewsCity === 'Todas' ? undefined : selectedNewsCity;
+      const items = await newsApi.getNews(undefined, selectedLocation, 'week');
+      const normalized = items.map((item) => mapNewsToUpdate(item, selectedNewsCity));
+      setNewsUpdates(normalized.length > 0 ? normalized : LOCAL_WEEKLY_RAIN_NEWS);
+    } catch (error) {
+      frontendLogger.error('Falha ao carregar notícias', { error });
+      setNewsUpdates(LOCAL_WEEKLY_RAIN_NEWS);
+    } finally {
+      setLoadingNews(false);
+    }
+  }, [selectedNewsCity]);
+
+  const loadDemarcations = useCallback(async () => {
+    try {
+      const items = await demarcationsApi.list();
+      setDemarcations(items);
+    } catch (error) {
+      frontendLogger.error('Falha ao carregar demarcações', { error });
+    }
+  }, []);
 
   const activeCatastrophe = useMemo(
     () => catastrophes.find((item) => item.id === selectedCatastropheId) ?? null,
     [catastrophes, selectedCatastropheId],
   );
 
-  const loadNews = () => {
-    setLoadingNews(true);
-    apiClient.get<NewsUpdate[]>('/api/news-updates')
-      .then((res) => {
-        const data = res.data;
-        const validNews = Array.isArray(data) ? data : [];
-        setNewsUpdates(validNews.length ? validNews : LOCAL_WEEKLY_RAIN_NEWS);
-      })
-      .catch(() => setNewsUpdates(LOCAL_WEEKLY_RAIN_NEWS))
-      .finally(() => setLoadingNews(false));
-  };
-
   useEffect(() => {
     loadHotspots().then(() => setLoading(false));
 
     loadNews();
+    void loadDemarcations();
     loadMissingPeople();
     loadAttentionAlerts();
     loadClimakiContext();
@@ -169,20 +202,7 @@ export function useOperationalState() {
       clearInterval(tacticalInterval);
       clearInterval(publicSourcesInterval);
     };
-  }, [loadHotspots, loadMissingPeople, loadAttentionAlerts, loadClimakiContext]);
-
-  const loadDemarcations = async () => {
-    try {
-      const res = await apiClient.get<MapDemarcation[]>('/api/v1/demarcations');
-      setDemarcations(res.data);
-    } catch (err) {
-      frontendLogger.error('Falha ao carregar demarcações', { err });
-    }
-  };
-
-  useEffect(() => {
-    loadDemarcations();
-  }, []);
+  }, [loadHotspots, loadMissingPeople, loadAttentionAlerts, loadClimakiContext, loadNews, loadDemarcations]);
 
   const handleUpload = async (event: FormEvent) => {
     event.preventDefault();
@@ -195,23 +215,24 @@ export function useOperationalState() {
     }
 
     setUploading(true);
-    const payload = new FormData();
-    payload.append('locationName', formState.locationName);
-    payload.append('latitude', formState.latitude);
-    payload.append('longitude', formState.longitude);
-    payload.append('description', formState.description);
-    payload.append('reporterName', formState.reporterName);
-    payload.append('reporterPhone', formState.reporterPhone);
-    payload.append('video', formState.video);
 
     try {
-        await apiClient.post('/api/collapse-reports', payload);
+      await reportsApi.create({
+        kind: 'person',
+        name: formState.locationName,
+        lastSeen: `${formState.latitude}, ${formState.longitude}`,
+        details: [
+          formState.description,
+          formState.video ? `Vídeo anexado: ${formState.video.name}` : '',
+        ].filter(Boolean).join(' | '),
+        contact: [formState.reporterName, formState.reporterPhone].filter(Boolean).join(' / ') || '—',
+      });
 
-        setUploadSuccess('Upload recebido! O vídeo entrou na fila para gaussian-splatting.');
-        setFormState(initialFormState);
+      setUploadSuccess('Relato recebido! O registro foi salvo no feed público.');
+      setFormState(initialFormState);
     } catch (error) {
         const message = error instanceof Error ? error.message : 'Erro inesperado no envio.';
-        frontendLogger.error('Falha no upload de vídeo', { message });
+        frontendLogger.error('Falha no envio do relato', { message });
         setUploadError(message);
     } finally {
         setUploading(false);
@@ -274,16 +295,15 @@ export function useOperationalState() {
     setDemarcationSuccess('');
 
     try {
-      const payload = {
-        ...demarcationForm,
+      const res = await demarcationsApi.create({
+        title: demarcationForm.title,
+        description: demarcationForm.description,
+        type: demarcationForm.type,
         latitude: demarcationDraftPoint.lat,
         longitude: demarcationDraftPoint.lng,
-        tags: demarcationForm.tags.split(',').map(t => t.trim()).filter(t => t !== ''),
-        createdBy: 'Admin', // Static for now
-      };
-
-      const res = await apiClient.post<MapDemarcation>('/api/v1/demarcations', payload);
-      setDemarcations(prev => [res.data, ...prev]);
+        tags: demarcationForm.tags.split(',').map((tag) => tag.trim()).filter((tag) => tag.length > 0),
+      });
+      setDemarcations((prev) => [res, ...prev.filter((item) => item.id !== res.id)]);
       setDemarcationSuccess('Demarcação salva!');
       setShowDemarcationModal(false);
       setDemarcationForm(initialDemarcationForm);

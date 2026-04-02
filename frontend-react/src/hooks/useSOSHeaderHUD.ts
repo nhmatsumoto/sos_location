@@ -6,7 +6,7 @@ import { doLogout } from '../lib/keycloak';
  * Handles authentication and specialized header actions.
  */
 export function useSOSHeaderHUD() {
-  const { user } = useAuthStore();
+  const user = useAuthStore((state) => state.user);
 
   const handleLogout = () => {
     doLogout();

@@ -15,6 +15,8 @@
 | [REQUIREMENTS.md](REQUIREMENTS.md) | Requisitos funcionais e não funcionais |
 | [TECHNOLOGY_STACK.md](TECHNOLOGY_STACK.md) | Inventário de tecnologias |
 | [FEATURES.md](FEATURES.md) | Catálogo de funcionalidades |
+| [ANALYTICAL_MODELS_AND_PHYSICS.md](ANALYTICAL_MODELS_AND_PHYSICS.md) | Modelos matemáticos, físicos e notação AsciiMath |
+| [FRONTEND_TOTAL_REFACTOR_PLAN.md](FRONTEND_TOTAL_REFACTOR_PLAN.md) | Plano diretor da refatoração total do frontend |
 | [API_ENDPOINT_MAP.md](API_ENDPOINT_MAP.md) | Mapa de endpoints da API |
 | [AUTHZ_ROLES.md](AUTHZ_ROLES.md) | Controle de acesso e papéis (RBAC) |
 | [DOMAIN_SPECIFICATION.md](DOMAIN_SPECIFICATION.md) | Especificação do domínio DDD |
@@ -33,15 +35,15 @@ sos_location/
 │   ├── SOSLocation.Application/ # Use Cases, Commands, Queries (MediatR)
 │   ├── SOSLocation.Domain/  # Entidades, Aggregates, Value Objects
 │   ├── SOSLocation.Infrastructure/ # EF Core, Dapper, GIS providers
-│   └── SOSLocation.ML/      # Módulo de Machine Learning (.NET)
-├── frontend-react/          # React 19 + TypeScript + WebGL 2.0
+│   └── SOSLocation.ML/      # Modelos analíticos heurísticos e simulação multi-hazard (.NET)
+├── frontend-react/          # React 19 + TypeScript + SPA operacional
 │   └── src/
 │       ├── pages/           # 28 páginas de rotas
 │       ├── components/      # UI atoms, features, WebGL
 │       ├── hooks/           # 23 hooks personalizados
 │       ├── lib/             # WebGL pipeline, análise GIS, blueprints
 │       └── services/        # 30+ clientes de API
-├── risk-analysis-unit/      # Python FastAPI + PyTorch
+├── risk-analysis-unit/      # Serviço legado/experimental em Python
 ├── infra/                   # Docker Compose, backups, Keycloak
 └── docs/                    # Esta documentação
 ```
@@ -62,12 +64,12 @@ Organizado por domínios verticais (Slices):
 | `AlertController` | Geração e distribuição de alertas |
 | `HydraHub` (SignalR) | Streaming em tempo real para o frontend |
 
-### Frontend — Hydra Engine
-Motor de renderização tático puro WebGL 2.0:
+### Frontend — SPA Operacional
+Camada React para transparência pública, comando tático, analytics e simulações:
 
 | Módulo | Responsabilidade |
 |--------|-----------------|
-| `CityScaleWebGL` | Renderizador 3D — terreno, edifícios, água, zonas |
+| `CityScaleWebGL` | Renderizador 3D principal com overlays de engenharia e desastre |
 | `PublicPortalMap` | Mapa 2D Leaflet público interativo |
 | `SimulationsPage` | Interface de controle de simulações e camadas 3D |
 | `HydrologicalAnalyzer` | Análise D8 de fluxo hidrológico a partir de DEM |
@@ -75,13 +77,12 @@ Motor de renderização tático puro WebGL 2.0:
 | `CityBlueprintBuilder` | Orquestrador do pipeline de dados de cena |
 
 ### Risk Analysis Unit
-Microsserviço Python com modelos de ML:
+Camada analítica atual:
 
-| Endpoint | Função |
-|----------|--------|
-| `POST /analyze` | Análise de risco multi-hazard |
-| `POST /semantic-segmentation` | Segmentação semântica de cenas urbanas |
-| `GET /health` | Health check do serviço |
+| Componente | Função |
+|-----------|--------|
+| `SOSLocation.ML` | Modelos heurísticos .NET para risco, segmentação, declividade e simulação |
+| `risk-analysis-unit` | Serviço legado/experimental em Python ainda referenciado por partes da infraestrutura |
 
 ---
 
@@ -92,9 +93,9 @@ Microsserviço Python com modelos de ML:
 docker compose up -d --build
 
 # Acessar a aplicação
-# Frontend:      http://localhost:5173
-# API:           http://localhost:5000
-# Swagger:       http://localhost:5000/swagger
+# Frontend:      http://localhost:8088
+# API:           http://localhost:8000
+# Swagger:       http://localhost:8000/swagger
 # Keycloak:      http://localhost:8080
 # Risk Analysis: http://localhost:8001
 # Dozzle Logs:   http://localhost:8888

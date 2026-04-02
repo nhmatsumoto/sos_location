@@ -23,7 +23,7 @@ export function GamificationHud({
   nextLevelXp: propNextLevelXp, 
   ...props 
 }: GamificationHudProps) {
-  const { user } = useAuthStore();
+  const user = useAuthStore((state) => state.user);
   
   // Use props if provided, otherwise fallback to store
   const xp = propXp ?? user?.xp ?? 0;

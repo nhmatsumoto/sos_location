@@ -12,6 +12,15 @@ const DOCS = [
     ],
   },
   {
+    category: 'Modelos & Refatoração',
+    color: 'rose',
+    items: [
+      { file: 'ANALYTICAL_MODELS_AND_PHYSICS.md', title: 'Modelos Analíticos e Físicos', desc: 'Fórmulas em AsciiMath para risco, hidrologia, slope, simulação e aproximações visuais.' },
+      { file: 'FRONTEND_TOTAL_REFACTOR_PLAN.md', title: 'Plano de Refatoração do Frontend', desc: 'Rotas-alvo, páginas, acessos, domínios e roadmap técnico para reorganizar o produto.' },
+      { file: 'AUTHZ_ROLES.md', title: 'Autorização e Papéis', desc: 'Estado atual de RBAC, capacidades alvo e contrato de acesso para o frontend novo.' },
+    ],
+  },
+  {
     category: 'Motor 3D & Renderização',
     color: 'blue',
     items: [
@@ -53,10 +62,16 @@ const DOCS = [
 
 const COLOR_MAP: Record<string, { border: string; bg: string; text: string; badge: string }> = {
   cyan:    { border: 'border-cyan-500/20',   bg: 'bg-cyan-500/10',   text: 'text-cyan-400',   badge: 'bg-cyan-500/10 text-cyan-400' },
+  rose:    { border: 'border-rose-500/20',   bg: 'bg-rose-500/10',   text: 'text-rose-400',   badge: 'bg-rose-500/10 text-rose-400' },
   blue:    { border: 'border-blue-500/20',   bg: 'bg-blue-500/10',   text: 'text-blue-400',   badge: 'bg-blue-500/10 text-blue-400' },
   violet:  { border: 'border-violet-500/20', bg: 'bg-violet-500/10', text: 'text-violet-400', badge: 'bg-violet-500/10 text-violet-400' },
   amber:   { border: 'border-amber-500/20',  bg: 'bg-amber-500/10',  text: 'text-amber-400',  badge: 'bg-amber-500/10 text-amber-400' },
   emerald: { border: 'border-emerald-500/20',bg: 'bg-emerald-500/10',text: 'text-emerald-400',badge: 'bg-emerald-500/10 text-emerald-400' },
+};
+
+const getDocHref = (file: string) => {
+  const htmlFile = file.replace(/\.md$/i, '.html');
+  return `/docs/_build/html/${htmlFile}`;
 };
 
 export function DocsIndexPage() {
@@ -88,7 +103,7 @@ export function DocsIndexPage() {
           <p className="text-[10px] uppercase tracking-[0.5em] text-cyan-400 font-bold mb-3">// docs</p>
           <h1 className="text-4xl md:text-5xl font-black tracking-tight mb-4">Documentação</h1>
           <p className="text-slate-400 text-lg max-w-2xl">
-            Documentação técnica completa da plataforma SOS Location — arquitetura, APIs, segurança e operações.
+            Documentação técnica da plataforma SOS Location com arquitetura, APIs, segurança, modelos analíticos e plano diretor da refatoração do frontend.
           </p>
         </div>
 
@@ -108,7 +123,7 @@ export function DocsIndexPage() {
                   {cat.items.map((doc) => (
                     <a
                       key={doc.file}
-                      href={`/docs/${doc.file}`}
+                      href={getDocHref(doc.file)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className={`group flex flex-col rounded-xl border ${c.border} bg-slate-900/50 p-5 hover:bg-slate-900/80 hover:${c.border.replace('/20', '/40')} transition-all duration-200`}

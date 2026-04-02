@@ -81,7 +81,7 @@ const UserMenu = memo(function UserMenu({ displayName, secondaryLabel, settingsL
 });
 
 export const Topbar = memo(function Topbar({ theme, onToggleTheme, notificationCount, onOpenNotifications, minimal }: TopbarProps) {
-  const { user } = useAuthStore();
+  const user = useAuthStore((state) => state.user);
   const { t, i18n } = useTranslation();
   const displayName = user?.name || user?.preferredUsername || 'Operador';
   const secondaryLabel = user?.email || user?.preferredUsername;
@@ -120,13 +120,13 @@ export const Topbar = memo(function Topbar({ theme, onToggleTheme, notificationC
               </Badge>
             )}
           </Box>
-          <Tooltip label="Voltar ao Mapa Público" placement="bottom">
+          <Tooltip label="Voltar ao Portal de Transparência" placement="bottom">
             <IconButton
               as={RouterLink}
-              to="/map"
+              to="/transparency"
               size="sm"
               icon={<Globe size={14} />}
-              aria-label="Mapa Público"
+              aria-label="Portal de Transparência"
               variant="ghost"
               _hover={{ bg: 'whiteAlpha.100' }}
             />
@@ -271,10 +271,10 @@ export const Topbar = memo(function Topbar({ theme, onToggleTheme, notificationC
               color="whiteAlpha.600"
               _hover={{ color: 'white' }}
             />
-            <Tooltip label={t('nav.map')} placement="bottom">
+            <Tooltip label={t('nav.transparency')} placement="bottom">
               <Button
                 as={RouterLink}
-                to="/map"
+                to="/transparency"
                 size="sm"
                 variant="ghost"
                 leftIcon={<Globe size={14} />}
@@ -282,7 +282,7 @@ export const Topbar = memo(function Topbar({ theme, onToggleTheme, notificationC
                 color="whiteAlpha.700"
                 _hover={{ color: 'sos.blue.400', bg: 'whiteAlpha.50' }}
               >
-                {t('nav.map').toUpperCase()}
+                {t('nav.transparency').toUpperCase()}
               </Button>
             </Tooltip>
             <UserMenu displayName={displayName} secondaryLabel={secondaryLabel} settingsLabel={settingsLabel} />

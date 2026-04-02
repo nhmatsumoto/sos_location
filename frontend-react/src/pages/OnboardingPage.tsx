@@ -33,7 +33,7 @@ export function OnboardingPage() {
 
   const handlePublicEntry = () => {
     localStorage.setItem('sos_onboarding_visited', 'true');
-    navigate('/map');
+    navigate('/transparency');
   };
 
   const handleLoginEntry = () => {

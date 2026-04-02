@@ -61,7 +61,8 @@ export const NavigationRail = memo(function NavigationRail({
   ...props
 }: NavigationRailProps) {
   const location = useLocation();
-  const { authenticated, roles } = useAuthStore();
+  const authenticated = useAuthStore((state) => state.authenticated);
+  const roles = useAuthStore((state) => state.roles);
   const { t } = useTranslation();
   const isAdmin = roles.includes('admin');
   const isExpanded = mode === 'expanded';

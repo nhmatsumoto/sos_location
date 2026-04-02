@@ -49,3 +49,18 @@ myst_enable_extensions = [
     "substitution",
     "tasklist",
 ]
+
+# MathJax configuration:
+# - keep MyST dollar/ams math support
+# - add AsciiMath using [= ... =] delimiters, which are Markdown-safe
+mathjax3_config = {
+    "loader": {
+        "load": ["input/asciimath", "[tex]/ams"],
+    },
+    "tex": {
+        "packages": {"[+]": ["ams"]},
+    },
+    "asciimath": {
+        "delimiters": [["[=", "=]"]],
+    },
+}

@@ -32,6 +32,7 @@ const MissingPersonsPage = lazy(() => import('./pages/MissingPersonsPage.tsx').t
 const GlobalDisastersPage = lazy(() => import('./pages/GlobalDisastersPage.tsx').then((m) => ({ default: m.GlobalDisastersPage })));
 const RescueOpsPage = lazy(() => import('./pages/RescueOpsPage.tsx').then((m) => ({ default: m.RescueOpsPage })));
 const OperationalMapPage = lazy(() => import('./pages/OperationalMapPage.tsx').then((m) => ({ default: m.default })));
+const PublicIncidentsPage = lazy(() => import('./pages/PublicIncidentsPage.tsx').then((m) => ({ default: m.PublicIncidentsPage })));
 
 const TacticalAdminPage = lazy(() => import('./pages/TacticalAdminPage.tsx'));
 
@@ -109,7 +110,7 @@ function PrivateLayout() {
  * Global application routing configuration.
  */
 export default function AppRoutes() {
-  const { authenticated } = useAuthStore();
+  const authenticated = useAuthStore((state) => state.authenticated);
 
   return (
     <>
@@ -126,7 +127,10 @@ export default function AppRoutes() {
         <Route path="/docs" element={<Suspense fallback={<LoadingScreen />}><DocsIndexPage /></Suspense>} />
 
         {/* Public Observation Routes */}
-        <Route path="/transparency" element={<Suspense fallback={<LoadingScreen />}><PublicIncidentDashboardPage /></Suspense>} />
+        <Route path="/transparency" element={<Suspense fallback={<LoadingScreen />}><PublicIncidentsPage /></Suspense>} />
+        <Route path="/transparency/:id" element={<Suspense fallback={<LoadingScreen />}><PublicIncidentDashboardPage /></Suspense>} />
+        <Route path="/public/incidents" element={<Navigate to="/transparency" replace />} />
+        <Route path="/public/incidents/:id" element={<Suspense fallback={<LoadingScreen />}><PublicIncidentDashboardPage /></Suspense>} />
 
         {/* Compatibility Aliases */}
         <Route path="/public/transparency" element={<Navigate to="/transparency" replace />} />

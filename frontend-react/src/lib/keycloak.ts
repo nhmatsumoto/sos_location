@@ -1,6 +1,7 @@
 import Keycloak from 'keycloak-js';
 import { frontendLogger } from './logger';
 import { useAuthStore } from '../store/authStore';
+import { clearSessionToken, setSessionToken } from './authSession';
 
 // --- KEYCLOAK INITIALIZATION ---
 const keycloakConfig = {
@@ -34,6 +35,54 @@ const syncAuthStore = () => {
   }
 };
 
+const normalizeRedirectPath = (value: string | null) => {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed.startsWith('/')) return null;
+  if (trimmed === '/' || trimmed === '/login') return null;
+  if (trimmed.includes('?') || trimmed.includes('#') || trimmed.includes('loggedOut')) return null;
+  return trimmed;
+};
+
+let refreshInFlight: Promise<boolean> | null = null;
+
+export const refreshSessionToken = async (minimumValidity = 30) => {
+  if (!keycloak.authenticated) {
+    return false;
+  }
+
+  if (refreshInFlight) {
+    return refreshInFlight;
+  }
+
+  refreshInFlight = keycloak
+    .updateToken(minimumValidity)
+    .then((refreshed) => {
+      if (keycloak.token) {
+        setSessionToken(keycloak.token);
+      }
+
+      syncAuthStore();
+      return refreshed;
+    })
+    .catch((error) => {
+      frontendLogger.error('Failed to refresh token', { error });
+      const currentPath = normalizeRedirectPath(window.location.pathname) ?? '/app/sos';
+      localStorage.setItem('sos_login_redirect', currentPath);
+      keycloak.clearToken();
+      useAuthStore.getState().clearAuth();
+      clearSessionToken();
+      return false;
+    })
+    .finally(() => {
+      refreshInFlight = null;
+    });
+
+  return refreshInFlight;
+};
+
+export const getActiveSessionToken = () => keycloak.token ?? null;
+
 export const initKeycloak = async (onAuthenticatedCallback: () => void) => {
   try {
     const authenticated = await keycloak.init({
@@ -49,15 +98,20 @@ export const initKeycloak = async (onAuthenticatedCallback: () => void) => {
 
     if (authenticated) {
       frontendLogger.info('Keycloak authenticated successfully', { roles: getRoles() });
-      
-      // Store token for legacy/existing apiClient uses
+
       if (keycloak.token) {
-        localStorage.setItem('sos_location_token', keycloak.token);
+        setSessionToken(keycloak.token);
       }
-      
-      // Handle post-login redirect
-      // Use window.location.replace (not replaceState) so React Router picks up the new URL
-      const redirectPath = localStorage.getItem('sos_login_redirect');
+
+      await refreshSessionToken(60);
+
+      if (!keycloak.authenticated) {
+        frontendLogger.info('Keycloak session became invalid during bootstrap');
+        onAuthenticatedCallback();
+        return;
+      }
+
+      const redirectPath = normalizeRedirectPath(localStorage.getItem('sos_login_redirect'));
       if (redirectPath && window.location.pathname !== redirectPath) {
         localStorage.removeItem('sos_login_redirect');
         window.location.replace(redirectPath);
@@ -68,17 +122,10 @@ export const initKeycloak = async (onAuthenticatedCallback: () => void) => {
       
       // Token refresh logic
       keycloak.onTokenExpired = () => {
-        keycloak.updateToken(30).then((refreshed) => {
+        void refreshSessionToken(30).then((refreshed) => {
           if (refreshed) {
             frontendLogger.info('Token refreshed successfully');
-            localStorage.setItem('sos_location_token', keycloak.token!);
-            syncAuthStore();
           }
-        }).catch(() => {
-          frontendLogger.error('Failed to refresh token');
-          localStorage.setItem('sos_login_redirect', window.location.pathname);
-          useAuthStore.getState().clearAuth();
-          keycloak.login();
         });
       };
     } else {
@@ -97,7 +144,8 @@ export const initKeycloak = async (onAuthenticatedCallback: () => void) => {
 };
 
 export const doLogout = () => {
-  localStorage.removeItem('sos_location_token');
+  keycloak.clearToken();
+  clearSessionToken();
   keycloak.logout();
 };
 

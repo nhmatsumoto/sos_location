@@ -7340,7 +7340,7 @@
     ]
   },
   "packageFolders": {
-    "/home/nhmatsumoto/.nuget/packages/": {}
+    "/tmp/sos-location-dotnet-home/.nuget/packages/": {}
   },
   "project": {
     "version": "1.0.0",
@@ -7348,11 +7348,11 @@
       "projectUniqueName": "/home/nhmatsumoto/sos_location/backend-dotnet/SOSLocation.API/SOSLocation.API.csproj",
       "projectName": "SOSLocation.API",
       "projectPath": "/home/nhmatsumoto/sos_location/backend-dotnet/SOSLocation.API/SOSLocation.API.csproj",
-      "packagesPath": "/home/nhmatsumoto/.nuget/packages/",
+      "packagesPath": "/tmp/sos-location-dotnet-home/.nuget/packages/",
       "outputPath": "/home/nhmatsumoto/sos_location/backend-dotnet/SOSLocation.API/obj/",
       "projectStyle": "PackageReference",
       "configFilePaths": [
-        "/home/nhmatsumoto/.nuget/NuGet/NuGet.Config"
+        "/tmp/sos-location-dotnet-home/.nuget/NuGet/NuGet.Config"
       ],
       "originalTargetFrameworks": [
         "net10.0"
@@ -7475,7 +7475,7 @@
         "downloadDependencies": [
           {
             "name": "Microsoft.AspNetCore.App.Ref",
-            "version": "[10.0.3, 10.0.3]"
+            "version": "[10.0.4, 10.0.4]"
           }
         ],
         "frameworkReferences": {
@@ -7486,7 +7486,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "/usr/share/dotnet/sdk/10.0.103/PortableRuntimeIdentifierGraph.json",
+        "runtimeIdentifierGraphPath": "/usr/share/dotnet/sdk/10.0.104/PortableRuntimeIdentifierGraph.json",
         "packagesToPrune": {
           "Microsoft.CSharp": "(,4.7.32767]",
           "Microsoft.VisualBasic": "(,10.4.32767]",

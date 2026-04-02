@@ -33,7 +33,8 @@ import { useTranslation } from 'react-i18next';
 
 export const Sidebar = memo(function Sidebar(props: BoxProps) {
   const location = useLocation();
-  const { authenticated, roles } = useAuthStore();
+  const authenticated = useAuthStore((state) => state.authenticated);
+  const roles = useAuthStore((state) => state.roles);
   const { t } = useTranslation();
 
   const isAdmin = roles.includes('admin');

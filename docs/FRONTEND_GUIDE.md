@@ -6,7 +6,14 @@
 
 ## 1. Visão Geral
 
-O frontend do SOS Location é uma Single Page Application construída com **React 19 + TypeScript 5 + Vite 7**. O diferencial técnico central é o motor de renderização 3D **Hydra Engine** — um pipeline WebGL 2.0 puro (sem Three.js) que constrói cenas táticas de cidades a partir de dados GIS reais.
+O frontend do SOS Location é uma Single Page Application construída com **React 19 + TypeScript 5 + Vite 7**. No estado atual do repositório, a aplicação combina:
+
+- shell operacional em React;
+- mapas 2D em Leaflet;
+- pipelines WebGL customizados para terreno, slope, semântica e overlays;
+- dependências ainda ativas de **Three.js / @react-three/fiber** em partes da implementação.
+
+O repositório nao esta mais em um estado "WebGL puro sem Three.js". A direcao de consolidação e reorganização de rotas, domínios e acessos está em [FRONTEND_TOTAL_REFACTOR_PLAN.md](/home/nhmatsumoto/sos_location/docs/FRONTEND_TOTAL_REFACTOR_PLAN.md), enquanto a base matemática dos modelos está em [ANALYTICAL_MODELS_AND_PHYSICS.md](/home/nhmatsumoto/sos_location/docs/ANALYTICAL_MODELS_AND_PHYSICS.md).
 
 ---
 
@@ -65,7 +72,7 @@ frontend-react/src/
 
 ---
 
-## 3. Pipeline WebGL — Hydra Engine
+## 3. Pipeline WebGL e Analytics
 
 ### Ciclo de Vida da Cena
 

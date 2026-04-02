@@ -7,6 +7,8 @@ export interface NewsNotification {
   description: string;
   source: string;
   sourceUrl?: string;
+  country?: string;
+  location?: string;
   severity: 'Atenção' | 'Perigo' | 'Extremo';
   latitude?: number;
   longitude?: number;
@@ -15,9 +17,11 @@ export interface NewsNotification {
   // Extended properties for tactical UI telemétria
   category?: string;
   publishedAt?: string;
+  publishedAtUtc?: string;
   riskScore?: number;
   content?: string;
   externalUrl?: string;
+  thumbnailUrl?: string;
   
   // Tactical Operational Data
   areaKm2?: number;

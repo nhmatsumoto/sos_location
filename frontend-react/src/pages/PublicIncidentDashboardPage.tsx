@@ -168,15 +168,15 @@ export function PublicIncidentDashboardPage() {
             >
               ● OPERAÇÃO ATIVA
             </Badge>
-            <Button 
+              <Button 
               leftIcon={<ArrowLeft size={16} />} 
               variant="tactical" 
               borderRadius="full" 
               h="48px" 
               px={6}
-              onClick={() => navigate('/map')}
+              onClick={() => navigate('/transparency')}
             >
-              Voltar ao Mapa
+              Voltar ao Portal de Transparência
             </Button>
           </HStack>
         </HStack>

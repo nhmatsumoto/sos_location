@@ -5,7 +5,7 @@ import { simulationsApi } from '../services/simulationsApi';
 
 vi.mock('../services/simulationsApi', () => ({
   simulationsApi: {
-    runFlow: vi.fn(),
+    runSimulation: vi.fn(),
   },
 }));
 
@@ -35,7 +35,7 @@ describe('useSimulationsController', () => {
       maxDepth: 1.5,
       floodedCells: 120
     };
-    vi.mocked(simulationsApi.runFlow).mockResolvedValue(mockData as never);
+    vi.mocked(simulationsApi.runSimulation).mockResolvedValue(mockData as never);
 
     const { result } = renderHook(() => useSimulationsController());
 

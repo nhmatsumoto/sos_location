@@ -29,6 +29,7 @@ interface WeatherUpdatePayload {
 
 export function NotificationsProvider({ children }: { children: ReactNode }) {
   const [notices, setNotices] = useState<NoticeItem[]>([]);
+  const token = useAuthStore((state) => state.token);
 
   const pushNotice = useCallback((notice: Omit<NoticeItem, 'id' | 'createdAt'>) => {
     const item: NoticeItem = {
@@ -57,12 +58,11 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       pushNotice({ title, message, type: 'error' });
     });
 
-    const token = useAuthStore.getState().token;
     if (!token) return;
 
     const connection = new HubConnectionBuilder()
       .withUrl(`${window.location.origin}/api/hubs/notifications`, {
-        accessTokenFactory: () => token
+        accessTokenFactory: () => useAuthStore.getState().token ?? token
       })
       .withAutomaticReconnect()
       .configureLogging(LogLevel.Information)
@@ -97,7 +97,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     return () => {
       void connection.stop();
     };
-  }, [pushNotice]);
+  }, [pushNotice, token]);
 
   const value = useMemo(() => ({ notices, pushNotice, removeNotice }), [notices, pushNotice, removeNotice]);
   return <NotificationsContext.Provider value={value}>{children}</NotificationsContext.Provider>;

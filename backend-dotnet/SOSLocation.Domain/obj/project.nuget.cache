@@ -1,11 +1,11 @@
 {
   "version": 2,
-  "dgSpecHash": "Dut1hWo52po=",
+  "dgSpecHash": "65T68ehLa40=",
   "success": true,
   "projectFilePath": "/home/nhmatsumoto/sos_location/backend-dotnet/SOSLocation.Domain/SOSLocation.Domain.csproj",
   "expectedPackageFiles": [
-    "/home/nhmatsumoto/.nuget/packages/mediatr.contracts/2.0.1/mediatr.contracts.2.0.1.nupkg.sha512",
-    "/home/nhmatsumoto/.nuget/packages/microsoft.aspnetcore.app.ref/10.0.3/microsoft.aspnetcore.app.ref.10.0.3.nupkg.sha512"
+    "/tmp/sos-location-dotnet-home/.nuget/packages/mediatr.contracts/2.0.1/mediatr.contracts.2.0.1.nupkg.sha512",
+    "/tmp/sos-location-dotnet-home/.nuget/packages/microsoft.aspnetcore.app.ref/10.0.4/microsoft.aspnetcore.app.ref.10.0.4.nupkg.sha512"
   ],
   "logs": []
 }

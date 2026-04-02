@@ -7,6 +7,8 @@ SOS Location Documentation
 
    introduction
    architecture
+   ANALYTICAL_MODELS_AND_PHYSICS
+   FRONTEND_TOTAL_REFACTOR_PLAN
    api_reference
    integrations
    compliance

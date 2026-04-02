@@ -1,20 +1,23 @@
 import { useState, useCallback } from 'react';
-import { apiClient } from '../services/apiClient';
+import { dataHubApi } from '../services/dataHubApi';
 import type { ClimakiSnapshot } from '../types';
 
-interface ClimateProviderEntry {
-  provider?: string;
-}
-
-interface ClimateIntegrationsResponse {
-  fetchedAtUtc?: string;
-  summary?: {
-    rainfallMm24h?: number;
-    relativeHumidityPercent?: number;
-    temperatureCelsius?: number;
-    temperatureC?: number;
+interface WeatherForecastResponse {
+  source?: string;
+  current?: {
+    temperature?: number;
+    humidity?: number;
+    windSpeed?: number;
+    precipitation?: number;
+    weatherCode?: number;
   };
-  providers?: ClimateProviderEntry[];
+  daily?: Array<{
+    date?: string;
+    maxTemp?: number;
+    minTemp?: number;
+    precipitationSum?: number;
+    weatherCode?: number;
+  }>;
 }
 
 export function useClimate() {
@@ -27,12 +30,17 @@ export function useClimate() {
     setClimakiError('');
 
     try {
-      const { data } = await apiClient.get<ClimateIntegrationsResponse>('/api/climate/integrations?lat=-21.1215&lng=-42.9427');
-      const summary = data?.summary ?? {};
-      const rainLast24hMm = Number(summary?.rainfallMm24h) || 0;
-      const rainLast72hMm = Math.round(rainLast24hMm * 1.8 * 10) / 10;
-      const soilMoisturePercent = Number(summary?.relativeHumidityPercent) || 35;
-      const temperatureC = Number(summary?.temperatureCelsius ?? summary?.temperatureC ?? 24);
+      const response = await dataHubApi.weatherForecast(-21.1215, -42.9427);
+      const data = response.data as WeatherForecastResponse | undefined;
+      const current = data?.current ?? {};
+      const daily = Array.isArray(data?.daily) ? data.daily : [];
+
+      const rainLast24hMm = Number(current.precipitation ?? daily[0]?.precipitationSum ?? 0) || 0;
+      const rainLast72hMm = Number(
+        daily.slice(0, 3).reduce((sum, day) => sum + Number(day.precipitationSum ?? 0), 0)
+      ) || 0;
+      const soilMoisturePercent = Number(current.humidity) || 35;
+      const temperatureC = Number(current.temperature ?? daily[0]?.maxTemp ?? 24);
 
       let saturationLevel: ClimakiSnapshot['saturationLevel'] = 'Baixa';
       let saturationRisk = 'Solo com capacidade de infiltração ainda relevante.';
@@ -49,7 +57,7 @@ export function useClimate() {
       }
 
       setClimakiSnapshot({
-        fetchedAtIso: data?.fetchedAtUtc ?? new Date().toISOString(),
+        fetchedAtIso: new Date().toISOString(),
         locationLabel: 'Ubá (MG) • integrações climáticas externas',
         temperatureC,
         rainLast24hMm,
@@ -57,7 +65,7 @@ export function useClimate() {
         soilMoisturePercent,
         saturationLevel,
         saturationRisk,
-        providers: (data?.providers ?? []).map((provider: { provider?: string }) => provider.provider || 'Fonte externa'),
+        providers: [data?.source ?? 'Open-Meteo'],
       });
     } catch (error) {
       setClimakiError(error instanceof Error ? error.message : 'Erro ao atualizar dados climáticos.');

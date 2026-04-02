@@ -2,18 +2,21 @@ import axios, { AxiosError, type AxiosRequestConfig, type InternalAxiosRequestCo
 import { decode, encode } from '@msgpack/msgpack';
 import { inferApiBaseUrl } from '../lib/apiBaseUrl';
 import { frontendLogger } from '../lib/logger';
-import { getSessionToken } from '../lib/authSession';
+import { clearSessionToken } from '../lib/authSession';
+import { keycloak, refreshSessionToken } from '../lib/keycloak';
 import { useAuthStore } from '../store/authStore';
 
 declare module 'axios' {
   interface AxiosRequestConfig {
     __retryCount?: number;
     __skipGlobalNotify?: boolean;
+    __authRetryAttempted?: boolean;
   }
 
   interface InternalAxiosRequestConfig {
     __retryCount?: number;
     __skipGlobalNotify?: boolean;
+    __authRetryAttempted?: boolean;
   }
 }
 
@@ -100,7 +103,7 @@ export const silentRequestConfig: AxiosRequestConfig = {
 };
 
 // Request Interceptor
-apiClient.interceptors.request.use((config) => {
+apiClient.interceptors.request.use(async (config) => {
   const baseURL = config.baseURL || '';
   let url = config.url || '';
 
@@ -120,10 +123,19 @@ apiClient.interceptors.request.use((config) => {
     config.url = url;
   }
 
-  const token = getSessionToken();
-  if (token) {
+  const existingAuthHeader =
+    (typeof config.headers?.Authorization === 'string' && config.headers.Authorization) ||
+    (typeof config.headers?.authorization === 'string' && config.headers.authorization) ||
+    null;
+
+  if (!existingAuthHeader && keycloak.authenticated) {
+    await refreshSessionToken(60);
+  }
+
+  const token = existingAuthHeader || keycloak.token;
+  if (token && !existingAuthHeader) {
     config.headers = config.headers ?? {};
-    config.headers.Authorization = token.length === 40 ? `Token ${token}` : `Bearer ${token}`;
+    config.headers.Authorization = `Bearer ${token}`;
   }
 
   // Support for MessagePack
@@ -181,10 +193,18 @@ apiClient.interceptors.response.use(
     const config = (error.config || {}) as RetryableConfig;
 
     if (error.response?.status === 401) {
-      notifyWithCooldown('Sessão Expirada', 'Redirecionando para login...');
+      if (!config.__authRetryAttempted) {
+        config.__authRetryAttempted = true;
+        await refreshSessionToken(30);
+
+        if (keycloak.token) {
+          return apiClient(config);
+        }
+      }
+
+      notifyWithCooldown('Sessão Expirada', 'Faça login novamente.');
       useAuthStore.getState().clearAuth();
-      localStorage.removeItem('sos_location_token');
-      setTimeout(() => { if (typeof window !== 'undefined') window.location.href = '/?loggedOut=true'; }, 2000);
+      clearSessionToken();
       return Promise.reject(error);
     }
 

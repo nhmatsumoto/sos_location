@@ -15,7 +15,9 @@ interface ProtectedRouteProps {
  */
 export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) {
   const location = useLocation();
-  const { authenticated, roles, user } = useAuthStore();
+  const authenticated = useAuthStore((state) => state.authenticated);
+  const roles = useAuthStore((state) => state.roles);
+  const user = useAuthStore((state) => state.user);
 
   if (!authenticated) {
     // Save the current location to redirect back after successful login
@@ -56,12 +58,12 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
           </Text>
           <Button
             as="a"
-            href="/map"
+            href="/transparency"
             colorScheme="blue"
             variant="outline"
             size="md"
           >
-            Voltar ao Mapa Público
+            Voltar ao Portal de Transparência
           </Button>
         </VStack>
       </Box>
