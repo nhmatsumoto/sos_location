@@ -1,221 +1,276 @@
-import { 
-  Globe, AlertCircle, Clock, ExternalLink, Flame, Wind, 
-  Droplets, Activity, Mountain, ShieldCheck, MapPin, RefreshCw
+import { useMemo } from 'react';
+import {
+  Activity,
+  AlertCircle,
+  Clock3,
+  Droplets,
+  ExternalLink,
+  Flame,
+  Globe,
+  Mountain,
+  RefreshCw,
+  ShieldCheck,
+  Wind,
 } from 'lucide-react';
-import { 
-  Box, VStack, HStack, SimpleGrid, Badge, Icon,
-  Divider, Text, Spinner, Center, Flex, IconButton
+import {
+  Box,
+  Button,
+  HStack,
+  SimpleGrid,
+  Text,
+  VStack,
 } from '@chakra-ui/react';
-import { useState } from 'react';
 import { useGlobalDisasters, type GlobalEvent } from '../../../hooks/useGlobalDisasters';
-import { GlassPanel } from '../../../components/atoms/GlassPanel';
-import { TacticalText } from '../../../components/atoms/TacticalText';
-import { TacticalButton } from '../../../components/atoms/TacticalButton';
+import {
+  MetricCard,
+  PageEmptyState,
+  PageHeader,
+  PageLoadingState,
+  PagePanel,
+} from '../../../components/layout/PagePrimitives';
+import {
+  ShellLiveIndicator,
+  ShellTelemetryBadge,
+} from '../../../components/layout/ShellPrimitives';
 
-/**
- * Global Crisis Monitoring — Guardian v3
- * Strategic dashboard for tracking international disasters and weather events.
- */
+const eventTypeIcon = {
+  Earthquake: Activity,
+  Cyclone: Wind,
+  Flood: Droplets,
+  Wildfire: Flame,
+  Volcano: Mountain,
+} as const;
+
+const severityTone = {
+  Critical: 'critical',
+  High: 'warning',
+  Medium: 'info',
+  Low: 'default',
+} as const;
+
+const severityColor = {
+  Critical: 'sos.red.300',
+  High: 'sos.amber.300',
+  Medium: 'sos.blue.300',
+  Low: 'text.secondary',
+} as const;
+
 export function GlobalDisastersPage() {
-  const { events, loading } = useGlobalDisasters();
-  const [renderedAtMs] = useState(() => Date.now());
-  const [lastSyncLabel] = useState(() => new Date().toLocaleTimeString());
+  const { events, loading, error, reload, lastLoadedAt } = useGlobalDisasters();
 
-  const getEventIcon = (type: string) => {
-    switch(type) {
-      case 'Earthquake': return Activity;
-      case 'Cyclone':    return Wind;
-      case 'Flood':      return Droplets;
-      case 'Wildfire':   return Flame;
-      case 'Volcano':    return Mountain;
-      default:           return AlertCircle;
-    }
-  };
+  const renderedAtMs = useMemo(
+    () => (lastLoadedAt ? Date.parse(lastLoadedAt) : undefined),
+    [lastLoadedAt],
+  );
+  const highImpactCount = events.filter((event) => ['Critical', 'High'].includes(event.severity)).length;
+  const countriesCount = new Set(events.map((event) => event.countryCode).filter(Boolean)).size;
+  const eventTypesCount = new Set(events.map((event) => event.type)).size;
 
-  const getSeverityColor = (severity: string) => {
-    switch(severity) {
-      case 'Critical': return '#FF3B30'; // iOS Red
-      case 'High':     return '#FF9500'; // iOS Orange
-      case 'Medium':   return '#007AFF'; // iOS Blue
-      default:         return '#8E8E93'; // iOS Gray
-    }
-  };
-
-  const getMinutesAgo = (timestamp: string) => {
-    const eventMs = Date.parse(timestamp);
-    if (!Number.isFinite(eventMs)) return 'agora';
-    const diffMinutes = Math.max(0, Math.floor((renderedAtMs - eventMs) / 60_000));
-    return `${diffMinutes}m atrás`;
-  };
+  const syncLabel = useMemo(
+    () => (lastLoadedAt ? new Date(lastLoadedAt).toLocaleTimeString() : 'aguardando'),
+    [lastLoadedAt],
+  );
 
   return (
-    <Box h="100%" w="100%" p={8} bg="sos.dark" overflowY="auto">
-      <VStack align="stretch" spacing={8} maxW="1600px" mx="auto">
-        
-        {/* Command Header */}
-        <Flex justify="space-between" align="center">
-          <HStack spacing={4}>
-            <Box p={3} bg="rgba(0,122,255,0.12)" borderRadius="2xl" boxShadow="0 0 20px rgba(0, 122, 255, 0.2)">
-              <Icon as={Globe} boxSize={6} color="sos.blue.500" />
-            </Box>
-            <VStack align="start" spacing={0}>
-              <TacticalText variant="heading" fontSize="2xl">Monitoramento Global</TacticalText>
-              <HStack spacing={3} mt={1}>
-                <HStack spacing={1.5}>
-                  <Box w={2} h={2} borderRadius="full" bg="sos.green.500" className="animate-pulse" />
-                  <TacticalText variant="mono" fontSize="10px" color="rgba(255,255,255,0.40)">GDACS_SATELLITE_UPLINK_STABLE</TacticalText>
-                </HStack>
-                <Divider orientation="vertical" h="10px" borderColor="whiteAlpha.300" />
-                <TacticalText variant="mono" fontSize="10px" color="rgba(255,255,255,0.40)">LAST_SYNC: {lastSyncLabel}</TacticalText>
-              </HStack>
-            </VStack>
-          </HStack>
-
-          <HStack spacing={3}>
-             <Box textAlign="right" mr={2}>
-               <TacticalText variant="caption" color="whiteAlpha.400">PLANETARY_VIEW</TacticalText>
-               <TacticalText variant="mono" fontSize="xs" color="sos.blue.400">HYDRA_MAPPING_V3</TacticalText>
-             </Box>
-             <Divider orientation="vertical" h="32px" borderColor="whiteAlpha.200" />
-             <IconButton
-              icon={<RefreshCw size={18} />}
-              aria-label="Refresh"
+    <Box
+      h="full"
+      overflowY="auto"
+      px={{ base: 4, md: 6, xl: 8 }}
+      py={{ base: 4, md: 6 }}
+      bgGradient="radial(circle at top left, rgba(0,122,255,0.10), transparent 20%), radial(circle at bottom right, rgba(255,149,0,0.08), transparent 24%), linear(to-b, #030712 0%, #07111f 55%, #08121d 100%)"
+    >
+      <VStack maxW="7xl" mx="auto" spacing={6} align="stretch">
+        <PageHeader
+          icon={Globe}
+          eyebrow="GLOBAL_MONITORING // DISASTER_FEED // STRATEGIC_AWARENESS"
+          title="Monitoramento global com foco em eventos, países impactados e severidade"
+          description="A tela foi reorganizada para leitura executiva: métricas no topo, feed internacional em cards e sincronização clara do estado do sistema."
+          meta={
+            <>
+              <ShellLiveIndicator label="feed internacional ativo" />
+              <ShellTelemetryBadge tone="info">última sincronização {syncLabel}</ShellTelemetryBadge>
+            </>
+          }
+          actions={
+            <Button
+              leftIcon={<RefreshCw size={16} />}
               variant="ghost"
-              borderRadius="xl"
-              color="rgba(255,255,255,0.50)"
-              _hover={{ color: 'white', bg: 'rgba(255,255,255,0.08)' }}
-            />
-          </HStack>
-        </Flex>
+              onClick={() => void reload()}
+              isLoading={loading}
+            >
+              Atualizar feed
+            </Button>
+          }
+        />
 
-        <Divider borderColor="rgba(255,255,255,0.06)" />
-
-        {/* Global Overview KPIs */}
-        <SimpleGrid columns={{ base: 1, md: 4 }} spacing={4}>
-           <KpiCard label="Eventos Ativos" value={events.length} icon={Activity} color="#FF3B30" />
-           <KpiCard label="High Impact" value={events.filter(e => e.severity === 'Critical' || e.severity === 'High').length} icon={AlertCircle} color="#FF9500" />
-           <KpiCard label="Países em Alerta" value={new Set(events.map(e => e.countryCode)).size} icon={ShieldCheck} color="#34C759" />
-           <KpiCard label="Feed Status" value="Online" icon={Activity} color="#007AFF" isLive />
+        <SimpleGrid columns={{ base: 1, md: 2, xl: 4 }} spacing={4}>
+          <MetricCard
+            label="Eventos ativos"
+            value={events.length}
+            helper="Ocorrências internacionais válidas no feed"
+            icon={Activity}
+            tone="critical"
+          />
+          <MetricCard
+            label="High impact"
+            value={highImpactCount}
+            helper="Eventos com severidade alta ou crítica"
+            icon={AlertCircle}
+            tone="warning"
+          />
+          <MetricCard
+            label="Países em alerta"
+            value={countriesCount}
+            helper="Países distintos presentes no monitoramento"
+            icon={ShieldCheck}
+            tone="success"
+          />
+          <MetricCard
+            label="Tipos de ameaça"
+            value={eventTypesCount}
+            helper="Categorias de desastre visíveis no feed"
+            icon={Globe}
+            tone="info"
+          />
         </SimpleGrid>
 
-        {loading ? (
-          <Center h="400px" flexDirection="column" gap={6}>
-            <Spinner size="xl" color="sos.blue.500" thickness="3px" speed="0.8s" />
-            <VStack spacing={1}>
-              <TacticalText variant="heading" fontSize="sm">COLLECTING INTERNATIONAL INTELLIGENCE</TacticalText>
-              <TacticalText variant="mono" fontSize="xs" color="sos.blue.400" className="animate-pulse">GDACS_API_REQUEST_HANDSHAKE...</TacticalText>
-            </VStack>
-          </Center>
-        ) : (
-          /* Crisis Cards Grid */
-          <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
-            {events.map((event: GlobalEvent) => {
-              const EventIcon = getEventIcon(event.type);
-              const sevColor  = getSeverityColor(event.severity);
-              
-              return (
-                <GlassPanel 
-                  key={event.id}
-                  p={6}
-                  depth="raised"
-                  flexDirection="column"
-                  transition="all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
-                  border="1px solid"
-                  borderColor="rgba(255,255,255,0.06)"
-                  _hover={{ 
-                    transform: 'translateY(-4px)', 
-                    borderColor: 'rgba(255,255,255,0.15)',
-                    boxShadow: '0 12px 48px rgba(0,0,0,0.5)',
-                    bg: 'rgba(255,255,255,0.02)'
-                  }}
-                >
-                  <HStack justify="space-between" mb={4}>
-                    <Badge 
-                      px={3} py={1} borderRadius="full" 
-                      bg="rgba(255,255,255,0.05)"
-                      color={sevColor}
-                      border="1px solid"
-                      borderColor={`${sevColor}44`}
-                      fontSize="9px" fontWeight="800"
-                    >
-                      {event.severity?.toUpperCase()}
-                    </Badge>
-                    <HStack spacing={1.5}>
-                      <Clock size={12} color="rgba(255,255,255,0.30)" />
-                      <TacticalText variant="mono" fontSize="9px" color="rgba(255,255,255,0.40)">
-                        {getMinutesAgo(event.timestamp)}
-                      </TacticalText>
-                    </HStack>
-                  </HStack>
-
-                  <HStack spacing={3} mb={3}>
-                    <Box p={2} bg="rgba(255,255,255,0.04)" borderRadius="lg">
-                      <EventIcon size={18} color={sevColor} />
-                    </Box>
-                    <TacticalText variant="heading" fontSize="lg" lineHeight={1.2}>
-                      {event.title}
-                    </TacticalText>
-                  </HStack>
-
-                  <HStack spacing={2} mb={5} opacity={0.6}>
-                    <MapPin size={12} color="#007AFF" />
-                    <TacticalText variant="subheading" fontSize="10px" letterSpacing="0.05em">
-                      {event.location} • {event.countryCode}
-                    </TacticalText>
-                  </HStack>
-
-                  <Text fontSize="xs" color="rgba(255,255,255,0.50)" mb={6} noOfLines={2}>
-                    {event.description}
-                  </Text>
-                  
-                  <Box mt="auto">
-                    <TacticalButton 
-                      variant="ghost" 
-                      w="full" h="44px"
-                      fontSize="xs"
-                      rightIcon={<ExternalLink size={14} />}
-                      _hover={{ bg: 'rgba(255,255,255,0.06)' }}
-                    >
-                      VER DETALHES GDACS
-                    </TacticalButton>
-                  </Box>
-                </GlassPanel>
-              );
-            })}
-          </SimpleGrid>
-        )}
-
+        <PagePanel
+          title="Feed internacional priorizado"
+          description="Cada card destaca natureza do evento, severidade, localização e tempo desde o último disparo conhecido."
+          icon={Globe}
+          tone="default"
+        >
+          {loading ? (
+            <PageLoadingState
+              minH="420px"
+              label="Coletando inteligência internacional"
+              description="O shell está consolidando o feed externo de desastres."
+            />
+          ) : error ? (
+            <PageEmptyState
+              minH="420px"
+              title="Feed indisponível"
+              description={error}
+              tone="critical"
+              action={
+                <Button variant="tactical" onClick={() => void reload()}>
+                  Tentar novamente
+                </Button>
+              }
+            />
+          ) : events.length === 0 ? (
+            <PageEmptyState
+              minH="420px"
+              title="Nenhum evento global disponível"
+              description="O feed retornou vazio para a janela atual."
+            />
+          ) : (
+            <SimpleGrid columns={{ base: 1, md: 2, xl: 3 }} spacing={5}>
+              {events.map((event) => (
+                <GlobalEventCard key={event.id} event={event} renderedAtMs={renderedAtMs} />
+              ))}
+            </SimpleGrid>
+          )}
+        </PagePanel>
       </VStack>
     </Box>
   );
 }
 
-/** Component for the small tactical KPI cards */
-const KpiCard = ({
-  label,
-  value,
-  icon: Icon,
-  color,
-  isLive = false,
+function GlobalEventCard({
+  event,
+  renderedAtMs,
 }: {
-  label: string;
-  value: string | number;
-  icon: typeof Activity;
-  color: string;
-  isLive?: boolean;
-}) => (
-  <GlassPanel depth="base" p={4} gap={4} align="center">
-    <Box p={2} bg={`${color}15`} borderRadius="lg">
-      <Icon size={18} color={color} />
+  event: GlobalEvent;
+  renderedAtMs?: number;
+}) {
+  const EventIcon = eventTypeIcon[event.type] ?? AlertCircle;
+  const tone = severityTone[event.severity];
+  const color = severityColor[event.severity];
+  const eventMs = Date.parse(event.timestamp);
+  const minutesAgo = Number.isFinite(eventMs) && typeof renderedAtMs === 'number'
+    ? `${Math.max(0, Math.floor((renderedAtMs - eventMs) / 60_000))}m atrás`
+    : 'agora';
+
+  return (
+    <Box
+      p={5}
+      borderRadius="3xl"
+      bg="surface.panel"
+      border="1px solid"
+      borderColor="border.subtle"
+      boxShadow="panel"
+      transition="all 0.2s"
+      _hover={{ transform: 'translateY(-2px)', borderColor: 'border.strong' }}
+    >
+      <VStack align="stretch" spacing={4} h="full">
+        <HStack justify="space-between" align="flex-start" spacing={3}>
+          <ShellTelemetryBadge tone={tone}>{event.severity}</ShellTelemetryBadge>
+          <HStack spacing={1.5}>
+            <Clock3 size={12} color="rgba(255,255,255,0.35)" />
+            <Text fontSize="xs" color="text.secondary">
+              {minutesAgo}
+            </Text>
+          </HStack>
+        </HStack>
+
+        <HStack align="flex-start" spacing={3}>
+          <Box
+            p={2.5}
+            borderRadius="2xl"
+            bg="surface.interactive"
+            border="1px solid"
+            borderColor="border.subtle"
+            color={color}
+          >
+            <EventIcon size={18} color={color === 'text.secondary' ? 'rgba(255,255,255,0.45)' : 'currentColor'} />
+          </Box>
+          <VStack align="flex-start" spacing={1}>
+            <Text fontSize="lg" fontWeight="700" color="white" lineHeight={1.2}>
+              {event.title}
+            </Text>
+            <HStack spacing={2} flexWrap="wrap">
+              <ShellTelemetryBadge tone="default">{event.type}</ShellTelemetryBadge>
+              <ShellTelemetryBadge tone="info">
+                {event.location || 'localização não informada'}
+                {event.countryCode ? ` • ${event.countryCode}` : ''}
+              </ShellTelemetryBadge>
+            </HStack>
+          </VStack>
+        </HStack>
+
+        <Text fontSize="sm" color="text.secondary" lineHeight={1.7} noOfLines={3}>
+          {event.description || 'Sem descrição operacional complementar.'}
+        </Text>
+
+        <Box
+          mt="auto"
+          p={3.5}
+          borderRadius="2xl"
+          bg="surface.interactive"
+          border="1px solid"
+          borderColor="border.subtle"
+        >
+          <HStack justify="space-between" align="center" flexWrap="wrap" spacing={3}>
+            <Text fontSize="sm" color="text.secondary">
+              Evento em {event.location || 'região não informada'}
+            </Text>
+            {event.sourceUrl ? (
+              <Button
+                as="a"
+                href={event.sourceUrl}
+                target="_blank"
+                rel="noreferrer"
+                size="sm"
+                variant="outline"
+                leftIcon={<ExternalLink size={14} />}
+              >
+                Fonte
+              </Button>
+            ) : null}
+          </HStack>
+        </Box>
+      </VStack>
     </Box>
-    <VStack align="start" spacing={0} flex={1}>
-      <TacticalText variant="mono" fontSize="xl" color="white" lineHeight={1}>
-        {value}
-      </TacticalText>
-      <TacticalText variant="caption" fontSize="9px" color="rgba(255,255,255,0.30)" mt={1}>
-        {label.toUpperCase()}
-      </TacticalText>
-    </VStack>
-    {isLive && <Box w={2} h={2} bg="sos.green.500" borderRadius="full" className="animate-pulse" />}
-  </GlassPanel>
-);
+  );
+}

@@ -4,12 +4,10 @@ import {
   Box,
   Button,
   Circle,
-  Container,
   Divider,
   FormControl,
   FormLabel,
   HStack,
-  Heading,
   Icon,
   SimpleGrid,
   Switch,
@@ -31,6 +29,8 @@ import {
   UserRound,
   Volume2,
 } from 'lucide-react';
+import { PageHeader, PagePanel, MetricCard } from '../../../components/layout/PagePrimitives';
+import { ShellLiveIndicator, ShellSectionEyebrow, ShellTelemetryBadge } from '../../../components/layout/ShellPrimitives';
 import { getCapabilitiesForRoles } from '../../../lib/accessControl';
 import { getSessionToken } from '../../../lib/authSession';
 import { doLogout, getActiveSessionToken, keycloak, refreshSessionToken } from '../../../lib/keycloak';
@@ -198,7 +198,8 @@ export function SettingsPage() {
       status: authenticated ? 'Connected' : 'Offline',
       detail: `${keycloakRealm} / ${keycloakClient}`,
       icon: ShieldCheck,
-      color: authenticated ? 'sos.green.500' : 'orange.400',
+      color: authenticated ? 'sos.green.500' : 'sos.red.400',
+      tone: authenticated ? 'success' : 'critical',
     },
     {
       name: 'GIS Data Engine',
@@ -206,13 +207,15 @@ export function SettingsPage() {
       detail: settingsState.preferences.precisionMode ? 'precision_mode=enabled' : 'precision_mode=standard',
       icon: Satellite,
       color: settingsState.preferences.precisionMode ? 'sos.blue.400' : 'sos.green.500',
+      tone: settingsState.preferences.precisionMode ? 'info' : 'success',
     },
     {
       name: 'Notifications Bus',
       status: settingsState.preferences.criticalNotifications ? 'Priority Alerts' : 'Muted',
       detail: settingsState.preferences.criticalNotifications ? 'critical_alerts=enabled' : 'critical_alerts=disabled',
       icon: BellRing,
-      color: settingsState.preferences.criticalNotifications ? 'sos.green.500' : 'orange.400',
+      color: settingsState.preferences.criticalNotifications ? 'sos.green.500' : 'sos.amber.400',
+      tone: settingsState.preferences.criticalNotifications ? 'success' : 'warning',
     },
     {
       name: 'Primary API',
@@ -220,190 +223,310 @@ export function SettingsPage() {
       detail: apiBaseUrl,
       icon: Database,
       color: 'sos.green.500',
+      tone: 'success',
     },
-  ];
+  ] as const;
+
+  const onlineServices = services.filter((service) =>
+    ['Connected', 'Operational', 'Priority Alerts', 'High Precision'].includes(service.status),
+  ).length;
 
   return (
-    <Box minH="100vh" bg="sos.dark" py={8}>
-      <Container maxW="container.xl">
-        <VStack align="stretch" spacing={8}>
-          <HStack justify="space-between" align="flex-start" gap={4}>
-            <VStack align="flex-start" spacing={1}>
-              <HStack>
-                <Icon as={Settings} color="sos.blue.500" />
-                <Heading size="md" color="white" textTransform="uppercase" letterSpacing="widest">
-                  Centro de <Text as="span" color="sos.blue.400">Configurações</Text>
-                </Heading>
-              </HStack>
-              <Text fontSize="xs" color="whiteAlpha.500" fontFamily="mono">
-                SESSION_CONTROL // ACCESS_PROFILE // LOCAL_PREFERENCES
-              </Text>
-            </VStack>
-            <HStack spacing={3}>
-              <Button variant="ghost" leftIcon={<RefreshCw size={16} />} isLoading={refreshing} onClick={() => void handleRefreshSession()}>
+    <Box px={{ base: 4, md: 6, xl: 8 }} py={{ base: 4, md: 6 }}>
+      <VStack align="stretch" spacing={6} maxW="7xl" mx="auto">
+        <PageHeader
+          icon={Settings}
+          eyebrow="SESSION_CONTROL // ACCESS_PROFILE // LOCAL_PREFERENCES"
+          title="Centro de Configurações"
+          description="Persistência local, sessão federada e telemetria da plataforma em uma única estação de controle."
+          meta={
+            <>
+              <ShellTelemetryBadge tone={authenticated ? 'success' : 'critical'}>
+                {authenticated ? 'Sessão conectada' : 'Sessão offline'}
+              </ShellTelemetryBadge>
+              <ShellTelemetryBadge tone="info">{keycloakRealm}</ShellTelemetryBadge>
+              <ShellLiveIndicator label={sessionStatus} />
+            </>
+          }
+          actions={
+            <>
+              <Button
+                variant="ghost"
+                leftIcon={<RefreshCw size={16} />}
+                isLoading={refreshing}
+                onClick={() => void handleRefreshSession()}
+              >
                 Atualizar Sessão
               </Button>
-              <Button variant="tactical" leftIcon={<Save size={16} />} isLoading={saving} onClick={handleSavePreferences}>
+              <Button
+                variant="tactical"
+                leftIcon={<Save size={16} />}
+                isLoading={saving}
+                onClick={handleSavePreferences}
+              >
                 Salvar Preferências
               </Button>
-            </HStack>
-          </HStack>
+            </>
+          }
+        />
 
-          <SimpleGrid columns={{ base: 1, lg: 3 }} spacing={8}>
-            <Box bg="rgba(15, 23, 42, 0.4)" borderRadius="3xl" border="1px solid" borderColor="whiteAlpha.100" p={6}>
-              <VStack align="stretch" spacing={6}>
-                <Heading size="xs" color="white" textTransform="uppercase" letterSpacing="widest">
-                  Preferências Locais
-                </Heading>
-                <VStack align="stretch" spacing={4}>
-                  <FormControl display="flex" alignItems="center" justifyContent="space-between">
-                    <FormLabel mb="0" fontSize="sm" color="whiteAlpha.800">Atualização Automática</FormLabel>
-                    <Switch colorScheme="blue" isChecked={settingsState.preferences.autoRefresh} onChange={(event) => handlePreferenceChange('autoRefresh', event.target.checked)} />
-                  </FormControl>
-                  <Divider borderColor="whiteAlpha.100" />
-                  <FormControl display="flex" alignItems="center" justifyContent="space-between">
-                    <FormLabel mb="0" fontSize="sm" color="whiteAlpha.800">Notificações Críticas</FormLabel>
-                    <Switch colorScheme="red" isChecked={settingsState.preferences.criticalNotifications} onChange={(event) => handlePreferenceChange('criticalNotifications', event.target.checked)} />
-                  </FormControl>
-                  <Divider borderColor="whiteAlpha.100" />
-                  <FormControl display="flex" alignItems="center" justifyContent="space-between">
-                    <FormLabel mb="0" fontSize="sm" color="whiteAlpha.800">Modo de Alta Precisão</FormLabel>
-                    <Switch colorScheme="teal" isChecked={settingsState.preferences.precisionMode} onChange={(event) => handlePreferenceChange('precisionMode', event.target.checked)} />
-                  </FormControl>
-                  <Divider borderColor="whiteAlpha.100" />
-                  <FormControl display="flex" alignItems="center" justifyContent="space-between">
-                    <FormLabel mb="0" fontSize="sm" color="whiteAlpha.800">Áudio Tático</FormLabel>
-                    <Switch colorScheme="purple" isChecked={settingsState.preferences.tacticalAudio} onChange={(event) => handlePreferenceChange('tacticalAudio', event.target.checked)} />
-                  </FormControl>
-                </VStack>
+        <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
+          <MetricCard
+            label="Sessão"
+            value={authenticated ? 'ATIVA' : 'OFFLINE'}
+            helper={`Expira em ${formatDateTime(sessionExpiresAt)}`}
+            icon={ShieldCheck}
+            tone={authenticated ? 'success' : 'critical'}
+            isLive={authenticated}
+          />
+          <MetricCard
+            label="Capacidades derivadas"
+            value={capabilities.length}
+            helper={roles.length > 0 ? roles.join(', ') : 'nenhuma role federada'}
+            icon={Key}
+            tone="info"
+          />
+          <MetricCard
+            label="Serviços monitorados"
+            value={`${onlineServices}/${services.length}`}
+            helper="Status agregado da estação local"
+            icon={Database}
+            tone={onlineServices === services.length ? 'success' : 'warning'}
+          />
+        </SimpleGrid>
 
-                <Box pt={2}>
-                  <HStack justify="space-between" mb={2}>
-                    <Text fontSize="10px" color="whiteAlpha.400">Última persistência</Text>
-                    <Icon as={Volume2} boxSize={4} color="sos.blue.400" />
-                  </HStack>
-                  <Badge bg="sos.blue.900" color="sos.blue.100" borderRadius="md" py={1} px={2} fontSize="9px" fontFamily="mono">
-                    {formatDateTime(settingsState.updatedAt)}
-                  </Badge>
-                </Box>
-              </VStack>
-            </Box>
+        <SimpleGrid columns={{ base: 1, xl: 3 }} spacing={6}>
+          <PagePanel
+            title="Preferências Locais"
+            description="Controles persistidos neste navegador para atualização, precisão e alertas."
+            icon={Settings}
+            tone="info"
+          >
+            <VStack align="stretch" spacing={4}>
+              <PreferenceSwitchRow
+                id="settings-auto-refresh"
+                label="Atualização Automática"
+                description="Mantém painéis e telemetria sincronizados sem intervenção manual."
+                checked={settingsState.preferences.autoRefresh}
+                onChange={(value) => handlePreferenceChange('autoRefresh', value)}
+              />
+              <Divider />
+              <PreferenceSwitchRow
+                id="settings-critical-notifications"
+                label="Notificações Críticas"
+                description="Prioriza alarmes de severidade alta na estação atual."
+                checked={settingsState.preferences.criticalNotifications}
+                onChange={(value) => handlePreferenceChange('criticalNotifications', value)}
+              />
+              <Divider />
+              <PreferenceSwitchRow
+                id="settings-precision-mode"
+                label="Modo de Alta Precisão"
+                description="Usa recortes GIS mais ricos para análise local."
+                checked={settingsState.preferences.precisionMode}
+                onChange={(value) => handlePreferenceChange('precisionMode', value)}
+              />
+              <Divider />
+              <PreferenceSwitchRow
+                id="settings-tactical-audio"
+                label="Áudio Tático"
+                description="Habilita feedback sonoro para eventos e ações críticas."
+                checked={settingsState.preferences.tacticalAudio}
+                onChange={(value) => handlePreferenceChange('tacticalAudio', value)}
+              />
 
-            <Box bg="rgba(15, 23, 42, 0.4)" borderRadius="3xl" border="1px solid" borderColor="whiteAlpha.100" p={6}>
-              <VStack align="stretch" spacing={5}>
-                <Heading size="xs" color="white" textTransform="uppercase" letterSpacing="widest">
-                  Sessão e Acesso
-                </Heading>
-
-                <HStack spacing={4} align="center">
-                  <Circle size="44px" bg="whiteAlpha.50">
-                    <Icon as={UserRound} boxSize={5} color="sos.blue.400" />
-                  </Circle>
-                  <VStack align="flex-start" spacing={0}>
-                    <Text fontSize="sm" fontWeight="bold" color="white">{user?.name || user?.preferredUsername || 'Operador'}</Text>
-                    <Text fontSize="xs" color="whiteAlpha.500">{user?.email || 'sem email federado'}</Text>
-                  </VStack>
+              <Box pt={2}>
+                <HStack justify="space-between" mb={2}>
+                  <ShellSectionEyebrow>Última persistência</ShellSectionEyebrow>
+                  <Icon as={Volume2} boxSize={4} color="sos.blue.300" />
                 </HStack>
+                <ShellTelemetryBadge tone="info">{formatDateTime(settingsState.updatedAt)}</ShellTelemetryBadge>
+              </Box>
+            </VStack>
+          </PagePanel>
 
-                <SimpleGrid columns={2} spacing={3}>
-                  <Box p={3} bg="whiteAlpha.50" borderRadius="xl">
-                    <Text fontSize="10px" color="whiteAlpha.400" mb={1}>STATUS</Text>
-                    <Badge colorScheme={authenticated ? 'green' : 'red'}>{authenticated ? 'Authenticated' : 'Offline'}</Badge>
-                  </Box>
-                  <Box p={3} bg="whiteAlpha.50" borderRadius="xl">
-                    <Text fontSize="10px" color="whiteAlpha.400" mb={1}>EXPIRA EM</Text>
-                    <Text fontSize="xs" color="white" fontFamily="mono">{formatDateTime(sessionExpiresAt)}</Text>
-                  </Box>
-                </SimpleGrid>
-
-                <Box>
-                  <Text fontSize="10px" color="whiteAlpha.400" mb={2}>ROLES</Text>
-                  <HStack spacing={2} flexWrap="wrap">
-                    {roles.length > 0 ? roles.map((role) => (
-                      <Badge key={role} colorScheme="cyan" variant="subtle">{role}</Badge>
-                    )) : <Badge variant="subtle">none</Badge>}
-                  </HStack>
-                </Box>
-
-                <Box>
-                  <Text fontSize="10px" color="whiteAlpha.400" mb={2}>CAPABILITIES</Text>
-                  <HStack spacing={2} flexWrap="wrap">
-                    {capabilities.length > 0 ? capabilities.map((capability) => (
-                      <Badge key={capability} colorScheme="purple" variant="subtle">{capability}</Badge>
-                    )) : <Badge variant="subtle">none</Badge>}
-                  </HStack>
-                </Box>
-
-                <Box p={3} bg="whiteAlpha.50" borderRadius="xl">
-                  <HStack justify="space-between" mb={2}>
-                    <Text fontSize="10px" fontWeight="bold" color="whiteAlpha.400">ACCESS_TOKEN</Text>
-                    <Icon as={Key} boxSize={4} color="sos.blue.400" />
-                  </HStack>
-                  <Text fontSize="10px" color="sos.blue.100" fontFamily="mono" wordBreak="break-all">
-                    {maskToken(sessionToken)}
+          <PagePanel
+            title="Sessão e Acesso"
+            description="Estado federado do operador, privilégios derivados e token ativo."
+            icon={UserRound}
+            tone="success"
+          >
+            <VStack align="stretch" spacing={5}>
+              <HStack spacing={4} align="center">
+                <Circle size="48px" bg="rgba(255,255,255,0.06)" border="1px solid" borderColor="border.subtle">
+                  <Icon as={UserRound} boxSize={5} color="sos.blue.300" />
+                </Circle>
+                <VStack align="flex-start" spacing={0.5}>
+                  <Text fontSize="sm" fontWeight="700" color="white">
+                    {user?.name || user?.preferredUsername || 'Operador'}
                   </Text>
-                </Box>
-
-                <Box p={3} bg="sos.blue.900" borderRadius="xl">
-                  <Text fontSize="10px" fontWeight="black" color="sos.blue.100">SESSION_TRACE</Text>
-                  <Text fontSize="11px" color="white" fontFamily="mono">{sessionStatus}</Text>
-                </Box>
-
-                <Button leftIcon={<LogOut size={16} />} colorScheme="red" variant="outline" onClick={doLogout}>
-                  Encerrar Sessão
-                </Button>
-              </VStack>
-            </Box>
-
-            <Box bg="rgba(15, 23, 42, 0.4)" borderRadius="3xl" border="1px solid" borderColor="whiteAlpha.100" p={6}>
-              <VStack align="stretch" spacing={6}>
-                <Heading size="xs" color="white" textTransform="uppercase" letterSpacing="widest">
-                  Telemetria da Plataforma
-                </Heading>
-                <VStack align="stretch" spacing={4}>
-                  {services.map((service) => (
-                    <HStack key={service.name} justify="space-between" p={3} bg="whiteAlpha.50" borderRadius="2xl" border="1px solid" borderColor="whiteAlpha.100">
-                      <HStack spacing={3}>
-                        <Circle size="32px" bg="whiteAlpha.50">
-                          <Icon as={service.icon} boxSize={4} color={service.color} />
-                        </Circle>
-                        <VStack align="flex-start" spacing={0}>
-                          <Text fontSize="xs" fontWeight="bold" color="white">{service.name}</Text>
-                          <Text fontSize="9px" color="whiteAlpha.500" fontFamily="mono">{service.detail}</Text>
-                        </VStack>
-                      </HStack>
-                      <Badge variant="subtle" colorScheme={service.status === 'Operational' || service.status === 'Connected' || service.status === 'Priority Alerts' ? 'green' : 'orange'} fontSize="9px">
-                        {service.status}
-                      </Badge>
-                    </HStack>
-                  ))}
+                  <Text fontSize="xs" color="text.secondary">
+                    {user?.email || 'sem email federado'}
+                  </Text>
                 </VStack>
+              </HStack>
 
-                <SimpleGrid columns={2} spacing={3}>
-                  <Box p={4} bg="sos.blue.900" borderRadius="2xl">
-                    <Text fontSize="10px" fontWeight="black" color="sos.blue.100">REALM</Text>
-                    <Text fontSize="13px" fontWeight="black" color="white" fontFamily="mono">{keycloakRealm}</Text>
-                  </Box>
-                  <Box p={4} bg="rgba(255,255,255,0.05)" borderRadius="2xl">
-                    <Text fontSize="10px" fontWeight="black" color="whiteAlpha.500">CLIENT</Text>
-                    <Text fontSize="13px" fontWeight="black" color="white" fontFamily="mono">{keycloakClient}</Text>
-                  </Box>
-                </SimpleGrid>
-
-                <Box p={4} bg="rgba(255,255,255,0.05)" borderRadius="2xl">
-                  <HStack spacing={2} mb={2}>
-                    <Icon as={ShieldEllipsis} boxSize={4} color="sos.blue.400" />
-                    <Text fontSize="10px" fontWeight="black" color="whiteAlpha.500">API TARGET</Text>
-                  </HStack>
-                  <Text fontSize="11px" color="white" fontFamily="mono" wordBreak="break-all">
-                    {apiBaseUrl}
+              <SimpleGrid columns={2} spacing={3}>
+                <Box p={3} bg="surface.interactive" borderRadius="xl" border="1px solid" borderColor="border.subtle">
+                  <ShellSectionEyebrow mb={1}>Status</ShellSectionEyebrow>
+                  <ShellTelemetryBadge tone={authenticated ? 'success' : 'critical'}>
+                    {authenticated ? 'Authenticated' : 'Offline'}
+                  </ShellTelemetryBadge>
+                </Box>
+                <Box p={3} bg="surface.interactive" borderRadius="xl" border="1px solid" borderColor="border.subtle">
+                  <ShellSectionEyebrow mb={1}>Expira em</ShellSectionEyebrow>
+                  <Text fontSize="xs" color="white" fontFamily="mono">
+                    {formatDateTime(sessionExpiresAt)}
                   </Text>
                 </Box>
-              </VStack>
-            </Box>
-          </SimpleGrid>
-        </VStack>
-      </Container>
+              </SimpleGrid>
+
+              <Box>
+                <ShellSectionEyebrow mb={2}>Roles</ShellSectionEyebrow>
+                <HStack spacing={2} flexWrap="wrap">
+                  {roles.length > 0 ? roles.map((role) => (
+                    <Badge key={role} variant="subtle" bg="rgba(0,122,255,0.12)" color="sos.blue.200">
+                      {role}
+                    </Badge>
+                  )) : (
+                    <Badge variant="subtle">none</Badge>
+                  )}
+                </HStack>
+              </Box>
+
+              <Box>
+                <ShellSectionEyebrow mb={2}>Capabilities</ShellSectionEyebrow>
+                <HStack spacing={2} flexWrap="wrap">
+                  {capabilities.length > 0 ? capabilities.map((capability) => (
+                    <Badge key={capability} variant="subtle" bg="rgba(255,149,0,0.12)" color="sos.amber.200">
+                      {capability}
+                    </Badge>
+                  )) : (
+                    <Badge variant="subtle">none</Badge>
+                  )}
+                </HStack>
+              </Box>
+
+              <Box p={3} bg="surface.interactive" borderRadius="xl" border="1px solid" borderColor="border.subtle">
+                <HStack justify="space-between" mb={2}>
+                  <ShellSectionEyebrow>Access Token</ShellSectionEyebrow>
+                  <Icon as={Key} boxSize={4} color="sos.blue.300" />
+                </HStack>
+                <Text fontSize="10px" color="sos.blue.100" fontFamily="mono" wordBreak="break-all">
+                  {maskToken(sessionToken)}
+                </Text>
+              </Box>
+
+              <Box p={3} bg="rgba(0,122,255,0.12)" borderRadius="xl" border="1px solid" borderColor="rgba(0,122,255,0.20)">
+                <ShellSectionEyebrow mb={1}>Session Trace</ShellSectionEyebrow>
+                <Text fontSize="11px" color="white" fontFamily="mono">
+                  {sessionStatus}
+                </Text>
+              </Box>
+
+              <Button leftIcon={<LogOut size={16} />} variant="outline" colorScheme="red" onClick={doLogout}>
+                Encerrar Sessão
+              </Button>
+            </VStack>
+          </PagePanel>
+
+          <PagePanel
+            title="Telemetria da Plataforma"
+            description="Leitura consolidada dos serviços críticos usados pela estação atual."
+            icon={ShieldEllipsis}
+            tone="warning"
+          >
+            <VStack align="stretch" spacing={4}>
+              {services.map((service) => (
+                <HStack
+                  key={service.name}
+                  justify="space-between"
+                  p={3}
+                  bg="surface.interactive"
+                  borderRadius="2xl"
+                  border="1px solid"
+                  borderColor="border.subtle"
+                  align="flex-start"
+                >
+                  <HStack spacing={3} align="flex-start">
+                    <Circle size="34px" bg="rgba(255,255,255,0.05)" border="1px solid" borderColor="border.subtle">
+                      <Icon as={service.icon} boxSize={4} color={service.color} />
+                    </Circle>
+                    <VStack align="flex-start" spacing={0.5}>
+                      <Text fontSize="xs" fontWeight="700" color="white">
+                        {service.name}
+                      </Text>
+                      <Text fontSize="10px" color="text.secondary" fontFamily="mono">
+                        {service.detail}
+                      </Text>
+                    </VStack>
+                  </HStack>
+                  <ShellTelemetryBadge tone={service.tone}>{service.status}</ShellTelemetryBadge>
+                </HStack>
+              ))}
+
+              <SimpleGrid columns={2} spacing={3}>
+                <Box p={4} bg="rgba(0,122,255,0.12)" borderRadius="2xl" border="1px solid" borderColor="rgba(0,122,255,0.20)">
+                  <ShellSectionEyebrow mb={1}>Realm</ShellSectionEyebrow>
+                  <Text fontSize="13px" fontWeight="700" color="white" fontFamily="mono">
+                    {keycloakRealm}
+                  </Text>
+                </Box>
+                <Box p={4} bg="surface.interactive" borderRadius="2xl" border="1px solid" borderColor="border.subtle">
+                  <ShellSectionEyebrow mb={1}>Client</ShellSectionEyebrow>
+                  <Text fontSize="13px" fontWeight="700" color="white" fontFamily="mono">
+                    {keycloakClient}
+                  </Text>
+                </Box>
+              </SimpleGrid>
+
+              <Box p={4} bg="surface.interactive" borderRadius="2xl" border="1px solid" borderColor="border.subtle">
+                <HStack spacing={2} mb={2}>
+                  <Icon as={Database} boxSize={4} color="sos.blue.300" />
+                  <ShellSectionEyebrow>API Target</ShellSectionEyebrow>
+                </HStack>
+                <Text fontSize="11px" color="white" fontFamily="mono" wordBreak="break-all">
+                  {apiBaseUrl}
+                </Text>
+              </Box>
+            </VStack>
+          </PagePanel>
+        </SimpleGrid>
+      </VStack>
     </Box>
+  );
+}
+
+interface PreferenceSwitchRowProps {
+  id: string;
+  label: string;
+  description: string;
+  checked: boolean;
+  onChange: (value: boolean) => void;
+}
+
+function PreferenceSwitchRow({
+  id,
+  label,
+  description,
+  checked,
+  onChange,
+}: PreferenceSwitchRowProps) {
+  return (
+    <FormControl display="flex" alignItems="center" justifyContent="space-between" gap={4}>
+      <VStack align="flex-start" spacing={0.5}>
+        <FormLabel htmlFor={id} mb="0" fontSize="sm" color="white" fontWeight="600">
+          {label}
+        </FormLabel>
+        <Text fontSize="xs" color="text.secondary">
+          {description}
+        </Text>
+      </VStack>
+      <Switch
+        id={id}
+        isChecked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+      />
+    </FormControl>
   );
 }

@@ -3,22 +3,23 @@ import { LogOut } from 'lucide-react';
 import { Link as RouterLink, useLocation } from 'react-router-dom';
 import {
   Box, Tooltip, Divider, Text,
-  HStack, type BoxProps
+  type BoxProps
 } from '@chakra-ui/react';
 import { LogoFull, Logo } from '../brand/Logo';
 import { useAuthStore } from '../../store/authStore';
 import { doLogout } from '../../lib/keycloak';
 import { useTranslation } from 'react-i18next';
-import { getVisibleNavigationRoutes, matchesAppRoute, type AppRouteGroup } from '../../lib/appRouteManifest';
-
-const groupLabels: Record<string, string> = {
-  ops:       'Operações',
-  intel:     'Inteligência',
-  resources: 'Recursos',
-  admin:     'Admin',
-  system:    'Sistema',
-  public:    'Público',
-};
+import {
+  APP_ROUTE_GROUP_LABELS,
+  getVisibleNavigationRoutes,
+  matchesAppRoute,
+  type AppRouteGroup,
+} from '../../lib/appRouteManifest';
+import {
+  ShellLiveIndicator,
+  ShellSectionEyebrow,
+  ShellSurface,
+} from './ShellPrimitives';
 
 interface NavigationRailProps extends BoxProps {
   mode?: 'compact' | 'expanded' | 'auto';
@@ -53,13 +54,12 @@ export const NavigationRail = memo(function NavigationRail({
   const railWidth = isExpanded ? '220px' : '64px';
 
   return (
-    <Box
+    <ShellSurface
       as="aside"
       w={railWidth}
       minW={railWidth}
       h="full"
-      bg="#111119"
-      borderRight="1px solid rgba(255,255,255,0.07)"
+      variant="rail"
       display="flex"
       flexDirection="column"
       overflow="hidden"
@@ -83,25 +83,29 @@ export const NavigationRail = memo(function NavigationRail({
         )}
       </Box>
 
-      <Divider borderColor="rgba(255,255,255,0.07)" />
+      <Divider borderColor="border.subtle" />
 
       {/* Nav Groups */}
-      <Box flex={1} overflowY="auto" overflowX="hidden" py={2} className="no-scrollbar">
+      <Box
+        flex={1}
+        overflowY="auto"
+        overflowX="hidden"
+        py={2}
+        sx={{
+          scrollbarWidth: 'none',
+          '&::-webkit-scrollbar': { display: 'none' },
+        }}
+      >
         {Object.entries(groups).map(([groupKey, items]) => (
           <Box key={groupKey} mb={2}>
             {isExpanded && (
-              <Text
-                fontSize="10px"
-                fontWeight="600"
-                color="rgba(255,255,255,0.28)"
-                textTransform="uppercase"
-                letterSpacing="wider"
+              <ShellSectionEyebrow
                 px={5}
                 mb={1}
                 mt={2}
               >
-                {groupLabels[groupKey] || groupKey}
-              </Text>
+                {APP_ROUTE_GROUP_LABELS[groupKey as AppRouteGroup] || groupKey}
+              </ShellSectionEyebrow>
             )}
 
             {items.map(item => {
@@ -128,12 +132,12 @@ export const NavigationRail = memo(function NavigationRail({
                     borderRadius="md"
                     transition="background 0.15s, color 0.15s"
                     position="relative"
-                    color={isActive ? 'white' : 'rgba(255,255,255,0.45)'}
+                    color={isActive ? 'white' : 'text.secondary'}
                     bg={isActive ? 'rgba(0, 122, 255, 0.14)' : 'transparent'}
                     borderLeft={isActive ? '2px solid' : '2px solid transparent'}
                     borderLeftColor={isActive ? 'sos.blue.500' : 'transparent'}
                     _hover={{
-                      bg: isActive ? 'rgba(0, 122, 255, 0.18)' : 'rgba(255,255,255,0.05)',
+                      bg: isActive ? 'rgba(0, 122, 255, 0.18)' : 'surface.interactiveHover',
                       color: 'white',
                       textDecoration: 'none',
                     }}
@@ -159,7 +163,7 @@ export const NavigationRail = memo(function NavigationRail({
         ))}
       </Box>
 
-      <Divider borderColor="rgba(255,255,255,0.07)" />
+      <Divider borderColor="border.subtle" />
 
       {/* Footer */}
       <Box py={2} flexShrink={0}>
@@ -197,21 +201,16 @@ export const NavigationRail = memo(function NavigationRail({
         {/* Connection status */}
         {isExpanded ? (
           <Box mx={3} mt={2} p={3} borderRadius="md" bg="rgba(0,122,255,0.05)" border="1px solid rgba(0,122,255,0.10)">
-            <HStack spacing={2}>
-              <Box w={2} h={2} borderRadius="full" bg="sos.green.500" className="status-live" flexShrink={0} />
-              <Text fontSize="11px" fontWeight="500" color="rgba(255,255,255,0.38)">
-                Conectado
-              </Text>
-            </HStack>
+            <ShellLiveIndicator label="Conectado" />
           </Box>
         ) : (
           <Tooltip label="Conectado" placement="right" hasArrow>
             <Box display="flex" justifyContent="center" mt={2}>
-              <Box w={2} h={2} borderRadius="full" bg="sos.green.500" className="status-live" />
+              <Box w={2} h={2} borderRadius="full" bg="status.live" className="status-live" />
             </Box>
           </Tooltip>
         )}
       </Box>
-    </Box>
+    </ShellSurface>
   );
 });

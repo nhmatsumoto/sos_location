@@ -15,6 +15,7 @@ using SOSLocation.Infrastructure.Services.Gis.Providers;
 using SOSLocation.Infrastructure.Services.Gis.Crawlers;
 using SOSLocation.Infrastructure.Services.News;
 using SOSLocation.ML.Services;
+using System.Net.Http;
 
 namespace SOSLocation.API.Extensions
 {
@@ -51,18 +52,25 @@ namespace SOSLocation.API.Extensions
             // GIS Configuration
             services.Configure<GisOptions>(configuration.GetSection("ExternalIntegrations"));
 
-            // GIS Data Providers (Resilient Modular Architecture)
-            services.AddHttpClient<IGisDataProvider, OpenTopographyProvider>().AddStandardResilienceHandler();
-            services.AddHttpClient<IGisDataProvider, TerrainRgbProvider>().AddStandardResilienceHandler();
-            services.AddHttpClient<IGisDataProvider, OverpassProvider>().AddStandardResilienceHandler();
-            services.AddHttpClient<IGisDataProvider, OpenMeteoProvider>().AddStandardResilienceHandler();
-            services.AddHttpClient<IGisDataProvider, EarthdataProvider>().AddStandardResilienceHandler();
+            // GIS Data Providers (each concrete provider gets its own HttpClient)
+            AddGisProvider<OpenTopographyProvider>(services);
+            AddGisProvider<TerrainRgbProvider>(services);
+            AddGisProvider<OverpassProvider>(
+                services,
+                client =>
+                {
+                    client.Timeout = TimeSpan.FromSeconds(110);
+                    client.DefaultRequestHeaders.UserAgent.ParseAdd("SOSLocation/1.0");
+                },
+                useStandardResilience: false);
+            AddGisProvider<OpenMeteoProvider>(services);
+            AddGisProvider<EarthdataProvider>(services);
             // New civil engineering data providers
-            services.AddHttpClient<IGisDataProvider, CopernicusDemProvider>().AddStandardResilienceHandler();
-            services.AddHttpClient<IGisDataProvider, OpenElevationProvider>().AddStandardResilienceHandler();
-            services.AddHttpClient<IGisDataProvider, SoilGridsProvider>().AddStandardResilienceHandler();
-            services.AddHttpClient<IGisDataProvider, WorldCoverProvider>().AddStandardResilienceHandler();
-            services.AddHttpClient<IGisDataProvider, GhslProvider>().AddStandardResilienceHandler();
+            AddGisProvider<CopernicusDemProvider>(services);
+            AddGisProvider<OpenElevationProvider>(services);
+            AddGisProvider<SoilGridsProvider>(services);
+            AddGisProvider<WorldCoverProvider>(services);
+            AddGisProvider<GhslProvider>(services);
 
             // GIS Facade
             services.AddScoped<UrbanRasterProcessor>();
@@ -141,6 +149,22 @@ namespace SOSLocation.API.Extensions
             services.AddSingleton<INotificationService, SOSLocation.API.Services.NotificationService>();
 
             return services;
+        }
+
+        private static void AddGisProvider<TProvider>(
+            IServiceCollection services,
+            Action<HttpClient>? configureClient = null,
+            bool useStandardResilience = true)
+            where TProvider : class, IGisDataProvider
+        {
+            var builder = configureClient is null
+                ? services.AddHttpClient<TProvider>()
+                : services.AddHttpClient<TProvider>(configureClient);
+
+            if (useStandardResilience)
+                builder.AddStandardResilienceHandler();
+
+            services.AddTransient<IGisDataProvider>(sp => sp.GetRequiredService<TProvider>());
         }
 
         public static IServiceCollection AddApplication(this IServiceCollection services)

@@ -130,6 +130,11 @@ function smoothGrid(grid: number[][], radius: number): number[][] {
   return out;
 }
 
+function flipGridY<T>(grid: T[][]): T[][] {
+  if (grid.length === 0) return grid;
+  return [...grid].reverse().map(row => [...row]);
+}
+
 // ── Atmosphere / Weather helpers ─────────────────────────────────────────────
 function getPrecipType(type: string, precip: number, snowfall: number, temp: number): number {
   if (type === 'SNOW') return snowfall > 30 ? 6 : 5;
@@ -1089,12 +1094,13 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
     // ── TEXTURES ──────────────────────────────────────────────────────────────
     const createDataTexture = (grid: number[][]): { tex: WebGLTexture; size: number } => {
       const tex = gl.createTexture()!;
-      const rows = grid.length;
-      const cols = grid[0]?.length ?? 0;
+      const flippedGrid = flipGridY(grid);
+      const rows = flippedGrid.length;
+      const cols = flippedGrid[0]?.length ?? 0;
       if (rows === 0 || cols === 0) return { tex, size: 1 };
 
       let minVal = Infinity, maxVal = -Infinity;
-      for (const row of grid) {
+      for (const row of flippedGrid) {
         for (const v of row) {
           if (v < minVal) minVal = v;
           if (v > maxVal) maxVal = v;
@@ -1105,7 +1111,7 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
       const data = new Float32Array(cols * rows);
       for (let y = 0; y < rows; y++)
         for (let x = 0; x < cols; x++)
-          data[y * cols + x] = (grid[y][x] - minVal) / range;
+          data[y * cols + x] = (flippedGrid[y][x] - minVal) / range;
 
       gl.bindTexture(gl.TEXTURE_2D, tex);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.R32F, cols, rows, 0, gl.RED, gl.FLOAT, data);
@@ -1159,13 +1165,14 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
     const blurRadius = 2;
     if (blueprint?.elevation.length) {
       const smoothed = smoothGrid(blueprint.elevation as number[][], blurRadius);
-      normalizedGridRef.current = smoothed; // already normalized 0-1
-      const rows = smoothed.length;
-      const cols = smoothed[0]?.length ?? 1;
+      const alignedGrid = flipGridY(smoothed);
+      normalizedGridRef.current = alignedGrid; // already normalized 0-1 and aligned to world north/south
+      const rows = alignedGrid.length;
+      const cols = alignedGrid[0]?.length ?? 1;
       const elevData = new Uint8Array(rows * cols);
       for (let r = 0; r < rows; r++)
         for (let c = 0; c < cols; c++)
-          elevData[r * cols + c] = Math.floor(smoothed[r][c] * 255);
+          elevData[r * cols + c] = Math.floor(alignedGrid[r][c] * 255);
       topoTexture = gl.createTexture()!;
       gl.bindTexture(gl.TEXTURE_2D, topoTexture);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, cols, rows, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, elevData);
@@ -1180,7 +1187,7 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
       let mn = Infinity, mx = -Infinity;
       for (const row of smoothed) for (const v of row) { if (v < mn) mn = v; if (v > mx) mx = v; }
       const rng = Math.max(1, mx - mn);
-      normalizedGridRef.current = smoothed.map(row => row.map(v => (v - mn) / rng));
+      normalizedGridRef.current = flipGridY(smoothed.map(row => row.map(v => (v - mn) / rng)));
       const { tex, size } = createDataTexture(smoothed);
       topoTexture = tex;
       topoSize = size;
@@ -1192,7 +1199,7 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
     const slopeTexture = gl.createTexture()!;
     gl.bindTexture(gl.TEXTURE_2D, slopeTexture);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, 1, 1, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, new Uint8Array([0]));
-    const demGrid = blueprint?.elevation ?? resultData?.elevationGrid ?? [];
+    const demGrid = flipGridY(blueprint?.elevation ?? resultData?.elevationGrid ?? []);
     if (demGrid.length > 0 && worldSpanX > 0 && worldSpanZ > 0) {
       const slopeFloat = SlopeAnalyzer.compute(demGrid, worldSpanX / CM, worldSpanZ / CM); // metres
       const slopeTex   = SlopeAnalyzer.toTexture(slopeFloat);
@@ -1440,7 +1447,6 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
           // If pipeline returned DEM and we have no elevation data, build topo texture
           if (geoData.dem && !blueprint?.elevation.length && !resultData?.elevationGrid?.length) {
             const dem = geoData.dem;
-            const texData = new Uint8Array(dem.rows * dem.cols);
             const range = Math.max(1, dem.maxHeight - dem.minHeight);
             // Build normalized 0-1 grid for CPU terrain sampler
             const normGrid: number[][] = [];
@@ -1449,12 +1455,18 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
               for (let c = 0; c < dem.cols; c++) {
                 const norm = (dem.grid[r * dem.cols + c] - dem.minHeight) / range;
                 normGrid[r].push(norm);
-                texData[r * dem.cols + c] = Math.round(norm * 255);
               }
             }
-            normalizedGridRef.current = normGrid;
+            const alignedNormGrid = flipGridY(normGrid);
+            normalizedGridRef.current = alignedNormGrid;
+            const texDataAligned = new Uint8Array(dem.rows * dem.cols);
+            for (let r = 0; r < dem.rows; r++) {
+              for (let c = 0; c < dem.cols; c++) {
+                texDataAligned[r * dem.cols + c] = Math.round(alignedNormGrid[r][c] * 255);
+              }
+            }
             gl.bindTexture(gl.TEXTURE_2D, topoTexture);
-            gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, dem.cols, dem.rows, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, texData);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, dem.cols, dem.rows, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, texDataAligned);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);

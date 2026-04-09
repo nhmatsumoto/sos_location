@@ -31,6 +31,14 @@ export const ADMIN_DATA_SOURCES_ROUTE = '/admin/data-sources';
 export type AppRouteGroup = 'ops' | 'intel' | 'resources' | 'admin' | 'system';
 export type AppRouteLayout = 'default' | 'tactical';
 
+export const APP_ROUTE_GROUP_LABELS: Record<AppRouteGroup, string> = {
+  ops: 'Operações',
+  intel: 'Inteligência',
+  resources: 'Recursos',
+  admin: 'Administração',
+  system: 'Sistema',
+};
+
 export interface AppRouteDefinition extends AccessRequirement {
   id: string;
   path: string;

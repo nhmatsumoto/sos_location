@@ -1,29 +1,43 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link as RouterLink } from 'react-router-dom';
+import { Activity, AlertTriangle, ExternalLink, MapPin, RefreshCw } from 'lucide-react';
+import {
+  Box,
+  Button,
+  HStack,
+  Input,
+  Select,
+  SimpleGrid,
+  Text,
+  VStack,
+} from '@chakra-ui/react';
 import { modulesApi } from '../../../services/modulesApi';
 import { useIncidentStore } from '../../../store/incidentStore';
 import { useNotifications } from '../../../context/useNotifications';
 import {
-  Box, VStack, HStack, Text, Badge, Spinner, Center,
-  Input, Select, Flex, IconButton
-} from '@chakra-ui/react';
-import { Activity, AlertTriangle, MapPin, RefreshCw, ExternalLink } from 'lucide-react';
-import { GlassPanel } from '../../../components/atoms/GlassPanel';
-import { TacticalText } from '../../../components/atoms/TacticalText';
+  MetricCard,
+  PageEmptyState,
+  PageHeader,
+  PageLoadingState,
+  PagePanel,
+} from '../../../components/layout/PagePrimitives';
+import {
+  ShellSectionEyebrow,
+  ShellTelemetryBadge,
+} from '../../../components/layout/ShellPrimitives';
 
 const STATUS_COLORS: Record<string, string> = {
-  active:      '#FF3B30',
+  active: '#FF3B30',
   'em andamento': '#FF3B30',
-  resolved:    '#34C759',
-  encerrado:   '#34C759',
-  monitoring:  '#FF9500',
+  resolved: '#34C759',
+  encerrado: '#34C759',
+  monitoring: '#FF9500',
   monitorando: '#FF9500',
-  pending:     '#8E8E93',
-  pendente:    '#8E8E93',
+  pending: '#8E8E93',
+  pendente: '#8E8E93',
 };
 
-const getStatusColor = (status: string) =>
-  STATUS_COLORS[status?.toLowerCase()] || '#8E8E93';
+const getStatusColor = (status: string) => STATUS_COLORS[status?.toLowerCase()] || '#8E8E93';
 
 interface IncidentRow {
   id: string | number;
@@ -32,94 +46,6 @@ interface IncidentRow {
   type?: string;
   region?: string;
   status?: string;
-}
-
-function IncidentCard({ incident, isSelected, onSelect }: { incident: IncidentRow; isSelected: boolean; onSelect: () => void }) {
-  const statusColor = getStatusColor(incident.status ?? '');
-  return (
-    <GlassPanel
-      depth="raised"
-      tint={isSelected ? 'blue' : 'none'}
-      p={4}
-      borderRadius="xl"
-      cursor="pointer"
-      border="1px solid"
-      borderColor={isSelected ? 'rgba(0,122,255,0.35)' : 'rgba(255,255,255,0.08)'}
-      transition="all 0.2s cubic-bezier(0.4,0,0.2,1)"
-      _hover={{
-        borderColor: isSelected ? 'rgba(0,122,255,0.50)' : 'rgba(255,255,255,0.16)',
-        transform: 'translateY(-2px)',
-        boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
-      }}
-      onClick={onSelect}
-      direction="column"
-      gap={3}
-    >
-      <Flex justify="space-between" align="flex-start">
-        <VStack align="flex-start" spacing={1} flex={1}>
-          <TacticalText variant="heading" fontSize="sm" color="white" lineHeight={1.3}>
-            {incident.name || incident.title || `Incidente #${incident.id}`}
-          </TacticalText>
-          <HStack spacing={2}>
-            {incident.type && (
-              <Badge
-                px={2}
-                py={0.5}
-                bg="rgba(0,122,255,0.10)"
-                color="rgba(0,122,255,0.90)"
-                border="1px solid rgba(0,122,255,0.20)"
-                borderRadius="md"
-                fontSize="10px"
-              >
-                {incident.type}
-              </Badge>
-            )}
-            {incident.region && (
-              <HStack spacing={1}>
-                <MapPin size={11} color="rgba(255,255,255,0.40)" />
-                <Text fontSize="xs" color="rgba(255,255,255,0.40)">{incident.region}</Text>
-              </HStack>
-            )}
-          </HStack>
-        </VStack>
-
-        <HStack spacing={2}>
-          <Box
-            w={2}
-            h={2}
-            borderRadius="full"
-            bg={statusColor}
-            boxShadow={`0 0 6px ${statusColor}`}
-            className={incident.status === 'active' || incident.status === 'em andamento' ? 'animate-pulse' : undefined}
-          />
-          <Text fontSize="10px" fontWeight="700" color={statusColor} textTransform="uppercase">
-            {incident.status}
-          </Text>
-        </HStack>
-      </Flex>
-
-      <HStack spacing={3} justify="flex-end">
-        <Link
-          to={`/incidents/${incident.id}`}
-          onClick={e => e.stopPropagation()}
-          style={{ textDecoration: 'none' }}
-        >
-          <HStack
-            spacing={1}
-            px={3}
-            py={1.5}
-            borderRadius="lg"
-            border="1px solid rgba(255,255,255,0.12)"
-            _hover={{ bg: 'rgba(255,255,255,0.06)', borderColor: 'rgba(255,255,255,0.25)' }}
-            transition="all 0.18s"
-          >
-            <Text fontSize="xs" color="rgba(255,255,255,0.60)" fontWeight="600">Detalhes</Text>
-            <ExternalLink size={12} color="rgba(255,255,255,0.40)" />
-          </HStack>
-        </Link>
-      </HStack>
-    </GlassPanel>
-  );
 }
 
 export function IncidentsPage() {
@@ -137,113 +63,241 @@ export function IncidentsPage() {
       setRows((data ?? []) as IncidentRow[]);
     } catch {
       setRows([]);
-      pushNotice({ type: 'warning', title: 'Incidentes indisponíveis', message: 'Sem conexão com o servidor.' });
+      pushNotice({
+        type: 'warning',
+        title: 'Incidentes indisponíveis',
+        message: 'Sem conexão com o servidor.',
+      });
     } finally {
       setLoading(false);
     }
   }, [pushNotice]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+  }, [load]);
 
-  const filtered = useMemo(() => {
-    return rows.filter(r => {
-      const matchSearch = !search
-        || (r.name || '').toLowerCase().includes(search.toLowerCase())
-        || (r.type || '').toLowerCase().includes(search.toLowerCase())
-        || (r.region || '').toLowerCase().includes(search.toLowerCase());
-      const matchStatus = !statusFilter || (r.status || '').toLowerCase() === statusFilter;
-      return matchSearch && matchStatus;
-    });
-  }, [rows, search, statusFilter]);
+  const filtered = useMemo(
+    () =>
+      rows.filter((row) => {
+        const query = search.toLowerCase();
+        const matchSearch =
+          !query ||
+          (row.name || '').toLowerCase().includes(query) ||
+          (row.type || '').toLowerCase().includes(query) ||
+          (row.region || '').toLowerCase().includes(query);
+        const matchStatus = !statusFilter || (row.status || '').toLowerCase() === statusFilter;
+        return matchSearch && matchStatus;
+      }),
+    [rows, search, statusFilter],
+  );
 
-  const statuses = useMemo(() => [...new Set(rows.map(r => r.status).filter(Boolean))], [rows]);
+  const statuses = useMemo(
+    () => [...new Set(rows.map((row) => row.status).filter(Boolean))],
+    [rows],
+  );
+
+  const activeCount = rows.filter((row) => ['active', 'em andamento'].includes((row.status || '').toLowerCase())).length;
+  const monitoringCount = rows.filter((row) => ['monitoring', 'monitorando'].includes((row.status || '').toLowerCase())).length;
+  const closedCount = rows.filter((row) => ['resolved', 'encerrado'].includes((row.status || '').toLowerCase())).length;
 
   return (
-    <Box minH="100vh" bg="sos.dark" p={6}>
-      <VStack spacing={6} align="stretch">
+    <Box
+      h="full"
+      overflowY="auto"
+      px={{ base: 4, md: 6, xl: 8 }}
+      py={{ base: 4, md: 6 }}
+      bgGradient="radial(circle at top left, rgba(255,59,48,0.08), transparent 24%), radial(circle at bottom right, rgba(0,122,255,0.08), transparent 22%), linear(to-b, #030712 0%, #07111f 55%, #08121d 100%)"
+    >
+      <VStack maxW="7xl" mx="auto" spacing={6} align="stretch">
+        <PageHeader
+          icon={Activity}
+          eyebrow="INCIDENT_MATRIX // STATUS_REVIEW // TERRITORY_SIGNAL"
+          title="Painel de incidentes com foco em triagem, filtro e navegação operacional"
+          description="A lista foi reorganizada para destacar status, tipologia e contexto regional de cada incidente sem depender de tabelas rígidas."
+          meta={
+            <>
+              <ShellTelemetryBadge tone="critical">{activeCount} ativos</ShellTelemetryBadge>
+              <ShellTelemetryBadge tone="warning">{monitoringCount} monitorando</ShellTelemetryBadge>
+              <ShellTelemetryBadge tone="success">{closedCount} encerrados</ShellTelemetryBadge>
+            </>
+          }
+          actions={
+            <Button
+              leftIcon={<RefreshCw size={16} />}
+              variant="ghost"
+              onClick={() => void load()}
+              isLoading={loading}
+            >
+              Atualizar incidentes
+            </Button>
+          }
+        />
 
-        {/* Header */}
-        <Flex justify="space-between" align="center">
-          <VStack align="flex-start" spacing={0}>
-            <HStack spacing={3}>
-              <Box p={2} bg="rgba(255,59,48,0.12)" borderRadius="xl">
-                <Activity size={20} color="#FF3B30" />
-              </Box>
-              <Box>
-                <TacticalText variant="heading" fontSize="xl" color="white">
-                  Incidentes Ativos
-                </TacticalText>
-                <Text fontSize="xs" color="rgba(255,255,255,0.40)" mt={0.5}>
-                  {rows.length} incidentes registrados
-                </Text>
-              </Box>
+        <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
+          <MetricCard
+            label="Incidentes registrados"
+            value={rows.length}
+            helper="Volume total disponível no catálogo atual"
+            icon={Activity}
+            tone="info"
+          />
+          <MetricCard
+            label="Seleção visível"
+            value={filtered.length}
+            helper="Resultado após busca e recorte por status"
+            icon={AlertTriangle}
+            tone="warning"
+          />
+          <MetricCard
+            label="Contextos regionais"
+            value={new Set(rows.map((row) => row.region).filter(Boolean)).size}
+            helper="Regiões distintas presentes no feed"
+            icon={MapPin}
+            tone="default"
+          />
+        </SimpleGrid>
+
+        <PagePanel
+          title="Filtro operacional"
+          description="Refine a visualização por nome, risco ou etapa do incidente."
+          icon={AlertTriangle}
+          tone="info"
+        >
+          <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+            <Box>
+              <ShellSectionEyebrow mb={2}>Busca</ShellSectionEyebrow>
+              <Input
+                placeholder="Nome, tipo ou região"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+              />
+            </Box>
+            <Box>
+              <ShellSectionEyebrow mb={2}>Status</ShellSectionEyebrow>
+              <Select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+                <option value="">Todos os status</option>
+                {statuses.map((status) => (
+                  <option key={status} value={status?.toLowerCase()}>
+                    {status}
+                  </option>
+                ))}
+              </Select>
+            </Box>
+          </SimpleGrid>
+        </PagePanel>
+
+        <PagePanel
+          title="Lista priorizada de incidentes"
+          description="Cada card concentra identificação, contexto espacial e navegação rápida para o detalhe."
+          icon={Activity}
+          tone="default"
+        >
+          {loading ? (
+            <PageLoadingState
+              minH="320px"
+              label="Sincronizando incidentes"
+              description="O shell está recompondo o catálogo territorial."
+            />
+          ) : filtered.length === 0 ? (
+            <PageEmptyState
+              minH="320px"
+              title="Nenhum incidente encontrado"
+              description={
+                search || statusFilter
+                  ? 'Ajuste os filtros para reabrir a malha de busca.'
+                  : 'Sem incidentes registrados no momento.'
+              }
+            />
+          ) : (
+            <VStack align="stretch" spacing={3}>
+              {filtered.map((incident) => (
+                <IncidentCard
+                  key={incident.id}
+                  incident={incident}
+                  isSelected={selectedIncidentId === Number(incident.id)}
+                  onSelect={() => setSelectedIncidentId(Number(incident.id))}
+                />
+              ))}
+            </VStack>
+          )}
+        </PagePanel>
+      </VStack>
+    </Box>
+  );
+}
+
+function IncidentCard({
+  incident,
+  isSelected,
+  onSelect,
+}: {
+  incident: IncidentRow;
+  isSelected: boolean;
+  onSelect: () => void;
+}) {
+  const statusColor = getStatusColor(incident.status ?? '');
+
+  return (
+    <Box
+      p={4}
+      borderRadius="3xl"
+      bg={isSelected ? 'rgba(0,122,255,0.10)' : 'surface.interactive'}
+      border="1px solid"
+      borderColor={isSelected ? 'rgba(0,122,255,0.28)' : 'border.subtle'}
+      transition="all 0.2s"
+      cursor="pointer"
+      _hover={{
+        bg: 'surface.interactiveHover',
+        borderColor: isSelected ? 'rgba(0,122,255,0.40)' : 'border.strong',
+        transform: 'translateY(-2px)',
+      }}
+      onClick={onSelect}
+    >
+      <VStack align="stretch" spacing={3}>
+        <HStack justify="space-between" align="flex-start" spacing={3}>
+          <VStack align="flex-start" spacing={1.5}>
+            <Text fontSize="md" fontWeight="700" color="white" lineHeight={1.3}>
+              {incident.name || incident.title || `Incidente #${incident.id}`}
+            </Text>
+            <HStack spacing={2} flexWrap="wrap">
+              {incident.type ? (
+                <ShellTelemetryBadge tone="info">{incident.type}</ShellTelemetryBadge>
+              ) : null}
+              {incident.region ? (
+                <HStack spacing={1.5}>
+                  <MapPin size={12} color="rgba(255,255,255,0.40)" />
+                  <Text fontSize="xs" color="text.secondary">
+                    {incident.region}
+                  </Text>
+                </HStack>
+              ) : null}
             </HStack>
           </VStack>
 
-          <IconButton
-            icon={<RefreshCw size={16} />}
-            aria-label="Atualizar"
-            onClick={() => void load()}
-            isLoading={loading}
-            variant="ghost"
-            borderRadius="xl"
-            color="rgba(255,255,255,0.50)"
-            _hover={{ color: 'white', bg: 'rgba(255,255,255,0.08)' }}
-          />
-        </Flex>
+          <HStack spacing={2}>
+            <Box w={2.5} h={2.5} borderRadius="full" bg={statusColor} boxShadow={`0 0 8px ${statusColor}`} />
+            <Text fontSize="10px" fontWeight="700" color={statusColor} textTransform="uppercase">
+              {incident.status}
+            </Text>
+          </HStack>
+        </HStack>
 
-        {/* Filters */}
-        <GlassPanel depth="base" p={4} gap={3} flexDir={{ base: 'column', md: 'row' }}>
-          <Input
-            placeholder="Buscar por nome, tipo ou região..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            flex={1}
-          />
-          <Select
-            value={statusFilter}
-            onChange={e => setStatusFilter(e.target.value)}
-            w={{ base: 'full', md: '200px' }}
+        <HStack justify="space-between" flexWrap="wrap" spacing={3}>
+          <Text fontSize="sm" color="text.secondary">
+            Selecione para manter o incidente ativo no contexto operacional e abrir o detalhe completo.
+          </Text>
+          <Button
+            as={RouterLink}
+            to={`/incidents/${incident.id}`}
+            variant="outline"
+            size="sm"
+            leftIcon={<ExternalLink size={14} />}
+            onClick={(event) => event.stopPropagation()}
           >
-            <option value="">Todos os status</option>
-            {statuses.map(s => (
-              <option key={s} value={s?.toLowerCase()}>{s}</option>
-            ))}
-          </Select>
-        </GlassPanel>
-
-        {/* Content */}
-        {loading ? (
-          <Center h="300px">
-            <VStack spacing={4}>
-              <Spinner size="xl" color="sos.blue.500" thickness="3px" speed="0.8s" emptyColor="rgba(255,255,255,0.06)" />
-              <TacticalText variant="mono" color="rgba(255,255,255,0.40)">
-                Carregando incidentes...
-              </TacticalText>
-            </VStack>
-          </Center>
-        ) : filtered.length === 0 ? (
-          <Center h="300px">
-            <VStack spacing={4} opacity={0.4}>
-              <AlertTriangle size={48} color="rgba(255,255,255,0.30)" />
-              <TacticalText variant="heading">Nenhum incidente encontrado</TacticalText>
-              <Text fontSize="sm" color="rgba(255,255,255,0.40)">
-                {search || statusFilter ? 'Ajuste os filtros para ver mais resultados.' : 'Sem incidentes registrados no momento.'}
-              </Text>
-            </VStack>
-          </Center>
-        ) : (
-          <VStack spacing={3} align="stretch">
-            {filtered.map(incident => (
-              <IncidentCard
-                key={incident.id}
-                incident={incident}
-                isSelected={selectedIncidentId === Number(incident.id)}
-                onSelect={() => setSelectedIncidentId(Number(incident.id))}
-              />
-            ))}
-          </VStack>
-        )}
+            Detalhes
+          </Button>
+        </HStack>
       </VStack>
     </Box>
   );

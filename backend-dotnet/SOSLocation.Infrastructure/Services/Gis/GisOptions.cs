@@ -6,6 +6,7 @@ namespace SOSLocation.Infrastructure.Services.Gis
     {
         public string OpenTopographyUrl { get; set; } = "https://portal.opentopography.org/API/globaldem";
         public string OverpassUrl { get; set; } = "https://overpass-api.de/api/interpreter";
+        public string[] OverpassFallbackUrls { get; set; } = Array.Empty<string>();
         public string OpenMeteoUrl { get; set; } = "https://api.open-meteo.com/v1/forecast";
         public string OpenTopographyApiKey { get; set; } = "";
         public string EarthdataUrl { get; set; } = "https://urs.earthdata.nasa.gov/";

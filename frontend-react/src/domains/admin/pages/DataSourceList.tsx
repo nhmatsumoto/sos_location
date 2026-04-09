@@ -1,5 +1,48 @@
-import { useState, useEffect } from 'react';
-import { Plus, Power, Globe, CloudRain, Newspaper, ShieldAlert, Cog } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  Badge,
+  Box,
+  Button,
+  FormControl,
+  FormLabel,
+  HStack,
+  IconButton,
+  Input,
+  Modal,
+  ModalBody,
+  ModalCloseButton,
+  ModalContent,
+  ModalFooter,
+  ModalHeader,
+  ModalOverlay,
+  Select,
+  SimpleGrid,
+  Switch,
+  Text,
+  Textarea,
+  Tooltip,
+  VStack,
+  useToast,
+} from '@chakra-ui/react';
+import {
+  CloudRain,
+  Cog,
+  Globe,
+  Newspaper,
+  Plus,
+  Power,
+  RefreshCw,
+  ShieldAlert,
+} from 'lucide-react';
+import {
+  MetricCard,
+  PageEmptyState,
+  PageErrorState,
+  PageHeader,
+  PageLoadingState,
+  PagePanel,
+} from '../../../components/layout/PagePrimitives';
+import { ShellSectionEyebrow, ShellTelemetryBadge } from '../../../components/layout/ShellPrimitives';
 import { apiClient } from '../../../services/apiClient';
 
 interface DataSource {
@@ -24,199 +67,419 @@ const isDataSourceType = (value: string): value is DataSource['type'] =>
 const isProviderType = (value: string): value is DataSource['providerType'] =>
   PROVIDER_TYPES.includes(value as DataSource['providerType']);
 
+const createDraftSource = (): Partial<DataSource> => ({
+  name: '',
+  type: 'News',
+  providerType: 'JsonApi',
+  baseUrl: '',
+  frequencyMinutes: 30,
+  isActive: true,
+  metadataJson: '',
+});
+
 export function DataSourceList() {
+  const toast = useToast();
   const [sources, setSources] = useState<DataSource[]>([]);
   const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [newSource, setNewSource] = useState<Partial<DataSource>>({
-    name: '',
-    type: 'News',
-    providerType: 'JsonApi',
-    baseUrl: '',
-    frequencyMinutes: 30,
-    isActive: true
-  });
+  const [creating, setCreating] = useState(false);
+  const [syncingId, setSyncingId] = useState<string | null>(null);
+  const [newSource, setNewSource] = useState<Partial<DataSource>>(createDraftSource());
 
-  useEffect(() => {
-    fetchSources();
-  }, []);
+  const metrics = useMemo(() => ({
+    total: sources.length,
+    active: sources.filter((source) => source.isActive).length,
+    failing: sources.filter((source) => Boolean(source.lastErrorMessage)).length,
+  }), [sources]);
 
-  const fetchSources = async () => {
+  const fetchSources = useCallback(async () => {
     try {
+      setLoading(true);
+      setErrorMessage(null);
       const response = await apiClient.get<DataSource[]>('/v1/data-sources');
       setSources(response.data);
     } catch (err) {
       console.error('Failed to fetch data sources', err);
+      setErrorMessage('Não foi possível sincronizar as fontes configuradas.');
+      toast({
+        title: 'Falha ao carregar fontes',
+        description: 'O painel não conseguiu sincronizar a lista atual de crawlers.',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
     } finally {
       setLoading(false);
+      setSyncingId(null);
     }
-  };
+  }, [toast]);
+
+  useEffect(() => {
+    void fetchSources();
+  }, [fetchSources]);
 
   const handleCreate = async () => {
+    if (!newSource.name?.trim() || !newSource.baseUrl?.trim()) {
+      toast({
+        title: 'Campos obrigatórios',
+        description: 'Informe nome e URL base antes de salvar a nova fonte.',
+        status: 'warning',
+        duration: 2500,
+        isClosable: true,
+      });
+      return;
+    }
+
     try {
+      setCreating(true);
       await apiClient.post('/v1/data-sources', newSource);
       setIsModalOpen(false);
-      fetchSources();
+      setNewSource(createDraftSource());
+      toast({
+        title: 'Fonte cadastrada',
+        description: 'A nova integração foi adicionada ao hub.',
+        status: 'success',
+        duration: 2500,
+        isClosable: true,
+      });
+      await fetchSources();
     } catch (err) {
       console.error('Failed to create data source', err);
+      toast({
+        title: 'Falha ao cadastrar',
+        description: 'A fonte não pôde ser persistida com os dados atuais.',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
+    } finally {
+      setCreating(false);
     }
   };
 
   const handleToggle = async (source: DataSource) => {
     try {
+      setSyncingId(source.id);
       await apiClient.put(`/v1/data-sources/${source.id}`, { ...source, isActive: !source.isActive });
-      fetchSources();
+      await fetchSources();
     } catch (err) {
       console.error('Failed to toggle source', err);
-    }
-  };
-
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case 'News': return <Newspaper size={18} />;
-      case 'Weather': return <CloudRain size={18} />;
-      case 'Risk': return <ShieldAlert size={18} />;
-      default: return <Globe size={18} />;
+      toast({
+        title: 'Falha ao atualizar estado',
+        description: `A fonte ${source.name} não pôde ser atualizada.`,
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
+      setSyncingId(null);
     }
   };
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-2">
-            <Cog className="text-cyan-400" /> Fontes de Dados e Crawlers
-          </h1>
-          <p className="text-slate-400 text-sm">Gerencie provedores externos de informação para indexação e análise de risco.</p>
-        </div>
-        <button 
-          onClick={() => setIsModalOpen(true)}
-          className="bg-cyan-600 hover:bg-cyan-500 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition"
+    <Box px={{ base: 4, md: 6, xl: 8 }} py={{ base: 4, md: 6 }}>
+      <VStack align="stretch" spacing={6} maxW="7xl" mx="auto">
+        <PageHeader
+          icon={Cog}
+          eyebrow="INGESTION_CONFIG // CRAWLER_ORCHESTRATION // SOURCE_GOVERNANCE"
+          title="Fontes de Dados e Crawlers"
+          description="Gerencie integrações externas usadas para coleta de informação, chuva, notícias e sinais de risco."
+          meta={
+            <>
+              <ShellTelemetryBadge tone={metrics.failing > 0 ? 'warning' : 'success'}>
+                {metrics.failing} com falha
+              </ShellTelemetryBadge>
+              <ShellTelemetryBadge tone="info">
+                {metrics.active} ativas
+              </ShellTelemetryBadge>
+            </>
+          }
+          actions={
+            <>
+              <Button leftIcon={<RefreshCw size={16} />} variant="ghost" onClick={() => void fetchSources()} isLoading={loading}>
+                Recarregar
+              </Button>
+              <Button leftIcon={<Plus size={16} />} variant="tactical" onClick={() => setIsModalOpen(true)}>
+                Nova Fonte
+              </Button>
+            </>
+          }
+        />
+
+        <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
+          <MetricCard
+            label="Integrações catalogadas"
+            value={metrics.total}
+            helper="Fontes registradas nesta estação"
+            icon={Globe}
+            tone="info"
+          />
+          <MetricCard
+            label="Pipelines ativos"
+            value={metrics.active}
+            helper="Coletores habilitados para execução"
+            icon={Power}
+            tone={metrics.active > 0 ? 'success' : 'warning'}
+          />
+          <MetricCard
+            label="Incidentes na coleta"
+            value={metrics.failing}
+            helper="Fontes com erro recente registrado"
+            icon={ShieldAlert}
+            tone={metrics.failing > 0 ? 'warning' : 'success'}
+          />
+        </SimpleGrid>
+
+        <PagePanel
+          title="Catálogo de integrações"
+          description="Cada fonte descreve um provedor externo, frequência de leitura e o estado operacional mais recente."
+          icon={Globe}
+          tone="info"
+          actions={<ShellTelemetryBadge tone="info">{sources.length} itens</ShellTelemetryBadge>}
         >
-          <Plus size={20} /> Nova Fonte
-        </button>
-      </div>
-
-      {loading ? (
-        <div className="flex items-center justify-center h-64 text-slate-500 font-mono text-sm animate-pulse">
-           Sincronizando com o hub de dados...
-        </div>
-      ) : sources.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {sources.map(source => (
-            <div key={source.id} className="bg-slate-800/50 border border-slate-700 rounded-xl p-5 hover:border-cyan-500/50 transition">
-              <div className="flex justify-between items-start mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-slate-900 rounded-lg text-cyan-400">
-                    {getTypeIcon(source.type)}
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-slate-100">{source.name}</h3>
-                    <span className="text-xs text-slate-500 font-mono uppercase">{source.providerType}</span>
-                  </div>
-                </div>
-                <button 
-                  onClick={() => handleToggle(source)}
-                  className={`p-2 rounded-lg transition ${source.isActive ? 'text-green-400 bg-green-500/10' : 'text-slate-500 bg-slate-700/50'}`}
+          {loading ? (
+            <PageLoadingState
+              label="Sincronizando com o hub de dados"
+              description="A estação está recompondo o catálogo de provedores e crawlers."
+            />
+          ) : errorMessage ? (
+            <PageErrorState
+              description={errorMessage}
+              action={
+                <Button variant="tactical" onClick={() => void fetchSources()}>
+                  Tentar novamente
+                </Button>
+              }
+            />
+          ) : sources.length === 0 ? (
+            <PageEmptyState
+              title="Nenhuma fonte cadastrada"
+              description="Cadastre uma integração para iniciar ingestão de dados externos."
+              icon={Globe}
+              action={
+                <Button variant="tactical" leftIcon={<Plus size={16} />} onClick={() => setIsModalOpen(true)}>
+                  Configurar primeira fonte
+                </Button>
+              }
+            />
+          ) : (
+            <SimpleGrid columns={{ base: 1, xl: 2 }} spacing={4}>
+              {sources.map((source) => (
+                <PagePanel
+                  key={source.id}
+                  title={source.name}
+                  description={`${source.providerType} // ${source.type}`}
+                  icon={resolveTypeIcon(source.type)}
+                  tone={source.lastErrorMessage ? 'warning' : source.isActive ? 'success' : 'default'}
+                  actions={
+                    <Tooltip label={source.isActive ? 'Desativar pipeline' : 'Ativar pipeline'}>
+                      <IconButton
+                        icon={<Power size={16} />}
+                        aria-label={`Alternar ${source.name}`}
+                        onClick={() => void handleToggle(source)}
+                        isLoading={syncingId === source.id}
+                        variant="ghost"
+                        colorScheme={source.isActive ? 'green' : 'gray'}
+                      />
+                    </Tooltip>
+                  }
                 >
-                  <Power size={16} />
-                </button>
-              </div>
-              
-              <div className="space-y-2 mb-4">
-                <p className="text-xs text-slate-400 truncate"><strong>URL:</strong> {source.baseUrl}</p>
-                <p className="text-xs text-slate-400"><strong>Frequência:</strong> a cada {source.frequencyMinutes} min</p>
-                {source.lastCrawlAt && (
-                  <p className="text-xs text-slate-500 italic">Última indexação: {new Date(source.lastCrawlAt).toLocaleString()}</p>
-                )}
-              </div>
+                  <VStack align="stretch" spacing={4}>
+                    <SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
+                      <DataPoint
+                        label="Endpoint"
+                        value={source.baseUrl}
+                      />
+                      <DataPoint
+                        label="Frequência"
+                        value={`a cada ${source.frequencyMinutes} min`}
+                      />
+                    </SimpleGrid>
 
-              {source.lastErrorMessage && (
-                <div className="mt-2 p-2 bg-red-500/10 border border-red-500/20 rounded text-[10px] text-red-400 truncate">
-                  Erro: {source.lastErrorMessage}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="text-center py-20 bg-slate-900/40 border border-dashed border-slate-700 rounded-2xl">
-          <p className="text-slate-500 font-mono text-xs uppercase tracking-widest">Nenhuma fonte cadastrada no momento.</p>
-        </div>
-      )}
+                    <HStack justify="space-between" flexWrap="wrap" spacing={2}>
+                      <HStack spacing={2}>
+                        <ShellTelemetryBadge tone={source.isActive ? 'success' : 'default'}>
+                          {source.isActive ? 'Ativa' : 'Inativa'}
+                        </ShellTelemetryBadge>
+                        <Badge variant="subtle" bg="rgba(255,255,255,0.06)" color="text.secondary">
+                          {source.providerType}
+                        </Badge>
+                      </HStack>
+                      {source.lastCrawlAt ? (
+                        <Text fontSize="11px" color="text.secondary">
+                          Última indexação: {new Date(source.lastCrawlAt).toLocaleString()}
+                        </Text>
+                      ) : null}
+                    </HStack>
 
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-900 border border-slate-700 w-full max-w-md rounded-2xl p-6 shadow-2xl">
-            <h2 className="text-xl font-bold text-slate-100 mb-4">Configurar Nova Fonte</h2>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">Nome</label>
-                <input 
-                  type="text" 
+                    {source.metadataJson ? (
+                      <Box p={3} bg="surface.interactive" borderRadius="xl" border="1px solid" borderColor="border.subtle">
+                        <ShellSectionEyebrow mb={2}>Metadados</ShellSectionEyebrow>
+                        <Text fontSize="11px" color="text.secondary" fontFamily="mono" noOfLines={4}>
+                          {source.metadataJson}
+                        </Text>
+                      </Box>
+                    ) : null}
+
+                    {source.lastErrorMessage ? (
+                      <Box p={3} bg="rgba(255,149,0,0.12)" borderRadius="xl" border="1px solid" borderColor="rgba(255,149,0,0.20)">
+                        <ShellSectionEyebrow mb={1}>Última falha</ShellSectionEyebrow>
+                        <Text fontSize="xs" color="sos.amber.100">
+                          {source.lastErrorMessage}
+                        </Text>
+                      </Box>
+                    ) : null}
+                  </VStack>
+                </PagePanel>
+              ))}
+            </SimpleGrid>
+          )}
+        </PagePanel>
+      </VStack>
+
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} size="xl">
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Configurar nova fonte</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <VStack align="stretch" spacing={4}>
+              <FormControl isRequired>
+                <FormLabel>Nome</FormLabel>
+                <Input
                   value={newSource.name}
-                  onChange={e => setNewSource({...newSource, name: e.target.value})}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:border-cyan-500 outline-none"
+                  onChange={(event) => setNewSource({ ...newSource, name: event.target.value })}
                   placeholder="Ex: INMET Avisos Ativos"
                 />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">Tipo</label>
-                  <select 
+              </FormControl>
+
+              <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+                <FormControl>
+                  <FormLabel>Tipo</FormLabel>
+                  <Select
                     value={newSource.type}
-                    onChange={(e) => {
-                      const nextType = e.target.value;
+                    onChange={(event) => {
+                      const nextType = event.target.value;
                       if (isDataSourceType(nextType)) {
                         setNewSource({ ...newSource, type: nextType });
                       }
                     }}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:border-cyan-500 outline-none"
                   >
-                    <option value="News">News</option>
-                    <option value="Weather">Weather</option>
-                    <option value="People">People</option>
-                    <option value="Risk">Risk</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">Provedor</label>
-                  <select 
+                    {DATA_SOURCE_TYPES.map((type) => (
+                      <option key={type} value={type}>
+                        {type}
+                      </option>
+                    ))}
+                  </Select>
+                </FormControl>
+
+                <FormControl>
+                  <FormLabel>Provedor</FormLabel>
+                  <Select
                     value={newSource.providerType}
-                    onChange={(e) => {
-                      const nextProviderType = e.target.value;
+                    onChange={(event) => {
+                      const nextProviderType = event.target.value;
                       if (isProviderType(nextProviderType)) {
                         setNewSource({ ...newSource, providerType: nextProviderType });
                       }
                     }}
-                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:border-cyan-500 outline-none"
                   >
-                    <option value="JsonApi">JSON API</option>
-                    <option value="RSS">RSS Feed</option>
-                    <option value="Scraper">Web Scraper</option>
-                    <option value="Inmet">INMET</option>
-                    <option value="Cemaden">CEMADEN</option>
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-400 uppercase mb-1">Base URL</label>
-                <input 
-                  type="text" 
+                    {PROVIDER_TYPES.map((providerType) => (
+                      <option key={providerType} value={providerType}>
+                        {providerType}
+                      </option>
+                    ))}
+                  </Select>
+                </FormControl>
+              </SimpleGrid>
+
+              <FormControl isRequired>
+                <FormLabel>Base URL</FormLabel>
+                <Input
                   value={newSource.baseUrl}
-                  onChange={e => setNewSource({...newSource, baseUrl: e.target.value})}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:border-cyan-500 outline-none"
+                  onChange={(event) => setNewSource({ ...newSource, baseUrl: event.target.value })}
                   placeholder="https://api.exemplo.com/v1/data"
                 />
-              </div>
-              <div className="flex justify-end gap-3 mt-6">
-                <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-200 px-4 py-2">Cancelar</button>
-                <button onClick={handleCreate} className="bg-cyan-600 hover:bg-cyan-500 text-white px-6 py-2 rounded-lg font-semibold">Salvar Fonte</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+              </FormControl>
+
+              <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+                <FormControl>
+                  <FormLabel>Frequência (min)</FormLabel>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={newSource.frequencyMinutes ?? 30}
+                    onChange={(event) => setNewSource({
+                      ...newSource,
+                      frequencyMinutes: Number(event.target.value) || 30,
+                    })}
+                  />
+                </FormControl>
+
+                <FormControl display="flex" alignItems="center" justifyContent="space-between" pt={{ base: 0, md: 8 }}>
+                  <VStack align="flex-start" spacing={0.5}>
+                    <FormLabel htmlFor="data-source-active" mb="0">
+                      Fonte ativa
+                    </FormLabel>
+                    <Text fontSize="xs" color="text.secondary">
+                      Habilita execução imediata após o cadastro.
+                    </Text>
+                  </VStack>
+                  <Switch
+                    id="data-source-active"
+                    isChecked={Boolean(newSource.isActive)}
+                    onChange={(event) => setNewSource({ ...newSource, isActive: event.target.checked })}
+                  />
+                </FormControl>
+              </SimpleGrid>
+
+              <FormControl>
+                <FormLabel>Metadados operacionais</FormLabel>
+                <Textarea
+                  minH="120px"
+                  value={newSource.metadataJson ?? ''}
+                  onChange={(event) => setNewSource({ ...newSource, metadataJson: event.target.value })}
+                  placeholder='{"region":"br-sp","priority":"high"}'
+                />
+              </FormControl>
+            </VStack>
+          </ModalBody>
+          <ModalFooter>
+            <HStack spacing={3}>
+              <Button variant="ghost" onClick={() => setIsModalOpen(false)}>
+                Cancelar
+              </Button>
+              <Button variant="tactical" onClick={() => void handleCreate()} isLoading={creating}>
+                Salvar fonte
+              </Button>
+            </HStack>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+    </Box>
   );
+}
+
+function DataPoint({ label, value }: { label: string; value: string }) {
+  return (
+    <Box p={3} bg="surface.interactive" borderRadius="xl" border="1px solid" borderColor="border.subtle">
+      <ShellSectionEyebrow mb={1}>{label}</ShellSectionEyebrow>
+      <Text fontSize="xs" color="white" wordBreak="break-all">
+        {value}
+      </Text>
+    </Box>
+  );
+}
+
+function resolveTypeIcon(type: DataSource['type']) {
+  switch (type) {
+    case 'News':
+      return Newspaper;
+    case 'Weather':
+      return CloudRain;
+    case 'Risk':
+      return ShieldAlert;
+    default:
+      return Globe;
+  }
 }

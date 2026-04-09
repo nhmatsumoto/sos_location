@@ -2,16 +2,13 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import AppRoutes from './AppRoutes';
-import { NotificationsProvider } from './context/NotificationsContext';
 import { frontendLogger } from './lib/logger';
 import './index.css';
 import './i18n';
 import 'leaflet/dist/leaflet.css';
 import 'react-toastify/dist/ReactToastify.css';
 import L from 'leaflet';
-import { ChakraProvider, ColorModeScript } from '@chakra-ui/react';
-import theme from './theme';
-
+import { AppProviders } from './app/providers/AppProviders';
 
 // Fix for Leaflet default icon 404s in bundled apps
 // @ts-expect-error Leaflet mutates a private prototype helper here.
@@ -43,19 +40,20 @@ import { LoadingScreen } from './components/common/LoadingScreen';
 const root = createRoot(document.getElementById('root')!);
 
 // Render loading screen immediately
-root.render(<LoadingScreen />);
+root.render(
+  <AppProviders includeColorModeScript={false}>
+    <LoadingScreen />
+  </AppProviders>,
+);
 
 const renderApp = () => {
   root.render(
     <StrictMode>
-      <ChakraProvider theme={theme}>
-        <ColorModeScript initialColorMode={theme.config.initialColorMode} />
-        <NotificationsProvider>
-          <BrowserRouter>
-            <AppRoutes />
-          </BrowserRouter>
-        </NotificationsProvider>
-      </ChakraProvider>
+      <AppProviders>
+        <BrowserRouter>
+          <AppRoutes />
+        </BrowserRouter>
+      </AppProviders>
     </StrictMode>,
   );
 };

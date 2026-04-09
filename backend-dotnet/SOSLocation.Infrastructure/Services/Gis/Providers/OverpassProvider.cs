@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
 using System.Text.Json;
 using System.Threading;
@@ -13,6 +14,13 @@ namespace SOSLocation.Infrastructure.Services.Gis.Providers
 {
     public class OverpassProvider : IGisDataProvider
     {
+        private static readonly string[] DefaultFallbackUrls =
+        {
+            "https://overpass.kumi.systems/api/interpreter",
+            "https://overpass.private.coffee/api/interpreter",
+            "https://lz4.overpass-api.de/api/interpreter",
+        };
+
         private readonly HttpClient _httpClient;
         private readonly ILogger<OverpassProvider> _logger;
         private readonly GisOptions _options;
@@ -29,54 +37,50 @@ namespace SOSLocation.Infrastructure.Services.Gis.Providers
         public async Task<object> FetchDataAsync(double minLat, double minLon, double maxLat, double maxLon)
         {
             var bb = $"{minLat:F6},{minLon:F6},{maxLat:F6},{maxLon:F6}";
-            var query = $@"
-                [out:json][timeout:90][maxsize:1073741824];
-                (
-                  way[""building""]({bb});
-                  relation[""building""]({bb});
-                  way[""highway""]({bb});
-                  way[""natural""=""water""]({bb});
-                  relation[""natural""=""water""]({bb});
-                  way[""waterway""=""riverbank""]({bb});
-                  way[""landuse""=""reservoir""]({bb});
-                  way[""waterway""~""river|canal|stream""]({bb});
-                  way[""natural""~""forest|wood|scrub|heath|grassland|wetland|sand|beach|bare_rock|cliff""]({bb});
-                  relation[""natural""~""forest|wood|scrub|heath|grassland|wetland""]({bb});
-                  way[""landuse""~""forest|park|grass|meadow|recreation_ground|allotments|farmland|vineyard|orchard""]({bb});
-                  way[""landuse""~""residential|commercial|industrial|retail|cemetery|construction|military""]({bb});
-                  relation[""landuse""~""residential|commercial|industrial|forest""]({bb});
-                  way[""leisure""~""park|garden|sports_centre|pitch|nature_reserve|playground|stadium""]({bb});
-                  relation[""leisure""~""park|garden|nature_reserve""]({bb});
-                  node[""amenity""~""hospital|clinic|school|university|fire_station|police|shelter|pharmacy|post_office|townhall""]({bb});
-                  way[""building:part""]({bb});
-                  way[""highway""=""pedestrian""]({bb});
-                  way[""place""~""square|plaza""]({bb});
-                  way[""amenity""=""parking""]({bb});
-                  way[""parking""~""surface|multi-storey|underground|rooftop""]({bb});
-                  node[""natural""=""tree""]({bb});
-                  way[""barrier""~""wall|fence|hedge|retaining_wall""]({bb});
-                  node[""amenity""~""bus_stop|bicycle_parking|fuel|atm|post_box|vending_machine""]({bb});
-                );
-                out body;
-                >;
-                out skel qt;";
-
-            try
+            foreach (var attempt in BuildAttempts(bb))
             {
-                _logger.LogInformation("Fetching Urban Data via Overpass: {minLat},{minLon}", minLat, minLon);
-                var content = new FormUrlEncodedContent(new[] { new KeyValuePair<string, string>("data", query) });
-
-                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(100));
-                var response = await _httpClient.PostAsync(_options.OverpassUrl, content, cts.Token);
-                if (response.IsSuccessStatusCode)
+                try
                 {
-                    var json = await response.Content.ReadAsStringAsync();
-                    return ParseOverpassResponse(json);
+                    _logger.LogInformation(
+                        "Fetching Urban Data via Overpass ({Mode}) from {Endpoint}: {MinLat},{MinLon}",
+                        attempt.Mode,
+                        attempt.Endpoint,
+                        minLat,
+                        minLon);
+
+                    using var content = new FormUrlEncodedContent(
+                        new[] { new KeyValuePair<string, string>("data", attempt.Query) });
+                    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(attempt.TimeoutSeconds));
+
+                    var response = await _httpClient.PostAsync(attempt.Endpoint, content, cts.Token);
+                    if (response.IsSuccessStatusCode)
+                    {
+                        var json = await response.Content.ReadAsStringAsync();
+                        return ParseOverpassResponse(json);
+                    }
+
+                    _logger.LogWarning(
+                        "Overpass {Mode} query failed on {Endpoint} with status {StatusCode}",
+                        attempt.Mode,
+                        attempt.Endpoint,
+                        (int)response.StatusCode);
                 }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning("Overpass query failed: {msg}", ex.Message);
+                catch (OperationCanceledException ex)
+                {
+                    _logger.LogWarning(
+                        "Overpass {Mode} query timed out on {Endpoint}: {Message}",
+                        attempt.Mode,
+                        attempt.Endpoint,
+                        ex.Message);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(
+                        "Overpass {Mode} query failed on {Endpoint}: {Message}",
+                        attempt.Mode,
+                        attempt.Endpoint,
+                        ex.Message);
+                }
             }
 
             return GenerateSyntheticBuildings(minLat, minLon, maxLat, maxLon);
@@ -84,16 +88,116 @@ namespace SOSLocation.Infrastructure.Services.Gis.Providers
 
         public async Task<bool> CheckHealthAsync()
         {
-            try
+            foreach (var endpoint in GetOverpassEndpoints())
             {
-                var response = await _httpClient.GetAsync(_options.OverpassUrl + "/status");
-                return response.IsSuccessStatusCode;
+                try
+                {
+                    var response = await _httpClient.GetAsync(BuildStatusUrl(endpoint));
+                    if (response.IsSuccessStatusCode)
+                        return true;
+                }
+                catch
+                {
+                    // Try the next endpoint.
+                }
             }
-            catch
+            return false;
+        }
+
+        private IEnumerable<(string Endpoint, string Query, string Mode, int TimeoutSeconds)> BuildAttempts(string bbox)
+        {
+            foreach (var endpoint in GetOverpassEndpoints())
             {
-                return false;
+                yield return (endpoint, BuildFullQuery(bbox), "full", 100);
+            }
+
+            foreach (var endpoint in GetOverpassEndpoints())
+            {
+                yield return (endpoint, BuildEssentialQuery(bbox), "essential", 45);
             }
         }
+
+        private IEnumerable<string> GetOverpassEndpoints()
+        {
+            var configured = new List<string>();
+            if (!string.IsNullOrWhiteSpace(_options.OverpassUrl))
+                configured.Add(_options.OverpassUrl.Trim());
+
+            if (_options.OverpassFallbackUrls is { Length: > 0 })
+            {
+                configured.AddRange(
+                    _options.OverpassFallbackUrls
+                        .Where(url => !string.IsNullOrWhiteSpace(url))
+                        .Select(url => url.Trim()));
+            }
+
+            configured.AddRange(DefaultFallbackUrls);
+            return configured.Distinct(StringComparer.OrdinalIgnoreCase);
+        }
+
+        private static string BuildStatusUrl(string endpoint)
+        {
+            if (string.IsNullOrWhiteSpace(endpoint))
+                return endpoint;
+
+            var trimmed = endpoint.TrimEnd('/');
+            if (trimmed.EndsWith("/api/interpreter", StringComparison.OrdinalIgnoreCase))
+                return trimmed[..^"/interpreter".Length] + "/status";
+
+            return trimmed + "/status";
+        }
+
+        private static string BuildFullQuery(string bbox) => $@"
+                [out:json][timeout:90][maxsize:1073741824];
+                (
+                  way[""building""]({bbox});
+                  relation[""building""]({bbox});
+                  way[""highway""]({bbox});
+                  way[""natural""=""water""]({bbox});
+                  relation[""natural""=""water""]({bbox});
+                  way[""waterway""=""riverbank""]({bbox});
+                  way[""landuse""=""reservoir""]({bbox});
+                  way[""waterway""~""river|canal|stream""]({bbox});
+                  way[""natural""~""forest|wood|scrub|heath|grassland|wetland|sand|beach|bare_rock|cliff""]({bbox});
+                  relation[""natural""~""forest|wood|scrub|heath|grassland|wetland""]({bbox});
+                  way[""landuse""~""forest|park|grass|meadow|recreation_ground|allotments|farmland|vineyard|orchard""]({bbox});
+                  way[""landuse""~""residential|commercial|industrial|retail|cemetery|construction|military""]({bbox});
+                  relation[""landuse""~""residential|commercial|industrial|forest""]({bbox});
+                  way[""leisure""~""park|garden|sports_centre|pitch|nature_reserve|playground|stadium""]({bbox});
+                  relation[""leisure""~""park|garden|nature_reserve""]({bbox});
+                  node[""amenity""~""hospital|clinic|school|university|fire_station|police|shelter|pharmacy|post_office|townhall""]({bbox});
+                  way[""building:part""]({bbox});
+                  way[""highway""=""pedestrian""]({bbox});
+                  way[""place""~""square|plaza""]({bbox});
+                  way[""amenity""=""parking""]({bbox});
+                  way[""parking""~""surface|multi-storey|underground|rooftop""]({bbox});
+                  node[""natural""=""tree""]({bbox});
+                  way[""barrier""~""wall|fence|hedge|retaining_wall""]({bbox});
+                  node[""amenity""~""bus_stop|bicycle_parking|fuel|atm|post_box|vending_machine""]({bbox});
+                );
+                out body;
+                >;
+                out skel qt;";
+
+        private static string BuildEssentialQuery(string bbox) => $@"
+                [out:json][timeout:45][maxsize:268435456];
+                (
+                  way[""building""]({bbox});
+                  relation[""building""]({bbox});
+                  way[""building:part""]({bbox});
+                  way[""highway""]({bbox});
+                  way[""natural""=""water""]({bbox});
+                  relation[""natural""=""water""]({bbox});
+                  way[""waterway""~""river|canal|stream|drain|ditch""]({bbox});
+                  way[""waterway""=""riverbank""]({bbox});
+                  way[""landuse""=""reservoir""]({bbox});
+                  way[""natural""~""forest|wood|wetland""]({bbox});
+                  relation[""natural""~""forest|wood|wetland""]({bbox});
+                  way[""landuse""~""forest|meadow|grass|residential|commercial|industrial""]({bbox});
+                );
+                out body;
+                >;
+                out skel qt;";
 
         private object ParseOverpassResponse(string json)
         {

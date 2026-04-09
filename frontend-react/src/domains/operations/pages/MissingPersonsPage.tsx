@@ -1,26 +1,59 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Box, VStack, HStack, Icon, Badge,
-  Table, Thead, Tbody, Tr, Th, Td, Text,
-  Input, Textarea, Center, Spinner, Flex, Grid,
-  Modal, ModalOverlay, ModalContent, ModalHeader,
-  ModalBody, ModalFooter, ModalCloseButton,
-  useDisclosure, SimpleGrid,
+  Badge,
+  Box,
+  Button,
+  FormControl,
+  FormLabel,
+  Grid,
+  HStack,
+  Icon,
+  Input,
+  Modal,
+  ModalBody,
+  ModalCloseButton,
+  ModalContent,
+  ModalFooter,
+  ModalHeader,
+  ModalOverlay,
+  SimpleGrid,
+  Table,
+  Tbody,
+  Td,
+  Text,
+  Textarea,
+  Th,
+  Thead,
+  Tr,
+  useDisclosure,
+  VStack,
 } from '@chakra-ui/react';
 import { Marker, Popup, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import {
-  Users, UserPlus, MapPin, RefreshCw, FileDown, Navigation,
+  FileDown,
+  MapPin,
+  Navigation,
+  RefreshCw,
+  UserPlus,
+  Users,
 } from 'lucide-react';
-import { GlassPanel } from '../../../components/atoms/GlassPanel';
-import { TacticalText } from '../../../components/atoms/TacticalText';
-import { TacticalButton } from '../../../components/atoms/TacticalButton';
 import { missingPersonsApi, type MissingPersonApi } from '../../../services/missingPersonsApi';
 import { resolveApiUrl } from '../../../lib/apiBaseUrl';
 import { useNotifications } from '../../../context/useNotifications';
 import { TacticalMap } from '../../../components/features/map/TacticalMap';
+import {
+  MetricCard,
+  PageEmptyState,
+  PageHeader,
+  PageLoadingState,
+  PagePanel,
+} from '../../../components/layout/PagePrimitives';
+import {
+  ShellSectionEyebrow,
+  ShellTelemetryBadge,
+} from '../../../components/layout/ShellPrimitives';
 
-// ─── Leaflet icon para pessoas desaparecidas ─────────────────────────────────
 const missingIcon = new L.DivIcon({
   html: `<div style="position:relative;width:28px;height:36px">
     <svg viewBox="0 0 24 32" width="28" height="36" xmlns="http://www.w3.org/2000/svg">
@@ -34,13 +67,13 @@ const missingIcon = new L.DivIcon({
   popupAnchor: [0, -38],
 });
 
-// ─── Captura clique no mapa ───────────────────────────────────────────────────
 function MapClickHandler({ onMapClick }: { onMapClick: (lat: number, lng: number) => void }) {
-  useMapEvents({ click: (e) => onMapClick(e.latlng.lat, e.latlng.lng) });
+  useMapEvents({
+    click: (event) => onMapClick(event.latlng.lat, event.latlng.lng),
+  });
   return null;
 }
 
-// ─── Formulário inicial ───────────────────────────────────────────────────────
 const EMPTY_FORM = {
   personName: '',
   age: '',
@@ -64,24 +97,48 @@ export function MissingPersonsPage() {
     setLoading(true);
     try {
       setRows(await missingPersonsApi.list());
-    } catch {
-      // silent
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const geoRows = useMemo(
+    () => rows.filter((row) => row.lat != null && row.lng != null),
+    [rows],
+  );
+  const withContactCount = rows.filter((row) => Boolean(row.contactPhone)).length;
+  const distinctCities = new Set(rows.map((row) => row.city).filter(Boolean)).size;
+
+  const mapCenter: [number, number] = geoRows.length > 0
+    ? [
+        geoRows.reduce((sum, row) => sum + (row.lat ?? 0), 0) / geoRows.length,
+        geoRows.reduce((sum, row) => sum + (row.lng ?? 0), 0) / geoRows.length,
+      ]
+    : [-20.91, -42.98];
 
   const handleMapClick = (lat: number, lng: number) => {
-    setForm((p) => ({ ...p, lat: lat.toFixed(6), lng: lng.toFixed(6) }));
+    setForm((previous) => ({ ...previous, lat: lat.toFixed(6), lng: lng.toFixed(6) }));
+  };
+
+  const resetForm = () => {
+    setForm(EMPTY_FORM);
+    onClose();
   };
 
   const save = async () => {
     if (!form.personName || !form.lastSeenLocation) {
-      pushNotice({ type: 'warning', title: 'Campos obrigatórios', message: 'Preencha ao menos o nome e a localização.' });
+      pushNotice({
+        type: 'warning',
+        title: 'Campos obrigatórios',
+        message: 'Preencha ao menos o nome e a localização.',
+      });
       return;
     }
+
     setSaving(true);
     try {
       await missingPersonsApi.create({
@@ -95,384 +152,361 @@ export function MissingPersonsPage() {
         lat: form.lat ? Number(form.lat) : undefined,
         lng: form.lng ? Number(form.lng) : undefined,
       });
-      setForm(EMPTY_FORM);
-      onClose();
-      pushNotice({ type: 'success', title: 'Registro Concluído', message: 'Adicionado à base de dados operacional.' });
+      pushNotice({
+        type: 'success',
+        title: 'Registro concluído',
+        message: 'Adicionado à base de dados operacional.',
+      });
+      resetForm();
       await load();
     } catch {
-      pushNotice({ type: 'error', title: 'Falha ao salvar', message: 'Verifique a conexão com o servidor.' });
+      pushNotice({
+        type: 'error',
+        title: 'Falha ao salvar',
+        message: 'Verifique a conexão com o servidor.',
+      });
     } finally {
       setSaving(false);
     }
   };
 
-  // Registros com coordenadas para exibir no mapa
-  const geoRows = rows.filter((r) => r.lat != null && r.lng != null);
-
-  // Centro do mapa: média das coords ou default Ubá
-  const mapCenter: [number, number] =
-    geoRows.length > 0
-      ? [
-          geoRows.reduce((s, r) => s + r.lat!, 0) / geoRows.length,
-          geoRows.reduce((s, r) => s + r.lng!, 0) / geoRows.length,
-        ]
-      : [-20.91, -42.98];
-
   return (
-    <Box h="100%" w="100%" bg="sos.dark" p={6} overflowY="auto">
-      <VStack spacing={5} align="stretch" maxW="1600px" mx="auto">
+    <Box
+      h="full"
+      overflowY="auto"
+      px={{ base: 4, md: 6, xl: 8 }}
+      py={{ base: 4, md: 6 }}
+      bgGradient="radial(circle at top left, rgba(255,59,48,0.08), transparent 24%), radial(circle at bottom right, rgba(0,122,255,0.08), transparent 22%), linear(to-b, #030712 0%, #07111f 55%, #08121d 100%)"
+    >
+      <VStack maxW="7xl" mx="auto" spacing={6} align="stretch">
+        <PageHeader
+          icon={Users}
+          eyebrow="MISSING_PERSONS // HUMANITARIAN_INTEL // LOCATION_TRACKING"
+          title="Painel de pessoas desaparecidas com mapa, base de dados e registro tático"
+          description="A superfície foi reorganizada para leitura operacional rápida: volume, distribuição geográfica, contatos e formulário de cadastro em um único fluxo."
+          meta={
+            <>
+              <ShellTelemetryBadge tone="critical">{rows.length} registros</ShellTelemetryBadge>
+              <ShellTelemetryBadge tone="info">{geoRows.length} geolocalizados</ShellTelemetryBadge>
+              <ShellTelemetryBadge tone="warning">{withContactCount} com contato</ShellTelemetryBadge>
+            </>
+          }
+          actions={
+            <>
+              <Button
+                as="a"
+                href={resolveApiUrl('/api/missing-people.csv')}
+                target="_blank"
+                leftIcon={<FileDown size={16} />}
+                variant="outline"
+              >
+                Exportar CSV
+              </Button>
+              <Button
+                leftIcon={<RefreshCw size={16} />}
+                variant="ghost"
+                onClick={() => void load()}
+                isLoading={loading}
+              >
+                Atualizar base
+              </Button>
+              <Button leftIcon={<UserPlus size={16} />} variant="tactical" onClick={onOpen}>
+                Novo registro
+              </Button>
+            </>
+          }
+        />
 
-        {/* HEADER */}
-        <Flex justify="space-between" align="center" flexWrap="wrap" gap={3}>
-          <VStack align="start" spacing={0}>
-            <TacticalText variant="caption" color="sos.blue.400" letterSpacing="0.2em">
-              CENTRAL_DE_INTELIGÊNCIA_HUMANITÁRIA
-            </TacticalText>
-            <HStack>
-              <Users size={20} color="white" />
-              <TacticalText variant="heading" fontSize="2xl">Pessoas Desaparecidas</TacticalText>
-              <Badge bg="sos.red.500" color="white" px={2} borderRadius="full">
-                {rows.length} OPERATIVOS_PENDENTES
-              </Badge>
-            </HStack>
-          </VStack>
+        <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
+          <MetricCard
+            label="Registros ativos"
+            value={rows.length}
+            helper="Pessoas atualmente monitoradas"
+            icon={Users}
+            tone="critical"
+          />
+          <MetricCard
+            label="Com coordenada"
+            value={geoRows.length}
+            helper="Registros já posicionados no território"
+            icon={MapPin}
+            tone="info"
+          />
+          <MetricCard
+            label="Cidades citadas"
+            value={distinctCities}
+            helper="Abrangência geográfica dos registros"
+            icon={Navigation}
+            tone="default"
+          />
+        </SimpleGrid>
 
-          <HStack spacing={3}>
-            <TacticalButton
-              as="a"
-              href={resolveApiUrl('/api/missing-people.csv')}
-              target="_blank"
-            >
-              <FileDown size={14} style={{ marginRight: 8 }} />
-              EXPORTAR_CSV
-            </TacticalButton>
-            <TacticalButton onClick={() => void load()} isLoading={loading}>
-              <RefreshCw size={14} style={{ marginRight: 8 }} />
-              ATUALIZAR_BASE
-            </TacticalButton>
-            <TacticalButton onClick={onOpen} glow>
-              <UserPlus size={14} style={{ marginRight: 8 }} />
-              NOVO_REGISTRO_TÁTICO
-            </TacticalButton>
-          </HStack>
-        </Flex>
-
-        {/* MAIN CONTENT — mapa grande + tabela menor */}
-        <Grid
-          templateColumns={{ base: '1fr', xl: '3fr 2fr' }}
-          gap={5}
-          h={{ base: 'auto', xl: 'calc(100vh - 180px)' }}
-        >
-          {/* MAP */}
-          <GlassPanel p={0} overflow="hidden" minH={{ base: '400px', xl: 'auto' }}>
-            <TacticalMap center={mapCenter} zoom={geoRows.length > 0 ? 11 : 13}>
-              {geoRows.map((r) => (
-                <Marker
-                  key={r.id}
-                  position={[r.lat!, r.lng!]}
-                  icon={missingIcon}
-                >
-                  <Popup>
-                    <Box bg="rgba(8,8,15,0.95)" p={3} borderRadius="md" minW="180px">
-                      <Text fontWeight="bold" color="white" fontSize="sm">{r.personName}</Text>
-                      {r.age && (
-                        <Text color="rgba(255,255,255,0.5)" fontSize="xs">Idade: {r.age}</Text>
-                      )}
-                      <Text color="rgba(255,255,255,0.7)" fontSize="xs" mt={1}>
-                        {r.lastSeenLocation}, {r.city}
-                      </Text>
-                      {r.contactPhone && (
-                        <Text color="rgba(0,122,255,0.9)" fontSize="xs" mt={1} fontFamily="mono">
-                          {r.contactPhone}
+        <Grid templateColumns={{ base: '1fr', xl: '1.5fr 1fr' }} gap={6}>
+          <PagePanel
+            title="Mapa operacional de localizações"
+            description="Os marcadores mostram registros com coordenadas confirmadas; o mapa do cadastro permite definir nova posição por clique."
+            icon={MapPin}
+            tone="info"
+            p={0}
+          >
+            <Box h={{ base: '420px', xl: '760px' }}>
+              <TacticalMap center={mapCenter} zoom={geoRows.length > 0 ? 11 : 13} showLabel={false}>
+                {geoRows.map((row) => (
+                  <Marker key={row.id} position={[row.lat!, row.lng!]} icon={missingIcon}>
+                    <Popup>
+                      <VStack align="stretch" spacing={1.5} p={1}>
+                        <Text fontSize="sm" fontWeight="700" color="gray.900">
+                          {row.personName}
                         </Text>
-                      )}
-                    </Box>
-                  </Popup>
-                </Marker>
-              ))}
-            </TacticalMap>
-          </GlassPanel>
-
-          {/* DATABASE TABLE */}
-          <GlassPanel p={0} flexDirection="column" overflow="hidden">
-            <Box p={4} borderBottom="1px solid" borderColor="whiteAlpha.100">
-              <Flex justify="space-between" align="center">
-                <TacticalText variant="subheading">BASE_DE_DADOS_ATUALIZADA</TacticalText>
-                <Badge bg="rgba(0,122,255,0.15)" color="sos.blue.400" px={2} py={1} borderRadius="md" fontSize="10px">
-                  {rows.length} REG.
-                </Badge>
-              </Flex>
+                        {row.age ? (
+                          <Text fontSize="xs" color="gray.600">
+                            {row.age} anos
+                          </Text>
+                        ) : null}
+                        <Text fontSize="xs" color="gray.600">
+                          {row.lastSeenLocation}, {row.city}
+                        </Text>
+                        {row.contactPhone ? (
+                          <Text fontSize="xs" color="gray.500">
+                            {row.contactPhone}
+                          </Text>
+                        ) : null}
+                      </VStack>
+                    </Popup>
+                  </Marker>
+                ))}
+              </TacticalMap>
             </Box>
+          </PagePanel>
 
-            <Box flex={1} overflowY="auto">
-              {loading && rows.length === 0 ? (
-                <Center h="full" flexDirection="column" py={12}>
-                  <Spinner color="sos.blue.500" size="xl" mb={4} />
-                  <TacticalText variant="mono">SINCRONIZANDO_DADOS...</TacticalText>
-                </Center>
-              ) : rows.length === 0 ? (
-                <Center h="full" flexDirection="column" p={8} textAlign="center">
-                  <Users size={48} color="rgba(255,255,255,0.1)" />
-                  <TacticalText variant="heading" mt={4}>NENHUM_REGISTRO_ATIVO</TacticalText>
-                  <TacticalText variant="caption" mt={2} opacity={0.5}>
-                    Aguardando entrada de dados do campo de operações.
-                  </TacticalText>
-                </Center>
-              ) : (
-                <Table variant="unstyled" size="sm">
-                  <Thead position="sticky" top={0} bg="rgba(10,10,20,0.95)" zIndex={10} >
-                    <Tr borderBottom="1px solid" borderColor="whiteAlpha.100">
-                      <Th py={3}><TacticalText variant="caption">NOME</TacticalText></Th>
-                      <Th py={3}><TacticalText variant="caption">LOCALIZAÇÃO</TacticalText></Th>
-                      <Th py={3}><TacticalText variant="caption">CONTATO</TacticalText></Th>
+          <PagePanel
+            title="Base de dados atualizada"
+            description="Lista consolidada de registros com localização, contato e idade aproximada."
+            icon={Users}
+            tone="default"
+            actions={<ShellTelemetryBadge tone="default">{rows.length} registros</ShellTelemetryBadge>}
+          >
+            {loading && rows.length === 0 ? (
+              <PageLoadingState
+                minH="420px"
+                label="Sincronizando dados humanitários"
+                description="A base está sendo recomposta com os registros mais recentes."
+              />
+            ) : rows.length === 0 ? (
+              <PageEmptyState
+                minH="420px"
+                title="Nenhum registro ativo"
+                description="Aguardando entrada de dados do campo de operações."
+              />
+            ) : (
+              <Box overflowX="auto">
+                <Table variant="simple" size="sm">
+                  <Thead>
+                    <Tr>
+                      <Th>Nome</Th>
+                      <Th>Localização</Th>
+                      <Th>Contato</Th>
                     </Tr>
                   </Thead>
                   <Tbody>
                     {rows.map((row) => (
-                      <Tr
-                        key={row.id}
-                        borderBottom="1px solid"
-                        borderColor="whiteAlpha.50"
-                        _hover={{ bg: 'whiteAlpha.50' }}
-                        transition="all 0.15s"
-                      >
-                        <Td py={3}>
-                          <VStack align="start" spacing={0}>
-                            <Text fontWeight="bold" fontSize="xs" color="white">{row.personName}</Text>
-                            <TacticalText variant="caption">
-                              {row.age ? `${row.age} anos` : 'IDADE N/D'}
-                            </TacticalText>
+                      <Tr key={row.id}>
+                        <Td>
+                          <VStack align="flex-start" spacing={0.5}>
+                            <Text fontSize="sm" fontWeight="700" color="white">
+                              {row.personName}
+                            </Text>
+                            <Text fontSize="xs" color="text.secondary">
+                              {row.age ? `${row.age} anos` : 'Idade n/d'}
+                            </Text>
                           </VStack>
                         </Td>
-                        <Td py={3}>
-                          <HStack spacing={1} align="flex-start">
-                            <Icon as={MapPin} color={row.lat ? 'sos.blue.400' : 'whiteAlpha.300'} boxSize={3} mt="2px" />
-                            <Text fontSize="xs" color="whiteAlpha.700" noOfLines={2}>
-                              {row.lastSeenLocation}, {row.city}
+                        <Td>
+                          <VStack align="flex-start" spacing={1}>
+                            <Text fontSize="sm" color="white">
+                              {row.lastSeenLocation}
                             </Text>
-                          </HStack>
+                            <HStack spacing={2}>
+                              <Badge variant="subtle" colorScheme={row.lat ? 'blue' : 'gray'}>
+                                {row.city}
+                              </Badge>
+                              {row.lat && row.lng ? (
+                                <ShellTelemetryBadge tone="info">Coordenado</ShellTelemetryBadge>
+                              ) : null}
+                            </HStack>
+                          </VStack>
                         </Td>
-                        <Td py={3}>
-                          <TacticalText variant="mono" fontSize="10px" color="sos.blue.400">
+                        <Td>
+                          <Text fontSize="sm" color={row.contactPhone ? 'sos.blue.300' : 'text.secondary'}>
                             {row.contactPhone || '—'}
-                          </TacticalText>
+                          </Text>
                         </Td>
                       </Tr>
                     ))}
                   </Tbody>
                 </Table>
-              )}
-            </Box>
-          </GlassPanel>
+              </Box>
+            )}
+          </PagePanel>
         </Grid>
       </VStack>
 
-      {/* ─── MODAL DE REGISTRO ───────────────────────────────────────────────── */}
-      <Modal isOpen={isOpen} onClose={onClose} size="4xl" scrollBehavior="inside">
-        <ModalOverlay bg="rgba(0,0,0,0.7)" />
-        <ModalContent
-          bg="rgba(14,14,22,0.97)"
-          border="1px solid rgba(255,255,255,0.09)"
-          borderRadius="2xl"
-          boxShadow="0 24px 64px rgba(0,0,0,0.6)"
-          mx={4}
-        >
-          <ModalHeader borderBottom="1px solid rgba(255,255,255,0.07)" pb={4}>
-            <HStack>
-              <Box p={2} bg="rgba(0,122,255,0.12)" borderRadius="lg" border="1px solid rgba(0,122,255,0.2)">
-                <UserPlus size={16} color="rgba(0,122,255,0.9)" />
+      <Modal isOpen={isOpen} onClose={resetForm} size="5xl" scrollBehavior="inside">
+        <ModalOverlay bg="rgba(0,0,0,0.75)" />
+        <ModalContent bg="surface.base" border="1px solid" borderColor="border.default">
+          <ModalHeader borderBottom="1px solid" borderColor="border.subtle">
+            <HStack spacing={3}>
+              <Box
+                p={2}
+                borderRadius="xl"
+                bg="rgba(0,122,255,0.12)"
+                border="1px solid"
+                borderColor="rgba(0,122,255,0.20)"
+              >
+                <UserPlus size={16} color="#0A84FF" />
               </Box>
               <VStack align="flex-start" spacing={0}>
-                <TacticalText variant="heading" fontSize="sm">NOVO_REGISTRO_TÁTICO</TacticalText>
-                <TacticalText variant="caption">Sistema Guardian · Base humanitária</TacticalText>
+                <Text fontSize="sm" fontWeight="700" color="white">
+                  Novo registro tático
+                </Text>
+                <Text fontSize="xs" color="text.secondary">
+                  Base humanitária e inteligência de localização
+                </Text>
               </VStack>
             </HStack>
           </ModalHeader>
-          <ModalCloseButton color="whiteAlpha.600" top={4} right={4} />
+          <ModalCloseButton />
 
           <ModalBody py={5}>
             <Grid templateColumns={{ base: '1fr', lg: '1fr 1fr' }} gap={5}>
-              {/* Campos do formulário */}
               <VStack spacing={4} align="stretch">
-                <Box>
-                  <TacticalText variant="caption" mb={1}>NOME_COMPLETO *</TacticalText>
+                <FormControl>
+                  <FormLabel>Nome completo</FormLabel>
                   <Input
                     value={form.personName}
-                    placeholder="Ex: João da Silva"
-                    bg="whiteAlpha.50"
-                    border="1px solid"
-                    borderColor="whiteAlpha.100"
-                    _focus={{ borderColor: 'sos.blue.500', bg: 'whiteAlpha.100' }}
-                    color="white"
-                    _placeholder={{ color: 'whiteAlpha.300' }}
-                    onChange={(e) => setForm((p) => ({ ...p, personName: e.target.value }))}
+                    placeholder="Ex.: João da Silva"
+                    onChange={(event) => setForm((previous) => ({ ...previous, personName: event.target.value }))}
                   />
-                </Box>
+                </FormControl>
 
-                <SimpleGrid columns={2} spacing={3}>
-                  <Box>
-                    <TacticalText variant="caption" mb={1}>IDADE_APROX</TacticalText>
+                <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+                  <FormControl>
+                    <FormLabel>Idade aproximada</FormLabel>
                     <Input
-                      value={form.age}
-                      placeholder="Ex: 45"
                       type="number"
-                      bg="whiteAlpha.50"
-                      border="1px solid"
-                      borderColor="whiteAlpha.100"
-                      _focus={{ borderColor: 'sos.blue.500' }}
-                      color="white"
-                      _placeholder={{ color: 'whiteAlpha.300' }}
-                      onChange={(e) => setForm((p) => ({ ...p, age: e.target.value }))}
+                      value={form.age}
+                      placeholder="Ex.: 45"
+                      onChange={(event) => setForm((previous) => ({ ...previous, age: event.target.value }))}
                     />
-                  </Box>
-                  <Box>
-                    <TacticalText variant="caption" mb={1}>CIDADE_DISTRITO</TacticalText>
+                  </FormControl>
+                  <FormControl>
+                    <FormLabel>Cidade ou distrito</FormLabel>
                     <Input
                       value={form.city}
-                      placeholder="Ex: Ubá"
-                      bg="whiteAlpha.50"
-                      border="1px solid"
-                      borderColor="whiteAlpha.100"
-                      _focus={{ borderColor: 'sos.blue.500' }}
-                      color="white"
-                      _placeholder={{ color: 'whiteAlpha.300' }}
-                      onChange={(e) => setForm((p) => ({ ...p, city: e.target.value }))}
+                      onChange={(event) => setForm((previous) => ({ ...previous, city: event.target.value }))}
                     />
-                  </Box>
+                  </FormControl>
                 </SimpleGrid>
 
-                <Box>
-                  <TacticalText variant="caption" mb={1}>ÚLTIMA_LOCALIZAÇÃO_CONHECIDA *</TacticalText>
+                <FormControl>
+                  <FormLabel>Última localização conhecida</FormLabel>
                   <Input
                     value={form.lastSeenLocation}
-                    placeholder="Ex: Rua Direita, 123"
-                    bg="whiteAlpha.50"
-                    border="1px solid"
-                    borderColor="whiteAlpha.100"
-                    _focus={{ borderColor: 'sos.blue.500' }}
-                    color="white"
-                    _placeholder={{ color: 'whiteAlpha.300' }}
-                    onChange={(e) => setForm((p) => ({ ...p, lastSeenLocation: e.target.value }))}
+                    placeholder="Ex.: Rua Direita, 123"
+                    onChange={(event) =>
+                      setForm((previous) => ({ ...previous, lastSeenLocation: event.target.value }))
+                    }
                   />
-                </Box>
+                </FormControl>
 
-                <Box>
-                  <TacticalText variant="caption" mb={1}>CONTATO_DE_EMERGÊNCIA</TacticalText>
+                <FormControl>
+                  <FormLabel>Contato de emergência</FormLabel>
                   <Input
                     value={form.contactPhone}
-                    placeholder="Ex: (32) 99999-9999"
-                    bg="whiteAlpha.50"
-                    border="1px solid"
-                    borderColor="whiteAlpha.100"
-                    _focus={{ borderColor: 'sos.blue.500' }}
-                    color="white"
-                    _placeholder={{ color: 'whiteAlpha.300' }}
-                    onChange={(e) => setForm((p) => ({ ...p, contactPhone: e.target.value }))}
+                    placeholder="Ex.: (32) 99999-9999"
+                    onChange={(event) =>
+                      setForm((previous) => ({ ...previous, contactPhone: event.target.value }))
+                    }
                   />
-                </Box>
+                </FormControl>
 
-                <Box>
-                  <TacticalText variant="caption" mb={1}>INFORMAÇÕES_ADICIONAIS (VESTIMENTA, SINAIS)</TacticalText>
+                <FormControl>
+                  <FormLabel>Informações adicionais</FormLabel>
                   <Textarea
+                    rows={4}
+                    resize="vertical"
                     value={form.additionalInfo}
-                    placeholder="Descreva detalhes físicos, vestimentas, sinais particulares..."
-                    bg="whiteAlpha.50"
-                    border="1px solid"
-                    borderColor="whiteAlpha.100"
-                    _focus={{ borderColor: 'sos.blue.500' }}
-                    color="white"
-                    _placeholder={{ color: 'whiteAlpha.300' }}
-                    rows={3}
-                    onChange={(e) => setForm((p) => ({ ...p, additionalInfo: e.target.value }))}
+                    placeholder="Vestimenta, sinais particulares e condições observadas."
+                    onChange={(event) =>
+                      setForm((previous) => ({ ...previous, additionalInfo: event.target.value }))
+                    }
                   />
-                </Box>
+                </FormControl>
 
-                {/* Coordenadas */}
-                <Box>
-                  <HStack mb={1}>
-                    <TacticalText variant="caption">COORDENADAS_GPS</TacticalText>
-                    {form.lat && form.lng && (
-                      <Badge bg="rgba(52,199,89,0.15)" color="green.300" fontSize="9px" px={2}>
-                        DEFINIDO
-                      </Badge>
-                    )}
+                <Box
+                  p={4}
+                  borderRadius="2xl"
+                  bg="surface.interactive"
+                  border="1px solid"
+                  borderColor="border.subtle"
+                >
+                  <HStack mb={2} spacing={2}>
+                    <Icon as={Navigation} boxSize={4} color="sos.blue.300" />
+                    <ShellSectionEyebrow>Coordenadas GPS</ShellSectionEyebrow>
+                    {form.lat && form.lng ? (
+                      <ShellTelemetryBadge tone="success">Definido</ShellTelemetryBadge>
+                    ) : null}
                   </HStack>
-                  <SimpleGrid columns={2} spacing={2}>
+                  <SimpleGrid columns={{ base: 1, md: 2 }} spacing={3}>
                     <Input
                       value={form.lat}
                       placeholder="Latitude"
-                      bg="whiteAlpha.50"
-                      border="1px solid"
-                      borderColor="whiteAlpha.100"
-                      _focus={{ borderColor: 'sos.blue.500' }}
-                      color="rgba(0,122,255,0.9)"
                       fontFamily="mono"
-                      fontSize="sm"
-                      _placeholder={{ color: 'whiteAlpha.300' }}
-                      onChange={(e) => setForm((p) => ({ ...p, lat: e.target.value }))}
+                      onChange={(event) => setForm((previous) => ({ ...previous, lat: event.target.value }))}
                     />
                     <Input
                       value={form.lng}
                       placeholder="Longitude"
-                      bg="whiteAlpha.50"
-                      border="1px solid"
-                      borderColor="whiteAlpha.100"
-                      _focus={{ borderColor: 'sos.blue.500' }}
-                      color="rgba(0,122,255,0.9)"
                       fontFamily="mono"
-                      fontSize="sm"
-                      _placeholder={{ color: 'whiteAlpha.300' }}
-                      onChange={(e) => setForm((p) => ({ ...p, lng: e.target.value }))}
+                      onChange={(event) => setForm((previous) => ({ ...previous, lng: event.target.value }))}
                     />
                   </SimpleGrid>
                 </Box>
               </VStack>
 
-              {/* Mini-mapa para clicar e definir coordenadas */}
-              <VStack spacing={2} align="stretch">
-                <HStack>
-                  <Navigation size={12} color="rgba(0,122,255,0.8)" />
-                  <TacticalText variant="caption">CLIQUE_NO_MAPA_PARA_DEFINIR_LOCALIZAÇÃO</TacticalText>
+              <VStack spacing={3} align="stretch">
+                <HStack spacing={2}>
+                  <Navigation size={14} color="#0A84FF" />
+                  <ShellSectionEyebrow>Clique no mapa para definir localização</ShellSectionEyebrow>
                 </HStack>
-                <Box h="340px" borderRadius="xl" overflow="hidden" border="1px solid rgba(255,255,255,0.09)">
+                <Box h="360px" borderRadius="2xl" overflow="hidden" border="1px solid" borderColor="border.subtle">
                   <TacticalMap
-                    center={
-                      form.lat && form.lng
-                        ? [Number(form.lat), Number(form.lng)]
-                        : [-20.91, -42.98]
-                    }
+                    center={form.lat && form.lng ? [Number(form.lat), Number(form.lng)] : [-20.91, -42.98]}
                     zoom={13}
                     showLabel={false}
                   >
                     <MapClickHandler onMapClick={handleMapClick} />
-                    {form.lat && form.lng && (
-                      <Marker
-                        position={[Number(form.lat), Number(form.lng)]}
-                        icon={missingIcon}
-                      />
-                    )}
+                    {form.lat && form.lng ? (
+                      <Marker position={[Number(form.lat), Number(form.lng)]} icon={missingIcon} />
+                    ) : null}
                   </TacticalMap>
                 </Box>
-                {form.lat && form.lng ? (
-                  <TacticalText variant="mono" textAlign="center">
-                    {Number(form.lat).toFixed(5)}, {Number(form.lng).toFixed(5)}
-                  </TacticalText>
-                ) : (
-                  <TacticalText variant="caption" textAlign="center" color="whiteAlpha.400">
-                    Nenhuma coordenada selecionada
-                  </TacticalText>
-                )}
+                <Text fontSize="sm" textAlign="center" color={form.lat && form.lng ? 'sos.blue.300' : 'text.secondary'}>
+                  {form.lat && form.lng
+                    ? `${Number(form.lat).toFixed(5)}, ${Number(form.lng).toFixed(5)}`
+                    : 'Nenhuma coordenada selecionada'}
+                </Text>
               </VStack>
             </Grid>
           </ModalBody>
 
-          <ModalFooter borderTop="1px solid rgba(255,255,255,0.07)" gap={3}>
-            <TacticalButton onClick={onClose} style={{ background: 'transparent' }}>
-              CANCELAR
-            </TacticalButton>
-            <TacticalButton onClick={() => void save()} isLoading={saving} glow>
-              REGISTRAR_NO_SISTEMA_GUARDIAN
-            </TacticalButton>
+          <ModalFooter borderTop="1px solid" borderColor="border.subtle" gap={3}>
+            <Button variant="outline" onClick={resetForm}>
+              Cancelar
+            </Button>
+            <Button variant="tactical" onClick={() => void save()} isLoading={saving}>
+              Registrar no sistema
+            </Button>
           </ModalFooter>
         </ModalContent>
       </Modal>

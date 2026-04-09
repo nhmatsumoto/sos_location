@@ -1,177 +1,277 @@
-import { Heart, DollarSign, Wallet, RefreshCw, BarChart3, TrendingUp, History } from 'lucide-react';
-import { LoadingOverlay } from '../../../components/ui/LoadingOverlay';
-import { 
-  Box, 
-  Flex, 
-  HStack, 
-  VStack, 
-  SimpleGrid, 
-  Badge,
-  Icon,
-  Divider
+import {
+  BarChart3,
+  DollarSign,
+  Heart,
+  History,
+  RefreshCw,
+  TrendingUp,
+  Wallet,
+} from 'lucide-react';
+import {
+  Box,
+  Button,
+  HStack,
+  SimpleGrid,
+  Text,
+  VStack,
 } from '@chakra-ui/react';
+import { LoadingOverlay } from '../../../components/ui/LoadingOverlay';
+import {
+  MetricCard,
+  PageEmptyState,
+  PageHeader,
+  PagePanel,
+} from '../../../components/layout/PagePrimitives';
+import {
+  ShellSectionEyebrow,
+  ShellTelemetryBadge,
+} from '../../../components/layout/ShellPrimitives';
 import { useSupportDashboard } from '../../../hooks/useSupportDashboard';
-import { GlassPanel } from '../../../components/atoms/GlassPanel';
-import { TacticalText } from '../../../components/atoms/TacticalText';
-import { TacticalButton } from '../../../components/atoms/TacticalButton';
-import { TacticalStat } from '../../../components/molecules/TacticalStat';
 
-/**
- * Support & Transparency Dashboard
- * Unified Ledger for humanitarian aid, financial tracking, and accountability.
- * Refactored with the Guardian Tactical Design System.
- */
 export function SupportDashboardPage() {
-  const { 
-    campaigns, 
-    donations, 
-    expenses, 
-    loading, 
-    financialSummary, 
-    actions 
+  const {
+    campaigns,
+    donations,
+    expenses,
+    loading,
+    financialSummary,
+    actions,
   } = useSupportDashboard();
 
+  const flowEntries = [
+    ...expenses.map((expense) => ({
+      id: `expense-${expense.id}`,
+      label: expense.description,
+      type: expense.category,
+      amount: expense.amount,
+      sign: 'negative' as const,
+      occurredAt: expense.spentAtUtc,
+    })),
+    ...donations.map((donation) => ({
+      id: `donation-${donation.id}`,
+      label: `Doação de ${donation.donorName}`,
+      type: 'recurso',
+      amount: donation.amount,
+      sign: 'positive' as const,
+      occurredAt: donation.donatedAtUtc,
+    })),
+  ].sort((left, right) => Date.parse(right.occurredAt) - Date.parse(left.occurredAt));
+
   return (
-    <Box h="100%" w="100%" bg="sos.dark" overflowY="auto" p={{ base: 4, md: 8 }}>
-      {loading && <LoadingOverlay message="Auditando Ledger de Transparência..." />}
+    <Box
+      position="relative"
+      h="full"
+      overflowY="auto"
+      px={{ base: 4, md: 6, xl: 8 }}
+      py={{ base: 4, md: 6 }}
+      bgGradient="radial(circle at top left, rgba(255,59,48,0.08), transparent 22%), radial(circle at bottom right, rgba(52,199,89,0.08), transparent 24%), linear(to-b, #030712 0%, #07111f 55%, #08121d 100%)"
+    >
+      {loading ? <LoadingOverlay message="Auditando ledger humanitário..." variant="contained" /> : null}
 
-      {/* Header Shell */}
-      <Flex align="center" justify="space-between" mb={10}>
-        <VStack align="flex-start" spacing={1}>
-          <HStack spacing={3}>
-            <Box p={2.5} bg="sos.red.500" borderRadius="xl">
-              <Heart size={24} color="white" />
-            </Box>
-            <TacticalText variant="heading" fontSize="2xl">Apoio e Transparência</TacticalText>
-          </HStack>
-          <TacticalText>Monitoramento de fluxo financeiro e prestação de contas humanitária.</TacticalText>
-        </VStack>
+      <VStack maxW="7xl" mx="auto" spacing={6} align="stretch">
+        <PageHeader
+          icon={Heart}
+          eyebrow="SUPPORT_LEDGER // HUMANITARIAN_FLOW // TRANSPARENCY"
+          title="Painel de apoio e transparência com leitura operacional do fluxo humanitário"
+          description="A superfície foi reorganizada para destacar saldo, campanhas, entradas e saídas financeiras sem perder rastreabilidade temporal."
+          meta={
+            <>
+              <ShellTelemetryBadge tone="success">{donations.length} entradas</ShellTelemetryBadge>
+              <ShellTelemetryBadge tone="critical">{expenses.length} saídas</ShellTelemetryBadge>
+              <ShellTelemetryBadge tone="info">{campaigns.length} campanhas</ShellTelemetryBadge>
+            </>
+          }
+          actions={
+            <Button
+              leftIcon={<RefreshCw size={16} />}
+              variant="ghost"
+              onClick={() => void actions.loadData()}
+              isLoading={loading}
+            >
+              Atualizar balanço
+            </Button>
+          }
+        />
 
-        <TacticalButton leftIcon={<RefreshCw size={16} />} onClick={actions.loadData} isLoading={loading}>
-          Atualizar Balanço
-        </TacticalButton>
-      </Flex>
-
-      {/* Financial Telemetry Grid */}
-      <SimpleGrid columns={{ base: 1, md: 3 }} spacing={6} mb={10}>
-        <GlassPanel p={6} borderLeft="4px solid" borderColor="sos.green.500">
-          <TacticalStat 
-            label="Total Arrecadado" 
-            value={`R$ ${financialSummary.totalDonations.toLocaleString()}`} 
-            icon={DollarSign} 
-            color="sos.green.400" 
+        <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
+          <MetricCard
+            label="Total arrecadado"
+            value={`R$ ${financialSummary.totalDonations.toLocaleString()}`}
+            helper="Entradas consolidadas da operação"
+            icon={DollarSign}
+            tone="success"
           />
-        </GlassPanel>
-        <GlassPanel p={6} borderLeft="4px solid" borderColor="sos.red.500">
-          <TacticalStat 
-            label="Despesas de Campo" 
-            value={`R$ ${financialSummary.totalExpenses.toLocaleString()}`} 
-            icon={Wallet} 
-            color="sos.red.400" 
+          <MetricCard
+            label="Despesas de campo"
+            value={`R$ ${financialSummary.totalExpenses.toLocaleString()}`}
+            helper="Saídas registradas com vínculo operacional"
+            icon={Wallet}
+            tone="critical"
           />
-        </GlassPanel>
-        <GlassPanel p={6} borderLeft="4px solid" borderColor="sos.blue.500">
-          <TacticalStat 
-            label="Saldo Operacional" 
-            value={`R$ ${financialSummary.balance.toLocaleString()}`} 
-            icon={BarChart3} 
-            color="sos.blue.400" 
+          <MetricCard
+            label="Saldo disponível"
+            value={`R$ ${financialSummary.balance.toLocaleString()}`}
+            helper="Capacidade líquida para novas frentes"
+            icon={BarChart3}
+            tone={financialSummary.balance >= 0 ? 'info' : 'critical'}
           />
-        </GlassPanel>
-      </SimpleGrid>
+        </SimpleGrid>
 
-      <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={8}>
-        
-        {/* Active Campaigns - Left */}
-        <VStack align="stretch" spacing={6}>
-          <HStack spacing={3} px={2}>
-            <Icon as={TrendingUp} color="sos.blue.400" />
-            <TacticalText variant="subheading">Campanhas Táticas Ativas</TacticalText>
-          </HStack>
-          
-          <VStack spacing={4} align="stretch">
+        <SimpleGrid columns={{ base: 1, xl: 3 }} spacing={6} alignItems="start">
+          <PagePanel
+            gridColumn={{ xl: 'span 1' }}
+            title="Campanhas ativas"
+            description="Leitura rápida da tração de arrecadação por campanha."
+            icon={TrendingUp}
+            tone="info"
+          >
             {campaigns.length === 0 ? (
-              <GlassPanel p={10} textAlign="center" borderStyle="dashed">
-                <TacticalText opacity={0.3}>NENHUMA CAMPANHA EM CURSO</TacticalText>
-              </GlassPanel>
+              <PageEmptyState
+                minH="280px"
+                title="Nenhuma campanha em curso"
+                description="A governança ainda não publicou campanhas para o incidente atual."
+              />
             ) : (
-              campaigns.map(c => (
-                <GlassPanel key={c.id} p={5}>
-                  <Flex justify="space-between" align="center" mb={4}>
-                    <TacticalText variant="heading" fontSize="sm">{c.title}</TacticalText>
-                    <Badge variant="subtle" bg="sos.blue.500/10" color="sos.blue.400" fontSize="9px">
-                      {c.status?.toUpperCase()}
-                    </Badge>
-                  </Flex>
-                  
-                  <Box w="full" bg="whiteAlpha.100" borderRadius="full" h="6px" mb={3} overflow="hidden">
-                    <Box 
-                      h="full" 
-                      bg="sos.blue.400" 
-                      boxShadow="0 0 10px rgba(6, 182, 212, 0.4)"
-                      w={`${Math.min((c.currentAmount / c.targetAmount) * 100, 100)}%`} 
-                    />
-                  </Box>
-                  
-                  <Flex justify="space-between">
-                    <TacticalText variant="mono" fontSize="10px">R$ {c.currentAmount.toLocaleString()}</TacticalText>
-                    <TacticalText variant="caption">Alvo: R$ {c.targetAmount.toLocaleString()}</TacticalText>
-                  </Flex>
-                </GlassPanel>
-              ))
+              <VStack align="stretch" spacing={4}>
+                {campaigns.map((campaign) => {
+                  const completion = campaign.targetAmount > 0
+                    ? Math.min(Math.round((campaign.currentAmount / campaign.targetAmount) * 100), 100)
+                    : 0;
+
+                  return (
+                    <Box
+                      key={campaign.id}
+                      p={4}
+                      borderRadius="3xl"
+                      bg="surface.interactive"
+                      border="1px solid"
+                      borderColor="border.subtle"
+                    >
+                      <VStack align="stretch" spacing={3}>
+                        <HStack justify="space-between" align="flex-start" spacing={3}>
+                          <VStack align="flex-start" spacing={1}>
+                            <Text fontSize="md" fontWeight="700" color="white">
+                              {campaign.title}
+                            </Text>
+                            <Text fontSize="sm" color="text.secondary" lineHeight={1.7}>
+                              {campaign.description}
+                            </Text>
+                          </VStack>
+                          <ShellTelemetryBadge tone="info">
+                            {campaign.status}
+                          </ShellTelemetryBadge>
+                        </HStack>
+
+                        <Box>
+                          <HStack justify="space-between" mb={1.5}>
+                            <ShellSectionEyebrow>Execução</ShellSectionEyebrow>
+                            <Text fontSize="sm" color="text.secondary">
+                              {completion}%
+                            </Text>
+                          </HStack>
+                          <Box h={2} borderRadius="full" bg="rgba(255,255,255,0.06)" overflow="hidden">
+                            <Box h="full" borderRadius="full" bg="sos.blue.400" width={`${completion}%`} />
+                          </Box>
+                        </Box>
+
+                        <HStack justify="space-between" flexWrap="wrap" spacing={3}>
+                          <Text fontSize="sm" fontWeight="600" color="white">
+                            R$ {campaign.currentAmount.toLocaleString()}
+                          </Text>
+                          <Text fontSize="sm" color="text.secondary">
+                            Meta: R$ {campaign.targetAmount.toLocaleString()}
+                          </Text>
+                        </HStack>
+                      </VStack>
+                    </Box>
+                  );
+                })}
+              </VStack>
             )}
-          </VStack>
-        </VStack>
+          </PagePanel>
 
-        {/* Financial Flow History - Right */}
-        <VStack align="stretch" spacing={6}>
-          <HStack spacing={3} px={2}>
-            <Icon as={History} color="sos.blue.400" />
-            <TacticalText variant="subheading">Extrato de Movimentação</TacticalText>
-          </HStack>
-
-          <GlassPanel overflow="hidden">
-            <VStack align="stretch" spacing={0} divider={<Divider borderColor="whiteAlpha.50" />}>
-              <Box bg="whiteAlpha.50" p={4}>
-                <SimpleGrid columns={3} spacing={4}>
-                  <TacticalText variant="caption">DESCRIÇÃO</TacticalText>
-                  <TacticalText variant="caption" textAlign="center">PROTOCOLO</TacticalText>
-                  <TacticalText variant="caption" textAlign="right">VALOR</TacticalText>
+          <PagePanel
+            gridColumn={{ xl: 'span 2' }}
+            title="Fluxo financeiro recente"
+            description="Entradas e saídas consolidadas em uma linha única, ordenadas por data."
+            icon={History}
+            tone="default"
+          >
+            {flowEntries.length === 0 ? (
+              <PageEmptyState
+                minH="320px"
+                title="Sem movimentação registrada"
+                description="Entradas de apoio e despesas operacionais aparecerão aqui assim que forem sincronizadas."
+              />
+            ) : (
+              <VStack align="stretch" spacing={0}>
+                <SimpleGrid
+                  columns={{ base: 1, md: 4 }}
+                  spacing={4}
+                  px={4}
+                  py={3.5}
+                  bg="rgba(255,255,255,0.03)"
+                  borderRadius="2xl"
+                  border="1px solid"
+                  borderColor="border.subtle"
+                >
+                  <ShellSectionEyebrow>Descrição</ShellSectionEyebrow>
+                  <ShellSectionEyebrow>Categoria</ShellSectionEyebrow>
+                  <ShellSectionEyebrow>Momento</ShellSectionEyebrow>
+                  <ShellSectionEyebrow textAlign={{ md: 'right' }}>Valor</ShellSectionEyebrow>
                 </SimpleGrid>
-              </Box>
 
-              <Box maxH="400px" overflowY="auto" className="custom-scrollbar">
-                {expenses.map(e => (
-                  <Box key={e.id} p={4} _hover={{ bg: 'whiteAlpha.20' }} transition="all 0.2s">
-                    <SimpleGrid columns={3} spacing={4} alignItems="center">
-                      <TacticalText fontSize="xs">{e.description}</TacticalText>
-                      <TacticalText fontSize="10px" color="whiteAlpha.400" textAlign="center" textTransform="uppercase">
-                        {e.category}
-                      </TacticalText>
-                      <TacticalText variant="mono" fontSize="xs" color="sos.red.400" textAlign="right">
-                        - R$ {e.amount.toLocaleString()}
-                      </TacticalText>
+                <VStack
+                  align="stretch"
+                  spacing={2}
+                  mt={3}
+                  maxH="560px"
+                  overflowY="auto"
+                  sx={{
+                    '&::-webkit-scrollbar': { width: '8px' },
+                    '&::-webkit-scrollbar-thumb': {
+                      background: 'rgba(255,255,255,0.12)',
+                      borderRadius: '999px',
+                    },
+                  }}
+                >
+                  {flowEntries.map((entry) => (
+                    <SimpleGrid
+                      key={entry.id}
+                      columns={{ base: 1, md: 4 }}
+                      spacing={4}
+                      px={4}
+                      py={3.5}
+                      borderRadius="2xl"
+                      bg="surface.interactive"
+                      border="1px solid"
+                      borderColor="border.subtle"
+                    >
+                      <Text fontSize="sm" color="white" fontWeight="600">
+                        {entry.label}
+                      </Text>
+                      <Text fontSize="sm" color="text.secondary" textTransform="uppercase">
+                        {entry.type}
+                      </Text>
+                      <Text fontSize="sm" color="text.secondary">
+                        {new Date(entry.occurredAt).toLocaleString('pt-BR')}
+                      </Text>
+                      <Text
+                        fontSize="sm"
+                        fontWeight="700"
+                        textAlign={{ md: 'right' }}
+                        color={entry.sign === 'positive' ? 'sos.green.300' : 'sos.red.300'}
+                      >
+                        {entry.sign === 'positive' ? '+ ' : '- '}R$ {entry.amount.toLocaleString()}
+                      </Text>
                     </SimpleGrid>
-                  </Box>
-                ))}
-                {donations.map(d => (
-                  <Box key={d.id} p={4} _hover={{ bg: 'whiteAlpha.20' }} transition="all 0.2s">
-                    <SimpleGrid columns={3} spacing={4} alignItems="center">
-                      <TacticalText fontSize="xs">Doação: {d.donorName}</TacticalText>
-                      <TacticalText fontSize="10px" color="whiteAlpha.400" textAlign="center" textTransform="uppercase">
-                        RECURSO
-                      </TacticalText>
-                      <TacticalText variant="mono" fontSize="xs" color="sos.green.400" textAlign="right">
-                        + R$ {d.amount.toLocaleString()}
-                      </TacticalText>
-                    </SimpleGrid>
-                  </Box>
-                ))}
-              </Box>
-            </VStack>
-          </GlassPanel>
-        </VStack>
-      </SimpleGrid>
+                  ))}
+                </VStack>
+              </VStack>
+            )}
+          </PagePanel>
+        </SimpleGrid>
+      </VStack>
     </Box>
   );
 }

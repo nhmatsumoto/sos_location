@@ -5,7 +5,76 @@ import type { CityBlueprint, BlueprintProgress } from './CityBlueprintTypes';
 import type { UrbanSimulationResult } from '../../types';
 import type { SceneData } from '../../services/sceneDataApi';
 
+type NormalizedUrbanFeatures = NonNullable<UrbanSimulationResult['urbanFeatures']>;
+
 export class CityBlueprintBuilder {
+  private static normalizeUrbanFeatures(source: unknown): NormalizedUrbanFeatures {
+    const src = (source && typeof source === 'object') ? source as Record<string, unknown> : {};
+    const readArray = <T>(camelKey: string, pascalKey: string): T[] => {
+      const value = src[camelKey] ?? src[pascalKey];
+      return Array.isArray(value) ? value as T[] : [];
+    };
+    const readNumber = (camelKey: string, pascalKey: string, fallback = 0): number => {
+      const value = src[camelKey] ?? src[pascalKey];
+      return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+    };
+    const readBoolean = (camelKey: string, pascalKey: string, fallback = false): boolean => {
+      const value = src[camelKey] ?? src[pascalKey];
+      return typeof value === 'boolean' ? value : fallback;
+    };
+    const metadataValue = src.metadata ?? src.Metadata;
+
+    return {
+      buildings:       readArray('buildings', 'Buildings'),
+      highways:        readArray('highways', 'Highways'),
+      waterways:       readArray('waterways', 'Waterways'),
+      waterAreas:      readArray('waterAreas', 'WaterAreas'),
+      parks:           readArray('parks', 'Parks'),
+      naturalAreas:    readArray('naturalAreas', 'NaturalAreas'),
+      landUseZones:    readArray('landUseZones', 'LandUseZones'),
+      amenities:       readArray('amenities', 'Amenities'),
+      pedestrianAreas: readArray('pedestrianAreas', 'PedestrianAreas'),
+      parkingLots:     readArray('parkingLots', 'ParkingLots'),
+      trees:           readArray('trees', 'Trees'),
+      barriers:        readArray('barriers', 'Barriers'),
+      areaScale:       readNumber('areaScale', 'AreaScale'),
+      isSynthetic:     readBoolean('isSynthetic', 'IsSynthetic'),
+      metadata:        metadataValue && typeof metadataValue === 'object'
+        ? metadataValue as Record<string, unknown>
+        : {},
+    };
+  }
+
+  private static countUrbanFeatureDensity(features: NormalizedUrbanFeatures): number {
+    return [
+      features.buildings?.length ?? 0,
+      features.highways?.length ?? 0,
+      features.waterways?.length ?? 0,
+      features.waterAreas?.length ?? 0,
+      features.parks?.length ?? 0,
+      features.naturalAreas?.length ?? 0,
+      features.landUseZones?.length ?? 0,
+      features.amenities?.length ?? 0,
+      features.pedestrianAreas?.length ?? 0,
+      features.parkingLots?.length ?? 0,
+      features.trees?.length ?? 0,
+      features.barriers?.length ?? 0,
+    ].reduce((sum, count) => sum + count, 0);
+  }
+
+  private static chooseUrbanFeatures(
+    primary: NormalizedUrbanFeatures,
+    fallback: NormalizedUrbanFeatures,
+  ): NormalizedUrbanFeatures {
+    const primaryDensity = CityBlueprintBuilder.countUrbanFeatureDensity(primary);
+    const fallbackDensity = CityBlueprintBuilder.countUrbanFeatureDensity(fallback);
+
+    if (primaryDensity === 0 && fallbackDensity > 0) return fallback;
+    if (primary.isSynthetic && !fallback.isSynthetic && fallbackDensity > 0) return fallback;
+    if (fallbackDensity > primaryDensity) return fallback;
+    return primary;
+  }
+
   static async build(
     bbox: [number, number, number, number],
     osmData: UrbanSimulationResult | null | undefined,
@@ -104,40 +173,60 @@ export class CityBlueprintBuilder {
 
     // ── 1. Satellite canvas — still fetched in browser for WebGL texture ──────
     onProgress?.({ phase: 'SATELLITE', percent: 50, label: 'CARREGANDO TEXTURA SATÉLITE...' });
+    let satelliteCanvas = CityBlueprintBuilder.createFallbackCanvas(512, 512);
     let hasSatelliteCanvas = false;
     try {
-      const canvas = await TileLoader.loadSatelliteTiles(minLat, minLon, maxLat, maxLon);
-      cacheCanvas(canvas);
+      satelliteCanvas = await TileLoader.loadSatelliteTiles(minLat, minLon, maxLat, maxLon);
+      cacheCanvas(satelliteCanvas);
       hasSatelliteCanvas = true;
     } catch {
-      cacheCanvas(CityBlueprintBuilder.createFallbackCanvas(512, 512));
+      cacheCanvas(satelliteCanvas);
     }
     onProgress?.({ phase: 'SATELLITE', percent: 70, label: 'TEXTURA SATÉLITE CARREGADA' });
 
     // ── 2. Map backend semantic grid to SemanticGrid type ─────────────────────
     onProgress?.({ phase: 'SEGMENTATION', percent: 75, label: 'MAPEANDO GRID SEMÂNTICO...' });
     const backendSem = sceneData.semantics;
-    const semantic: import('../segmentation/SemanticTypes').SemanticGrid = {
-      rows:     backendSem.rows,
-      cols:     backendSem.cols,
-      tileSize: backendSem.tileSize,
-      cells:    backendSem.grid.map(row =>
-        row.map(cell => ({
-          class:     cell.class as import('../segmentation/SemanticTypes').SemanticClass,
-          intensity: cell.intensity,
-          r: cell.r, g: cell.g, b: cell.b,
-        }))
-      ),
-      metadata: {
-        vegetationPct:    backendSem.metadata.vegetationPct  ?? 0,
-        waterPct:         backendSem.metadata.waterPct       ?? 0,
-        roadPct:          backendSem.metadata.roadPct        ?? 0,
-        buildingPct:      backendSem.metadata.buildingPct    ?? 0,
-        slumPct:          backendSem.metadata.slumPct        ?? 0,
-        // backend serialises as urbanDensity; frontend SemanticMetadata expects urbanDensityScore
-        urbanDensityScore: backendSem.metadata.urbanDensity  ?? 0,
-      },
-    };
+    const hasBackendSemantics =
+      backendSem.rows > 0 &&
+      backendSem.cols > 0 &&
+      Array.isArray(backendSem.grid) &&
+      backendSem.grid.length > 0 &&
+      Array.isArray(backendSem.grid[0]) &&
+      backendSem.grid[0].length > 0;
+
+    let semantic: import('../segmentation/SemanticTypes').SemanticGrid;
+    if (hasBackendSemantics) {
+      semantic = {
+        rows:     backendSem.rows,
+        cols:     backendSem.cols,
+        tileSize: backendSem.tileSize,
+        cells:    backendSem.grid.map(row =>
+          row.map(cell => ({
+            class:     cell.class as import('../segmentation/SemanticTypes').SemanticClass,
+            intensity: cell.intensity,
+            r: cell.r, g: cell.g, b: cell.b,
+          }))
+        ),
+        metadata: {
+          vegetationPct:    backendSem.metadata.vegetationPct  ?? 0,
+          waterPct:         backendSem.metadata.waterPct       ?? 0,
+          roadPct:          backendSem.metadata.roadPct        ?? 0,
+          buildingPct:      backendSem.metadata.buildingPct    ?? 0,
+          slumPct:          backendSem.metadata.slumPct        ?? 0,
+          urbanDensityScore: backendSem.metadata.urbanDensity  ?? 0,
+        },
+      };
+    } else {
+      const lcGrid = (osmData as any)?.landCover ?? null;
+      try {
+        semantic = lcGrid?.isAvailable
+          ? SemanticTileProcessor.classifyWithLandCover(satelliteCanvas, lcGrid, 16)
+          : SemanticTileProcessor.classify(satelliteCanvas, 16);
+      } catch {
+        semantic = SemanticTileProcessor.classify(CityBlueprintBuilder.createFallbackCanvas(512, 512), 16);
+      }
+    }
 
     // ── 3. Elevation — prefer backend pre-normalized grid; fallback to osmData ──
     onProgress?.({ phase: 'ELEVATION', percent: 85, label: 'ELEVAÇÃO DO BACKEND RECEBIDA' });
@@ -162,8 +251,10 @@ export class CityBlueprintBuilder {
     onProgress?.({ phase: 'COMPILE', percent: 100, label: 'BLUEPRINT COMPILADO — PRONTO' });
 
     // ── 4. OSM features — from backend SceneData.osmFeatures ─────────────────
-    const osm = sceneData.osmFeatures as Record<string, unknown>;
-    const urbanFeatures = (osm as any) ?? (osmData?.urbanFeatures ?? {});
+    const urbanFeatures = CityBlueprintBuilder.chooseUrbanFeatures(
+      CityBlueprintBuilder.normalizeUrbanFeatures(sceneData.osmFeatures),
+      CityBlueprintBuilder.normalizeUrbanFeatures(osmData?.urbanFeatures),
+    );
 
     return {
       bbox,
@@ -174,18 +265,18 @@ export class CityBlueprintBuilder {
       elevationMin: elevation.min,
       elevationMax: elevation.max,
       osm: {
-        buildings:       (urbanFeatures?.buildings       ?? []) as import('../../types').GISBuilding[],
-        highways:        (urbanFeatures?.highways        ?? []) as import('../../types').GISHighway[],
-        waterways:       (urbanFeatures?.waterways       ?? []) as import('../../types').GISWaterway[],
-        waterAreas:      (urbanFeatures?.waterAreas      ?? []) as import('../../types').GISWaterArea[],
-        parks:           (urbanFeatures?.parks           ?? []) as import('../../types').GISPark[],
-        naturalAreas:    (urbanFeatures?.naturalAreas    ?? []) as import('../../types').GISNaturalArea[],
-        landUseZones:    (urbanFeatures?.landUseZones    ?? []) as import('../../types').GISLandUseZone[],
-        amenities:       (urbanFeatures?.amenities       ?? []) as import('../../types').GISAmenity[],
-        pedestrianAreas: (urbanFeatures?.pedestrianAreas ?? []) as import('../../types').GISNaturalArea[],
-        parkingLots:     (urbanFeatures?.parkingLots     ?? []) as import('../../types').GISNaturalArea[],
-        trees:           (urbanFeatures?.trees           ?? []) as import('../../types').GISAmenity[],
-        barriers:        (urbanFeatures?.barriers        ?? []) as import('../../types').GISHighway[],
+        buildings:       (urbanFeatures.buildings       ?? []) as import('../../types').GISBuilding[],
+        highways:        (urbanFeatures.highways        ?? []) as import('../../types').GISHighway[],
+        waterways:       (urbanFeatures.waterways       ?? []) as import('../../types').GISWaterway[],
+        waterAreas:      (urbanFeatures.waterAreas      ?? []) as import('../../types').GISWaterArea[],
+        parks:           (urbanFeatures.parks           ?? []) as import('../../types').GISPark[],
+        naturalAreas:    (urbanFeatures.naturalAreas    ?? []) as import('../../types').GISNaturalArea[],
+        landUseZones:    (urbanFeatures.landUseZones    ?? []) as import('../../types').GISLandUseZone[],
+        amenities:       (urbanFeatures.amenities       ?? []) as import('../../types').GISAmenity[],
+        pedestrianAreas: (urbanFeatures.pedestrianAreas ?? []) as import('../../types').GISNaturalArea[],
+        parkingLots:     (urbanFeatures.parkingLots     ?? []) as import('../../types').GISNaturalArea[],
+        trees:           (urbanFeatures.trees           ?? []) as import('../../types').GISAmenity[],
+        barriers:        (urbanFeatures.barriers        ?? []) as import('../../types').GISHighway[],
       },
       hasSatelliteCanvas,
       metadata: semantic.metadata,

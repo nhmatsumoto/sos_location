@@ -1,12 +1,25 @@
 import {
+  AlertTriangle,
   CheckCircle2,
   Clock3,
   MapPin,
   Pencil,
   PlayCircle,
+  RotateCcw,
   Trash2,
   Users,
 } from 'lucide-react';
+import {
+  Box,
+  Button,
+  HStack,
+  Icon,
+  SimpleGrid,
+  Text,
+  VStack,
+} from '@chakra-ui/react';
+import { PageEmptyState, PageLoadingState, PagePanel } from '../../layout/PagePrimitives';
+import { ShellSectionEyebrow, ShellTelemetryBadge } from '../../layout/ShellPrimitives';
 import type { RescueTask, RescueTaskId, TaskStatus } from '../../../types/rescue';
 
 interface RescueTaskTableProps {
@@ -18,179 +31,294 @@ interface RescueTaskTableProps {
   onCreateFirst?: () => void;
 }
 
-const statusClass: Record<TaskStatus, string> = {
-  aberto: 'bg-rose-500/10 text-rose-200 border-rose-500/30',
-  em_acao: 'bg-amber-500/10 text-amber-200 border-amber-500/30',
-  concluido: 'bg-emerald-500/10 text-emerald-200 border-emerald-500/30',
-};
-
-const priorityClass = {
-  alta: 'text-rose-300',
-  media: 'text-amber-300',
-  baixa: 'text-emerald-300',
-};
-
-const actionButtonClass =
-  'rounded-lg border px-2.5 py-1.5 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900';
-
-const priorityLabel = {
-  alta: 'Alta prioridade',
-  media: 'Media prioridade',
-  baixa: 'Baixa prioridade',
+const priorityTone = {
+  alta: 'critical',
+  media: 'warning',
+  baixa: 'success',
 } as const;
 
-const statusLabel: Record<TaskStatus, string> = {
-  aberto: 'Aberto',
-  em_acao: 'Em acao',
-  concluido: 'Concluido',
-};
+const priorityLabel = {
+  alta: 'Alta',
+  media: 'Média',
+  baixa: 'Baixa',
+} as const;
 
-export function RescueTaskTable({ tasks, loading, onEdit, onDelete, onStatus, onCreateFirst }: RescueTaskTableProps) {
+const statusTone = {
+  aberto: 'critical',
+  em_acao: 'warning',
+  concluido: 'success',
+} as const;
+
+const statusLabel = {
+  aberto: 'Aberto',
+  em_acao: 'Em ação',
+  concluido: 'Concluído',
+} as const;
+
+const laneConfig = [
+  {
+    status: 'aberto',
+    title: 'Fila de despacho',
+    description: 'Missões que aguardam operador, confirmação de rádio ou definição de rota.',
+    icon: AlertTriangle,
+    tone: 'critical',
+  },
+  {
+    status: 'em_acao',
+    title: 'Resposta em campo',
+    description: 'Operações já acionadas, com equipe em deslocamento ou atuação ativa.',
+    icon: PlayCircle,
+    tone: 'warning',
+  },
+  {
+    status: 'concluido',
+    title: 'Encerradas',
+    description: 'Missões com retorno consolidado e sem pendência operacional imediata.',
+    icon: CheckCircle2,
+    tone: 'success',
+  },
+] as const satisfies Array<{
+  status: TaskStatus;
+  title: string;
+  description: string;
+  icon: typeof AlertTriangle;
+  tone: 'critical' | 'warning' | 'success';
+}>;
+
+export function RescueTaskTable({
+  tasks,
+  loading,
+  onEdit,
+  onDelete,
+  onStatus,
+  onCreateFirst,
+}: RescueTaskTableProps) {
+  const groupedTasks = laneConfig.map((lane) => ({
+    ...lane,
+    tasks: tasks.filter((task) => task.status === lane.status),
+  }));
+
   if (loading) {
     return (
-      <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
-        {Array.from({ length: 4 }).map((_, index) => (
-          <div
-            key={index}
-            className="animate-pulse rounded-3xl border border-slate-800/80 bg-slate-950/50 p-4"
+      <SimpleGrid columns={{ base: 1, xl: 3 }} spacing={4}>
+        {laneConfig.map((lane) => (
+          <PagePanel
+            key={lane.status}
+            title={lane.title}
+            description={lane.description}
+            icon={lane.icon}
+            tone={lane.tone}
           >
-            <div className="mb-4 h-4 w-36 rounded bg-slate-800" />
-            <div className="mb-2 h-3 w-full rounded bg-slate-900" />
-            <div className="mb-4 h-3 w-4/5 rounded bg-slate-900" />
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-              <div className="h-14 rounded-2xl bg-slate-900" />
-              <div className="h-14 rounded-2xl bg-slate-900" />
-              <div className="h-14 rounded-2xl bg-slate-900" />
-            </div>
-          </div>
+            <PageLoadingState
+              minH="220px"
+              label="Sincronizando quadro"
+              description="A estação está reorganizando a fila desta coluna."
+              tone={lane.tone}
+            />
+          </PagePanel>
         ))}
-      </div>
+      </SimpleGrid>
     );
   }
 
   return (
-    <div className="space-y-3">
-      {tasks.length === 0 ? (
-        <div className="rounded-3xl border border-dashed border-cyan-500/30 bg-slate-950/55 p-8 text-center">
-          <p className="text-base font-semibold text-slate-100">Nenhuma ocorrencia nesta fila.</p>
-          <p className="mt-2 text-sm text-slate-400">
-            Ajuste os filtros ou registre uma nova operacao no painel lateral.
-          </p>
-          {onCreateFirst ? (
-            <button
-              type="button"
-              onClick={onCreateFirst}
-              className="mt-4 inline-flex rounded-xl border border-cyan-500/40 bg-cyan-500/10 px-4 py-2 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-500/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
-            >
-              Criar primeira ocorrencia
-            </button>
-          ) : null}
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 gap-3 2xl:grid-cols-2">
-          {tasks.map((task) => (
-            <article
-              key={task.id}
-              className="rounded-3xl border border-slate-800/80 bg-slate-950/55 p-4 shadow-lg shadow-black/20 transition hover:border-slate-700 hover:bg-slate-950/80"
-            >
-              <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
-                <div className="space-y-2">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${statusClass[task.status]}`}>
-                      {statusLabel[task.status]}
-                    </span>
-                    <span className={`text-xs font-semibold uppercase tracking-[0.2em] ${priorityClass[task.priority]}`}>
-                      {priorityLabel[task.priority]}
-                    </span>
-                  </div>
-                  <h3 className="text-lg font-semibold text-white">{task.title}</h3>
-                </div>
-                <span className="rounded-full border border-slate-800 bg-slate-900/90 px-2.5 py-1 text-[11px] text-slate-400">
-                  {new Date(task.createdAtUtc).toLocaleString('pt-BR', {
-                    day: '2-digit',
-                    month: '2-digit',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
-                </span>
-              </div>
-
-              <p className="min-h-12 text-sm leading-6 text-slate-300">
-                {task.description || 'Sem descricao operacional registrada.'}
-              </p>
-
-              <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3">
-                <div className="rounded-2xl border border-slate-800/80 bg-slate-900/70 p-3">
-                  <div className="mb-1 flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-slate-500">
-                    <Users size={12} />
-                    Equipe
-                  </div>
-                  <p className="text-sm font-medium text-slate-100">{task.team}</p>
-                </div>
-                <div className="rounded-2xl border border-slate-800/80 bg-slate-900/70 p-3">
-                  <div className="mb-1 flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-slate-500">
-                    <MapPin size={12} />
-                    Local
-                  </div>
-                  <p className="text-sm font-medium text-slate-100">{task.location}</p>
-                </div>
-                <div className="rounded-2xl border border-slate-800/80 bg-slate-900/70 p-3">
-                  <div className="mb-1 flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-slate-500">
-                    <Clock3 size={12} />
-                    Janela
-                  </div>
-                  <p className="text-sm font-medium text-slate-100">
-                    {task.status === 'concluido' ? 'Encerrada' : task.status === 'em_acao' ? 'Em curso' : 'Aguardando despacho'}
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-4 flex flex-wrap gap-2">
-                {task.status !== 'em_acao' && (
-                  <button
-                    onClick={() => onStatus(task.id, 'em_acao')}
-                    className={`${actionButtonClass} border-amber-600/40 bg-amber-500/10 text-amber-200 hover:bg-amber-500/20`}
-                  >
-                    <span className="inline-flex items-center gap-1">
-                      <PlayCircle size={14} />
-                      Acionar
-                    </span>
-                  </button>
-                )}
-                {task.status !== 'concluido' && (
-                  <button
-                    onClick={() => onStatus(task.id, 'concluido')}
-                    className={`${actionButtonClass} border-emerald-600/40 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/20`}
-                  >
-                    <span className="inline-flex items-center gap-1">
-                      <CheckCircle2 size={14} />
-                      Concluir
-                    </span>
-                  </button>
-                )}
-                <button
-                  onClick={() => onEdit(task)}
-                  className={`${actionButtonClass} border-slate-600 bg-slate-800/70 text-slate-100 hover:bg-slate-700`}
+    <SimpleGrid columns={{ base: 1, xl: 3 }} spacing={4}>
+      {groupedTasks.map((lane) => (
+        <PagePanel
+          key={lane.status}
+          title={lane.title}
+          description={lane.description}
+          icon={lane.icon}
+          tone={lane.tone}
+          actions={<ShellTelemetryBadge tone={lane.tone}>{lane.tasks.length} missão(ões)</ShellTelemetryBadge>}
+        >
+          <VStack align="stretch" spacing={3}>
+            {lane.tasks.length === 0 ? (
+              <PageEmptyState
+                minH="220px"
+                title="Nenhuma missão nesta coluna"
+                description={
+                  lane.status === 'aberto'
+                    ? 'Crie uma nova ocorrência para alimentar o fluxo de despacho.'
+                    : lane.status === 'em_acao'
+                      ? 'As missões acionadas aparecerão aqui.'
+                      : 'As operações concluídas serão arquivadas aqui.'
+                }
+                icon={lane.icon}
+                tone={lane.tone}
+                action={
+                  lane.status === 'aberto' && onCreateFirst ? (
+                    <Button variant="tactical" onClick={onCreateFirst}>
+                      Registrar primeira missão
+                    </Button>
+                  ) : undefined
+                }
+              />
+            ) : (
+              lane.tasks.map((task) => (
+                <Box
+                  key={task.id}
+                  p={4}
+                  borderRadius="3xl"
+                  bg="surface.base"
+                  border="1px solid"
+                  borderColor="border.subtle"
+                  boxShadow="panel"
                 >
-                  <span className="inline-flex items-center gap-1">
-                    <Pencil size={14} />
-                    Editar
-                  </span>
-                </button>
-                <button
-                  onClick={() => onDelete(task.id)}
-                  className={`${actionButtonClass} border-rose-600/40 bg-rose-500/10 text-rose-200 hover:bg-rose-500/20`}
-                >
-                  <span className="inline-flex items-center gap-1">
-                    <Trash2 size={14} />
-                    Remover
-                  </span>
-                </button>
-              </div>
-            </article>
-          ))}
-        </div>
-      )}
-    </div>
+                  <VStack align="stretch" spacing={4}>
+                    <HStack justify="space-between" align="flex-start" spacing={3}>
+                      <VStack align="flex-start" spacing={2}>
+                        <HStack spacing={2} flexWrap="wrap">
+                          <ShellTelemetryBadge tone={statusTone[task.status]}>
+                            {statusLabel[task.status]}
+                          </ShellTelemetryBadge>
+                          <ShellTelemetryBadge tone={priorityTone[task.priority]}>
+                            {priorityLabel[task.priority]}
+                          </ShellTelemetryBadge>
+                        </HStack>
+                        <Text fontSize="md" fontWeight="700" color="white">
+                          {task.title}
+                        </Text>
+                      </VStack>
+                      <ShellTelemetryBadge tone="default">
+                        {new Date(task.createdAtUtc).toLocaleString('pt-BR', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </ShellTelemetryBadge>
+                    </HStack>
+
+                    <Text fontSize="sm" lineHeight={1.7} color="text.secondary">
+                      {task.description || 'Sem resumo operacional registrado.'}
+                    </Text>
+
+                    <SimpleGrid columns={{ base: 1, sm: 2 }} spacing={3}>
+                      <DataPoint icon={Users} label="Equipe" value={task.team} />
+                      <DataPoint icon={MapPin} label="Setor" value={task.location} />
+                    </SimpleGrid>
+
+                    <HStack spacing={2} flexWrap="wrap">
+                      {task.status !== 'aberto' ? (
+                        <ActionButton
+                          icon={RotateCcw}
+                          label="Reabrir"
+                          tone="default"
+                          onClick={() => onStatus(task.id, 'aberto')}
+                        />
+                      ) : null}
+                      {task.status !== 'em_acao' ? (
+                        <ActionButton
+                          icon={PlayCircle}
+                          label="Acionar"
+                          tone="warning"
+                          onClick={() => onStatus(task.id, 'em_acao')}
+                        />
+                      ) : null}
+                      {task.status !== 'concluido' ? (
+                        <ActionButton
+                          icon={CheckCircle2}
+                          label="Concluir"
+                          tone="success"
+                          onClick={() => onStatus(task.id, 'concluido')}
+                        />
+                      ) : null}
+                      <ActionButton
+                        icon={Pencil}
+                        label="Editar"
+                        tone="default"
+                        onClick={() => onEdit(task)}
+                      />
+                      <ActionButton
+                        icon={Trash2}
+                        label="Remover"
+                        tone="critical"
+                        onClick={() => onDelete(task.id)}
+                      />
+                    </HStack>
+
+                    <Box
+                      px={3}
+                      py={2.5}
+                      borderRadius="2xl"
+                      bg="surface.interactive"
+                      border="1px solid"
+                      borderColor="border.subtle"
+                    >
+                      <HStack spacing={2}>
+                        <Icon as={Clock3} boxSize={3.5} color="text.secondary" />
+                        <Text fontSize="xs" color="text.secondary">
+                          {task.status === 'concluido'
+                            ? 'Janela encerrada e pronta para histórico.'
+                            : task.status === 'em_acao'
+                              ? 'Missão com equipe em atuação ou deslocamento.'
+                              : 'Aguardando operador para despacho ou revisão.'}
+                        </Text>
+                      </HStack>
+                    </Box>
+                  </VStack>
+                </Box>
+              ))
+            )}
+          </VStack>
+        </PagePanel>
+      ))}
+    </SimpleGrid>
+  );
+}
+
+function DataPoint({
+  icon,
+  label,
+  value,
+}: {
+  icon: typeof Users;
+  label: string;
+  value: string;
+}) {
+  return (
+    <Box
+      p={3}
+      borderRadius="2xl"
+      bg="surface.interactive"
+      border="1px solid"
+      borderColor="border.subtle"
+    >
+      <HStack spacing={2} mb={1.5}>
+        <Icon as={icon} boxSize={3.5} color="text.secondary" />
+        <ShellSectionEyebrow>{label}</ShellSectionEyebrow>
+      </HStack>
+      <Text fontSize="sm" fontWeight="600" color="white">
+        {value}
+      </Text>
+    </Box>
+  );
+}
+
+function ActionButton({
+  icon,
+  label,
+  tone,
+  onClick,
+}: {
+  icon: typeof PlayCircle;
+  label: string;
+  tone: 'default' | 'success' | 'warning' | 'critical';
+  onClick: () => void;
+}) {
+  const variant = tone === 'critical' ? 'outline' : tone === 'default' ? 'ghost' : 'tinted';
+  const colorScheme = tone === 'success' ? 'green' : tone === 'warning' ? 'orange' : tone === 'critical' ? 'red' : 'gray';
+
+  return (
+    <Button
+      size="sm"
+      leftIcon={<Icon as={icon} boxSize={3.5} />}
+      variant={variant}
+      colorScheme={colorScheme}
+      onClick={onClick}
+    >
+      {label}
+    </Button>
   );
 }

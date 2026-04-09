@@ -1,5 +1,7 @@
 import React from 'react';
-import { Loader2, ShieldAlert } from 'lucide-react';
+import { Box, Center, HStack, Icon, Spinner, Text, VStack } from '@chakra-ui/react';
+import { ShieldAlert } from 'lucide-react';
+import { ShellSurface } from '../layout/ShellPrimitives';
 
 interface LoadingOverlayProps {
   message?: string;
@@ -13,46 +15,42 @@ export const LoadingOverlay: React.FC<LoadingOverlayProps> = ({
   const isFullscreen = variant === 'fullscreen';
   
   return (
-    <div className={`
-      ${isFullscreen ? 'fixed inset-0 z-[9999]' : 'absolute inset-0 z-[50] rounded-inherit'}
-      flex flex-col items-center justify-center
-      bg-slate-950/60 backdrop-blur-md
-      transition-all duration-300 animate-in fade-in
-    `}>
-      <div className="relative flex flex-col items-center gap-4">
-        {/* Decorative Glow */}
-        <div className="absolute inset-0 bg-cyan-500/20 blur-3xl rounded-full scale-150 animate-pulse" />
-        
-        {/* Spinner & Icon */}
-        <div className="relative flex items-center justify-center">
-          <Loader2 className="w-12 h-12 text-cyan-500 animate-spin" />
-          <ShieldAlert className="absolute w-5 h-5 text-cyan-400 opacity-50" />
-        </div>
-        
-        {/* Message */}
-        {message && (
-          <div className="flex flex-col items-center gap-1">
-            <span className="text-[10px] font-black text-cyan-500 uppercase tracking-[0.3em] animate-pulse">
-              {message}
-            </span>
-            <div className="flex gap-1">
-              {[0, 1, 2].map((i) => (
-                <div 
-                  key={i} 
-                  className="w-1 h-1 bg-cyan-500/40 rounded-full animate-bounce" 
-                  style={{ animationDelay: `${i * 0.1}s` }}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-      
-      {/* Corner Accents (Tactical feel) */}
-      <div className="absolute top-4 left-4 w-4 h-4 border-t border-l border-cyan-500/30" />
-      <div className="absolute top-4 right-4 w-4 h-4 border-t border-r border-cyan-500/30" />
-      <div className="absolute bottom-4 left-4 w-4 h-4 border-b border-l border-cyan-500/30" />
-      <div className="absolute bottom-4 right-4 w-4 h-4 border-b border-r border-cyan-500/30" />
-    </div>
+    <Box
+      position={isFullscreen ? 'fixed' : 'absolute'}
+      inset={0}
+      zIndex={isFullscreen ? 9999 : 50}
+      borderRadius={isFullscreen ? undefined : 'inherit'}
+      bg="rgba(9,9,15,0.76)"
+      backdropFilter="blur(14px)"
+    >
+      <Center w="full" h="full" p={6}>
+        <ShellSurface variant="panel" px={6} py={5} maxW="sm" w="full">
+          <VStack spacing={4} textAlign="center">
+            <Center
+              w={14}
+              h={14}
+              borderRadius="3xl"
+              bg="rgba(0,122,255,0.12)"
+              border="1px solid"
+              borderColor="rgba(0,122,255,0.20)"
+              position="relative"
+            >
+              <Spinner size="lg" color="sos.blue.300" thickness="3px" speed="0.75s" />
+              <Icon as={ShieldAlert} boxSize={4} color="sos.blue.200" position="absolute" />
+            </Center>
+            <VStack spacing={1}>
+              <Text fontSize="sm" fontWeight="700" color="white">
+                {message}
+              </Text>
+              <HStack spacing={2} justify="center">
+                <Text fontSize="xs" color="text.secondary">
+                  O shell está compondo o estado operacional.
+                </Text>
+              </HStack>
+            </VStack>
+          </VStack>
+        </ShellSurface>
+      </Center>
+    </Box>
   );
 };

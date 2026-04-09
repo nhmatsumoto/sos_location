@@ -2,9 +2,8 @@ import { lazy } from 'react';
 import { Navigate, type RouteObject } from 'react-router-dom';
 import {
   DEFAULT_PRIVATE_ROUTE,
-  type AppRouteGroup,
 } from '../../lib/appRouteManifest';
-import { ProtectedDomainRouteShell } from '../../router/ProtectedDomainRouteShell';
+import { OperationsRouteShell } from '../../router/OperationsRouteShell';
 import {
   buildManagedDomainRoutes,
   type ManagedDomainRouteEntry,
@@ -60,8 +59,6 @@ const OperationalMapPage = lazy(() =>
   import('./pages/OperationalMapPage.tsx').then((m) => ({ default: m.OperationalMapPage })),
 );
 
-const OPERATIONAL_NAV_GROUPS: AppRouteGroup[] = ['ops', 'intel', 'resources', 'system'];
-
 const operationalRouteEntries: ManagedDomainRouteEntry[] = [
   { routeId: 'overview', element: <SOSPage /> },
   { routeId: 'volunteer', element: <VolunteerDashboardPage /> },
@@ -85,14 +82,7 @@ const operationalRouteEntries: ManagedDomainRouteEntry[] = [
 export function getOperationalRouteObject(): RouteObject {
   return {
     path: '/app',
-    element: (
-      <ProtectedDomainRouteShell
-        fallbackText="Iniciando painel de comando..."
-        navigationGroups={OPERATIONAL_NAV_GROUPS}
-        navigationMode="expanded"
-        tacticalAware
-      />
-    ),
+    element: <OperationsRouteShell />,
     children: [
       { index: true, element: <Navigate to={DEFAULT_PRIVATE_ROUTE} replace /> },
       ...buildManagedDomainRoutes({

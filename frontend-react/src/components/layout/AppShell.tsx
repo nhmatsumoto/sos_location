@@ -43,17 +43,17 @@ export function AppShell({
   // ─── Tactical Mode: War Room layout with NavigationRail ───────────────────
   if (variant === 'tactical') {
     return (
-      <Box minH="100vh" bg="sos.dark" color="white" overflow="hidden">
+      <Box minH="100vh" bg="surface.canvas" color="text.primary" overflow="hidden">
         <Flex h="100vh" w="full" overflow="hidden">
           {/* Compact Navigation Rail — icon-only, expands on hover */}
           <NavigationRail mode={navigationMode} routeGroups={navigationGroups} h="full" flexShrink={0} />
 
           {/* Main Content Area */}
-          <Box as="main" flex="1" h="100%" position="relative" overflow="hidden" bg="sos.dark">
+          <Box as="main" flex="1" h="100%" position="relative" overflow="hidden" bg="surface.canvas">
             <Suspense fallback={
               <Center h="full" flexDir="column" gap={4}>
                 <Spinner size="xl" color="sos.blue.500" thickness="2px" speed="0.8s" emptyColor="rgba(255,255,255,0.06)" />
-                <Text fontWeight="500" color="rgba(255,255,255,0.38)" fontSize="sm">
+                <Text fontWeight="500" color="text.secondary" fontSize="sm">
                   Carregando...
                 </Text>
               </Center>
@@ -71,7 +71,7 @@ export function AppShell({
 
   // ─── Default Mode: Standard layout with Sidebar + Topbar ─────────────────
   return (
-    <Box h="100vh" bg="sos.dark" overflow="hidden">
+    <Box h="100vh" bg="surface.canvas" overflow="hidden">
       <Flex h="100%" gap={4} p={4} maxW="1920px" mx="auto">
         {/* Fixed-height sidebar — does not scroll with main content */}
         <Sidebar
@@ -81,8 +81,9 @@ export function AppShell({
           w="280px"
           h="100%"
           borderRadius="lg"
-          border="1px solid rgba(255,255,255,0.07)"
-          bg="#111119"
+          border="1px solid"
+          borderColor="border.subtle"
+          bg="surface.panel"
         />
         {/* Main content scrolls independently */}
         <Flex as="main" flex="1" flexDirection="column" gap={4} h="100%" overflow="hidden">

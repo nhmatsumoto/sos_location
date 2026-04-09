@@ -1,33 +1,60 @@
-import { useCallback, useEffect, useState } from 'react';
-import type { ComponentProps } from 'react';
-import { 
-  Box, VStack, Text, Table, Tbody, Tr, Td, Th, Thead, 
-  Badge, HStack, useToast, Icon, Flex,
-  Spinner, IconButton, Tooltip, Center
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  Box,
+  Button,
+  HStack,
+  Icon,
+  IconButton,
+  SimpleGrid,
+  Table,
+  TableContainer,
+  Tbody,
+  Td,
+  Text,
+  Th,
+  Thead,
+  Tooltip,
+  Tr,
+  VStack,
+  useToast,
 } from '@chakra-ui/react';
-import { AlertCircle, MapPin, ShieldCheck, RefreshCw, Check, Trash2, ShieldAlert } from 'lucide-react';
+import {
+  AlertCircle,
+  Check,
+  MapPin,
+  RefreshCw,
+  ShieldAlert,
+  ShieldCheck,
+  Trash2,
+} from 'lucide-react';
+import {
+  MetricCard,
+  PageEmptyState,
+  PageErrorState,
+  PageHeader,
+  PageLoadingState,
+  PagePanel,
+} from '../../../components/layout/PagePrimitives';
+import { ShellLiveIndicator, ShellTelemetryBadge } from '../../../components/layout/ShellPrimitives';
 import { tacticalIntelApi } from '../../../services/tacticalIntelApi';
 import type { OperationalPoint } from '../../../services/tacticalIntelApi';
-import { GlassPanel } from '../../../components/atoms/GlassPanel';
-import { TacticalText } from '../../../components/atoms/TacticalText';
 
-/**
- * Tactical Intel Approval Admin — Guardian v3
- * High-security administrative interface for validating user-generated operational data.
- */
 export default function TacticalAdminPage() {
   const [points, setPoints] = useState<OperationalPoint[]>([]);
   const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const toast = useToast();
 
   const loadPoints = useCallback(async () => {
     try {
       setLoading(true);
+      setErrorMessage(null);
       const data = await tacticalIntelApi.getPoints();
       setPoints(data || []);
     } catch {
-      toast({ 
-        title: 'Central de Inteligência Indisponível', 
+      setErrorMessage('Falha na sincronização com a central de inteligência.');
+      toast({
+        title: 'Central de Inteligência Indisponível',
         description: 'Falha na sincronização de dados táticos.',
         status: 'error',
         duration: 3000,
@@ -48,7 +75,7 @@ export default function TacticalAdminPage() {
       toast({ title: 'Dados validados com sucesso', status: 'success' });
       void loadPoints();
     } catch {
-       toast({ title: 'Falha na validação', status: 'error' });
+      toast({ title: 'Falha na validação', status: 'error' });
     }
   };
 
@@ -62,157 +89,213 @@ export default function TacticalAdminPage() {
     }
   };
 
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case 'Alert': return AlertCircle;
-      case 'Support': return ShieldCheck;
-      case 'Mark': return MapPin;
-      default: return MapPin;
-    }
-  };
+  const metrics = useMemo(() => {
+    const approved = points.filter((point) => point.isApproved).length;
+    const pending = points.length - approved;
+    const classifications = new Set(points.map((point) => point.type)).size;
+
+    return {
+      approved,
+      pending,
+      classifications,
+    };
+  }, [points]);
 
   return (
-    <Box h="100%" w="100%" p={8} bg="sos.dark" overflowY="auto">
-      <VStack spacing={8} align="stretch" maxW="1400px" mx="auto">
-        
-        {/* Header Section */}
-        <Flex justify="space-between" align="center">
-          <HStack spacing={4}>
-            <Box p={3} bg="rgba(0,122,255,0.12)" borderRadius="2xl" boxShadow="0 0 20px rgba(0, 122, 255, 0.2)">
-              <Icon as={ShieldAlert} boxSize={6} color="sos.blue.500" />
-            </Box>
-            <VStack align="start" spacing={0}>
-              <TacticalText variant="heading" fontSize="2xl">Aprovações Táticas</TacticalText>
-              <HStack spacing={3} mt={1}>
-                <HStack spacing={1.5}>
-                  <Box w={2} h={2} borderRadius="full" bg="sos.green.500" className="animate-pulse" />
-                  <TacticalText variant="mono" fontSize="10px" color="rgba(255,255,255,0.40)">ADMIN_ACCESS_LEVEL_1</TacticalText>
-                </HStack>
-                <Divider orientation="vertical" h="10px" borderColor="whiteAlpha.300" />
-                <TacticalText variant="mono" fontSize="10px" color="rgba(255,255,255,0.40)">QUEUED_INTELLIGENCE: {points.length}</TacticalText>
-              </HStack>
-            </VStack>
-          </HStack>
-
-          <HStack spacing={3}>
-             <Tooltip label="Sincronizar dados">
-               <IconButton
+    <Box px={{ base: 4, md: 6, xl: 8 }} py={{ base: 4, md: 6 }}>
+      <VStack spacing={6} align="stretch" maxW="7xl" mx="auto">
+        <PageHeader
+          icon={ShieldAlert}
+          eyebrow="ADMIN_ACCESS_LEVEL_1 // TACTICAL_INTELLIGENCE_VALIDATION"
+          title="Aprovações Táticas"
+          description="Valide entradas operacionais de campo antes de propagá-las para os módulos de resposta e visualização."
+          meta={
+            <>
+              <ShellLiveIndicator label="Fila em observação contínua" />
+              <ShellTelemetryBadge tone={metrics.pending > 0 ? 'warning' : 'success'}>
+                {metrics.pending} pendências
+              </ShellTelemetryBadge>
+            </>
+          }
+          actions={
+            <Tooltip label="Sincronizar dados">
+              <IconButton
                 icon={<RefreshCw size={18} />}
-                aria-label="Refresh"
+                aria-label="Sincronizar dados"
                 onClick={() => void loadPoints()}
                 isLoading={loading}
                 variant="ghost"
-                borderRadius="xl"
-                color="rgba(255,255,255,0.50)"
-                _hover={{ color: 'white', bg: 'rgba(255,255,255,0.08)' }}
               />
             </Tooltip>
-          </HStack>
-        </Flex>
+          }
+        />
 
-        <Divider borderColor="rgba(255,255,255,0.06)" />
+        <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
+          <MetricCard
+            label="Fila de despacho"
+            value={metrics.pending}
+            helper="Intel aguardando aprovação operacional"
+            icon={AlertCircle}
+            tone={metrics.pending > 0 ? 'warning' : 'success'}
+          />
+          <MetricCard
+            label="Registros aprovados"
+            value={metrics.approved}
+            helper="Itens liberados para o restante da plataforma"
+            icon={ShieldCheck}
+            tone="success"
+          />
+          <MetricCard
+            label="Classificações ativas"
+            value={metrics.classifications}
+            helper="Tipos distintos na fila atual"
+            icon={MapPin}
+            tone="info"
+          />
+        </SimpleGrid>
 
-        {/* Data Table Panel */}
-        <GlassPanel depth="raised" overflow="hidden" flexDirection="column" p={0}>
+        <PagePanel
+          title="Fila de validação"
+          description="Revisão de registros originados no operacional, com coordenadas e situação de aprovação."
+          icon={ShieldAlert}
+          tone="warning"
+          actions={<ShellTelemetryBadge tone="info">{points.length} registros</ShellTelemetryBadge>}
+        >
           {loading ? (
-             <Center p={32} flexDir="column" gap={4}>
-               <Spinner color="sos.blue.500" size="xl" thickness="3px" />
-               <TacticalText variant="mono" opacity={0.4}>DESCRIPTOGRAFANDO_PACOTES...</TacticalText>
-             </Center>
+            <PageLoadingState
+              label="Descriptografando pacotes"
+              description="A estação está recompondo a fila de inteligência pendente."
+            />
+          ) : errorMessage ? (
+            <PageErrorState
+              description={errorMessage}
+              action={
+                <Button variant="tactical" onClick={() => void loadPoints()}>
+                  Tentar novamente
+                </Button>
+              }
+            />
+          ) : points.length === 0 ? (
+            <PageEmptyState
+              title="Sistema limpo"
+              description="Nenhuma pendência aguarda validação nesta estação."
+              icon={ShieldCheck}
+              tone="success"
+            />
           ) : (
-            <Table variant="simple" size="md">
-              <Thead bg="rgba(255,255,255,0.03)">
-                <Tr>
-                  <Th borderBottom="1px solid rgba(255,255,255,0.08)" color="rgba(255,255,255,0.4)" fontSize="10px" letterSpacing="0.2em">CLASSIFICAÇÃO</Th>
-                  <Th borderBottom="1px solid rgba(255,255,255,0.08)" color="rgba(255,255,255,0.4)" fontSize="10px" letterSpacing="0.2em">CONTEÚDO_OPERACIONAL</Th>
-                  <Th borderBottom="1px solid rgba(255,255,255,0.08)" color="rgba(255,255,255,0.4)" fontSize="10px" letterSpacing="0.2em">COORDENADAS</Th>
-                  <Th borderBottom="1px solid rgba(255,255,255,0.08)" color="rgba(255,255,255,0.4)" fontSize="10px" letterSpacing="0.2em">STATUS</Th>
-                  <Th borderBottom="1px solid rgba(255,255,255,0.08)" color="rgba(255,255,255,0.4)" fontSize="10px" letterSpacing="0.2em" textAlign="right">AÇÕES_SISTEMICAS</Th>
-                </Tr>
-              </Thead>
-              <Tbody>
-                {points.length === 0 && (
+            <TableContainer>
+              <Table variant="simple">
+                <Thead>
                   <Tr>
-                    <Td colSpan={5} py={32} textAlign="center">
-                      <VStack spacing={4} opacity={0.3}>
-                         <ShieldCheck size={48} />
-                         <TacticalText variant="mono" fontSize="sm">SISTEMA_LIMPO // NENHUMA_PENDENCIA</TacticalText>
-                      </VStack>
-                    </Td>
+                    <Th>Classificação</Th>
+                    <Th>Conteúdo operacional</Th>
+                    <Th>Coordenadas</Th>
+                    <Th>Status</Th>
+                    <Th textAlign="right">Ações sistêmicas</Th>
                   </Tr>
-                )}
-                {points.map((p) => (
-                  <Tr key={p.id} _hover={{ bg: 'rgba(255,255,255,0.02)' }} transition="all 0.2s">
-                    <Td borderColor="rgba(255,255,255,0.06)">
-                      <HStack spacing={3}>
-                        <Box p={2} bg="rgba(0,122,255,0.1)" borderRadius="lg">
-                          <Icon as={getTypeIcon(p.type)} color="sos.blue.400" size={16} />
-                        </Box>
-                        <TacticalText variant="heading" fontSize="xs" color="white">{p.type.toUpperCase()}</TacticalText>
-                      </HStack>
-                    </Td>
-                    <Td borderColor="rgba(255,255,255,0.06)">
-                      <VStack align="start" spacing={1}>
-                        <TacticalText variant="heading" fontSize="sm" color="white">{p.title}</TacticalText>
-                        <Text fontSize="xs" color="rgba(255,255,255,0.4)" maxW="400px" noOfLines={1}>{p.description}</Text>
-                      </VStack>
-                    </Td>
-                    <Td borderColor="rgba(255,255,255,0.06)">
-                       <TacticalText variant="mono" fontSize="11px" color="sos.blue.300">
-                        {p.latitude.toFixed(6)}<br />{p.longitude.toFixed(6)}
-                      </TacticalText>
-                    </Td>
-                    <Td borderColor="rgba(255,255,255,0.06)">
-                      <Badge 
-                        variant="subtle" 
-                        px={2} py={0.5} borderRadius="md"
-                        bg={p.isApproved ? 'rgba(52,199,89,0.1)' : 'rgba(255,149,0,0.1)'}
-                        color={p.isApproved ? '#34C759' : '#FF9500'}
-                        fontSize="9px" fontWeight="800"
-                        border="1px solid" borderColor={p.isApproved ? 'rgba(52,199,89,0.2)' : 'rgba(255,149,0,0.2)'}
-                      >
-                        {p.status?.toUpperCase() || (p.isApproved ? 'APPROVED' : 'PENDING')}
-                      </Badge>
-                    </Td>
-                    <Td borderColor="rgba(255,255,255,0.06)" textAlign="right">
-                      <HStack spacing={2} justify="flex-end">
-                        {!p.isApproved && (
-                          <Tooltip label="Validar Intel">
+                </Thead>
+                <Tbody>
+                  {points.map((point) => (
+                    <Tr key={point.id}>
+                      <Td>
+                        <HStack spacing={3} align="flex-start">
+                          <Box
+                            p={2}
+                            bg="rgba(0,122,255,0.10)"
+                            borderRadius="lg"
+                            border="1px solid"
+                            borderColor="rgba(0,122,255,0.18)"
+                          >
+                            <Icon as={resolveTypeIcon(point.type)} boxSize={4} color="sos.blue.300" />
+                          </Box>
+                          <VStack align="flex-start" spacing={0.5}>
+                            <Text fontSize="xs" fontWeight="700" color="white">
+                              {point.type.toUpperCase()}
+                            </Text>
+                            <Text fontSize="xs" color="text.secondary">
+                              {point.status?.toUpperCase() || (point.isApproved ? 'APPROVED' : 'PENDING')}
+                            </Text>
+                          </VStack>
+                        </HStack>
+                      </Td>
+                      <Td>
+                        <VStack align="flex-start" spacing={1}>
+                          <Text fontSize="sm" fontWeight="700" color="white">
+                            {point.title}
+                          </Text>
+                          <Text fontSize="xs" color="text.secondary" noOfLines={2} maxW="sm">
+                            {point.description}
+                          </Text>
+                        </VStack>
+                      </Td>
+                      <Td>
+                        <Text fontSize="11px" color="sos.blue.200" fontFamily="mono">
+                          {point.latitude.toFixed(6)}
+                          <br />
+                          {point.longitude.toFixed(6)}
+                        </Text>
+                      </Td>
+                      <Td>
+                        <StatusBadge point={point} />
+                      </Td>
+                      <Td textAlign="right">
+                        <HStack spacing={1} justify="flex-end">
+                          {!point.isApproved ? (
+                            <Tooltip label="Validar intel">
+                              <IconButton
+                                size="sm"
+                                icon={<Check size={16} />}
+                                aria-label="Aprovar registro"
+                                onClick={() => point.id && void handleApprove(point.id)}
+                                variant="ghost"
+                                colorScheme="green"
+                              />
+                            </Tooltip>
+                          ) : null}
+                          <Tooltip label="Arquivar registro">
                             <IconButton
                               size="sm"
-                              icon={<Check size={16} />}
-                              onClick={() => void handleApprove(p.id!)}
-                              colorScheme="green"
+                              icon={<Trash2 size={16} />}
+                              aria-label="Arquivar registro"
+                              onClick={() => point.id && void handleDelete(point.id)}
                               variant="ghost"
-                              _hover={{ bg: 'rgba(52,199,89,0.15)' }}
-                              aria-label="Approve"
+                              colorScheme="red"
                             />
                           </Tooltip>
-                        )}
-                        <Tooltip label="Arquivar Registro">
-                          <IconButton
-                            size="sm"
-                            icon={<Trash2 size={16} />}
-                            onClick={() => void handleDelete(p.id!)}
-                            colorScheme="red"
-                            variant="ghost"
-                            _hover={{ bg: 'rgba(255,59,48,0.15)' }}
-                            aria-label="Delete"
-                          />
-                        </Tooltip>
-                      </HStack>
-                    </Td>
-                  </Tr>
-                ))}
-              </Tbody>
-            </Table>
+                        </HStack>
+                      </Td>
+                    </Tr>
+                  ))}
+                </Tbody>
+              </Table>
+            </TableContainer>
           )}
-        </GlassPanel>
-
+        </PagePanel>
       </VStack>
     </Box>
   );
 }
 
-// Small helper
-const Divider = (props: ComponentProps<typeof Box>) => <Box h="1px" w="full" bg="rgba(255,255,255,0.08)" {...props} />;
+function resolveTypeIcon(type: string) {
+  switch (type) {
+    case 'Alert':
+      return AlertCircle;
+    case 'Support':
+      return ShieldCheck;
+    case 'Mark':
+      return MapPin;
+    default:
+      return MapPin;
+  }
+}
+
+function StatusBadge({ point }: { point: OperationalPoint }) {
+  const tone = point.isApproved ? 'success' : 'warning';
+  const label = point.status?.toUpperCase() || (point.isApproved ? 'APPROVED' : 'PENDING');
+
+  return (
+    <ShellTelemetryBadge tone={tone}>
+      {label}
+    </ShellTelemetryBadge>
+  );
+}

@@ -1,242 +1,260 @@
-import { Package, Plus, RefreshCw, Send, AlertTriangle, Truck, CheckCircle, PackageSearch, Boxes } from 'lucide-react';
-import { Modal } from '../../../components/ui/Modal';
-import { LoadingOverlay } from '../../../components/ui/LoadingOverlay';
-import { 
-  Box, 
-  Flex, 
-  HStack, 
-  VStack, 
-  SimpleGrid, 
-  Table, 
-  Thead, 
-  Tbody, 
-  Tr, 
-  Th, 
-  Td, 
-  FormControl, 
-  FormLabel, 
-  Input, 
+import {
+  AlertTriangle,
+  Boxes,
+  CheckCircle,
+  Package,
+  PackageSearch,
+  Plus,
+  RefreshCw,
+  Send,
+  Truck,
+} from 'lucide-react';
+import {
+  Box,
+  Button,
+  FormControl,
+  FormLabel,
+  HStack,
+  Input,
   Select,
-  Badge,
-  Icon,
-  Divider
+  SimpleGrid,
+  Table,
+  Tbody,
+  Td,
+  Text,
+  Th,
+  Thead,
+  Tr,
+  VStack,
 } from '@chakra-ui/react';
+import { LoadingOverlay } from '../../../components/ui/LoadingOverlay';
+import { Modal } from '../../../components/ui/Modal';
+import {
+  MetricCard,
+  PageEmptyState,
+  PageHeader,
+  PagePanel,
+} from '../../../components/layout/PagePrimitives';
+import {
+  ShellSectionEyebrow,
+  ShellTelemetryBadge,
+} from '../../../components/layout/ShellPrimitives';
 import { useLogisticsDashboard } from '../../../hooks/useLogisticsDashboard';
-import { GlassPanel } from '../../../components/atoms/GlassPanel';
-import { TacticalText } from '../../../components/atoms/TacticalText';
-import { TacticalButton } from '../../../components/atoms/TacticalButton';
 
-/**
- * Logistics & Supply Chain Command — Guardian v3
- * Manages Humanitarian Aid movements and inventory telemetry.
- */
+const statusTone = {
+  pending: 'default',
+  in_transit: 'warning',
+  delivered: 'success',
+} as const;
+
+const priorityTone = {
+  low: 'info',
+  medium: 'warning',
+  high: 'critical',
+  critical: 'critical',
+} as const;
+
 export function LogisticsPage() {
-  const { 
-    supplies, 
-    loading, 
-    modalOpen, 
-    setModalOpen, 
-    form, 
-    setForm, 
-    stats, 
-    actions 
+  const {
+    supplies,
+    loading,
+    modalOpen,
+    setModalOpen,
+    form,
+    setForm,
+    stats,
+    actions,
   } = useLogisticsDashboard();
 
   return (
-    <Box p={8} h="100%" w="100%" overflowY="auto" bg="sos.dark" className="custom-scrollbar">
-      {loading && <LoadingOverlay message="Sincronizando Malha Logística..." />}
+    <Box
+      position="relative"
+      h="full"
+      overflowY="auto"
+      px={{ base: 4, md: 6, xl: 8 }}
+      py={{ base: 4, md: 6 }}
+      bgGradient="radial(circle at top left, rgba(0,122,255,0.08), transparent 22%), radial(circle at bottom right, rgba(255,149,0,0.08), transparent 24%), linear(to-b, #030712 0%, #07111f 55%, #08121d 100%)"
+    >
+      {loading ? <LoadingOverlay message="Sincronizando malha logística..." variant="contained" /> : null}
 
-      <VStack spacing={8} align="stretch" maxW="1500px" mx="auto">
-        
-        {/* Header Section */}
-        <Flex align="center" justify="space-between" direction={{ base: 'column', md: 'row' }} gap={6}>
-          <HStack spacing={4}>
-            <Box p={3} bg="rgba(0, 122, 255, 0.12)" borderRadius="2xl" boxShadow="0 0 24px rgba(0, 122, 255, 0.2)">
-              <Icon as={Boxes} boxSize={6} color="#007AFF" />
-            </Box>
-            <VStack align="start" spacing={0}>
-              <TacticalText variant="heading" fontSize="2xl">Rede de Suprimentos</TacticalText>
-              <HStack spacing={2} mt={1}>
-                <HStack spacing={1.5}>
-                  <Box w={2} h={2} borderRadius="full" bg="#34C759" className="animate-pulse" />
-                  <TacticalText variant="mono" fontSize="10px" color="rgba(255,255,255,0.4)">LOGISTICS_SYSTEM: ONLINE</TacticalText>
-                </HStack>
-                <Divider orientation="vertical" h="10px" borderColor="whiteAlpha.300" />
-                <TacticalText variant="mono" fontSize="10px" color="rgba(255,255,255,0.4)">OPERATIONAL_UNITS: {supplies.length}</TacticalText>
-              </HStack>
-            </VStack>
-          </HStack>
+      <VStack maxW="7xl" mx="auto" spacing={6} align="stretch">
+        <PageHeader
+          icon={Boxes}
+          eyebrow="LOGISTICS_GRID // SUPPLY_CHAIN // FIELD_DISTRIBUTION"
+          title="Rede de suprimentos com leitura de fluxo, prioridade e rastreabilidade de cargas"
+          description="A tela foi redesenhada para separar métricas, fila logística e composição de novos deslocamentos sem painéis excessivamente densos."
+          meta={
+            <>
+              <ShellTelemetryBadge tone="info">{stats.total} cargas</ShellTelemetryBadge>
+              <ShellTelemetryBadge tone="warning">{stats.inTransit} em trânsito</ShellTelemetryBadge>
+              <ShellTelemetryBadge tone="critical">{stats.critical} críticas</ShellTelemetryBadge>
+            </>
+          }
+          actions={
+            <>
+              <Button
+                leftIcon={<RefreshCw size={16} />}
+                variant="ghost"
+                onClick={() => void actions.loadData()}
+                isLoading={loading}
+              >
+                Atualizar feed
+              </Button>
+              <Button
+                leftIcon={<Plus size={16} />}
+                variant="tactical"
+                onClick={actions.handleCreateDraft}
+              >
+                Novo registro
+              </Button>
+            </>
+          }
+        />
 
-          <HStack spacing={3}>
-            <TacticalButton leftIcon={<RefreshCw size={16} />} onClick={() => void actions.loadData()} isLoading={loading} variant="ghost">
-              ATUALIZAR_FEED
-            </TacticalButton>
-            <TacticalButton glow leftIcon={<Plus size={18} />} onClick={actions.handleCreateDraft} bg="#007AFF">
-              NOVO_REGISTRO
-            </TacticalButton>
-          </HStack>
-        </Flex>
-
-        {/* KPI Grid */}
-        <SimpleGrid columns={{ base: 1, sm: 2, lg: 4 }} spacing={6}>
-          <GlassPanel p={6} depth="raised" flexDirection="column" gap={1}>
-            <HStack justify="space-between" mb={2}>
-              <Icon as={PackageSearch} color="#007AFF" boxSize={5} />
-              <Badge variant="subtle" colorScheme="blue" borderRadius="full" fontSize="9px">TOTAIS</Badge>
-            </HStack>
-            <TacticalText variant="heading" fontSize="3xl" color="white">{stats.total}</TacticalText>
-            <TacticalText variant="caption" fontSize="xs">CARGAS_ATIVAS_DETECTADAS</TacticalText>
-          </GlassPanel>
-
-          <GlassPanel p={6} depth="raised" flexDirection="column" gap={1}>
-            <HStack justify="space-between" mb={2}>
-              <Icon as={Truck} color="#FF9500" boxSize={5} />
-              <Badge variant="subtle" colorScheme="orange" borderRadius="full" fontSize="9px">TRANSITO</Badge>
-            </HStack>
-            <TacticalText variant="heading" fontSize="3xl" color="white">{stats.inTransit}</TacticalText>
-            <TacticalText variant="caption" fontSize="xs">MOVIMENTAÇÕES_OPERACIONAIS</TacticalText>
-          </GlassPanel>
-
-          <GlassPanel p={6} depth="raised" flexDirection="column" gap={1}>
-            <HStack justify="space-between" mb={2}>
-              <Icon as={CheckCircle} color="#34C759" boxSize={5} />
-              <Badge variant="subtle" colorScheme="green" borderRadius="full" fontSize="9px">CHECK</Badge>
-            </HStack>
-            <TacticalText variant="heading" fontSize="3xl" color="white">{stats.delivered}</TacticalText>
-            <TacticalText variant="caption" fontSize="xs">ENTREGAS_CONCLUÍDAS_HOJE</TacticalText>
-          </GlassPanel>
-
-          <GlassPanel p={6} depth="raised" flexDirection="column" gap={1}>
-            <HStack justify="space-between" mb={2}>
-              <Icon as={AlertTriangle} color="#FF3B30" boxSize={5} />
-              <Badge variant="subtle" colorScheme="red" borderRadius="full" fontSize="9px">CRITICAL</Badge>
-            </HStack>
-            <TacticalText variant="heading" fontSize="3xl" color="white">{stats.critical}</TacticalText>
-            <TacticalText variant="caption" fontSize="xs">ALERTAS_DE_URGÊNCIA</TacticalText>
-          </GlassPanel>
+        <SimpleGrid columns={{ base: 1, sm: 2, xl: 4 }} spacing={4}>
+          <MetricCard
+            label="Cargas ativas"
+            value={stats.total}
+            helper="Registros sincronizados na malha"
+            icon={PackageSearch}
+            tone="info"
+          />
+          <MetricCard
+            label="Em trânsito"
+            value={stats.inTransit}
+            helper="Deslocamentos ainda sem confirmação final"
+            icon={Truck}
+            tone="warning"
+          />
+          <MetricCard
+            label="Entregues"
+            value={stats.delivered}
+            helper="Movimentações concluídas com êxito"
+            icon={CheckCircle}
+            tone="success"
+          />
+          <MetricCard
+            label="Pressão crítica"
+            value={stats.critical}
+            helper="Cargas com prioridade alta ou crítica"
+            icon={AlertTriangle}
+            tone="critical"
+          />
         </SimpleGrid>
 
-        {/* Shipment Table Panel */}
-        <GlassPanel depth="base" flexDirection="column" p={0} overflow="hidden">
-          <Box overflowX="auto">
-            <Table variant="simple" size="md">
-              <Thead bg="rgba(255,255,255,0.03)">
-                <Tr>
-                  <Th borderBottom="1px solid rgba(255,255,255,0.08)" color="rgba(255,255,255,0.4)" fontSize="10px" letterSpacing="0.2em">ITEM_RECURSO</Th>
-                  <Th borderBottom="1px solid rgba(255,255,255,0.08)" color="rgba(255,255,255,0.4)" fontSize="10px" letterSpacing="0.2em">VOLUME_QUANT</Th>
-                  <Th borderBottom="1px solid rgba(255,255,255,0.08)" color="rgba(255,255,255,0.4)" fontSize="10px" letterSpacing="0.2em">FLUXO_LOGISTICO</Th>
-                  <Th borderBottom="1px solid rgba(255,255,255,0.08)" color="rgba(255,255,255,0.4)" fontSize="10px" letterSpacing="0.2em">STATUS_OP</Th>
-                  <Th borderBottom="1px solid rgba(255,255,255,0.08)" color="rgba(255,255,255,0.4)" fontSize="10px" letterSpacing="0.2em">PRIORIDADE</Th>
-                </Tr>
-              </Thead>
-              <Tbody>
-                {supplies.length === 0 ? (
+        <PagePanel
+          title="Fila de suprimentos"
+          description="Visualize origem, destino, status e prioridade de cada carga sem perder o contexto operacional."
+          icon={Package}
+          tone="default"
+        >
+          {supplies.length === 0 && !loading ? (
+            <PageEmptyState
+              minH="320px"
+              title="Nenhum suprimento registrado"
+              description="A malha ainda não recebeu movimentações para o turno atual."
+              action={
+                <Button variant="tactical" onClick={actions.handleCreateDraft}>
+                  Registrar primeira carga
+                </Button>
+              }
+            />
+          ) : (
+            <Box overflowX="auto">
+              <Table variant="simple" size="md">
+                <Thead>
                   <Tr>
-                    <Td colSpan={5} py={32} textAlign="center">
-                      <VStack spacing={4} opacity={0.3}>
-                         <Package size={48} />
-                         <TacticalText variant="mono" fontSize="sm">SISTEMA_VAZIO // AGUARDANDO_DADOS</TacticalText>
-                      </VStack>
-                    </Td>
+                    <Th>Item</Th>
+                    <Th>Volume</Th>
+                    <Th>Fluxo</Th>
+                    <Th>Status</Th>
+                    <Th>Prioridade</Th>
                   </Tr>
-                ) : (
-                  supplies.map((s) => (
-                    <Tr 
-                      key={s.id} 
-                      _hover={{ bg: 'rgba(255,255,255,0.02)' }} 
-                      transition="all 0.2s"
-                    >
-                      <Td py={5} borderColor="rgba(255,255,255,0.06)">
+                </Thead>
+                <Tbody>
+                  {supplies.map((supply) => (
+                    <Tr key={supply.id} _hover={{ bg: 'rgba(255,255,255,0.02)' }}>
+                      <Td>
                         <HStack spacing={3}>
-                           <Icon as={Package} size={14} color="#007AFF" />
-                           <TacticalText variant="heading" fontSize="xs" color="white">{s.item}</TacticalText>
-                        </HStack>
-                      </Td>
-                      <Td py={5} borderColor="rgba(255,255,255,0.06)">
-                        <TacticalText variant="mono" color="white" fontSize="xs">{s.quantity} <Box as="span" color="rgba(255,255,255,0.3)">{s.unit || 'un'}</Box></TacticalText>
-                      </Td>
-                      <Td py={5} borderColor="rgba(255,255,255,0.06)">
-                        <HStack spacing={2}>
-                          <Badge bg="rgba(0,122,255,0.1)" color="#007AFF" fontSize="10px" borderRadius="md" px={2}>{s.origin}</Badge>
-                          <Icon as={Send} size={10} color="rgba(255,255,255,0.2)" />
-                          <Badge bg="rgba(52,199,89,0.1)" color="#34C759" fontSize="10px" borderRadius="md" px={2}>{s.destination}</Badge>
-                        </HStack>
-                      </Td>
-                      <Td py={5} borderColor="rgba(255,255,255,0.06)">
-                        <Badge 
-                          variant="subtle" 
-                          px={2} py={0.5} borderRadius="md"
-                          bg={s.status === 'delivered' ? 'rgba(52,199,89,0.1)' : s.status === 'in_transit' ? 'rgba(255,149,0,0.1)' : 'rgba(255,255,255,0.05)'}
-                          color={s.status === 'delivered' ? '#34C759' : s.status === 'in_transit' ? '#FF9500' : 'rgba(255,255,255,0.4)'}
-                          fontSize="9px" fontWeight="800"
-                          border="1px solid" borderColor={s.status === 'delivered' ? 'rgba(52,199,89,0.2)' : s.status === 'in_transit' ? 'rgba(255,149,0,0.2)' : 'transparent'}
-                        >
-                          {s.status?.replace('_', ' ').toUpperCase()}
-                        </Badge>
-                      </Td>
-                      <Td py={5} borderColor="rgba(255,255,255,0.06)">
-                        <HStack spacing={2}>
-                          <Box 
-                            w={1.5} h={1.5} borderRadius="full" 
-                            bg={s.priority === 'high' || s.priority === 'critical' ? '#FF3B30' : '#34C759'} 
-                            boxShadow={s.priority === 'high' ? '0 0 10px #FF3B30' : 'none'}
-                          />
-                          <TacticalText 
-                            variant="mono" fontSize="9px" fontWeight="900"
-                            color={s.priority === 'high' || s.priority === 'critical' ? '#FF3B30' : 'rgba(255,255,255,0.4)'}
+                          <Box
+                            p={2}
+                            borderRadius="xl"
+                            bg="rgba(0,122,255,0.10)"
+                            border="1px solid"
+                            borderColor="rgba(0,122,255,0.18)"
                           >
-                            {s.priority?.toUpperCase()}
-                          </TacticalText>
+                            <Package size={14} color="#0A84FF" />
+                          </Box>
+                          <VStack align="flex-start" spacing={0.5}>
+                            <Text fontSize="sm" fontWeight="600" color="white">
+                              {supply.item}
+                            </Text>
+                            <Text fontSize="xs" color="text.secondary">
+                              Registro #{supply.id}
+                            </Text>
+                          </VStack>
                         </HStack>
+                      </Td>
+                      <Td>
+                        <Text fontSize="sm" fontWeight="600" color="white">
+                          {supply.quantity}{' '}
+                          <Text as="span" color="text.secondary">
+                            {supply.unit || 'un'}
+                          </Text>
+                        </Text>
+                      </Td>
+                      <Td>
+                        <HStack spacing={2} flexWrap="wrap">
+                          <ShellTelemetryBadge tone="info">{supply.origin}</ShellTelemetryBadge>
+                          <Send size={12} color="rgba(255,255,255,0.30)" />
+                          <ShellTelemetryBadge tone="success">{supply.destination}</ShellTelemetryBadge>
+                        </HStack>
+                      </Td>
+                      <Td>
+                        <ShellTelemetryBadge tone={statusTone[supply.status as keyof typeof statusTone] ?? 'default'}>
+                          {supply.status.replace('_', ' ')}
+                        </ShellTelemetryBadge>
+                      </Td>
+                      <Td>
+                        <ShellTelemetryBadge tone={priorityTone[supply.priority as keyof typeof priorityTone] ?? 'default'}>
+                          {supply.priority}
+                        </ShellTelemetryBadge>
                       </Td>
                     </Tr>
-                  ))
-                )}
-              </Tbody>
-            </Table>
-          </Box>
-        </GlassPanel>
+                  ))}
+                </Tbody>
+              </Table>
+            </Box>
+          )}
+        </PagePanel>
       </VStack>
 
-      {/* Shipment Modal — Integrated v3 */}
-      <Modal title="REGISTRAR MOVIMENTAÇÃO DE CARGA" open={modalOpen} onClose={() => setModalOpen(false)}>
-        <VStack spacing={6} align="stretch" py={6}>
-          <SimpleGrid columns={2} spacing={6}>
+      <Modal title="Registrar movimentação de carga" open={modalOpen} onClose={() => setModalOpen(false)}>
+        <VStack spacing={5} align="stretch" p={6}>
+          <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
             <FormControl>
-              <FormLabel><TacticalText variant="caption" fontSize="10px">ITEM_NOME</TacticalText></FormLabel>
-              <Input 
-                value={form.item} 
-                onChange={(e) => setForm(p => ({ ...p, item: e.target.value }))}
-                bg="rgba(255,255,255,0.05)"
-                borderColor="rgba(255,255,255,0.1)"
-                _hover={{ borderColor: 'rgba(255,255,255,0.2)' }}
-                _focus={{ borderColor: '#007AFF', bg: 'rgba(255,255,255,0.08)' }}
-                placeholder="Ex: Água Potável"
-                borderRadius="xl"
-                h="52px"
+              <FormLabel>Item</FormLabel>
+              <Input
+                value={form.item ?? ''}
+                onChange={(event) => setForm((previous) => ({ ...previous, item: event.target.value }))}
+                placeholder="Ex.: Água potável"
               />
             </FormControl>
+
             <FormControl>
-              <FormLabel><TacticalText variant="caption" fontSize="10px">QUANTIDADE_VOL</TacticalText></FormLabel>
-              <HStack>
-                <Input 
+              <FormLabel>Quantidade</FormLabel>
+              <HStack align="stretch">
+                <Input
                   type="number"
-                  value={form.quantity} 
-                  onChange={(e) => setForm(p => ({ ...p, quantity: Number(e.target.value) }))}
-                  bg="rgba(255,255,255,0.05)"
-                  borderColor="rgba(255,255,255,0.1)"
-                  borderRadius="xl"
-                  h="52px"
+                  value={form.quantity ?? 0}
+                  onChange={(event) =>
+                    setForm((previous) => ({ ...previous, quantity: Number(event.target.value) }))
+                  }
                 />
-                <Select 
-                  value={form.unit}
-                  onChange={(e) => setForm(p => ({ ...p, unit: e.target.value }))}
-                  bg="#1A1A24"
-                  borderColor="rgba(255,255,255,0.1)"
-                  borderRadius="xl"
-                  h="52px"
-                  w="100px"
-                  sx={{ option: { background: "#1A1A24" } }}
+                <Select
+                  w="110px"
+                  value={form.unit ?? 'un'}
+                  onChange={(event) => setForm((previous) => ({ ...previous, unit: event.target.value }))}
                 >
                   <option value="un">un</option>
                   <option value="kg">kg</option>
@@ -248,58 +266,44 @@ export function LogisticsPage() {
             </FormControl>
           </SimpleGrid>
 
-          <SimpleGrid columns={2} spacing={6}>
+          <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
             <FormControl>
-              <FormLabel><TacticalText variant="caption" fontSize="10px">ZONA_ORIGEM</TacticalText></FormLabel>
-              <Input 
-                value={form.origin} 
-                onChange={(e) => setForm(p => ({ ...p, origin: e.target.value }))}
-                bg="rgba(255,255,255,0.05)"
-                borderColor="rgba(255,255,255,0.1)"
-                placeholder="Ponto de Partida"
-                borderRadius="xl"
-                h="52px"
+              <FormLabel>Origem</FormLabel>
+              <Input
+                value={form.origin ?? ''}
+                onChange={(event) => setForm((previous) => ({ ...previous, origin: event.target.value }))}
+                placeholder="Ponto de partida"
               />
             </FormControl>
+
             <FormControl>
-              <FormLabel><TacticalText variant="caption" fontSize="10px">ZONA_DESTINO</TacticalText></FormLabel>
-              <Input 
-                value={form.destination} 
-                onChange={(e) => setForm(p => ({ ...p, destination: e.target.value }))}
-                bg="rgba(255,255,255,0.05)"
-                borderColor="rgba(255,255,255,0.1)"
-                placeholder="Ponto de Entrega"
-                borderRadius="xl"
-                h="52px"
+              <FormLabel>Destino</FormLabel>
+              <Input
+                value={form.destination ?? ''}
+                onChange={(event) => setForm((previous) => ({ ...previous, destination: event.target.value }))}
+                placeholder="Ponto de entrega"
               />
             </FormControl>
           </SimpleGrid>
 
-          <SimpleGrid columns={2} spacing={6}>
+          <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
             <FormControl>
-              <FormLabel><TacticalText variant="caption" fontSize="10px">STATUS_INICIAL</TacticalText></FormLabel>
-              <Select 
-                value={form.status}
-                onChange={(e) => setForm(p => ({ ...p, status: e.target.value }))}
-                bg="#1A1A24"
-                borderColor="rgba(255,255,255,0.1)"
-                borderRadius="xl"
-                h="52px"
+              <FormLabel>Status inicial</FormLabel>
+              <Select
+                value={form.status ?? 'pending'}
+                onChange={(event) => setForm((previous) => ({ ...previous, status: event.target.value }))}
               >
                 <option value="pending">Pendente</option>
-                <option value="in_transit">Em Trânsito</option>
+                <option value="in_transit">Em trânsito</option>
                 <option value="delivered">Entregue</option>
               </Select>
             </FormControl>
+
             <FormControl>
-              <FormLabel><TacticalText variant="caption" fontSize="10px">PRIORIDADE_LOGISTICA</TacticalText></FormLabel>
-              <Select 
-                value={form.priority}
-                onChange={(e) => setForm(p => ({ ...p, priority: e.target.value }))}
-                bg="#1A1A24"
-                borderColor="rgba(255,255,255,0.1)"
-                borderRadius="xl"
-                h="52px"
+              <FormLabel>Prioridade logística</FormLabel>
+              <Select
+                value={form.priority ?? 'medium'}
+                onChange={(event) => setForm((previous) => ({ ...previous, priority: event.target.value }))}
               >
                 <option value="low">Baixa</option>
                 <option value="medium">Média</option>
@@ -309,9 +313,22 @@ export function LogisticsPage() {
             </FormControl>
           </SimpleGrid>
 
-          <TacticalButton glow h="64px" bg="#007AFF" onClick={() => void actions.submitShipment()}>
-            SINALIZAR MOVIMENTAÇÃO DE CARGA
-          </TacticalButton>
+          <Box
+            p={4}
+            borderRadius="2xl"
+            bg="surface.interactive"
+            border="1px solid"
+            borderColor="border.subtle"
+          >
+            <ShellSectionEyebrow mb={1.5}>Diretriz de despacho</ShellSectionEyebrow>
+            <Text fontSize="sm" color="text.secondary">
+              Registre item, volume e rota mínima antes de liberar qualquer carga para trânsito.
+            </Text>
+          </Box>
+
+          <Button variant="tactical" onClick={() => void actions.submitShipment()}>
+            Sinalizar movimentação de carga
+          </Button>
         </VStack>
       </Modal>
     </Box>

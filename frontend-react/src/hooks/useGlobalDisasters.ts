@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { getEvents } from '../services/disastersApi';
 import type { DisasterEvent } from '../types';
 
@@ -13,6 +13,7 @@ export interface GlobalEvent {
   lat: number;
   lon: number;
   description: string;
+  sourceUrl?: string;
 }
 
 function toSeverity(raw: unknown): GlobalEvent['severity'] {
@@ -37,43 +38,49 @@ export function useGlobalDisasters() {
   const [events, setEvents] = useState<GlobalEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [lastLoadedAt, setLastLoadedAt] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const resp = await getEvents({ page: 1, pageSize: 50 });
-        if (cancelled) return;
-        const mapped: GlobalEvent[] = (resp?.items ?? [])
-          .filter((e: DisasterEvent) => typeof e.lat === 'number' && typeof e.lon === 'number')
-          .map((e: DisasterEvent): GlobalEvent => ({
-            id: String(e.id ?? e.providerEventId ?? Math.random()),
-            title: e.title ?? 'Evento',
-            type: toEventType(e.eventType),
-            severity: toSeverity(e.severity),
-            location: e.countryName ?? '',
-            countryCode: e.countryCode ?? '',
-            timestamp: e.startAt ?? new Date().toISOString(),
-            lat: e.lat,
-            lon: e.lon,
-            description: e.description ?? '',
-          }));
-        setEvents(mapped);
-      } catch (err) {
-        if (!cancelled) {
-          console.error('useGlobalDisasters: failed to load events', err);
-          setError('Não foi possível carregar eventos globais.');
-          setEvents([]);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
+  const load = useCallback(async (signal?: { cancelled: boolean }) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const resp = await getEvents({ page: 1, pageSize: 50 });
+      if (signal?.cancelled) return;
+      const mapped: GlobalEvent[] = (resp?.items ?? [])
+        .filter((e: DisasterEvent) => typeof e.lat === 'number' && typeof e.lon === 'number')
+        .map((e: DisasterEvent): GlobalEvent => ({
+          id: String(e.id ?? e.providerEventId ?? Math.random()),
+          title: e.title ?? 'Evento',
+          type: toEventType(e.eventType),
+          severity: toSeverity(e.severity),
+          location: e.countryName ?? '',
+          countryCode: e.countryCode ?? '',
+          timestamp: e.startAt ?? new Date().toISOString(),
+          lat: e.lat,
+          lon: e.lon,
+          description: e.description ?? '',
+          sourceUrl: e.sourceUrl ?? undefined,
+        }));
+      setEvents(mapped);
+      setLastLoadedAt(new Date().toISOString());
+    } catch (err) {
+      if (!signal?.cancelled) {
+        console.error('useGlobalDisasters: failed to load events', err);
+        setError('Não foi possível carregar eventos globais.');
+        setEvents([]);
       }
-    };
-    void load();
-    return () => { cancelled = true; };
+    } finally {
+      if (!signal?.cancelled) setLoading(false);
+    }
   }, []);
 
-  return { events, loading, error };
+  useEffect(() => {
+    const signal = { cancelled: false };
+    void load(signal);
+    return () => {
+      signal.cancelled = true;
+    };
+  }, [load]);
+
+  return { events, loading, error, reload: load, lastLoadedAt };
 }

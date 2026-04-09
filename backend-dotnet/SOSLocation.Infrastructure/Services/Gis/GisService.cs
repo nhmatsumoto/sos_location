@@ -75,19 +75,55 @@ namespace SOSLocation.Infrastructure.Services.Gis
         public async Task<object> FetchUrbanFeaturesAsync(double minLat, double minLon, double maxLat, double maxLon)
         {
             var provider = _providers.OfType<OverpassProvider>().FirstOrDefault();
-            if (provider == null) return new { buildings = new List<object>() };
+            if (provider == null) return new UrbanDataResponse();
 
             string cacheKey = $"urban_v4_{minLat:F4}_{minLon:F4}_{maxLat:F4}_{maxLon:F4}";
-            return await _cache.GetOrCreateAsync(cacheKey, async entry =>
+            if (_cache.TryGetValue(cacheKey, out UrbanDataResponse? cachedUrban))
             {
-                entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(15);
-                try {
-                    return (UrbanDataResponse?)await provider.FetchDataAsync(minLat, minLon, maxLat, maxLon);
-                } catch (Exception ex) {
-                    _logger.LogError(ex, "Failed to fetch urban features for bbox {minLat},{minLon}. Returning empty features.", minLat, minLon);
-                    return new UrbanDataResponse();
+                if (cachedUrban is not null && !cachedUrban.IsSynthetic)
+                    return cachedUrban;
+
+                if (cachedUrban?.IsSynthetic == true)
+                {
+                    _logger.LogInformation(
+                        "Ignoring cached synthetic urban data for bbox {MinLat},{MinLon}→{MaxLat},{MaxLon}",
+                        minLat, minLon, maxLat, maxLon);
+                    _cache.Remove(cacheKey);
                 }
-            }) ?? new UrbanDataResponse();
+            }
+
+            try
+            {
+                var urbanData = (UrbanDataResponse?)await provider.FetchDataAsync(minLat, minLon, maxLat, maxLon)
+                    ?? new UrbanDataResponse();
+
+                if (!urbanData.IsSynthetic)
+                {
+                    _cache.Set(
+                        cacheKey,
+                        urbanData,
+                        new MemoryCacheEntryOptions
+                        {
+                            AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(15),
+                        });
+                }
+                else
+                {
+                    _logger.LogInformation(
+                        "Skipping memory cache for synthetic urban data [{MinLat},{MinLon},{MaxLat},{MaxLon}]",
+                        minLat, minLon, maxLat, maxLon);
+                }
+
+                return urbanData;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Failed to fetch urban features for bbox {MinLat},{MinLon}→{MaxLat},{MaxLon}. Returning empty features.",
+                    minLat, minLon, maxLat, maxLon);
+                return new UrbanDataResponse();
+            }
         }
 
         public async Task<object> FetchSoilDataAsync(double minLat, double minLon, double maxLat, double maxLon)

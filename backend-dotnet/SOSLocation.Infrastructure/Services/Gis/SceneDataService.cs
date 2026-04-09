@@ -79,7 +79,11 @@ namespace SOSLocation.Infrastructure.Services.Gis
                     request.MinLat, request.MinLon, request.MaxLat, request.MaxLon);
 
                 var dto = JsonSerializer.Deserialize<SceneDataDto>(cached.SceneDataJson, _jsonOpts);
-                if (dto is not null) return dto;
+                if (dto is not null && !HasSyntheticOsm(dto.OsmFeatures)) return dto;
+
+                _logger.LogInformation(
+                    "[SceneData] Ignoring cached synthetic scene for bbox [{MinLat},{MinLon},{MaxLat},{MaxLon}]",
+                    request.MinLat, request.MinLon, request.MaxLat, request.MaxLon);
             }
 
             // ── 2. Fetch DEM + OSM — each step is independently resilient ────
@@ -162,7 +166,16 @@ namespace SOSLocation.Infrastructure.Services.Gis
             };
 
             // ── 8. Persist to cache ───────────────────────────────────────────
-            await PersistCacheAsync(request, sceneData, ct);
+            if (!HasSyntheticOsm(sceneData.OsmFeatures))
+            {
+                await PersistCacheAsync(request, sceneData, ct);
+            }
+            else
+            {
+                _logger.LogInformation(
+                    "[SceneData] Skipping persistent cache for synthetic OSM fallback scene [{MinLat},{MinLon},{MaxLat},{MaxLon}]",
+                    request.MinLat, request.MinLon, request.MaxLat, request.MaxLon);
+            }
 
             return sceneData;
         }
@@ -214,6 +227,25 @@ namespace SOSLocation.Infrastructure.Services.Gis
                 Metadata = new SemanticMetadataDto(),
                 AreaScale = 1.0,
             };
+
+        private static bool HasSyntheticOsm(object? osmFeatures)
+        {
+            if (osmFeatures is UrbanDataResponse urbanData)
+                return urbanData.IsSynthetic;
+
+            if (osmFeatures is JsonElement json && json.ValueKind == JsonValueKind.Object)
+            {
+                if (json.TryGetProperty("isSynthetic", out var camelSynthetic) &&
+                    camelSynthetic.ValueKind is JsonValueKind.True or JsonValueKind.False)
+                    return camelSynthetic.GetBoolean();
+
+                if (json.TryGetProperty("IsSynthetic", out var pascalSynthetic) &&
+                    pascalSynthetic.ValueKind is JsonValueKind.True or JsonValueKind.False)
+                    return pascalSynthetic.GetBoolean();
+            }
+
+            return false;
+        }
 
         private async Task PersistCacheAsync(
             SceneBboxRequest request,

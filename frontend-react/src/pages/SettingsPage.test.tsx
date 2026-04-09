@@ -1,8 +1,7 @@
-import { ChakraProvider } from '@chakra-ui/react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import theme from '../theme';
 import { useAuthStore } from '../store/authStore';
+import { renderWithProviders } from '../test/renderWithProviders';
 import { SettingsPage } from './SettingsPage';
 
 const { doLogoutMock, refreshSessionTokenMock, getActiveSessionTokenMock } = vi.hoisted(() => ({
@@ -45,11 +44,7 @@ vi.mock('../lib/keycloak', () => ({
 }));
 
 const renderSettingsPage = () =>
-  render(
-    <ChakraProvider theme={theme}>
-      <SettingsPage />
-    </ChakraProvider>,
-  );
+  renderWithProviders(<SettingsPage />);
 
 describe('SettingsPage', () => {
   beforeEach(() => {
@@ -89,10 +84,10 @@ describe('SettingsPage', () => {
     renderSettingsPage();
 
     expect(screen.getByText('Nilton Matsumoto')).toBeInTheDocument();
-    expect(screen.getByText('coordinator')).toBeInTheDocument();
-    expect(screen.getByText('integration.read')).toBeInTheDocument();
-    expect(screen.getByText('simulation.run')).toBeInTheDocument();
-    expect(screen.getByText(/SESSION_ACTIVE \/\/ KEYCLOAK/)).toBeInTheDocument();
+    expect(screen.getAllByText('coordinator').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('integration.read').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('simulation.run').length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/SESSION_ACTIVE \/\/ KEYCLOAK/).length).toBeGreaterThan(0);
   });
 
   it('persists local preferences when saving', async () => {
@@ -108,7 +103,7 @@ describe('SettingsPage', () => {
       expect(persisted.preferences?.precisionMode).toBe(true);
     });
 
-    expect(screen.getByText(/PREFERENCES_PERSISTED \/\/ LOCAL_PROFILE_UPDATED/)).toBeInTheDocument();
+    expect(screen.getAllByText(/PREFERENCES_PERSISTED \/\/ LOCAL_PROFILE_UPDATED/).length).toBeGreaterThan(0);
   });
 
   it('refreshes the session and can trigger logout', async () => {
@@ -120,7 +115,7 @@ describe('SettingsPage', () => {
       expect(refreshSessionTokenMock).toHaveBeenCalledWith(120);
     });
 
-    expect(screen.getByText(/TOKEN_REFRESHED \/\/ SESSION_EXTENDED/)).toBeInTheDocument();
+    expect(screen.getAllByText(/TOKEN_REFRESHED \/\/ SESSION_EXTENDED/).length).toBeGreaterThan(0);
 
     fireEvent.click(screen.getByRole('button', { name: 'Encerrar Sessão' }));
     expect(doLogoutMock).toHaveBeenCalledTimes(1);

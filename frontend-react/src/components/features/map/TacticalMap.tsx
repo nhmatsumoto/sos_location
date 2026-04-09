@@ -1,16 +1,14 @@
-import { Box } from '@chakra-ui/react';
-import type { BoxProps } from '@chakra-ui/react';
-import { MapContainer, TileLayer } from 'react-leaflet';
-import type { MapContainerProps } from 'react-leaflet';
-import { TacticalText } from '../../atoms/TacticalText';
+import { Box, Icon, Text, type BoxProps } from '@chakra-ui/react';
+import { MapContainer, TileLayer, type MapContainerProps } from 'react-leaflet';
+import { MapPinned } from 'lucide-react';
 import type { ReactNode } from 'react';
-
+import { ShellSectionEyebrow, ShellSurface } from '../../layout/ShellPrimitives';
 
 const TILE_PROVIDERS = {
-  dark: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-  satellite: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-  topo: "https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",
-  streets: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+  dark: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+  satellite: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+  topo: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+  streets: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
 };
 
 interface TacticalMapProps extends MapContainerProps {
@@ -20,73 +18,66 @@ interface TacticalMapProps extends MapContainerProps {
   tileType?: keyof typeof TILE_PROVIDERS;
 }
 
-/**
- * Standard tactical map for SOS Location
- * Style: High-contrast, dark-mode filtered tiles or native dark tiles
- * Signature Label: GEOLOCALIZAÇÃO_RECORRENTE
- */
-export function TacticalMap({ 
-  children, 
-  containerProps, 
-  showLabel = true, 
+export function TacticalMap({
+  children,
+  containerProps,
+  showLabel = true,
   tileType = 'dark',
   style,
-  ...props 
+  ...props
 }: TacticalMapProps) {
-  
   const tacticalStyle = {
     height: '100%',
     width: '100%',
     background: '#08080F',
-    ...style
+    ...style,
   };
 
   return (
-    <Box 
-      position="relative" 
-      h="full" 
-      w="full" 
-      overflow="hidden" 
-      bg="#08080F"
-      {...containerProps}
-    >
-      {showLabel && (
-        <Box
+    <Box position="relative" h="full" w="full" overflow="hidden" bg="#08080F" {...containerProps}>
+      {showLabel ? (
+        <ShellSurface
+          variant="toolbar"
           position="absolute"
-          top="16px"
-          left="16px"
+          top={4}
+          left={4}
           zIndex={1000}
-          bg="#111119"
           px={3}
-          py={2}
-          borderRadius="md"
-          border="1px solid rgba(255,255,255,0.08)"
-          borderLeft="3px solid"
-          borderLeftColor="sos.red.500"
+          py={2.5}
           pointerEvents="none"
-          className="animate-fade-in"
         >
-          <TacticalText
-            variant="mono"
-            fontSize="11px"
-            color="rgba(255,255,255,0.65)"
-          >
-            Geolocalização ativa
-          </TacticalText>
-        </Box>
-      )}
-      
-      <MapContainer 
-        {...props} 
-        style={tacticalStyle}
-        zoomControl={props.zoomControl ?? false}
-      >
+          <Box
+            position="absolute"
+            left={0}
+            top={0}
+            bottom={0}
+            w="3px"
+            bg="sos.red.400"
+            borderLeftRadius="inherit"
+          />
+          <ShellSectionEyebrow pl={2}>Geolocalização ativa</ShellSectionEyebrow>
+          <Text pl={2} fontSize="xs" color="text.secondary">
+            Telemetria e base cartográfica em tempo real
+          </Text>
+        </ShellSurface>
+      ) : null}
+
+      <MapContainer {...props} style={tacticalStyle} zoomControl={props.zoomControl ?? false}>
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url={TILE_PROVIDERS[tileType] || TILE_PROVIDERS.dark}
         />
         {children}
       </MapContainer>
+
+      <Box position="absolute" right={4} bottom={4} zIndex={1000} pointerEvents="none">
+        <ShellSurface variant="subtle" px={3} py={2}>
+          <Icon as={MapPinned} boxSize={3.5} color="sos.blue.300" mr={2} verticalAlign="middle" />
+          <Text as="span" fontSize="11px" color="text.secondary">
+            Base vetorial + tiles táticos
+          </Text>
+        </ShellSurface>
+      </Box>
     </Box>
   );
 }

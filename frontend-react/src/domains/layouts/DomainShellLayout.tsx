@@ -1,5 +1,6 @@
 import { Suspense, useEffect, useState, type ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
+import { Box, Center, Text } from '@chakra-ui/react';
 import { AppShell } from '../../components/layout/AppShell';
 import { isTacticalRoutePath, type AppRouteGroup } from '../../lib/appRouteManifest';
 
@@ -38,7 +39,7 @@ export function DomainShellLayout({
     : variant;
 
   return (
-    <div className="animate-in fade-in duration-700 ease-out">
+    <Box animation="fade-in 0.2s ease-out">
       <AppShell
         theme={theme}
         onToggleTheme={() => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))}
@@ -49,10 +50,23 @@ export function DomainShellLayout({
         showStatusStrip={showStatusStrip}
         sidebarSectionLabelKey={sidebarSectionLabelKey}
       >
-        <Suspense fallback={<div style={{ padding: 16 }} className="text-slate-500 font-bold animate-pulse text-center">{fallbackText}</div>}>
+        <Suspense
+          fallback={(
+            <Center py={8}>
+              <Text
+                color="text.secondary"
+                fontWeight="700"
+                textAlign="center"
+                animation="status-pulse 2s ease-in-out infinite"
+              >
+                {fallbackText}
+              </Text>
+            </Center>
+          )}
+        >
           {children}
         </Suspense>
       </AppShell>
-    </div>
+    </Box>
   );
 }

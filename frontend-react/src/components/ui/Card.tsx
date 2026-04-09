@@ -1,5 +1,10 @@
-import type { ReactNode } from 'react';
+import type { BoxProps } from '@chakra-ui/react';
+import { ShellSurface } from '../layout/ShellPrimitives';
 
-export function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <section className={`rounded-2xl border border-slate-700/60 bg-slate-900/70 p-4 ${className}`}>{children}</section>;
+export function Card({ children, ...props }: BoxProps) {
+  return (
+    <ShellSurface variant="panel" p={4} {...props}>
+      {children}
+    </ShellSurface>
+  );
 }

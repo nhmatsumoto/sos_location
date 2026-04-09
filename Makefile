@@ -19,10 +19,10 @@ logs:
 	docker compose logs -f
 
 frontend-typecheck:
-	cd frontend-react && ./node_modules/.bin/tsc -b --pretty false
+	cd frontend-react && bun x tsc -b --pretty false
 
 frontend-lint:
-	cd frontend-react && ./node_modules/.bin/eslint .
+	cd frontend-react && bun x eslint .
 
 backend-test:
 	DOTNET_CLI_HOME=/tmp/sos-location-dotnet-home DOTNET_SKIP_FIRST_TIME_EXPERIENCE=1 dotnet test backend-dotnet/SOSLocation.slnx --nologo

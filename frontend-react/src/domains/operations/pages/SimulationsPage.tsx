@@ -483,13 +483,13 @@ export function SimulationsPage() {
       {/* --- AVISO: DADOS SINTÉTICOS (OSM INDISPONÍVEL) --- */}
       {resultData?.urbanFeatures?.isSynthetic && (
         <Box position="absolute" bottom={4} left="50%" transform="translateX(-50%)" zIndex={200}>
-          <Alert status="warning" borderRadius="md" py={2} px={4} bg="orange.900" border="1px solid" borderColor="orange.500" maxW="420px">
-            <AlertIcon color="orange.300" />
-            <TacticalText variant="caption" color="orange.200" letterSpacing="0.15em">
-              DADOS SINTÉTICOS — OSM indisponível para esta região
-            </TacticalText>
-          </Alert>
-        </Box>
+            <Alert status="warning" borderRadius="md" py={2} px={4} bg="orange.900" border="1px solid" borderColor="orange.500" maxW="420px">
+              <AlertIcon color="orange.300" />
+              <TacticalText variant="caption" color="orange.200" letterSpacing="0.15em">
+              DADOS SINTÉTICOS — serviço OSM externo indisponível, usando fallback operacional
+              </TacticalText>
+            </Alert>
+          </Box>
       )}
 
       {/* --- HUD: HEADER & WIZARD PROGRESS --- */}

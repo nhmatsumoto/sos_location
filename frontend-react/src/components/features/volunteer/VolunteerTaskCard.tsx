@@ -1,89 +1,134 @@
-import { MapPin, Clock, AlertCircle } from 'lucide-react';
+import { AlertCircle, Clock3, HandHeart, MapPin } from 'lucide-react';
+import { Box, Button, HStack, Icon, Text, VStack } from '@chakra-ui/react';
+import { ShellSectionEyebrow, ShellTelemetryBadge, ShellSurface } from '../../layout/ShellPrimitives';
 import type { VolunteerTask } from '../../../types/volunteer';
-import { Box, VStack, HStack, Icon, Badge } from '@chakra-ui/react';
-import { GlassPanel } from '../../atoms/GlassPanel';
-import { TacticalText } from '../../atoms/TacticalText';
-import { TacticalButton } from '../../atoms/TacticalButton';
 
 interface VolunteerTaskCardProps {
   task: VolunteerTask;
   onPickUp: (taskId: string) => void;
 }
 
-/**
- * Volunteer Mission Card
- * Redesigned for the Guardian Tactical System.
- * Highlights mission priority and provides clear action for engagement.
- */
-export function VolunteerTaskCard({ task, onPickUp }: VolunteerTaskCardProps) {
-  const priorityColors: Record<string, string> = {
-    low: 'sos.blue.400',
-    medium: 'orange.400',
-    high: 'orange.500',
-    critical: 'sos.red.500',
-  };
+const priorityTone = {
+  low: 'info',
+  medium: 'warning',
+  high: 'warning',
+  critical: 'critical',
+} as const;
 
-  const priorityColor = priorityColors[task.priority] || 'whiteAlpha.600';
+const categoryLabel = {
+  rescue: 'Resgate',
+  delivery: 'Suprimentos',
+  'first-aid': 'Primeiros socorros',
+  logistics: 'Logística',
+} as const;
+
+export function VolunteerTaskCard({ task, onPickUp }: VolunteerTaskCardProps) {
+  const createdAtLabel = new Date(task.createdAt).toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 
   return (
-    <GlassPanel 
-      p={5} 
-      transition="all 0.3s cubic-bezier(0.23, 1, 0.32, 1)"
-      _hover={{ borderColor: 'sos.blue.500', transform: 'translateX(4px)' }}
+    <ShellSurface
+      variant="panel"
+      p={4}
+      transition="all 0.2s"
+      _hover={{ borderColor: 'border.strong', transform: 'translateY(-2px)' }}
     >
       <VStack align="stretch" spacing={4}>
-        <HStack justify="space-between" align="flex-start">
-          <VStack align="flex-start" spacing={1}>
-            <HStack spacing={2}>
-              <Badge 
-                variant="outline" 
-                borderColor={`${priorityColor}/30`} 
-                color={priorityColor} 
-                fontSize="9px" 
-                px={2} 
-                borderRadius="md"
-              >
-                {task.priority?.toUpperCase()}
-              </Badge>
-              <TacticalText variant="subheading" fontSize="9px">{task.category}</TacticalText>
+        <HStack justify="space-between" align="flex-start" spacing={3}>
+          <VStack align="flex-start" spacing={2}>
+            <HStack spacing={2} flexWrap="wrap">
+              <ShellTelemetryBadge tone={priorityTone[task.priority]}>
+                {task.priority}
+              </ShellTelemetryBadge>
+              <ShellTelemetryBadge tone="default">
+                {categoryLabel[task.category]}
+              </ShellTelemetryBadge>
             </HStack>
-            <TacticalText variant="heading" fontSize="md">{task.title}</TacticalText>
+            <Text fontSize="lg" fontWeight="700" color="white" lineHeight={1.2}>
+              {task.title}
+            </Text>
           </VStack>
-          <Box p={2} bg="whiteAlpha.50" borderRadius="lg">
-            <Icon 
-              as={AlertCircle} 
-              size={18} 
-              color={task.priority === 'critical' ? 'sos.red.400' : 'whiteAlpha.400'} 
-              className={task.priority === 'critical' ? 'animate-pulse' : ''}
+          <Box
+            p={2.5}
+            borderRadius="2xl"
+            bg={task.priority === 'critical' ? 'rgba(255,59,48,0.12)' : 'surface.interactive'}
+            border="1px solid"
+            borderColor={task.priority === 'critical' ? 'rgba(255,59,48,0.22)' : 'border.subtle'}
+          >
+            <Icon
+              as={AlertCircle}
+              boxSize={4.5}
+              color={task.priority === 'critical' ? 'sos.red.300' : 'text.secondary'}
             />
           </Box>
         </HStack>
 
-        <TacticalText color="whiteAlpha.600" noOfLines={2} fontSize="xs">
+        <Text fontSize="sm" color="text.secondary" lineHeight={1.7} noOfLines={3}>
           {task.description}
-        </TacticalText>
+        </Text>
 
-        <HStack spacing={4} pt={4} borderTop="1px solid" borderColor="whiteAlpha.100">
-          <HStack spacing={1.5}>
-            <Icon as={MapPin} size={14} color="sos.blue.400" />
-            <TacticalText fontSize="9px">{task.location.address || 'Coordenação Local'}</TacticalText>
-          </HStack>
-          <HStack spacing={1.5}>
-            <Icon as={Clock} size={14} color="whiteAlpha.300" />
-            <TacticalText variant="mono" fontSize="9px">T-2H</TacticalText>
-          </HStack>
+        <HStack spacing={3} flexWrap="wrap">
+          <DataPoint icon={MapPin} label="Local" value={task.location.address || 'Coordenada operacional'} />
+          <DataPoint icon={Clock3} label="Emitida" value={createdAtLabel} />
         </HStack>
 
-        <TacticalButton 
-          h="44px" 
-          bg="sos.blue.500" 
-          fontSize="xs"
-          onClick={() => onPickUp(task.id)}
-          _hover={{ bg: 'sos.blue.400', boxShadow: '0 0 15px rgba(6, 182, 212, 0.3)' }}
+        <Box
+          px={3.5}
+          py={3}
+          borderRadius="2xl"
+          bg="surface.interactive"
+          border="1px solid"
+          borderColor="border.subtle"
         >
-          ASSUMIR MISSÃO
-        </TacticalButton>
+          <ShellSectionEyebrow mb={1.5}>Janela de atuação</ShellSectionEyebrow>
+          <Text fontSize="sm" color="text.secondary">
+            Assuma somente se puder confirmar deslocamento e retorno de campo com a central.
+          </Text>
+        </Box>
+
+        <Button
+          leftIcon={<Icon as={HandHeart} boxSize={4} />}
+          variant="tactical"
+          onClick={() => onPickUp(task.id)}
+        >
+          Assumir missão
+        </Button>
       </VStack>
-    </GlassPanel>
+    </ShellSurface>
+  );
+}
+
+function DataPoint({
+  icon,
+  label,
+  value,
+}: {
+  icon: typeof MapPin;
+  label: string;
+  value: string;
+}) {
+  return (
+    <Box
+      flex="1"
+      minW={{ base: '100%', sm: 'unset' }}
+      px={3}
+      py={2.5}
+      borderRadius="2xl"
+      bg="surface.interactive"
+      border="1px solid"
+      borderColor="border.subtle"
+    >
+      <HStack spacing={2} mb={1}>
+        <Icon as={icon} boxSize={3.5} color="text.secondary" />
+        <ShellSectionEyebrow>{label}</ShellSectionEyebrow>
+      </HStack>
+      <Text fontSize="sm" fontWeight="600" color="white">
+        {value}
+      </Text>
+    </Box>
   );
 }
