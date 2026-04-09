@@ -16,8 +16,8 @@ import { GlassPanel } from '../../../components/atoms/GlassPanel';
 import { TacticalText } from '../../../components/atoms/TacticalText';
 import { TacticalButton } from '../../../components/atoms/TacticalButton';
 import { missingPersonsApi, type MissingPersonApi } from '../../../services/missingPersonsApi';
-import { resolveApiUrl } from '../lib/apiBaseUrl';
-import { useNotifications } from '../context/useNotifications';
+import { resolveApiUrl } from '../../../lib/apiBaseUrl';
+import { useNotifications } from '../../../context/useNotifications';
 import { TacticalMap } from '../../../components/features/map/TacticalMap';
 
 // ─── Leaflet icon para pessoas desaparecidas ─────────────────────────────────
@@ -220,7 +220,7 @@ export function MissingPersonsPage() {
                 </Center>
               ) : (
                 <Table variant="unstyled" size="sm">
-                  <Thead position="sticky" top={0} bg="rgba(10,10,20,0.95)" zIndex={10} backdropFilter="blur(5px)">
+                  <Thead position="sticky" top={0} bg="rgba(10,10,20,0.95)" zIndex={10} >
                     <Tr borderBottom="1px solid" borderColor="whiteAlpha.100">
                       <Th py={3}><TacticalText variant="caption">NOME</TacticalText></Th>
                       <Th py={3}><TacticalText variant="caption">LOCALIZAÇÃO</TacticalText></Th>
@@ -269,7 +269,7 @@ export function MissingPersonsPage() {
 
       {/* ─── MODAL DE REGISTRO ───────────────────────────────────────────────── */}
       <Modal isOpen={isOpen} onClose={onClose} size="4xl" scrollBehavior="inside">
-        <ModalOverlay bg="rgba(0,0,0,0.7)" backdropFilter="blur(8px)" />
+        <ModalOverlay bg="rgba(0,0,0,0.7)" />
         <ModalContent
           bg="rgba(14,14,22,0.97)"
           border="1px solid rgba(255,255,255,0.09)"

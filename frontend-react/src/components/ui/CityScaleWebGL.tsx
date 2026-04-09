@@ -297,6 +297,7 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
   const [compassBearing, setCompassBearing] = React.useState(0);
   const [showNavHelp, setShowNavHelp] = React.useState(true);
   const [fpModeDisplay, setFpModeDisplay] = React.useState(false);
+  const [renderInitError, setRenderInitError] = React.useState<string | null>(null);
 
   const semTerrainCountRef = useRef(0);
   const semBuildingCountRef = useRef(0);
@@ -552,34 +553,36 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
 
   useEffect(() => {
     if (!canvasRef.current) return;
+    setRenderInitError(null);
 
-    const renderer = new WebGLRenderer(canvasRef.current);
-    rendererRef.current = renderer;
+    try {
+      const renderer = new WebGLRenderer(canvasRef.current);
+      rendererRef.current = renderer;
 
-    const gl = renderer.getContext();
-    gl.enable(gl.DEPTH_TEST);
-    gl.enable(gl.BLEND);
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+      const gl = renderer.getContext();
+      gl.enable(gl.DEPTH_TEST);
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
-    // Shader programs
-    const terrainProgram   = renderer.createProgram(CITY_TERRAIN_VS,   CITY_TERRAIN_FS);
-    const infraProgram     = renderer.createProgram(INFRASTRUCTURE_VS,  INFRASTRUCTURE_FS);
-    const vegProgram       = renderer.createProgram(VEGETATION_VS,      VEGETATION_FS);
-    const waterProgram     = renderer.createProgram(WATER_VS,           WATER_FS);
-    const particleProgram  = renderer.createProgram(PARTICLE_VS,        PARTICLE_FS);
-    const skyProgram       = renderer.createProgram(SKY_VS,             SKY_FS);
-    const precipProgram    = renderer.createProgram(PRECIP_VS,          PRECIP_FS);
-    const fogProgram       = renderer.createProgram(FOG_VS,             FOG_FS);
-    const waterwayProgram  = renderer.createProgram(WATERWAY_VS,        WATERWAY_FS);
-    const roadProgram      = renderer.createProgram(ROAD_VS,            ROAD_FS);
-    const waterAreaProgram = renderer.createProgram(WATER_AREA_VS,      WATER_AREA_FS);
-    const semanticProgram  = renderer.createProgram(SEMANTIC_VS,        SEMANTIC_FS);
-    const slopeProgram     = renderer.createProgram(ENGINEERING_SHADERS.SLOPE.VS, ENGINEERING_SHADERS.SLOPE.FS);
-    const densityProgram   = renderer.createProgram(ENGINEERING_SHADERS.DENSITY.VS, ENGINEERING_SHADERS.DENSITY.FS);
-    const charShaderProg   = renderer.createProgram(CHARACTER_VS, CHARACTER_FS);
-    const zoneProgram      = renderer.createProgram(ZONE_VS,      ZONE_FS);
-    const amenityProgram   = renderer.createProgram(AMENITY_VS,   AMENITY_FS);
-    const fireProgram      = renderer.createProgram(FIRE_VS,      FIRE_FS);
+      // Shader programs
+      const terrainProgram   = renderer.createProgram(CITY_TERRAIN_VS,   CITY_TERRAIN_FS);
+      const infraProgram     = renderer.createProgram(INFRASTRUCTURE_VS,  INFRASTRUCTURE_FS);
+      const vegProgram       = renderer.createProgram(VEGETATION_VS,      VEGETATION_FS);
+      const waterProgram     = renderer.createProgram(WATER_VS,           WATER_FS);
+      const particleProgram  = renderer.createProgram(PARTICLE_VS,        PARTICLE_FS);
+      const skyProgram       = renderer.createProgram(SKY_VS,             SKY_FS);
+      const precipProgram    = renderer.createProgram(PRECIP_VS,          PRECIP_FS);
+      const fogProgram       = renderer.createProgram(FOG_VS,             FOG_FS);
+      const waterwayProgram  = renderer.createProgram(WATERWAY_VS,        WATERWAY_FS);
+      const roadProgram      = renderer.createProgram(ROAD_VS,            ROAD_FS);
+      const waterAreaProgram = renderer.createProgram(WATER_AREA_VS,      WATER_AREA_FS);
+      const semanticProgram  = renderer.createProgram(SEMANTIC_VS,        SEMANTIC_FS);
+      const slopeProgram     = renderer.createProgram(ENGINEERING_SHADERS.SLOPE.VS, ENGINEERING_SHADERS.SLOPE.FS);
+      const densityProgram   = renderer.createProgram(ENGINEERING_SHADERS.DENSITY.VS, ENGINEERING_SHADERS.DENSITY.FS);
+      const charShaderProg   = renderer.createProgram(CHARACTER_VS, CHARACTER_FS);
+      const zoneProgram      = renderer.createProgram(ZONE_VS,      ZONE_FS);
+      const amenityProgram   = renderer.createProgram(AMENITY_VS,   AMENITY_FS);
+      const fireProgram      = renderer.createProgram(FIRE_VS,      FIRE_FS);
 
     const identityMatrix = new Float32Array([1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]);
 
@@ -2276,54 +2279,60 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
 
     frameId = requestAnimationFrame(render);
 
-    return () => {
-      isMounted = false;
-      cancelAnimationFrame(frameId);
-      gl.deleteBuffer(terrainVBO);
-      gl.deleteBuffer(terrainIBO);
-      gl.deleteBuffer(buildingVBO);
-      gl.deleteBuffer(particleVBO);
-      gl.deleteBuffer(precipVBO);
-      gl.deleteBuffer(skyQuadVBO);
-      gl.deleteBuffer(waterwayVBO);
-      gl.deleteBuffer(waterAreaVBO);
-      gl.deleteBuffer(fallbackRoadVBO);
-      gl.deleteBuffer(semTerrainVBO);
-      gl.deleteBuffer(semBuildingVBO);
-      for (const rg of roadGroupVBOs) gl.deleteBuffer(rg.vbo);
-      gl.deleteTexture(topoTexture);
-      gl.deleteTexture(satelliteTexture);
-      gl.deleteTexture(landCoverTexture);
-      gl.deleteTexture(slopeTexture);
-      gl.deleteTexture(densityTexture);
-      gl.deleteProgram(terrainProgram);
-      gl.deleteProgram(infraProgram);
-      gl.deleteProgram(vegProgram);
-      gl.deleteProgram(waterProgram);
-      gl.deleteProgram(particleProgram);
-      gl.deleteProgram(skyProgram);
-      gl.deleteProgram(precipProgram);
-      gl.deleteProgram(fogProgram);
-      gl.deleteProgram(waterwayProgram);
-      gl.deleteProgram(roadProgram);
-      gl.deleteProgram(waterAreaProgram);
-      gl.deleteProgram(semanticProgram);
-      gl.deleteProgram(slopeProgram);
-      gl.deleteProgram(densityProgram);
-      gl.deleteProgram(charShaderProg);
-      gl.deleteBuffer(charVBO);
-      gl.deleteBuffer(zoneVBO);
-      gl.deleteBuffer(amenityVBO);
-      gl.deleteProgram(zoneProgram);
-      gl.deleteProgram(amenityProgram);
-      gl.deleteBuffer(osmVegVBO);
-      gl.deleteBuffer(barrierVBO);
-      gl.deleteBuffer(sidewalkVBO);
-      if (lcBuildingVBO) gl.deleteBuffer(lcBuildingVBO);
-      if (lcVegVBO) gl.deleteBuffer(lcVegVBO);
-      if (lcWaterVBO) gl.deleteBuffer(lcWaterVBO);
-      gl.deleteProgram(fireProgram);
-    };
+      return () => {
+        isMounted = false;
+        cancelAnimationFrame(frameId);
+        gl.deleteBuffer(terrainVBO);
+        gl.deleteBuffer(terrainIBO);
+        gl.deleteBuffer(buildingVBO);
+        gl.deleteBuffer(particleVBO);
+        gl.deleteBuffer(precipVBO);
+        gl.deleteBuffer(skyQuadVBO);
+        gl.deleteBuffer(waterwayVBO);
+        gl.deleteBuffer(waterAreaVBO);
+        gl.deleteBuffer(fallbackRoadVBO);
+        gl.deleteBuffer(semTerrainVBO);
+        gl.deleteBuffer(semBuildingVBO);
+        for (const rg of roadGroupVBOs) gl.deleteBuffer(rg.vbo);
+        gl.deleteTexture(topoTexture);
+        gl.deleteTexture(satelliteTexture);
+        gl.deleteTexture(landCoverTexture);
+        gl.deleteTexture(slopeTexture);
+        gl.deleteTexture(densityTexture);
+        gl.deleteProgram(terrainProgram);
+        gl.deleteProgram(infraProgram);
+        gl.deleteProgram(vegProgram);
+        gl.deleteProgram(waterProgram);
+        gl.deleteProgram(particleProgram);
+        gl.deleteProgram(skyProgram);
+        gl.deleteProgram(precipProgram);
+        gl.deleteProgram(fogProgram);
+        gl.deleteProgram(waterwayProgram);
+        gl.deleteProgram(roadProgram);
+        gl.deleteProgram(waterAreaProgram);
+        gl.deleteProgram(semanticProgram);
+        gl.deleteProgram(slopeProgram);
+        gl.deleteProgram(densityProgram);
+        gl.deleteProgram(charShaderProg);
+        gl.deleteBuffer(charVBO);
+        gl.deleteBuffer(zoneVBO);
+        gl.deleteBuffer(amenityVBO);
+        gl.deleteProgram(zoneProgram);
+        gl.deleteProgram(amenityProgram);
+        gl.deleteBuffer(osmVegVBO);
+        gl.deleteBuffer(barrierVBO);
+        gl.deleteBuffer(sidewalkVBO);
+        if (lcBuildingVBO) gl.deleteBuffer(lcBuildingVBO);
+        if (lcVegVBO) gl.deleteBuffer(lcVegVBO);
+        if (lcWaterVBO) gl.deleteBuffer(lcWaterVBO);
+        gl.deleteProgram(fireProgram);
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Falha ao iniciar visualizacao 3D.';
+      console.error('CityScaleWebGL initialization failed', error);
+      setRenderInitError(message);
+      return;
+    }
   }, [
     centerLat, centerLng, layersKey, simDataKey, resultData, blueprint, heightMapUrl,
     topoMapUrl, satelliteMapUrl, effectiveTopoScale, topoOffset, lightAngle, lightIntensity,
@@ -2349,7 +2358,7 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
       <Box
         position="absolute" top={4} left={4} zIndex={10}
         bg="rgba(0,8,16,0.80)" p={3} borderRadius="md"
-        border="1px solid rgba(0,200,255,0.18)" backdropFilter="blur(8px)"
+        border="1px solid rgba(0,200,255,0.18)" 
         fontFamily="monospace" pointerEvents="none" minW="220px"
       >
         <div style={{ color: '#00d4ff', fontSize: '11px', fontWeight: 'bold', marginBottom: '4px' }}>
@@ -2392,7 +2401,7 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
         <Box
           position="absolute" bottom={6} left={4} zIndex={10}
           bg="rgba(0,8,16,0.80)" p={3} borderRadius="md"
-          border="1px solid rgba(0,200,255,0.18)" backdropFilter="blur(8px)"
+          border="1px solid rgba(0,200,255,0.18)" 
           fontFamily="monospace"
         >
           <Box
@@ -2422,7 +2431,7 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
         <Box
           position="absolute" top={4} right={4} zIndex={20}
           bg="rgba(0,8,20,0.92)" borderRadius="xl"
-          border="1px solid rgba(0,200,255,0.30)" backdropFilter="blur(12px)"
+          border="1px solid rgba(0,200,255,0.30)" 
           fontFamily="monospace" minW="220px" maxW="260px" overflow="hidden"
         >
           <Box
@@ -2484,6 +2493,36 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
             fontSize="9px" color="rgba(255,255,255,0.3)"
           >
             Clique em outro edificio ou no terreno para deselecionar
+          </Box>
+        </Box>
+      )}
+
+      {renderInitError && (
+        <Box
+          position="absolute"
+          inset={0}
+          zIndex={30}
+          display="flex"
+          alignItems="center"
+          justifyContent="center"
+          bg="rgba(3,5,8,0.94)"
+          px={6}
+        >
+          <Box
+            maxW="520px"
+            w="full"
+            bg="rgba(0,8,20,0.92)"
+            borderRadius="xl"
+            border="1px solid rgba(255,80,80,0.35)"
+            p={6}
+            fontFamily="monospace"
+          >
+            <div style={{ color: '#ff6b6b', fontSize: '11px', fontWeight: 'bold', marginBottom: '10px' }}>
+              FALHA AO INICIAR A VISUALIZACAO 3D
+            </div>
+            <div style={{ color: '#cce8ff', fontSize: '10px', lineHeight: '1.8', opacity: 0.9 }}>
+              {renderInitError}
+            </div>
           </Box>
         </Box>
       )}

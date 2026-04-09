@@ -22,7 +22,7 @@ import {
   type WeatherCurrent,
   type WeatherDay,
 } from '../../../services/integrationsApi';
-import { useNotifications } from '../context/useNotifications';
+import { useNotifications } from '../../../context/useNotifications';
 
 type Tab = 'weather' | 'alerts' | 'transparency' | 'satellite' | 'catalogs';
 

@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { AppShell } from '../../components/layout/AppShell';
 import { isTacticalRoutePath, type AppRouteGroup } from '../../lib/appRouteManifest';
 
-interface DomainShellLayoutProps {
+export interface DomainShellLayoutProps {
   children: ReactNode;
   fallbackText: string;
   navigationGroups: AppRouteGroup[];

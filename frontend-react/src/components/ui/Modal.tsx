@@ -20,18 +20,18 @@ interface ModalProps {
 export function Modal({ title, open, onClose, children }: ModalProps) {
   return (
     <ChakraModal isOpen={open} onClose={onClose} size="xl" isCentered>
-      <ModalOverlay backdropFilter="blur(5px)" bg="blackAlpha.700" />
-      <ModalContent bg="slate.950" border="1px solid" borderColor="whiteAlpha.200" borderRadius="2xl">
-        <ModalHeader fontSize="md" fontWeight="bold" color="white" borderBottom="1px solid" borderColor="whiteAlpha.100">
+      <ModalOverlay bg="rgba(0,0,0,0.75)" />
+      <ModalContent bg="#111119" border="1px solid rgba(255,255,255,0.10)" borderRadius="xl">
+        <ModalHeader fontSize="sm" fontWeight="600" color="white" borderBottom="1px solid rgba(255,255,255,0.07)">
           {title}
         </ModalHeader>
-        <ModalCloseButton color="whiteAlpha.700" />
+        <ModalCloseButton color="rgba(255,255,255,0.50)" />
         <ModalBody p={0}>
           {children}
         </ModalBody>
-        <ModalFooter bg="blackAlpha.400" borderBottomRadius="2xl">
-          <Button size="sm" variant="ghost" colorScheme="whiteAlpha" onClick={onClose}>
-            FECHAR
+        <ModalFooter bg="rgba(255,255,255,0.02)" borderBottomRadius="xl">
+          <Button size="sm" variant="ghost" onClick={onClose}>
+            Fechar
           </Button>
         </ModalFooter>
       </ModalContent>

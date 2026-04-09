@@ -73,7 +73,7 @@ export function MapContextMenu({ x, y, onClose, lat, lng, onMarkRiskArea }: MapC
         left={x}
         zIndex={10001}
         bg="rgba(10, 11, 16, 0.9)"
-        backdropFilter="blur(20px)"
+        
         border="1px solid"
         borderColor="whiteAlpha.100"
         borderRadius="xl"

@@ -53,7 +53,7 @@ export function TacticalOpsForm({ opsForm, setOpsForm, onSave }: TacticalOpsForm
           value={opsForm.incidentTitle}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => setOpsForm({ ...opsForm, incidentTitle: e.target.value })}
           bg="whiteAlpha.50"
-          backdropFilter="blur(10px)"
+          
           borderColor="whiteAlpha.100"
           fontSize="xs"
           borderRadius="xl"

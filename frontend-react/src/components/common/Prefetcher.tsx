@@ -15,10 +15,10 @@ export function Prefetcher() {
         // We use dynamic imports without .tsx to satisfy typical build tool logic
         // and ensure chunks are loaded into browser cache early.
         Promise.all([
-          import('../../pages/OperationalMapPage'),
+          import('../../domains/operations/pages/OperationalMapPage'),
           import('../../LandslideSimulation'),
           import('../../PostDisasterSplat'),
-          import('../../pages/SOSPage')
+          import('../../domains/operations/pages/SOSPage')
         ]).catch(() => {
           // Silent catch for prefetch errors
         });

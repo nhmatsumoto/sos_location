@@ -1,35 +1,29 @@
 import { Text, forwardRef } from '@chakra-ui/react';
 
-/**
- * Tactical Typography System
- * Ensures all text follows the mission-critical design language.
- */
 export const TacticalText = forwardRef<any, 'p'>(
   ({ children, variant = 'caption', ...props }: any, ref: any) => {
     const variants = {
       heading: {
         fontSize: 'sm',
-        fontWeight: 'black',
-        letterSpacing: '0.2em',
-        textTransform: 'uppercase' as const,
+        fontWeight: '600',
+        letterSpacing: '0.03em',
         color: 'white',
       },
       subheading: {
         fontSize: 'xs',
-        fontWeight: 'bold',
-        letterSpacing: '0.1em',
-        textTransform: 'uppercase' as const,
-        color: 'whiteAlpha.600',
+        fontWeight: '500',
+        letterSpacing: '0.02em',
+        color: 'rgba(255,255,255,0.55)',
       },
       mono: {
         fontSize: 'xs',
         fontFamily: 'mono',
-        color: 'sos.blue.400',
+        color: 'sos.blue.300',
       },
       caption: {
-        fontSize: '10px',
-        fontWeight: 'medium',
-        color: 'whiteAlpha.500',
+        fontSize: '11px',
+        fontWeight: '400',
+        color: 'rgba(255,255,255,0.45)',
       }
     };
 

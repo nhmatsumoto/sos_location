@@ -18,16 +18,16 @@ export function ControlCenterShell({ children }: ControlCenterShellProps) {
   const location = useLocation();
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_#1e293b_0%,_#020617_45%)] text-slate-100">
-      <div className="mx-auto grid min-h-screen w-full max-w-7xl grid-cols-1 gap-4 px-4 py-5 md:px-6 lg:grid-cols-[260px_1fr]">
-        <aside className="rounded-2xl border border-slate-700/60 bg-slate-900/70 p-4 shadow-2xl shadow-black/30 backdrop-blur">
-          <div className="mb-4 border-b border-slate-700/60 pb-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300">MG Location</p>
-            <h1 className="mt-1 text-xl font-bold">Control Center</h1>
-            <p className="mt-1 text-xs text-slate-300">Plataforma operacional em tempo real</p>
+    <div className="min-h-screen bg-[#09090F] text-slate-100">
+      <div className="mx-auto grid min-h-screen w-full max-w-7xl grid-cols-1 gap-3 px-3 py-4 md:px-4 lg:grid-cols-[240px_1fr]">
+        <aside className="rounded-lg border border-white/[0.07] bg-[#111119] p-3">
+          <div className="mb-3 border-b border-white/[0.07] pb-3">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">SOS Location</p>
+            <h1 className="mt-1 text-base font-semibold">Centro de Controle</h1>
+            <p className="mt-0.5 text-xs text-slate-400">Plataforma operacional em tempo real</p>
           </div>
 
-          <nav className="space-y-2" aria-label="Navegação principal">
+          <nav className="space-y-1" aria-label="Navegação principal">
             {links.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.to;
@@ -35,28 +35,28 @@ export function ControlCenterShell({ children }: ControlCenterShellProps) {
                 <Link
                   key={item.to}
                   to={item.to}
-                  className={`group flex items-center justify-between rounded-xl border px-3 py-2 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 ${
+                  className={`group flex items-center justify-between rounded-md border px-3 py-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50 ${
                     isActive
-                      ? 'border-cyan-400/50 bg-cyan-500/15 text-cyan-100'
-                      : 'border-slate-700/70 bg-slate-800/40 text-slate-200 hover:border-slate-500 hover:bg-slate-800/80'
+                      ? 'border-blue-500/20 bg-blue-500/10 text-white'
+                      : 'border-white/[0.07] bg-transparent text-slate-300 hover:bg-white/[0.05] hover:text-white'
                   }`}
                 >
                   <div className="flex items-center gap-2">
-                    <Icon size={16} className={isActive ? 'text-cyan-200' : 'text-slate-300'} />
+                    <Icon size={15} className={isActive ? 'text-blue-400' : 'text-slate-400'} />
                     <div>
-                      <p className="text-sm font-semibold leading-tight">{item.label}</p>
-                      <p className="text-[11px] text-slate-300">{item.description}</p>
+                      <p className="text-sm font-medium leading-tight">{item.label}</p>
+                      <p className="text-[11px] text-slate-400">{item.description}</p>
                     </div>
                   </div>
-                  <ArrowRight size={14} className="opacity-50 transition group-hover:opacity-90" />
+                  <ArrowRight size={13} className="opacity-30 transition group-hover:opacity-70" />
                 </Link>
               );
             })}
           </nav>
         </aside>
 
-        <section className="rounded-2xl border border-slate-700/60 bg-slate-900/55 p-2 shadow-2xl shadow-black/30 backdrop-blur">
-          <div className="h-full rounded-xl border border-slate-800/80 bg-slate-950/65">{children}</div>
+        <section className="rounded-lg border border-white/[0.07] bg-[#111119] p-2">
+          <div className="h-full rounded-md border border-white/[0.05] bg-[#09090F]">{children}</div>
         </section>
       </div>
     </div>

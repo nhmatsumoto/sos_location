@@ -4,29 +4,25 @@
 @layer base {
   :root {
     --font-sans: 'Inter', system-ui, sans-serif;
-    --font-display: 'Outfit', system-ui, sans-serif;
-    
-    /* Premium HSL Color System */
-    --primary: 199 89% 48%; /* Cyan 500 */
+
+    /* Aligned with Chakra sos.blue.500 (#007AFF) */
+    --primary: 211 100% 50%;
     --primary-foreground: 0 0% 100%;
-    
-    --secondary: 226 71% 40%; /* Blue 700 */
+
+    --secondary: 226 71% 40%;
     --secondary-foreground: 0 0% 100%;
-    
-    --accent: 262 83% 58%; /* Violet 500 */
-    --accent-foreground: 0 0% 100%;
-    
-    --background: 222 47% 4%; /* Deep Navy */
-    --foreground: 210 40% 98%;
-    
-    --card: 222 47% 6%;
-    --card-foreground: 210 40% 98%;
-    
-    --border: 217 33% 17%;
-    --input: 217 33% 17%;
-    --ring: 199 89% 48%;
-    
-    --radius: 0.75rem;
+
+    --background: 240 43% 5%;    /* #09090F */
+    --foreground: 210 20% 92%;
+
+    --card: 240 30% 9%;          /* #111119 */
+    --card-foreground: 210 20% 92%;
+
+    --border: 240 15% 14%;
+    --input: 240 15% 14%;
+    --ring: 211 100% 50%;
+
+    --radius: 0.5rem;
   }
 }
 
@@ -45,8 +41,8 @@ body,
 #root {
   height: 100%;
   width: 100%;
-  background-color: hsl(var(--background));
-  color: hsl(var(--foreground));
+  background-color: #09090F;
+  color: rgba(255,255,255,0.92);
   font-family: var(--font-sans);
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -58,122 +54,51 @@ body,
   height: 100%;
   width: 100%;
   z-index: 10;
+  background: #09090F !important;
 }
 
+/* ─── Functional UI animations ──────────────────────────────────────────── */
+
 @keyframes toast-in {
-  from {
-    opacity: 0;
-    transform: translateY(-8px) translateX(12px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) translateX(0);
-  }
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes panel-in {
-  from {
-    opacity: 0;
-    transform: translateX(22px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
+  from { opacity: 0; transform: translateX(16px); }
+  to   { opacity: 1; transform: translateX(0); }
 }
 
 @keyframes modal-in {
-  from {
-    opacity: 0;
-    transform: scale(0.98) translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
+  from { opacity: 0; transform: scale(0.98) translateY(4px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
 }
 
 @keyframes fade-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
-.animate-toast {
-  animation: toast-in 180ms ease-out;
-}
-.animate-panel {
-  animation: panel-in 180ms ease-out;
-}
-.animate-modal {
-  animation: modal-in 180ms ease-out;
-}
-.animate-fade-in {
-  animation: fade-in 220ms ease-out;
+.animate-toast   { animation: toast-in  160ms ease-out; }
+.animate-panel   { animation: panel-in  160ms ease-out; }
+.animate-modal   { animation: modal-in  160ms ease-out; }
+.animate-fade-in { animation: fade-in   200ms ease-out; }
+
+/* ─── Leaflet tooltip ────────────────────────────────────────────────────── */
+
+.tactical-tooltip.leaflet-tooltip {
+  background-color: #1C1C28;
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 6px;
+  color: rgba(255,255,255,0.90);
+  font-size: 12px;
 }
 
-@keyframes scan {
-  from {
-    transform: translateY(-100%);
-    opacity: 0;
-  }
-  50% {
-    opacity: 1;
-  }
-  to {
-    transform: translateY(100vh);
-    opacity: 0;
-  }
+.tactical-tooltip.leaflet-tooltip::before {
+  border-top-color: #1C1C28;
 }
 
-@keyframes spin-slow {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.animate-scan-fast {
-  animation: scan 1.5s linear infinite;
-}
-
-.animate-spin-slow {
-  animation: spin-slow 8s linear infinite;
-}
-
-/* Tactical UI utilities */
-.tactical-border {
-  border: 1px solid rgba(6, 182, 212, 0.2);
-  box-shadow: 0 0 15px rgba(6, 182, 212, 0.1);
-}
-
-@keyframes glitch {
-  0% { transform: translate(0); }
-  20% { transform: translate(-2px, 2px); }
-  40% { transform: translate(-2px, -2px); }
-  60% { transform: translate(2px, 2px); }
-  80% { transform: translate(2px, -2px); }
-  100% { transform: translate(0); }
-}
-
-.animate-glitch {
-  animation: glitch 0.3s cubic-bezier(.25,.46,.45,.94) both infinite;
-}
-
-@keyframes scanline {
-  0% { transform: translateY(-100%); }
-  100% { transform: translateY(100%); }
-}
-
-.animate-scanline {
-  animation: scanline 4s linear infinite;
-}
-
+/* ─── Alert marker ───────────────────────────────────────────────────────── */
 
 .alert-marker {
   position: relative;
@@ -184,116 +109,37 @@ body,
   height: 24px;
 }
 
-.tactical-tooltip.leaflet-tooltip {
-  background-color: rgba(2, 6, 23, 0.95);
-  border: 1px solid rgba(6, 182, 212, 0.3);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-  border-radius: 8px;
-  backdrop-filter: blur(16px);
-  color: #f1f5f9;
+/* ─── Scrollbar ──────────────────────────────────────────────────────────── */
+
+.custom-scrollbar::-webkit-scrollbar { width: 4px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.10);
+  border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,255,255,0.22);
 }
 
-.tactical-tooltip.leaflet-tooltip::before {
-  border-top-color: rgba(2, 6, 23, 0.95);
+/* ─── Status pulse (live indicator only) ────────────────────────────────── */
+
+@keyframes status-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
 }
 
-.tactical-tooltip.leaflet-tooltip-top::before {
-  border-top-color: rgba(6, 182, 212, 0.3);
+.status-live {
+  animation: status-pulse 2s ease-in-out infinite;
 }
 
-/* Mesh Gradient Backgrounds */
-.bg-mesh {
-  background-color: hsl(var(--background));
-  background-image: 
-    radial-gradient(at 0% 0%, hsla(var(--primary), 0.15) 0px, transparent 50%),
-    radial-gradient(at 50% 0%, hsla(var(--accent), 0.1) 0px, transparent 50%),
-    radial-gradient(at 100% 0%, hsla(var(--secondary), 0.15) 0px, transparent 50%);
-}
-
-.bg-mesh-animate {
-  background-size: 200% 200%;
-  animation: mesh-flow 15s ease infinite;
-}
-
-@keyframes mesh-flow {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
-}
-
-/* Glassmorphism Design System 2.0 */
-.glass-panel {
-  background: hsla(222, 47%, 6%, 0.7);
-  backdrop-filter: blur(20px) saturate(160%);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
-  border: 1px solid hsla(0, 0%, 100%, 0.08);
-  box-shadow: 
-    0 4px 24px -1px rgba(0, 0, 0, 0.4),
-    inset 0 0 0 1px hsla(0, 0%, 100%, 0.05);
-}
-
-.glass-card {
-  background: hsla(0, 0%, 100%, 0.02);
-  backdrop-filter: blur(12px);
-  border: 1px solid hsla(0, 0%, 100%, 0.05);
-  transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
-}
-
-.glass-card:hover {
-  background: hsla(0, 0%, 100%, 0.06);
-  border-color: hsla(var(--primary), 0.3);
-  transform: translateY(-4px) scale(1.01);
-  box-shadow: 0 12px 40px -12px hsla(var(--primary), 0.3);
-}
-
-/* Sophisticated Micro-animations */
-@keyframes entrance-stagger {
-  from { opacity: 0; transform: translateY(10px) scale(0.98); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-.animate-stagger-1 { animation: entrance-stagger 0.4s cubic-bezier(0.23, 1, 0.32, 1) forwards; }
-.animate-stagger-2 { animation: entrance-stagger 0.4s cubic-bezier(0.23, 1, 0.32, 1) 0.1s forwards; opacity: 0; }
-.animate-stagger-3 { animation: entrance-stagger 0.4s cubic-bezier(0.23, 1, 0.32, 1) 0.2s forwards; opacity: 0; }
-
-@keyframes glow-pulse {
-  0% { box-shadow: 0 0 0 0 hsla(var(--primary), 0.4); }
-  70% { box-shadow: 0 0 0 10px hsla(var(--primary), 0); }
-  100% { box-shadow: 0 0 0 0 hsla(var(--primary), 0); }
-}
-
-.animate-glow {
-  animation: glow-pulse 2s infinite;
-}
-
-/* Tactical UI utilities */
-.tactical-border {
-  border: 1px solid hsla(var(--primary), 0.2);
-  box-shadow: 0 0 20px hsla(var(--primary), 0.05);
-}
-
-.rank-text {
-  background: linear-gradient(135deg, hsl(45, 93%, 47%), hsl(35, 92%, 50%));
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  font-family: var(--font-display);
-  font-weight: 900;
-}
-
-:root {
-  --glow-cyan: 199 89% 48%;
-  --glow-green: 142 70% 45%;
-  --fluor-green: #39FF14;
-  --fluor-blue: #00E5FF;
-}
+/* ─── Tactical map 3D perspective (functional, for top-down tilt view) ───── */
 
 .map-3d-perspective {
   perspective: 2500px;
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: #020617;
+  background: #09090F;
   transition: perspective 1s ease;
 }
 
@@ -303,76 +149,12 @@ body,
   transform: rotateX(25deg) translateY(-2%) scale(1.1);
   transform-style: preserve-3d;
   transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 50px 100px -20px rgba(0,0,0,0.8);
 }
 
-/* Micro perspective for closer views */
 .map-micro-focus .map-3d-content {
   transform: rotateX(5deg) translateY(0) scale(1);
 }
 
 .map-3d-perspective:hover .map-3d-content {
-  /* Dynamic interaction: slightly flatten on hover to help reading */
   transform: rotateX(15deg) translateY(0) scale(1.05);
-}
-
-/* Intense Fluorescent Glows - REMOVED for clarity */
-
-/* Fix for Leaflet in 3D: Pointer events might need careful handling if rotation is too aggressive */
-.leaflet-container {
-  background: #0A0B10 !important;
-}
-
-.custom-scrollbar::-webkit-scrollbar {
-  width: 4px;
-}
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: hsla(0, 0%, 100%, 0.1);
-  border-radius: 10px;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: hsla(var(--primary), 0.4);
-}
-
-
-@keyframes tactical-pulse {
-  0% { transform: scale(1); opacity: 0.35; filter: drop-shadow(0 0 5px #ff0000); }
-  50% { transform: scale(1.1); opacity: 0.6; filter: drop-shadow(0 0 20px #ff0000); }
-  100% { transform: scale(1); opacity: 0.35; filter: drop-shadow(0 0 5px #ff0000); }
-}
-
-.tactical-pulse {
-  animation: tactical-pulse 1.5s infinite ease-in-out !important;
-}
-@keyframes ambient-breathing {
-  0% { opacity: 0.1; }
-  50% { opacity: 0.2; }
-  100% { opacity: 0.1; }
-}
-
-.ambient-glow {
-  pointer-events: none;
-  background: radial-gradient(circle at center, hsla(var(--primary), 0.1) 0%, transparent 70%);
-  animation: ambient-breathing 8s ease-in-out infinite;
-}
-
-.scanline-overlay {
-  pointer-events: none;
-  background: linear-gradient(
-    to bottom,
-    transparent 50%,
-    rgba(0, 0, 0, 0.15) 50%
-  );
-  background-size: 100% 4px;
-  z-index: 100;
-  opacity: 0.15;
-}
-
-.vignette-overlay {
-  pointer-events: none;
-  background: radial-gradient(circle, transparent 40%, rgba(0, 0, 0, 0.6) 100%);
-  z-index: 101;
 }

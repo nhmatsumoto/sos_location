@@ -497,6 +497,7 @@ precision highp float;
 in vec3 v_worldPos;
 uniform float u_time;
 uniform float u_reveal;
+out vec4 outColor;
 
 float wHash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5); }
 float wNoise(vec2 p){
@@ -1444,4 +1445,3 @@ void main() {
   if (alpha < 0.01) discard;
   outColor = vec4(col, alpha);
 }`;
-

@@ -19,7 +19,7 @@ export function HazardMatrixLegend() {
   return (
     <Box 
       bg="whiteAlpha.50" 
-      backdropFilter="blur(20px)" 
+      
       p={5} 
       borderRadius="2xl" 
       border="1px solid" 

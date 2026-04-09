@@ -14,7 +14,7 @@ export const StatBoard = ({ label, value, unit, change, trend, icon, ...props }:
     <Box
       p={4}
       bg="whiteAlpha.50"
-      backdropFilter="blur(10px)"
+      
       border="1px solid"
       borderColor="whiteAlpha.100"
       borderRadius="xl"

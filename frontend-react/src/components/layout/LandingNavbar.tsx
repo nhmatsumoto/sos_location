@@ -9,9 +9,7 @@ const s = {
     zIndex: 50,
     width: '100%',
     borderBottom: '1px solid rgba(255,255,255,0.05)',
-    background: 'rgba(2,8,23,0.6)',
-    backdropFilter: 'blur(20px)',
-    WebkitBackdropFilter: 'blur(20px)',
+    background: '#09090F',
   },
   inner: {
     maxWidth: '1280px',

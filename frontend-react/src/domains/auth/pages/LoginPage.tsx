@@ -34,20 +34,7 @@ export function LoginPage() {
       p={6} 
       position="relative" 
       overflow="hidden"
-      className="bg-mesh animate-mesh-flow"
     >
-      {/* Decorative Scanline */}
-      <Box 
-        position="absolute" 
-        top={0} 
-        left={0} 
-        right={0} 
-        h="1px" 
-        bg="sos.blue.500"
-        opacity={0.1}
-        className="animate-scanline" 
-        zIndex={1}
-      />
 
       <Container maxW="md" position="relative" zIndex={10}>
         <TacticalButton 
@@ -75,8 +62,7 @@ export function LoginPage() {
                 bg="sos.blue.500/10" 
                 border="1px solid" 
                 borderColor="sos.blue.500/30"
-                className="animate-glow"
-              >
+                >
                 <Logo w="44px" h="44px" />
               </Circle>
               

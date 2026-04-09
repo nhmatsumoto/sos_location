@@ -250,7 +250,7 @@ export function SettingsPage() {
           </HStack>
 
           <SimpleGrid columns={{ base: 1, lg: 3 }} spacing={8}>
-            <Box bg="rgba(15, 23, 42, 0.4)" backdropFilter="blur(16px)" borderRadius="3xl" border="1px solid" borderColor="whiteAlpha.100" p={6}>
+            <Box bg="rgba(15, 23, 42, 0.4)" borderRadius="3xl" border="1px solid" borderColor="whiteAlpha.100" p={6}>
               <VStack align="stretch" spacing={6}>
                 <Heading size="xs" color="white" textTransform="uppercase" letterSpacing="widest">
                   Preferências Locais
@@ -289,7 +289,7 @@ export function SettingsPage() {
               </VStack>
             </Box>
 
-            <Box bg="rgba(15, 23, 42, 0.4)" backdropFilter="blur(16px)" borderRadius="3xl" border="1px solid" borderColor="whiteAlpha.100" p={6}>
+            <Box bg="rgba(15, 23, 42, 0.4)" borderRadius="3xl" border="1px solid" borderColor="whiteAlpha.100" p={6}>
               <VStack align="stretch" spacing={5}>
                 <Heading size="xs" color="white" textTransform="uppercase" letterSpacing="widest">
                   Sessão e Acesso
@@ -355,7 +355,7 @@ export function SettingsPage() {
               </VStack>
             </Box>
 
-            <Box bg="rgba(15, 23, 42, 0.4)" backdropFilter="blur(16px)" borderRadius="3xl" border="1px solid" borderColor="whiteAlpha.100" p={6}>
+            <Box bg="rgba(15, 23, 42, 0.4)" borderRadius="3xl" border="1px solid" borderColor="whiteAlpha.100" p={6}>
               <VStack align="stretch" spacing={6}>
                 <Heading size="xs" color="white" textTransform="uppercase" letterSpacing="widest">
                   Telemetria da Plataforma

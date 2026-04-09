@@ -1,13 +1,13 @@
 import React from 'react';
 import { Suspense, lazy, useMemo } from 'react';
-import type { Catastrophe, CatastropheEvent, FloatingPanelId, SelectedPanel } from '../types';
+import type { Catastrophe, CatastropheEvent, SelectedPanel } from '../../../types';
 import { 
   Activity
 } from 'lucide-react';
 
 // Hooks & State
 import { useOperationalState } from '../../../hooks/useOperationalState';
-import { ENABLE_SIMULATION } from '../constants';
+import { ENABLE_SIMULATION } from '../../../constants';
 
 // Components
 import { MapToolsSidebar } from '../../../components/MapToolsSidebar';
@@ -21,16 +21,17 @@ import { DraggablePanel } from '../../../components/features/map/DraggablePanel'
 import { LocalConditionsPanel } from '../../../components/features/map/LocalConditionsPanel';
 
 // Lazy Components
-const LandslideSimulation = lazy(() => import('../LandslideSimulation'));
-const PostDisasterSplat = lazy(() => import('../PostDisasterSplat'));
+const LandslideSimulation = lazy(() => import('../../../LandslideSimulation'));
+const PostDisasterSplat = lazy(() => import('../../../PostDisasterSplat'));
 
-export default function App() {
+export function OperationalMapPage() {
   const state = useOperationalState();
   const [newsCutoffMs] = React.useState(() => Date.now() - (7 * 24 * 60 * 60 * 1000));
 
   const displayedHotspots = useMemo(() => {
     return state.hotspots.filter((hotspot) => {
-      const riskText = `${hotspot.type} ${hotspot.riskFactors.join(' ')}`.toLowerCase();
+      const riskFactors = Array.isArray(hotspot.riskFactors) ? hotspot.riskFactors : [];
+      const riskText = `${hotspot.type} ${riskFactors.join(' ')}`.toLowerCase();
       const disasterKeywords = ['flood', 'enchente', 'alag', 'corrente', 'desliz', 'desmoron', 'desab'];
       return hotspot.score >= 90 || disasterKeywords.some((keyword) => riskText.includes(keyword));
     });
@@ -142,7 +143,7 @@ export default function App() {
               title="Condições Locais" 
               position={state.floatingPanelPositions.global}
               onDragStart={() => {}} // Handle drag
-              onToggleDock={() => state.setDockedPanels((p: Record<FloatingPanelId, boolean>) => ({...p, global: !p.global}))}
+              onToggleDock={() => state.setDockedPanels((p) => ({ ...p, global: !p.global }))}
             >
               <LocalConditionsPanel 
                 snapshot={state.climakiSnapshot} 
@@ -234,3 +235,5 @@ export default function App() {
     </div>
   );
 }
+
+export default OperationalMapPage;

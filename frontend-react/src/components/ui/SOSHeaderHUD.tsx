@@ -94,34 +94,32 @@ export const SOSHeaderHUD: React.FC<SOSHeaderHUDProps> = ({
   return (
     <Box
       position="absolute"
-      top={4}
-      left={4}
-      right={4}
+      top={3}
+      left={3}
+      right={3}
       zIndex={150}
-      h="64px"
-      bg="rgba(8, 8, 15, 0.85)"
-      backdropFilter="blur(24px) saturate(180%)"
-      border="1px solid rgba(255,255,255,0.10)"
-      borderRadius="2xl"
-      boxShadow="0 4px 24px rgba(0,0,0,0.4), 0 1px 0 rgba(255,255,255,0.05) inset"
+      h="56px"
+      bg="#111119"
+      border="1px solid rgba(255,255,255,0.08)"
+      borderRadius="lg"
       display="flex"
       alignItems="center"
-      px={5}
+      px={4}
       gap={4}
     >
       {/* Brand identity */}
       <HStack spacing={3} flexShrink={0}>
-        <Box p={2} bg="sos.blue.500" borderRadius="xl" boxShadow="0 0 12px rgba(0,122,255,0.3)">
-          <Logo w="18px" h="18px" color="white" />
+        <Box p={2} bg="sos.blue.500" borderRadius="md">
+          <Logo w="16px" h="16px" color="white" />
         </Box>
         <Box display={{ base: 'none', md: 'block' }}>
           <TacticalText variant="heading" color="white" fontSize="sm" lineHeight={1}>
-            SOS <Box as="span" color="sos.red.400">GUARDIAN</Box>
+            SOS Location
           </TacticalText>
           <HStack spacing={1.5} align="center" mt={0.5}>
-            <Box w={1.5} h={1.5} borderRadius="full" bg="sos.green.500" className="animate-pulse" />
-            <TacticalText variant="mono" fontSize="9px" color="rgba(255,255,255,0.40)">
-              {user?.preferredUsername || 'OPERATOR'}
+            <Box w={1.5} h={1.5} borderRadius="full" bg="sos.green.500" className="status-live" />
+            <TacticalText variant="mono" fontSize="10px" color="rgba(255,255,255,0.38)">
+              {user?.preferredUsername || 'operador'}
             </TacticalText>
           </HStack>
         </Box>
@@ -168,10 +166,10 @@ export const SOSHeaderHUD: React.FC<SOSHeaderHUDProps> = ({
       {/* Map Tools */}
       <HStack
         spacing={1}
-        p={1.5}
+        p={1}
         bg="rgba(255,255,255,0.04)"
-        borderRadius="xl"
-        border="1px solid rgba(255,255,255,0.08)"
+        borderRadius="md"
+        border="1px solid rgba(255,255,255,0.07)"
         display={{ base: 'none', md: 'flex' }}
         flexShrink={0}
       >
@@ -215,43 +213,43 @@ export const SOSHeaderHUD: React.FC<SOSHeaderHUDProps> = ({
             aria-label="Toggle Alerts"
             variant="ghost"
             onClick={onToggleAlerts}
-            borderRadius="xl"
-            w="40px"
-            h="40px"
-            color={alertPanelOpen ? 'sos.blue.400' : 'rgba(255,255,255,0.50)'}
+            borderRadius="md"
+            w="36px"
+            h="36px"
+            color={alertPanelOpen ? 'sos.blue.400' : 'rgba(255,255,255,0.45)'}
             bg={alertPanelOpen ? 'rgba(0,122,255,0.08)' : 'transparent'}
-            _hover={{ color: 'white', bg: 'rgba(255,255,255,0.08)' }}
+            _hover={{ color: 'white', bg: 'rgba(255,255,255,0.07)' }}
           />
         </Tooltip>
 
         <Tooltip label={gamificationOpen ? 'Ocultar Missões' : 'Ver Missões'}>
           <IconButton
-            icon={<BarChart2 size={18} />}
+            icon={<BarChart2 size={16} />}
             aria-label="Toggle Missions"
             variant="ghost"
             onClick={onToggleMissions}
-            borderRadius="xl"
-            w="40px"
-            h="40px"
-            color={gamificationOpen ? 'sos.amber.400' : 'rgba(255,255,255,0.50)'}
+            borderRadius="md"
+            w="36px"
+            h="36px"
+            color={gamificationOpen ? 'sos.amber.400' : 'rgba(255,255,255,0.45)'}
             bg={gamificationOpen ? 'rgba(255,149,0,0.08)' : 'transparent'}
-            _hover={{ color: 'white', bg: 'rgba(255,255,255,0.08)' }}
+            _hover={{ color: 'white', bg: 'rgba(255,255,255,0.07)' }}
           />
         </Tooltip>
 
-        <Box h="24px" w="1px" bg="rgba(255,255,255,0.08)" mx={1} />
+        <Box h="20px" w="1px" bg="rgba(255,255,255,0.07)" mx={1} />
 
         <Tooltip label="Centralizar Mapa">
           <IconButton
-            icon={<Crosshair size={18} />}
+            icon={<Crosshair size={16} />}
             aria-label="Reset Map"
             variant="ghost"
             onClick={onReset}
-            borderRadius="xl"
-            w="40px"
-            h="40px"
-            color="rgba(255,255,255,0.50)"
-            _hover={{ color: 'white', bg: 'rgba(255,255,255,0.08)' }}
+            borderRadius="md"
+            w="36px"
+            h="36px"
+            color="rgba(255,255,255,0.45)"
+            _hover={{ color: 'white', bg: 'rgba(255,255,255,0.07)' }}
           />
         </Tooltip>
       </HStack>

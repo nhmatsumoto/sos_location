@@ -5,7 +5,7 @@ import {
 } from '@chakra-ui/react';
 import { AlertTriangle, MapPin, RefreshCw, Layers, Activity } from 'lucide-react';
 import { hotspotsApi, type HotspotApi } from '../../../services/hotspotsApi';
-import { useNotifications } from '../context/useNotifications';
+import { useNotifications } from '../../../context/useNotifications';
 import { TacticalText } from '../../../components/atoms/TacticalText';
 import { MapPanel } from '../../../components/features/maps/MapPanel';
 
@@ -118,7 +118,7 @@ export function HotspotsPage() {
           <Box
             position="absolute" bottom={4} left={4} zIndex={10}
             p={3} borderRadius="xl"
-            bg="rgba(8,8,15,0.85)" backdropFilter="blur(16px)"
+            bg="rgba(8,8,15,0.85)" 
             border="1px solid rgba(255,255,255,0.10)"
           >
             <VStack align="start" spacing={1.5}>

@@ -89,7 +89,7 @@ export function MiniMapPicker({ lat, lng, rotation = 0, size = 0.04, tileType = 
         right={2} 
         zIndex={1000} 
         bg="rgba(0,10,20,0.8)" 
-        backdropFilter="blur(8px)"
+        
         p={1} 
         borderRadius="lg"
         border="1px solid rgba(0,255,255,0.2)"
@@ -129,7 +129,7 @@ export function MiniMapPicker({ lat, lng, rotation = 0, size = 0.04, tileType = 
         right={2} 
         zIndex={1000} 
         bg="rgba(0,0,0,0.6)" 
-        backdropFilter="blur(4px)"
+        
         px={2} 
         py={1} 
         borderRadius="md"

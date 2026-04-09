@@ -1,12 +1,11 @@
-# Etapa 1: Build da aplicação React/Vite com Bun
-FROM oven/bun:1.2.14-alpine AS builder
+# Etapa 1: Build da aplicação React/Vite com Node.js suportado pelo Vite
+FROM node:25.8.1-slim AS builder
 
 WORKDIR /app
 
 # Instalar dependências primeiro para aproveitar o cache de camadas
-COPY frontend-react/package.json frontend-react/bun.lock* ./
-RUN --mount=type=cache,target=/root/.bun/install/cache \
-    bun install
+COPY frontend-react/package.json frontend-react/package-lock.json ./
+RUN npm ci
 
 # Cache bust: qualquer mudança no commit hash invalida o cache daqui para baixo
 ARG BUILD_HASH=dev
@@ -27,7 +26,7 @@ ENV VITE_KEYCLOAK_URL=${VITE_KEYCLOAK_URL}
 ENV NODE_ENV=production
 
 # Executar build otimizado
-RUN bun run build:only
+RUN npm run build:only
 
 # Etapa 2: Servir os arquivos minificados usando Nginx (Versão sem privilégios de root)
 FROM nginxinc/nginx-unprivileged:1.27-alpine

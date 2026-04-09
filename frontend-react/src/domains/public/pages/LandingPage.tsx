@@ -22,15 +22,7 @@ const s = {
     textAlign: 'center' as const,
   },
   glow: {
-    position: 'absolute' as const,
-    top: '50%',
-    left: '50%',
-    transform: 'translate(-50%, -50%)',
-    width: '600px',
-    height: '600px',
-    borderRadius: '9999px',
-    background: 'radial-gradient(circle, rgba(6,182,212,0.06) 0%, transparent 70%)',
-    pointerEvents: 'none' as const,
+    display: 'none',
   },
   badge: {
     display: 'inline-block',
@@ -50,12 +42,7 @@ const s = {
     margin: '0 auto',
   },
   h1span: {
-    background: 'linear-gradient(135deg, #22d3ee, #3b82f6)',
-    WebkitBackgroundClip: 'text' as const,
-    WebkitTextFillColor: 'transparent',
-    backgroundClip: 'text',
-    textShadow: 'none',
-    filter: 'drop-shadow(0 0 30px rgba(34,211,238,0.25))',
+    color: '#007AFF',
   },
   subtitle: {
     marginTop: '1.5rem',
@@ -94,7 +81,6 @@ const s = {
     color: '#a5f3fc',
     cursor: 'pointer',
     fontSize: '0.95rem',
-    backdropFilter: 'blur(8px)',
     transition: 'background 0.2s, border-color 0.2s',
   },
   useCasesSection: {

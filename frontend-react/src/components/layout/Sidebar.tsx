@@ -1,7 +1,7 @@
 import { memo, useMemo } from 'react';
 import { LogOut } from 'lucide-react';
 import { Link as RouterLink, useLocation } from 'react-router-dom';
-import { Box, VStack, Link, Text, type BoxProps, Button } from '@chakra-ui/react';
+import { Box, VStack, Link, Text, type BoxProps, Button, HStack } from '@chakra-ui/react';
 import { LogoFull } from '../brand/Logo';
 import { useAuthStore } from '../../store/authStore';
 import { doLogout } from '../../lib/keycloak';
@@ -29,29 +29,28 @@ export const Sidebar = memo(function Sidebar({
   );
 
   return (
-    <Box 
-      as="aside" 
-      bg="rgba(10, 11, 16, 0.4)" 
-      p={4} 
-      borderRadius="xl" 
-      border="1px solid" 
-      borderColor="whiteAlpha.100"
-      backdropFilter="blur(24px)"
-      boxShadow="2xl"
+    <Box
+      as="aside"
+      bg="#111119"
+      p={3}
+      borderRadius="lg"
+      border="1px solid rgba(255,255,255,0.07)"
       overflowY="auto"
       display="flex"
       flexDirection="column"
       {...props}
     >
-      <Box mb={6}>
+      <Box mb={5}>
         <LogoFull />
-        <Text fontSize="10px" color="sos.blue.400" mt={2} fontWeight="black" textTransform="uppercase" letterSpacing="widest">
+        <Text fontSize="11px" color="rgba(255,255,255,0.38)" mt={2} fontWeight="500">
           {t('intel.surveillance')}
         </Text>
       </Box>
 
-      <VStack spacing={1} align="stretch" as="nav" flex={1}>
-        <Text fontSize="10px" color="whiteAlpha.400" fontWeight="black" mb={1} ml={3} textTransform="uppercase">{t(sectionLabelKey) || 'INTERNO'}</Text>
+      <VStack spacing={0.5} align="stretch" as="nav" flex={1}>
+        <Text fontSize="10px" color="rgba(255,255,255,0.28)" fontWeight="600" mb={1} ml={2} textTransform="uppercase" letterSpacing="wider">
+          {t(sectionLabelKey) || 'Menu'}
+        </Text>
         {internalItems.map((item) => {
           const Icon = item.icon;
           const active = matchesAppRoute(item, location.pathname);
@@ -65,26 +64,29 @@ export const Sidebar = memo(function Sidebar({
               gap={3}
               px={3}
               py={2}
-              fontSize="xs"
+              fontSize="sm"
               borderRadius="md"
-              transition="all 0.2s"
-              color={active ? "white" : "whiteAlpha.700"}
-              bg={active ? "sos.blue.500" : "transparent"}
+              transition="background 0.15s, color 0.15s"
+              color={active ? 'white' : 'rgba(255,255,255,0.55)'}
+              bg={active ? 'rgba(0,122,255,0.12)' : 'transparent'}
+              borderLeft="2px solid"
+              borderLeftColor={active ? 'sos.blue.500' : 'transparent'}
               _hover={{
-                bg: active ? "sos.blue.600" : "whiteAlpha.100",
-                textDecoration: 'none'
+                bg: active ? 'rgba(0,122,255,0.16)' : 'rgba(255,255,255,0.05)',
+                textDecoration: 'none',
+                color: 'white',
               }}
-              border="1px solid"
-              borderColor={active ? "sos.blue.400" : "transparent"}
             >
-              <Icon size={14} color={active ? "white" : "sos.blue.500"} />
-              <Text fontWeight={active ? "bold" : "medium"}>{t(item.labelKey)}</Text>
+              <Box color={active ? 'sos.blue.400' : 'inherit'} flexShrink={0}>
+                <Icon size={15} />
+              </Box>
+              <Text fontWeight={active ? '600' : '400'}>{t(item.labelKey)}</Text>
             </Link>
           );
         })}
       </VStack>
 
-      <VStack spacing={2} align="stretch" mt={4}>
+      <VStack spacing={1} align="stretch" mt={4}>
         {authenticated && (
           <Button
             leftIcon={<LogOut size={14} />}
@@ -92,7 +94,7 @@ export const Sidebar = memo(function Sidebar({
             size="sm"
             justifyContent="flex-start"
             color="sos.red.400"
-            _hover={{ bg: 'sos.red.500', color: 'white' }}
+            _hover={{ bg: 'rgba(255,59,48,0.08)' }}
             onClick={doLogout}
             fontSize="xs"
           >
@@ -100,13 +102,13 @@ export const Sidebar = memo(function Sidebar({
           </Button>
         )}
 
-        <Box p={3} borderRadius="md" bg="blackAlpha.400" border="1px solid" borderColor="whiteAlpha.100">
-          <Text fontSize="10px" fontWeight="black" color="sos.blue.400" mb={1} letterSpacing="widest">
-            {t('nav.status') || 'OP_STATUS'}
-          </Text>
-          <Text fontSize="2xs" color="whiteAlpha.600" lineHeight="tight">
-            GUARDIAN_NET_V3_CONNECTED_NODE_ALPHA
-          </Text>
+        <Box p={2.5} borderRadius="md" bg="rgba(255,255,255,0.03)" border="1px solid rgba(255,255,255,0.07)">
+          <HStack spacing={2}>
+            <Box w={1.5} h={1.5} borderRadius="full" bg="sos.green.500" className="status-live" flexShrink={0} />
+            <Text fontSize="11px" fontWeight="500" color="rgba(255,255,255,0.35)">
+              Conectado
+            </Text>
+          </HStack>
         </Box>
       </VStack>
     </Box>

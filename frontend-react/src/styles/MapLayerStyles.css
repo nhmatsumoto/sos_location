@@ -1,51 +1,32 @@
 /* Map Overlay and Layer Effects */
 
-.leaflet-areas-pane {
-  z-index: 200;
-}
+.leaflet-areas-pane  { z-index: 200; }
+.leaflet-lines-pane  { z-index: 300; }
+.leaflet-markers-pane { z-index: 400; }
 
-.leaflet-lines-pane {
-  z-index: 300;
-}
-
-.leaflet-markers-pane {
-  z-index: 400;
-}
-
-/* Glow Pulse Effect */
+/* Area pulse — functional: shows active search/risk areas */
 .glow-pulse {
   animation: area-pulse 3s ease-in-out infinite;
-  filter: drop-shadow(0 0 4px currentColor);
 }
 
 @keyframes area-pulse {
-  0% {
-    fill-opacity: 0.1;
-    stroke-width: 1px;
-  }
-  50% {
-    fill-opacity: 0.25;
-    stroke-width: 3px;
-  }
-  100% {
-    fill-opacity: 0.1;
-    stroke-width: 1px;
-  }
+  0%   { fill-opacity: 0.10; stroke-width: 1px; }
+  50%  { fill-opacity: 0.28; stroke-width: 3px; }
+  100% { fill-opacity: 0.10; stroke-width: 1px; }
 }
 
-/* Gradient-like Area */
 .soft-area {
   stroke-linejoin: round;
   stroke-linecap: round;
-  transition: all 0.5s ease;
+  transition: fill-opacity 0.3s, stroke-width 0.3s;
 }
 
 .soft-area:hover {
-  fill-opacity: 0.4 !important;
+  fill-opacity: 0.40 !important;
   stroke-width: 4px !important;
 }
 
-/* Custom Marker Adjustments */
+/* Marker */
 .tactical-marker-container {
   display: flex;
   align-items: center;
@@ -69,38 +50,34 @@
   align-items: center;
   justify-content: center;
   z-index: 2;
-  transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+  transition: transform 0.2s;
   cursor: pointer;
 }
 
 .tactical-marker-container:hover .tactical-marker-core {
-  transform: scale(1.3);
-  box-shadow: 0 0 25px currentColor !important;
+  transform: scale(1.25);
   z-index: 10;
 }
 
 .marker-index {
   color: white;
   font-size: 9px;
-  font-weight: 900;
+  font-weight: 700;
   font-family: 'Inter', sans-serif;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
 }
 
 @keyframes marker-pulse-out {
-  0% { transform: scale(0.5); opacity: 1; }
-  100% { transform: scale(3); opacity: 0; }
+  0%   { transform: scale(0.5); opacity: 0.8; }
+  100% { transform: scale(3);   opacity: 0; }
 }
 
-/* Guardian Popups */
+/* Leaflet popups */
 .guardian-popup .leaflet-popup-content-wrapper {
-  background: rgba(10, 11, 16, 0.85) !important;
-  backdrop-filter: blur(20px) !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
-  border-radius: 20px !important;
+  background: #111119 !important;
+  border: 1px solid rgba(255, 255, 255, 0.10) !important;
+  border-radius: 10px !important;
   padding: 0 !important;
   overflow: hidden;
-  box-shadow: 0 20px 40px rgba(0,0,0,0.6) !important;
 }
 
 .guardian-popup .leaflet-popup-content {
@@ -109,49 +86,38 @@
 }
 
 .guardian-popup .leaflet-popup-tip {
-  background: rgba(10, 11, 16, 0.85) !important;
+  background: #111119 !important;
 }
 
 .guardian-popup .leaflet-popup-close-button {
-  color: rgba(255,255,255,0.5) !important;
-  padding: 12px !important;
+  color: rgba(255,255,255,0.45) !important;
+  padding: 10px !important;
 }
 
-/* Operational Points Styling */
+/* Operational point indicators */
 .tactical-pulse {
   position: absolute;
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  animation: tactical-ripple 1.5s infinite;
+  animation: tactical-ripple 1.8s infinite;
   z-index: 1;
 }
 
-.tactical-pulse.alert {
-  background: rgba(255, 0, 0, 0.4);
-  box-shadow: 0 0 15px #FF0000;
-}
-
-.tactical-pulse.support {
-  background: rgba(0, 255, 102, 0.4);
-  box-shadow: 0 0 15px #00FF66;
-}
-
-.tactical-pulse.mark {
-  background: rgba(0, 153, 255, 0.4);
-  box-shadow: 0 0 15px #0099FF;
-}
+.tactical-pulse.alert   { background: rgba(255, 59, 48, 0.35); }
+.tactical-pulse.support { background: rgba(52, 199, 89, 0.35); }
+.tactical-pulse.mark    { background: rgba(0, 122, 255, 0.35); }
 
 .tactical-marker-id {
   z-index: 5;
   color: white;
-  font-weight: 900;
+  font-weight: 700;
   font-size: 10px;
-  background: rgba(0, 0, 0, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: rgba(0, 0, 0, 0.80);
+  border: 1px solid rgba(255, 255, 255, 0.20);
   width: 18px;
   height: 18px;
-  border-radius: 4px;
+  border-radius: 3px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -159,17 +125,17 @@
 }
 
 @keyframes tactical-ripple {
-  0% { transform: scale(1); opacity: 0.8; }
+  0%   { transform: scale(1);   opacity: 0.7; }
   100% { transform: scale(2.5); opacity: 0; }
 }
 
-/* Critical incident markers — pulsing stroke */
+/* Critical incident markers — pulsing stroke (no glow) */
 .critical-marker path {
-  animation: critical-stroke-pulse 1.4s ease-in-out infinite;
+  animation: critical-stroke-pulse 1.6s ease-in-out infinite;
 }
 
 @keyframes critical-stroke-pulse {
-  0%   { stroke-opacity: 1; stroke-width: 3px; filter: drop-shadow(0 0 4px #EF4444); }
-  50%  { stroke-opacity: 0.7; stroke-width: 6px; filter: drop-shadow(0 0 10px #EF4444); }
-  100% { stroke-opacity: 1; stroke-width: 3px; filter: drop-shadow(0 0 4px #EF4444); }
+  0%   { stroke-opacity: 1;   stroke-width: 3px; }
+  50%  { stroke-opacity: 0.6; stroke-width: 5px; }
+  100% { stroke-opacity: 1;   stroke-width: 3px; }
 }

@@ -1,23 +1,20 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { rescueTasksApi } from '../services/rescueTasksApi';
 import { useRescueFiltersStore } from '../store/rescueFiltersStore';
 import type { RescueTask, RescueTaskId, RescueTaskInput, TaskStatus } from '../types/rescue';
 
 export function useRescueTasks() {
-  const [tasks, setTasks] = useState<RescueTask[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [tasks, setTasks] = useState<RescueTask[]>(() => rescueTasksApi.listSync());
+  const [loading, setLoading] = useState(false);
   const [editingTask, setEditingTask] = useState<RescueTask | null>(null);
   const { query, priority, status } = useRescueFiltersStore();
 
-  useEffect(() => {
-    const run = async () => {
-      setLoading(true);
-      const loaded = await rescueTasksApi.list();
-      setTasks(loaded);
-      setLoading(false);
-    };
-    void run();
-  }, []);
+  const refreshTasks = async () => {
+    setLoading(true);
+    const loaded = await rescueTasksApi.list();
+    setTasks(loaded);
+    setLoading(false);
+  };
 
   const filteredTasks = useMemo(() => {
     return tasks.filter((task) => {
@@ -61,6 +58,7 @@ export function useRescueTasks() {
 
   return {
     loading,
+    allTasks: tasks,
     tasks: filteredTasks,
     summary,
     editingTask,
@@ -69,5 +67,7 @@ export function useRescueTasks() {
     updateTask,
     removeTask,
     updateStatus,
+    refreshTasks,
+    storageMode: 'local' as const,
   };
 }

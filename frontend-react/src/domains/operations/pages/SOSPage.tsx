@@ -1,27 +1,27 @@
 import { useMemo, useState, Fragment } from 'react';
-import { TacticalMap } from '../../../../../components/features/map/TacticalMap';
-import { Modal } from '../../../../../components/ui/Modal';
-import { CommandDock } from '../../../../../components/ui/CommandDock';
+import { TacticalMap } from '../../../components/features/map/TacticalMap';
+import { Modal } from '../../../components/ui/Modal';
+import { CommandDock } from '../../../components/ui/CommandDock';
 
-import { MapInteractions, MapListener } from '../../../../../components/features/map/MapInteractions';
-import { MemoizedEventMarker } from '../../../../../components/features/map/EventMarker';
-import { MapArea } from '../../../../../components/ui/MapArea';
-import { LiveOpsPanel } from '../../../../../components/features/map/LiveOpsPanel';
-import { CursorCoordinates } from '../../../../../components/features/map/CursorCoordinates';
-import { MapContextMenu } from '../../../../../components/features/map/MapContextMenu';
+import { MapInteractions, MapListener } from '../../../components/features/map/MapInteractions';
+import { MemoizedEventMarker } from '../../../components/features/map/EventMarker';
+import { MapArea } from '../../../components/ui/MapArea';
+import { LiveOpsPanel } from '../../../components/features/map/LiveOpsPanel';
+import { CursorCoordinates } from '../../../components/features/map/CursorCoordinates';
+import { MapContextMenu } from '../../../components/features/map/MapContextMenu';
 
-import { useSOSPageData } from '../../../../../hooks/useSOSPageData';
-import { useSOSPageController } from '../../../../../hooks/useSOSPageController';
-import { SOSHeaderHUD } from '../../../../../components/ui/SOSHeaderHUD';
-import { AlertSidebar } from '../../../../../components/ui/AlertSidebar';
-import { MissionsPanel } from '../../../../../components/features/gamification/MissionsPanel';
-import { GamificationHud } from '../../../../../components/features/gamification/GamificationHud';
-import { SituationIntelPanel } from '../../../../../components/ui/SituationIntelPanel';
-import { TacticalOpsForm } from '../../../../../components/ui/TacticalOpsForm';
+import { useSOSPageData } from '../../../hooks/useSOSPageData';
+import { useSOSPageController } from '../../../hooks/useSOSPageController';
+import { SOSHeaderHUD } from '../../../components/ui/SOSHeaderHUD';
+import { AlertSidebar } from '../../../components/ui/AlertSidebar';
+import { MissionsPanel } from '../../../components/features/gamification/MissionsPanel';
+import { GamificationHud } from '../../../components/features/gamification/GamificationHud';
+import { SituationIntelPanel } from '../../../components/ui/SituationIntelPanel';
+import { TacticalOpsForm } from '../../../components/ui/TacticalOpsForm';
 import {
   Box, VStack, Center, Spinner, IconButton
 } from '@chakra-ui/react';
-import { TacticalText } from '../../../../../components/atoms/TacticalText';
+import { TacticalText } from '../../../components/atoms/TacticalText';
 import { Plus, Minus } from 'lucide-react';
 
 /**
@@ -247,14 +247,14 @@ export function SOSPage() {
                     aria-label="Zoom in" icon={<Plus size={18} />} 
                     onClick={() => actions.setMapZoom(states.mapZoom + 1)}
                     size="md" bg="rgba(8,8,15,0.85)" border="1px solid rgba(255,255,255,0.15)"
-                    backdropFilter="blur(16px)" color="whiteAlpha.800" _hover={{ bg: 'sos.blue.500', color: 'white' }}
+                    color="whiteAlpha.800" _hover={{ bg: 'sos.blue.500', color: 'white' }}
                     borderRadius="xl" boxShadow="2xl"
                   />
                   <IconButton 
                     aria-label="Zoom out" icon={<Minus size={18} />} 
                     onClick={() => actions.setMapZoom(states.mapZoom - 1)}
                     size="md" bg="rgba(8,8,15,0.85)" border="1px solid rgba(255,255,255,0.15)"
-                    backdropFilter="blur(16px)" color="whiteAlpha.800" _hover={{ bg: 'sos.blue.500', color: 'white' }}
+                    color="whiteAlpha.800" _hover={{ bg: 'sos.blue.500', color: 'white' }}
                     borderRadius="xl" boxShadow="2xl"
                   />
                </VStack>

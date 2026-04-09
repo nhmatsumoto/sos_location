@@ -14,7 +14,8 @@ import {
   SimpleGrid,
   Badge,
   Alert,
-  AlertIcon
+  AlertIcon,
+  Spinner,
 } from '@chakra-ui/react';
 import {
   Wind,
@@ -618,7 +619,7 @@ export function SimulationsPage() {
       {activeStep === 'SCENARIO' && scenarioSubStep === 'SELECT' && (
         <Box
           position="absolute" inset={0} zIndex={110}
-          bg="blackAlpha.850" backdropFilter="blur(10px)"
+          bg="blackAlpha.850" 
           overflowY="auto" className="custom-scrollbar"
         >
           <VStack spacing={0} py={{ base: 20, md: 24 }} px={{ base: 4, md: 8 }} align="center">
@@ -874,16 +875,13 @@ export function SimulationsPage() {
           inset={0}
           zIndex={150}
           bg="blackAlpha.900"
-          backdropFilter="blur(20px)"
+          
           display="flex"
           alignItems="center"
           justifyContent="center"
         >
           <VStack spacing={8} w="full" maxW="600px">
             <Box position="relative" w="full" h="350px" borderRadius="2xl" overflow="hidden" border="1px solid" borderColor={captureError ? 'red.500' : 'whiteAlpha.300'} bg="whiteAlpha.100">
-              {!captureError && (
-                <Box position="absolute" top={0} left={0} right={0} h="2px" bg="sos.blue.400" boxShadow="0 0 20px #007AFF" zIndex={2} style={{ animation: 'scanning 3s linear infinite' }} />
-              )}
               <Flex direction="column" h="full" p={8} justify="space-between">
                 <HStack justify="space-between">
                   <TacticalText variant="mono" fontSize="2xs" color={captureError ? 'red.400' : 'sos.blue.400'}>
@@ -891,7 +889,16 @@ export function SimulationsPage() {
                   </TacticalText>
                   <TacticalText variant="mono" fontSize="2xs" color="whiteAlpha.400">THREADS: 16 // BUFFER: OK</TacticalText>
                 </HStack>
-                <VStack spacing={2}>
+                <VStack spacing={4}>
+                  {!captureError && (
+                    <Spinner
+                      size="xl"
+                      thickness="4px"
+                      speed="0.8s"
+                      color="sos.blue.400"
+                      emptyColor="whiteAlpha.200"
+                    />
+                  )}
                   <TacticalText variant="heading" fontSize="2xl" textAlign="center" letterSpacing="0.4em">
                     {captureError ? 'FALHA_NA_CAPTURA' : 'INDEXAÇÃO_DE_DADOS'}
                   </TacticalText>
@@ -930,7 +937,6 @@ export function SimulationsPage() {
               <AnalysisStat label="BLUEPRINT" value={blueprint ? `${blueprint.metadata.buildingPct}% EDIF` : 'COMPILANDO'} active={analysisProgress >= 100} />
             </SimpleGrid>
           </VStack>
-          <style>{`@keyframes scanning { 0% { top: 0%; } 100% { top: 100%; } }`}</style>
         </Box>
       )}
 

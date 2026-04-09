@@ -162,7 +162,7 @@ export function OnboardingPage() {
                 bg="whiteAlpha.50"
                 border="1px solid"
                 borderColor="whiteAlpha.100"
-                backdropFilter="blur(20px)"
+                
                 position="relative"
                 overflow="hidden"
                 transition="all 0.4s cubic-bezier(0.23, 1, 0.32, 1)"
@@ -206,7 +206,7 @@ export function OnboardingPage() {
                 bg="whiteAlpha.50"
                 border="1px solid"
                 borderColor="whiteAlpha.100"
-                backdropFilter="blur(20px)"
+                
                 position="relative"
                 overflow="hidden"
                 transition="all 0.4s cubic-bezier(0.23, 1, 0.32, 1)"

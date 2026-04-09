@@ -40,7 +40,7 @@ export function GeoAttributeTable({ data, onFocus }: GeoAttributeTableProps) {
       bg="rgba(10, 15, 25, 0.95)"
       borderTop="1px solid"
       borderColor="whiteAlpha.200"
-      backdropFilter="blur(10px)"
+      
       transition="all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
     >
       <HStack px={4} py={2} justify="space-between" bg="whiteAlpha.50">

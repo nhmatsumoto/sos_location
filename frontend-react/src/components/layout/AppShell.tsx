@@ -52,9 +52,9 @@ export function AppShell({
           <Box as="main" flex="1" h="100%" position="relative" overflow="hidden" bg="sos.dark">
             <Suspense fallback={
               <Center h="full" flexDir="column" gap={4}>
-                <Spinner size="xl" color="sos.blue.500" thickness="3px" speed="0.8s" emptyColor="rgba(255,255,255,0.06)" />
-                <Text fontWeight="700" color="rgba(255,255,255,0.40)" fontFamily="mono" textTransform="uppercase" letterSpacing="widest" fontSize="xs">
-                  Inicializando Guardian Network...
+                <Spinner size="xl" color="sos.blue.500" thickness="2px" speed="0.8s" emptyColor="rgba(255,255,255,0.06)" />
+                <Text fontWeight="500" color="rgba(255,255,255,0.38)" fontSize="sm">
+                  Carregando...
                 </Text>
               </Center>
             }>
@@ -80,10 +80,9 @@ export function AppShell({
           flexShrink={0}
           w="280px"
           h="100%"
-          borderRadius="2xl"
-          border="1px solid rgba(255,255,255,0.06)"
-          bg="rgba(14,14,22,0.92)"
-          backdropFilter="blur(24px)"
+          borderRadius="lg"
+          border="1px solid rgba(255,255,255,0.07)"
+          bg="#111119"
         />
         {/* Main content scrolls independently */}
         <Flex as="main" flex="1" flexDirection="column" gap={4} h="100%" overflow="hidden">

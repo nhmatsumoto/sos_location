@@ -3,6 +3,106 @@ import { apiClient } from '../services/apiClient';
 import type { AttentionAlert, MissingPerson, Hotspot } from '../types';
 import { initialMissingForm, initialRiskForm } from '../constants';
 
+type HotspotApiRecord = Partial<Hotspot> & {
+  lat?: number | string | null;
+  lng?: number | string | null;
+  score?: number | string | null;
+  estimatedAffected?: number | string | null;
+  riskFactors?: string[] | string | null;
+  confidence?: number | string | null;
+  urgency?: string | null;
+  type?: string | null;
+  humanExposure?: string | null;
+};
+
+function toFiniteNumber(value: unknown, fallback: number): number {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim().length > 0) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return fallback;
+}
+
+function normalizeRiskFactors(value: HotspotApiRecord['riskFactors'], type: string): string[] {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item).trim()).filter(Boolean);
+  }
+
+  if (typeof value === 'string' && value.trim().length > 0) {
+    return value
+      .split(/[;,|]/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  const typeText = type.toLowerCase();
+  if (typeText.includes('inunda') || typeText.includes('enchent') || typeText.includes('flood')) {
+    return ['chuva intensa', 'alagamento', 'escoamento superficial'];
+  }
+  if (typeText.includes('desliz') || typeText.includes('landslide') || typeText.includes('encosta')) {
+    return ['solo saturado', 'instabilidade de encosta', 'movimento de massa'];
+  }
+  if (typeText.includes('desab')) {
+    return ['estrutura comprometida', 'risco de colapso'];
+  }
+  return [];
+}
+
+function normalizeHumanExposure(value: HotspotApiRecord['humanExposure'], estimatedAffected: number): string {
+  if (typeof value === 'string' && value.trim().length > 0) {
+    return value;
+  }
+  if (estimatedAffected >= 100) return 'Alta';
+  if (estimatedAffected >= 30) return 'Moderada';
+  return 'Baixa';
+}
+
+function normalizeConfidence(value: HotspotApiRecord['confidence'], score: number): number {
+  const parsed = toFiniteNumber(value, Number.NaN);
+  if (Number.isFinite(parsed)) {
+    if (parsed > 1) return Math.max(0, Math.min(1, parsed / 100));
+    return Math.max(0, Math.min(1, parsed));
+  }
+  return Math.max(0.35, Math.min(0.95, score / 100));
+}
+
+function normalizeUrgency(value: HotspotApiRecord['urgency'], score: number): string {
+  if (typeof value === 'string' && value.trim().length > 0) {
+    return value;
+  }
+  if (score >= 90) return 'critical';
+  if (score >= 75) return 'high';
+  if (score >= 50) return 'medium';
+  return 'low';
+}
+
+function normalizeHotspot(item: HotspotApiRecord, index: number): Hotspot | null {
+  const lat = toFiniteNumber(item.lat, Number.NaN);
+  const lng = toFiniteNumber(item.lng, Number.NaN);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+
+  const score = toFiniteNumber(item.score, 0);
+  const estimatedAffected = Math.max(0, Math.round(toFiniteNumber(item.estimatedAffected, 0)));
+  const type = typeof item.type === 'string' && item.type.trim().length > 0 ? item.type.trim() : 'Risco Geral';
+  const riskFactors = normalizeRiskFactors(item.riskFactors, type);
+
+  return {
+    id: typeof item.id === 'string' && item.id.trim().length > 0 ? item.id : `hotspot-${index}`,
+    lat,
+    lng,
+    score,
+    type,
+    confidence: normalizeConfidence(item.confidence, score),
+    estimatedAffected,
+    riskFactors,
+    urgency: normalizeUrgency(item.urgency, score),
+    humanExposure: normalizeHumanExposure(item.humanExposure, estimatedAffected),
+    intensity: typeof item.intensity === 'number' ? item.intensity : undefined,
+    radius: typeof item.radius === 'number' ? item.radius : undefined,
+  };
+}
+
 export function useEmergencyAlerts() {
   const [attentionAlerts, setAttentionAlerts] = useState<AttentionAlert[]>([]);
   const [missingPeople, setMissingPeople] = useState<MissingPerson[]>([]);
@@ -38,8 +138,8 @@ export function useEmergencyAlerts() {
   const loadHotspots = useCallback(async () => {
     setLoadingHotspots(true);
     try {
-      const { data } = await apiClient.get<Hotspot[]>('/api/hotspots');
-      setHotspots(data);
+      const { data } = await apiClient.get<HotspotApiRecord[]>('/api/hotspots');
+      setHotspots((data ?? []).map(normalizeHotspot).filter((item): item is Hotspot => item !== null));
     } catch {
       // SILENT FAIL
     } finally {

@@ -52,7 +52,7 @@ interface PublicSearchArea {
 const KpiItem: React.FC<KpiItemProps> = ({ label, value, icon, color, trend }) => (
   <Box 
     bg="rgba(15, 23, 42, 0.6)" 
-    backdropFilter="blur(20px)" 
+    
     borderRadius="2xl" 
     border="1px solid" 
     borderColor="whiteAlpha.100" 
@@ -130,7 +130,7 @@ export function PublicIncidentDashboardPage() {
         <HStack justify="space-between">
           <HStack 
             bg="rgba(15, 23, 42, 0.7)" 
-            backdropFilter="blur(20px)" 
+            
             borderRadius="full" 
             border="1px solid" 
             borderColor="whiteAlpha.100" 
@@ -219,7 +219,7 @@ export function PublicIncidentDashboardPage() {
         <Box 
           mt={4}
           bg="rgba(15, 23, 42, 0.6)" 
-          backdropFilter="blur(20px)" 
+          
           borderRadius="2xl" 
           border="1px solid" 
           borderColor="whiteAlpha.100" 

@@ -4,9 +4,7 @@ import { MapContainer, TileLayer } from 'react-leaflet';
 import type { MapContainerProps } from 'react-leaflet';
 import { TacticalText } from '../../atoms/TacticalText';
 import type { ReactNode } from 'react';
-import { motion } from 'framer-motion';
 
-const MotionBox = motion(Box);
 
 const TILE_PROVIDERS = {
   dark: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
@@ -53,47 +51,29 @@ export function TacticalMap({
       {...containerProps}
     >
       {showLabel && (
-        <MotionBox
+        <Box
           position="absolute"
-          top="24px"
-          left="24px"
+          top="16px"
+          left="16px"
           zIndex={1000}
-          bg="rgba(8, 8, 15, 0.7)"
-          backdropFilter="blur(16px) saturate(180%)"
-          px={4}
+          bg="#111119"
+          px={3}
           py={2}
-          borderRadius="xl"
-          border="1px solid"
-          borderColor="whiteAlpha.100"
-          boxShadow="0 8px 32px 0 rgba(0, 0, 0, 0.4)"
+          borderRadius="md"
+          border="1px solid rgba(255,255,255,0.08)"
+          borderLeft="3px solid"
+          borderLeftColor="sos.red.500"
           pointerEvents="none"
-          initial={{ opacity: 0, x: -20, filter: 'blur(10px)' }}
-          animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
-          transition={{ duration: 1, ease: 'easeOut' }}
+          className="animate-fade-in"
         >
-          <Box position="relative">
-            <Box 
-              position="absolute" 
-              left="-8px" 
-              top="50%" 
-              transform="translateY(-50%)" 
-              w="3px" 
-              h="12px" 
-              bg="sos.red.500"
-              boxShadow="0 0 10px rgba(239, 68, 68, 0.8)"
-            />
-            <TacticalText 
-              variant="mono" 
-              fontSize="10px" 
-              letterSpacing="2px" 
-              color="whiteAlpha.800"
-              fontWeight="black"
-            >
-              GEOLOCALIZAÇÃO_RECORRENTE
-            </TacticalText>
-          </Box>
-          <Box mt={1} h="1px" w="100%" bgGradient="linear(to-r, sos.red.500, transparent)" opacity={0.5} />
-        </MotionBox>
+          <TacticalText
+            variant="mono"
+            fontSize="11px"
+            color="rgba(255,255,255,0.65)"
+          >
+            Geolocalização ativa
+          </TacticalText>
+        </Box>
       )}
       
       <MapContainer 

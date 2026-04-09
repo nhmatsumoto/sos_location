@@ -21,16 +21,10 @@ const groupLabels: Record<string, string> = {
 };
 
 interface NavigationRailProps extends BoxProps {
-  /** If true, shows icon only. If false, shows icon + label. Default: 'auto' (hover to expand) */
   mode?: 'compact' | 'expanded' | 'auto';
   routeGroups?: AppRouteGroup[];
 }
 
-/**
- * Navigation Rail — Guardian Clarity v3
- * Apple-inspired compact navigation with icon-first approach.
- * Expands on hover to reveal labels with smooth spring animation.
- */
 export const NavigationRail = memo(function NavigationRail({
   mode = 'auto',
   routeGroups,
@@ -47,7 +41,6 @@ export const NavigationRail = memo(function NavigationRail({
     [authenticated, roles, routeGroups]
   );
 
-  // Group items by section
   const groups = useMemo(() => {
     const g: Record<string, typeof visibleItems> = {};
     for (const item of visibleItems) {
@@ -65,9 +58,8 @@ export const NavigationRail = memo(function NavigationRail({
       w={railWidth}
       minW={railWidth}
       h="full"
-      bg="rgba(8, 8, 15, 0.92)"
-      backdropFilter="blur(24px) saturate(180%)"
-      borderRight="1px solid rgba(255,255,255,0.06)"
+      bg="#111119"
+      borderRight="1px solid rgba(255,255,255,0.07)"
       display="flex"
       flexDirection="column"
       overflow="hidden"
@@ -76,36 +68,34 @@ export const NavigationRail = memo(function NavigationRail({
       {/* Logo */}
       <Box
         px={isExpanded ? 5 : 0}
-        py={5}
+        py={4}
         display="flex"
         alignItems="center"
         justifyContent={isExpanded ? 'flex-start' : 'center'}
         flexShrink={0}
-        transition="padding 0.25s"
       >
         {isExpanded ? (
           <LogoFull />
         ) : (
-          <Box p={2} bg="sos.blue.500" borderRadius="xl" flexShrink={0}>
+          <Box p={2} bg="sos.blue.500" borderRadius="md" flexShrink={0}>
             <Logo w="20px" h="20px" color="white" />
           </Box>
         )}
       </Box>
 
-      <Divider borderColor="rgba(255,255,255,0.06)" />
+      <Divider borderColor="rgba(255,255,255,0.07)" />
 
       {/* Nav Groups */}
-      <Box flex={1} overflowY="auto" overflowX="hidden" py={3} className="no-scrollbar">
+      <Box flex={1} overflowY="auto" overflowX="hidden" py={2} className="no-scrollbar">
         {Object.entries(groups).map(([groupKey, items]) => (
           <Box key={groupKey} mb={2}>
-            {/* Group label — only in expanded mode */}
             {isExpanded && (
               <Text
-                fontSize="9px"
-                fontWeight="800"
-                color="rgba(255,255,255,0.25)"
+                fontSize="10px"
+                fontWeight="600"
+                color="rgba(255,255,255,0.28)"
                 textTransform="uppercase"
-                letterSpacing="ultra"
+                letterSpacing="wider"
                 px={5}
                 mb={1}
                 mt={2}
@@ -133,42 +123,30 @@ export const NavigationRail = memo(function NavigationRail({
                     gap={isExpanded ? 3 : 0}
                     px={isExpanded ? 4 : 0}
                     justifyContent={isExpanded ? 'flex-start' : 'center'}
-                    h="44px"
+                    h="40px"
                     mx={isExpanded ? 2 : 1}
-                    borderRadius="xl"
-                    transition="all 0.18s cubic-bezier(0.4, 0, 0.2, 1)"
+                    borderRadius="md"
+                    transition="background 0.15s, color 0.15s"
                     position="relative"
-                    color={isActive ? 'white' : 'rgba(255,255,255,0.50)'}
-                    bg={isActive ? 'rgba(0, 122, 255, 0.15)' : 'transparent'}
+                    color={isActive ? 'white' : 'rgba(255,255,255,0.45)'}
+                    bg={isActive ? 'rgba(0, 122, 255, 0.14)' : 'transparent'}
+                    borderLeft={isActive ? '2px solid' : '2px solid transparent'}
+                    borderLeftColor={isActive ? 'sos.blue.500' : 'transparent'}
                     _hover={{
-                      bg: isActive ? 'rgba(0, 122, 255, 0.20)' : 'rgba(255,255,255,0.06)',
+                      bg: isActive ? 'rgba(0, 122, 255, 0.18)' : 'rgba(255,255,255,0.05)',
                       color: 'white',
                       textDecoration: 'none',
                     }}
-                    _before={isActive ? {
-                      content: '""',
-                      position: 'absolute',
-                      left: isExpanded ? '-8px' : '-4px',
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      h: '20px',
-                      w: '3px',
-                      bg: 'sos.blue.500',
-                      borderRadius: 'full',
-                      boxShadow: '0 0 8px rgba(0,122,255,0.6)',
-                    } : undefined}
                   >
                     <Box flexShrink={0}>
-                      <Icon size={18} />
+                      <Icon size={17} />
                     </Box>
                     {isExpanded && (
                       <Text
                         fontSize="sm"
-                        fontWeight={isActive ? '700' : '500'}
+                        fontWeight={isActive ? '600' : '400'}
                         whiteSpace="nowrap"
                         overflow="hidden"
-                        opacity={isExpanded ? 1 : 0}
-                        transition="opacity 0.2s"
                       >
                         {t(item.labelKey)}
                       </Text>
@@ -181,10 +159,10 @@ export const NavigationRail = memo(function NavigationRail({
         ))}
       </Box>
 
-      <Divider borderColor="rgba(255,255,255,0.06)" />
+      <Divider borderColor="rgba(255,255,255,0.07)" />
 
       {/* Footer */}
-      <Box py={3} flexShrink={0}>
+      <Box py={2} flexShrink={0}>
         {authenticated && (
           <Tooltip label={!isExpanded ? (t('nav.logout') || 'Sair') : undefined} placement="right" hasArrow>
             <Box
@@ -195,20 +173,20 @@ export const NavigationRail = memo(function NavigationRail({
               gap={isExpanded ? 3 : 0}
               px={isExpanded ? 4 : 0}
               justifyContent={isExpanded ? 'flex-start' : 'center'}
-              h="44px"
+              h="40px"
               mx={1}
               w={isExpanded ? 'calc(100% - 8px)' : 'calc(100% - 8px)'}
-              borderRadius="xl"
-              color="rgba(255, 59, 48, 0.70)"
-              transition="all 0.18s"
+              borderRadius="md"
+              color="rgba(255, 59, 48, 0.65)"
+              transition="background 0.15s, color 0.15s"
               _hover={{ bg: 'rgba(255,59,48,0.08)', color: 'sos.red.400' }}
               cursor="pointer"
               border="none"
               background="transparent"
             >
-              <LogOut size={18} />
+              <LogOut size={17} />
               {isExpanded && (
-                <Text fontSize="sm" fontWeight="600" whiteSpace="nowrap">
+                <Text fontSize="sm" fontWeight="500" whiteSpace="nowrap">
                   {t('nav.logout') || 'Encerrar Sessão'}
                 </Text>
               )}
@@ -216,23 +194,20 @@ export const NavigationRail = memo(function NavigationRail({
           </Tooltip>
         )}
 
-        {/* Status indicator */}
+        {/* Connection status */}
         {isExpanded ? (
-          <Box mx={3} mt={2} p={3} borderRadius="xl" bg="rgba(0,122,255,0.06)" border="1px solid rgba(0,122,255,0.12)">
-            <HStack spacing={2} mb={1}>
-                <Box w={2} h={2} borderRadius="full" bg="sos.green.500" className="animate-pulse" flexShrink={0} />
-                <Text fontSize="10px" fontWeight="800" color="rgba(255,255,255,0.40)" textTransform="uppercase" letterSpacing="ultra">
-                  Network
-                </Text>
+          <Box mx={3} mt={2} p={3} borderRadius="md" bg="rgba(0,122,255,0.05)" border="1px solid rgba(0,122,255,0.10)">
+            <HStack spacing={2}>
+              <Box w={2} h={2} borderRadius="full" bg="sos.green.500" className="status-live" flexShrink={0} />
+              <Text fontSize="11px" fontWeight="500" color="rgba(255,255,255,0.38)">
+                Conectado
+              </Text>
             </HStack>
-            <Text fontSize="9px" fontFamily="mono" color="rgba(255,255,255,0.30)" lineHeight="1.4">
-              GUARDIAN_NET_V3
-            </Text>
           </Box>
         ) : (
-          <Tooltip label="Network: Online" placement="right" hasArrow>
+          <Tooltip label="Conectado" placement="right" hasArrow>
             <Box display="flex" justifyContent="center" mt={2}>
-              <Box w={2} h={2} borderRadius="full" bg="sos.green.500" className="animate-pulse" />
+              <Box w={2} h={2} borderRadius="full" bg="sos.green.500" className="status-live" />
             </Box>
           </Tooltip>
         )}

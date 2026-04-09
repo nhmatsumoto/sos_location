@@ -25,7 +25,7 @@ export function TacticalWidget({ title, children, defaultPosition, width = "300p
       zIndex={1001}
       width={width}
       bg="rgba(10, 11, 16, 0.85)"
-      backdropFilter="blur(16px)"
+      
       borderRadius="xl"
       border="1px solid"
       borderColor="whiteAlpha.100"

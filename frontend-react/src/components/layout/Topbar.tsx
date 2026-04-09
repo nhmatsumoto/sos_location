@@ -1,7 +1,7 @@
 import { memo } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Bell, Bolt, Globe, Languages, LayoutGrid, LogOut, Moon, Search, Sun } from 'lucide-react';
+import { Bell, Globe, Languages, LayoutGrid, LogOut, Moon, Search, Sun } from 'lucide-react';
 import {
   Avatar,
   Badge,
@@ -18,7 +18,6 @@ import {
   MenuDivider,
   MenuItem,
   MenuList,
-  Select,
   Text,
   Tooltip,
 } from '@chakra-ui/react';
@@ -50,20 +49,26 @@ const UserMenu = memo(function UserMenu({ displayName, secondaryLabel, settingsL
         icon={<Avatar size="xs" name={displayName} bg="sos.blue.500" />}
         variant="ghost"
         borderRadius="full"
-        _hover={{ bg: 'whiteAlpha.200' }}
+        _hover={{ bg: 'rgba(255,255,255,0.07)' }}
       />
-      <MenuList bg="rgba(10, 11, 16, 0.95)" backdropFilter="blur(20px)" border="1px solid" borderColor="whiteAlpha.200" boxShadow="dark-lg" py={2} zIndex={2000}>
+      <MenuList
+        bg="#1C1C28"
+        border="1px solid rgba(255,255,255,0.10)"
+        borderRadius="md"
+        py={2}
+        zIndex={2000}
+      >
         <Box px={4} py={3}>
-          <Text fontSize="sm" fontWeight="bold" color="white">{displayName}</Text>
-          <Text fontSize="xs" color="whiteAlpha.600">{secondaryLabel ?? ''}</Text>
+          <Text fontSize="sm" fontWeight="600" color="white">{displayName}</Text>
+          <Text fontSize="xs" color="rgba(255,255,255,0.45)">{secondaryLabel ?? ''}</Text>
         </Box>
-        <MenuDivider borderColor="whiteAlpha.100" />
+        <MenuDivider borderColor="rgba(255,255,255,0.07)" />
         <MenuItem
           as={RouterLink}
           to={settingsHref}
           icon={<LayoutGrid size={14} />}
           bg="transparent"
-          _hover={{ bg: 'whiteAlpha.100' }}
+          _hover={{ bg: 'rgba(255,255,255,0.06)' }}
           fontSize="sm"
           color="white"
         >
@@ -74,7 +79,7 @@ const UserMenu = memo(function UserMenu({ displayName, secondaryLabel, settingsL
           onClick={doLogout}
           bg="transparent"
           color="sos.red.400"
-          _hover={{ bg: 'sos.red.500', color: 'white' }}
+          _hover={{ bg: 'rgba(255,59,48,0.08)' }}
           fontSize="sm"
         >
           Sair do Sistema
@@ -98,7 +103,7 @@ export const Topbar = memo(function Topbar({ theme, onToggleTheme, notificationC
 
   if (minimal) {
     return (
-      <Box as="header" p={2} bg="whiteAlpha.50" backdropFilter="blur(16px)" border="1px solid" borderColor="whiteAlpha.100" borderRadius="xl">
+      <Box as="header" p={2} bg="#111119" border="1px solid rgba(255,255,255,0.07)" borderRadius="md">
         <HStack spacing={2}>
           <Box position="relative">
             <IconButton
@@ -125,7 +130,7 @@ export const Topbar = memo(function Topbar({ theme, onToggleTheme, notificationC
               </Badge>
             )}
           </Box>
-          <Tooltip label="Voltar ao Portal de Transparência" placement="bottom">
+          <Tooltip label="Portal de Transparência" placement="bottom">
             <IconButton
               as={RouterLink}
               to={PUBLIC_TRANSPARENCY_ROUTE}
@@ -133,7 +138,6 @@ export const Topbar = memo(function Topbar({ theme, onToggleTheme, notificationC
               icon={<Globe size={14} />}
               aria-label="Portal de Transparência"
               variant="ghost"
-              _hover={{ bg: 'whiteAlpha.100' }}
             />
           </Tooltip>
           <UserMenu displayName={displayName} secondaryLabel={secondaryLabel} settingsLabel={settingsLabel} settingsHref={settingsHref} />
@@ -145,136 +149,100 @@ export const Topbar = memo(function Topbar({ theme, onToggleTheme, notificationC
   return (
     <Box
       as="header"
-      px={5}
-      py={3}
-      bg="rgba(8, 8, 15, 0.85)"
-      backdropFilter="blur(24px) saturate(180%)"
-      border="1px solid rgba(255,255,255,0.10)"
-      borderRadius="2xl"
-      boxShadow="0 4px 24px rgba(0,0,0,0.4)"
-      m={4}
+      px={4}
+      py={2}
+      bg="#111119"
+      border="1px solid rgba(255,255,255,0.07)"
+      borderRadius="md"
+      m={3}
       mb={0}
       position="relative"
       zIndex={100}
     >
       <Flex justify="space-between" align="center" gap={4}>
-        <HStack spacing={6}>
-          <HStack spacing={3} borderRight="1px solid" borderColor="whiteAlpha.200" pr={6}>
-            <Box p={2} bg="sos.blue.500" borderRadius="xl" boxShadow="0 0 12px rgba(0,122,255,0.3)">
-              <Text fontSize="14px" fontWeight="900" color="white" letterSpacing="widest">G</Text>
+        <HStack spacing={5}>
+          <HStack spacing={3} borderRight="1px solid rgba(255,255,255,0.07)" pr={5}>
+            <Box p={2} bg="sos.blue.500" borderRadius="md">
+              <Text fontSize="13px" fontWeight="700" color="white">SOS</Text>
             </Box>
             <Box display={{ base: 'none', md: 'block' }}>
-              <Text fontSize="16px" fontWeight="900" color="white" letterSpacing="tighter">
-                GUARDIAN<Box as="span" color="sos.blue.400">_EXT</Box>
+              <Text fontSize="14px" fontWeight="600" color="white">
+                SOS Location
               </Text>
-              <Text fontSize="8px" fontWeight="black" color="whiteAlpha.400" mt={-1} letterSpacing="widest">
-                SYSTEM_NODE_OPERATOR
+              <Text fontSize="10px" fontWeight="400" color="rgba(255,255,255,0.38)" mt="-1px">
+                Centro Operacional
               </Text>
             </Box>
           </HStack>
 
-          <HStack spacing={3} display={{ base: 'none', lg: 'flex' }}>
-            <Select
-              size="sm"
-              variant="unstyled"
-              maxW="220px"
-              color="whiteAlpha.700"
+          <InputGroup size="sm" maxW="220px" display={{ base: 'none', lg: 'flex' }}>
+            <InputLeftElement pointerEvents="none">
+              <Search size={13} color="rgba(255,255,255,0.30)" />
+            </InputLeftElement>
+            <Input
+              placeholder="Buscar..."
+              bg="rgba(255,255,255,0.04)"
+              border="1px solid rgba(255,255,255,0.08)"
+              borderRadius="md"
               fontSize="xs"
-              fontWeight="bold"
-              _hover={{ color: 'white' }}
-              cursor="pointer"
-              icon={<Bolt size={10} />}
-            >
-              <option style={{ background: '#0A0B10' }}>SECTOR: BRAVO_01</option>
-              <option style={{ background: '#0A0B10' }}>SECTOR: ALPHA_04</option>
-            </Select>
-
-            <InputGroup size="sm" maxW="240px">
-              <InputLeftElement pointerEvents="none">
-                <Search size={14} color="gray" />
-              </InputLeftElement>
-              <Input
-                placeholder="SEARCH_INTEL..."
-                bg="whiteAlpha.50"
-                border="1px solid"
-                borderColor="whiteAlpha.100"
-                borderRadius="lg"
-                fontSize="xs"
-                _placeholder={{ color: 'whiteAlpha.400' }}
-                _focus={{ bg: 'whiteAlpha.100', borderColor: 'sos.blue.500' }}
-              />
-            </InputGroup>
-          </HStack>
+              _placeholder={{ color: 'rgba(255,255,255,0.28)' }}
+              _focus={{ borderColor: 'sos.blue.500', bg: 'rgba(0,122,255,0.04)' }}
+            />
+          </InputGroup>
         </HStack>
 
-        <HStack spacing={4}>
-          <HStack spacing={2} bg="whiteAlpha.50" p={1} borderRadius="lg" border="1px solid" borderColor="whiteAlpha.50">
+        <HStack spacing={3}>
+          {/* Language selector */}
+          <HStack spacing={1} bg="rgba(255,255,255,0.04)" p={1} borderRadius="md" border="1px solid rgba(255,255,255,0.07)">
             <IconButton
               size="sm"
-              icon={<Languages size={14} />}
-              aria-label="Language selection"
+              icon={<Languages size={13} />}
+              aria-label="Inglês"
               variant="ghost"
-              color={i18n.language === 'en' ? 'sos.blue.400' : 'whiteAlpha.600'}
+              color={i18n.language === 'en' ? 'sos.blue.400' : 'rgba(255,255,255,0.45)'}
               onClick={() => changeLanguage('en')}
-              _hover={{ bg: 'whiteAlpha.100' }}
             />
             <IconButton
               size="sm"
-              icon={<Text fontSize="9px" fontWeight="black">PT</Text>}
-              aria-label="Idioma Português"
+              icon={<Text fontSize="9px" fontWeight="600">PT</Text>}
+              aria-label="Português"
               variant="ghost"
-              color={i18n.language === 'pt' ? 'sos.blue.400' : 'whiteAlpha.600'}
+              color={i18n.language === 'pt' ? 'sos.blue.400' : 'rgba(255,255,255,0.45)'}
               onClick={() => changeLanguage('pt')}
-              _hover={{ bg: 'whiteAlpha.100' }}
             />
           </HStack>
 
+          {/* Notifications */}
           <Box position="relative">
             <IconButton
               size="md"
-              icon={<Bell size={18} />}
-              aria-label="Abrir notificações"
+              icon={<Bell size={16} />}
+              aria-label="Notificações"
               onClick={onOpenNotifications}
               variant="ghost"
-              color="whiteAlpha.800"
-              _hover={{ bg: 'whiteAlpha.100' }}
+              color="rgba(255,255,255,0.65)"
             />
             {notificationCount > 0 && (
               <Box
                 position="absolute"
-                top="1.5"
-                right="1.5"
+                top="2"
+                right="2"
                 bg="sos.red.500"
-                w="8px"
-                h="8px"
+                w="7px"
+                h="7px"
                 borderRadius="full"
-                boxShadow="0 0 10px #ef4444"
               />
             )}
           </Box>
-          <Button
-            leftIcon={<Bolt size={14} />}
-            variant="solid"
-            bg="sos.blue.500"
-            color="white"
-            size="sm"
-            fontSize="xs"
-            fontWeight="black"
-            _hover={{ bg: 'sos.blue.400' }}
-            letterSpacing="wider"
-          >
-            {t('nav.actions') || 'RAPID_DEPLOY'}
-          </Button>
 
-          <HStack spacing={1} pl={4} borderLeft="1px solid" borderColor="whiteAlpha.100">
+          <HStack spacing={1} pl={3} borderLeft="1px solid rgba(255,255,255,0.07)">
             <IconButton
-              icon={theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+              icon={theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
               size="md"
               aria-label="Alternar tema"
               onClick={onToggleTheme}
               variant="ghost"
-              color="whiteAlpha.600"
-              _hover={{ color: 'white' }}
+              color="rgba(255,255,255,0.45)"
             />
             <Tooltip label={t('nav.transparency')} placement="bottom">
               <Button
@@ -282,12 +250,11 @@ export const Topbar = memo(function Topbar({ theme, onToggleTheme, notificationC
                 to={PUBLIC_TRANSPARENCY_ROUTE}
                 size="sm"
                 variant="ghost"
-                leftIcon={<Globe size={14} />}
+                leftIcon={<Globe size={13} />}
                 fontSize="xs"
-                color="whiteAlpha.700"
-                _hover={{ color: 'sos.blue.400', bg: 'whiteAlpha.50' }}
+                color="rgba(255,255,255,0.55)"
               >
-                {t('nav.transparency').toUpperCase()}
+                {t('nav.transparency')}
               </Button>
             </Tooltip>
             <UserMenu displayName={displayName} secondaryLabel={secondaryLabel} settingsLabel={settingsLabel} settingsHref={settingsHref} />
