@@ -20,6 +20,9 @@ namespace SOSLocation.Infrastructure.Services.Gis.Providers
             "https://overpass.private.coffee/api/interpreter",
             "https://lz4.overpass-api.de/api/interpreter",
         };
+        private const int TotalFetchTimeoutSeconds = 28;
+        private const int EssentialAttemptTimeoutSeconds = 8;
+        private const int FullAttemptTimeoutSeconds = 12;
 
         private readonly HttpClient _httpClient;
         private readonly ILogger<OverpassProvider> _logger;
@@ -37,20 +40,37 @@ namespace SOSLocation.Infrastructure.Services.Gis.Providers
         public async Task<object> FetchDataAsync(double minLat, double minLon, double maxLat, double maxLon)
         {
             var bb = $"{minLat:F6},{minLon:F6},{maxLat:F6},{maxLon:F6}";
+            var startedAt = DateTimeOffset.UtcNow;
+            var deadline = startedAt.AddSeconds(TotalFetchTimeoutSeconds);
+
             foreach (var attempt in BuildAttempts(bb))
             {
+                var remaining = deadline - DateTimeOffset.UtcNow;
+                if (remaining <= TimeSpan.FromSeconds(1))
+                {
+                    _logger.LogWarning(
+                        "Overpass global timeout reached after {ElapsedSeconds:F1}s; using synthetic fallback",
+                        (DateTimeOffset.UtcNow - startedAt).TotalSeconds);
+                    break;
+                }
+
+                var attemptTimeoutSeconds = Math.Max(
+                    1,
+                    Math.Min(attempt.TimeoutSeconds, (int)Math.Ceiling(remaining.TotalSeconds)));
+
                 try
                 {
                     _logger.LogInformation(
-                        "Fetching Urban Data via Overpass ({Mode}) from {Endpoint}: {MinLat},{MinLon}",
+                        "Fetching Urban Data via Overpass ({Mode}, {TimeoutSeconds}s) from {Endpoint}: {MinLat},{MinLon}",
                         attempt.Mode,
+                        attemptTimeoutSeconds,
                         attempt.Endpoint,
                         minLat,
                         minLon);
 
                     using var content = new FormUrlEncodedContent(
                         new[] { new KeyValuePair<string, string>("data", attempt.Query) });
-                    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(attempt.TimeoutSeconds));
+                    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(attemptTimeoutSeconds));
 
                     var response = await _httpClient.PostAsync(attempt.Endpoint, content, cts.Token);
                     if (response.IsSuccessStatusCode)
@@ -83,6 +103,10 @@ namespace SOSLocation.Infrastructure.Services.Gis.Providers
                 }
             }
 
+            _logger.LogWarning(
+                "Overpass unavailable after {ElapsedSeconds:F1}s for bbox {Bbox}; using synthetic urban fallback",
+                (DateTimeOffset.UtcNow - startedAt).TotalSeconds,
+                bb);
             return GenerateSyntheticBuildings(minLat, minLon, maxLat, maxLon);
         }
 
@@ -106,14 +130,24 @@ namespace SOSLocation.Infrastructure.Services.Gis.Providers
 
         private IEnumerable<(string Endpoint, string Query, string Mode, int TimeoutSeconds)> BuildAttempts(string bbox)
         {
-            foreach (var endpoint in GetOverpassEndpoints())
+            var endpoints = GetOverpassEndpoints().Take(3).ToArray();
+
+            foreach (var endpoint in endpoints)
             {
-                yield return (endpoint, BuildFullQuery(bbox), "full", 100);
+                yield return (
+                    endpoint,
+                    BuildEssentialQuery(bbox, EssentialAttemptTimeoutSeconds),
+                    "essential",
+                    EssentialAttemptTimeoutSeconds);
             }
 
-            foreach (var endpoint in GetOverpassEndpoints())
+            foreach (var endpoint in endpoints.Take(1))
             {
-                yield return (endpoint, BuildEssentialQuery(bbox), "essential", 45);
+                yield return (
+                    endpoint,
+                    BuildFullQuery(bbox, FullAttemptTimeoutSeconds),
+                    "full",
+                    FullAttemptTimeoutSeconds);
             }
         }
 
@@ -147,8 +181,8 @@ namespace SOSLocation.Infrastructure.Services.Gis.Providers
             return trimmed + "/status";
         }
 
-        private static string BuildFullQuery(string bbox) => $@"
-                [out:json][timeout:90][maxsize:1073741824];
+        private static string BuildFullQuery(string bbox, int timeoutSeconds) => $@"
+                [out:json][timeout:{timeoutSeconds}][maxsize:536870912];
                 (
                   way[""building""]({bbox});
                   relation[""building""]({bbox});
@@ -179,8 +213,8 @@ namespace SOSLocation.Infrastructure.Services.Gis.Providers
                 >;
                 out skel qt;";
 
-        private static string BuildEssentialQuery(string bbox) => $@"
-                [out:json][timeout:45][maxsize:268435456];
+        private static string BuildEssentialQuery(string bbox, int timeoutSeconds) => $@"
+                [out:json][timeout:{timeoutSeconds}][maxsize:134217728];
                 (
                   way[""building""]({bbox});
                   relation[""building""]({bbox});

@@ -91,32 +91,13 @@ namespace SOSLocation.Infrastructure.Services.Gis
                 "[SceneData] Building scene for bbox [{MinLat},{MinLon},{MaxLat},{MaxLon}]",
                 request.MinLat, request.MinLon, request.MaxLat, request.MaxLon);
 
-            // DEM — graceful fallback to flat terrain on any error
-            List<List<float>>? rawDem = null;
-            try
-            {
-                rawDem = await _gis.FetchElevationGridAsync(
-                    request.MinLat, request.MinLon,
-                    request.MaxLat, request.MaxLon,
-                    request.DemResolution);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "[SceneData] DEM fetch failed — using flat terrain");
-            }
+            var demTask = FetchDemSafelyAsync(request);
+            var osmTask = FetchOsmSafelyAsync(request);
 
-            // OSM — graceful fallback to empty features on any error
-            object osmData = new { };
-            try
-            {
-                osmData = await _gis.FetchUrbanFeaturesAsync(
-                    request.MinLat, request.MinLon,
-                    request.MaxLat, request.MaxLon);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "[SceneData] OSM fetch failed — using empty features");
-            }
+            await Task.WhenAll(demTask, osmTask);
+
+            var rawDem = await demTask;
+            var osmData = await osmTask;
 
             // NOTE: satellite imagery is NOT fetched server-side.
             // The browser's TileLoader fetches tiles natively in parallel,
@@ -181,6 +162,37 @@ namespace SOSLocation.Infrastructure.Services.Gis
         }
 
         // ── Helpers ──────────────────────────────────────────────────────────
+
+        private async Task<List<List<float>>?> FetchDemSafelyAsync(SceneBboxRequest request)
+        {
+            try
+            {
+                return await _gis.FetchElevationGridAsync(
+                    request.MinLat, request.MinLon,
+                    request.MaxLat, request.MaxLon,
+                    request.DemResolution);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "[SceneData] DEM fetch failed — using flat terrain");
+                return null;
+            }
+        }
+
+        private async Task<object> FetchOsmSafelyAsync(SceneBboxRequest request)
+        {
+            try
+            {
+                return await _gis.FetchUrbanFeaturesAsync(
+                    request.MinLat, request.MinLon,
+                    request.MaxLat, request.MaxLon);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "[SceneData] OSM fetch failed — using empty features");
+                return new { };
+            }
+        }
 
         /// <summary>
         /// Normalizes a raw elevation grid to [0, 1] and extracts min/max in metres.

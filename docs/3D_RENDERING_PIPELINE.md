@@ -16,6 +16,25 @@ O resultado é um `CityBlueprint` compilado no browser que alimenta um motor Web
 
 ---
 
+## Baseline de 21/03
+
+Esta documentação usa a sequência de commits de **21/03/2026** como contrato de renderização:
+
+| Commit | Papel no motor 3D |
+|--------|-------------------|
+| `f78ab39f02f3ada4f68d81814ca0473dd0456e04` | Introduziu a atualização grande do motor 3D: `CityScaleWebGL`, agentes geoespaciais, shaders, `GeoDataPipeline`, `TileLoader`, provedores DEM/satélite e enriquecimento OSM. |
+| `290dbc37a38e90a0b6104aa8929a6b015241b148` | Consolidou tipos, testes, shaders e ajustes de integração do fluxo de simulação. |
+| `f3cabad37eebfffeeebe0c60e82d11401844a3f5` | Snapshot final do dia 21/03; é a referência de comportamento: blueprint montado no browser e simulação física sem sobrescrever a cidade renderizada. |
+
+O ponto crítico desse baseline é a separação entre **cidade** e **desastre**:
+
+- A cidade é capturada uma vez por `captureBlueprint(bbox)`.
+- `captureBlueprint` usa `simulationsApi.indexUrbanPipeline(bbox)` e depois `CityBlueprintBuilder.build(bbox, osmData)`.
+- `runSimulation()` pode chamar o backend físico, mas não deve substituir `resultData` nem `blueprint`.
+- `CityScaleWebGL` deve continuar recebendo o mesmo `blueprint`; os efeitos de desastre entram por `simData`, `layers` e uniforms WebGL.
+
+---
+
 ## Fluxo Completo
 
 ```
@@ -25,7 +44,8 @@ Usuário seleciona área no mapa (bbox)
 SimulationsPage → captureBlueprint(bbox)
         │
         ├─► simulationsApi.indexUrbanPipeline(bbox)      [backend .NET]
-        │        └─► Overpass API (OSM) → buildings, roads, waterways...
+        │        ├─► Overpass API (OSM) → buildings, roads, waterways...
+        │        ├─► DEM/land-cover/population/hotspots quando disponíveis
         │        └─► Retorna: UrbanSimulationResult
         │
         └─► CityBlueprintBuilder.build(bbox, osmData)    [browser]
@@ -39,7 +59,7 @@ SimulationsPage → captureBlueprint(bbox)
                  │       └─► Heurísticas RGB → SemanticGrid (grid de classes)
                  │
                  ├─ Fase 3: ELEVATION (80–90%)
-                 │       osmData.elevationGrid (backend) OU zeros (fallback)
+                 │       osmData.elevationGrid OU zeros/fallback
                  │       └─► Bilinear resample → elevation[rows][cols] 0–1
                  │
                  └─ Fase 4: COMPILE (100%)
@@ -63,12 +83,16 @@ SimulationsPage → captureBlueprint(bbox)
                          └─► WeatherDataFetcher (Open-Meteo)
 ```
 
+`sceneDataApi.fetchSceneData()` existe no código atual, mas no contrato de 21/03 ele é **fallback**, não caminho normal. Ele só deve entrar quando o payload urbano vem vazio ou sintético e o frontend precisa de uma segunda chance para montar a cena. Isso evita que uma falha `504` em `/api/simulation/v1/scenes/data` bloqueie ou atrase a renderização principal.
+
 ---
 
 ## Componentes Principais
 
 ### 1. SimulationsPage.tsx
-**Caminho:** `src/pages/SimulationsPage.tsx`
+**Caminho atual:** `src/domains/operations/pages/SimulationsPage.tsx`
+
+**Alias histórico:** `src/pages/SimulationsPage.tsx`
 
 Ponto de entrada do usuário. Gerencia o fluxo de 4 etapas:
 
@@ -77,7 +101,7 @@ Ponto de entrada do usuário. Gerencia o fluxo de 4 etapas:
 | `LOCATION` | Usuário posiciona o mapa e define a bbox |
 | `INDEXING` | `captureBlueprint()` — barra de progresso visível |
 | `SCENARIO` | Blueprint pronto, 3D renderizado, usuário configura desastre |
-| `SIMULATION` | `simData` flui em tempo real para o motor |
+| `SIMULATION` | `simData` altera overlays/uniforms, sem trocar o blueprint |
 
 Props passadas para `CityScaleWebGL`:
 ```typescript
@@ -303,8 +327,16 @@ height = (b.height ?? levels × 3.5) × 100  // metros × 100 = cm
 
 **`useSimulationsController.ts`** — hook principal:
 - `captureBlueprint(bbox, onProgress)` — monta o blueprint completo
-- `runSimulation(type, resolution, bbox, config)` — executa simulação no backend
+- `runSimulation(type, resolution, bbox, config)` — executa simulação no backend sem sobrescrever `resultData` ou `blueprint`
 - `blueprint` — estado React do `CityBlueprint` atual
+
+Contrato obrigatório:
+
+1. `captureBlueprint()` é o único ponto que troca a cidade renderizada.
+2. `resultData` guarda o payload urbano usado para montar a cidade.
+3. `blueprint` guarda a versão compilada para WebGL.
+4. `runSimulation()` retorna a resposta física do backend, mas a cena permanece em `blueprint`.
+5. Eventos, enchente, terremoto, incêndio, neve e chuva entram por `simData` e uniforms do `CityScaleWebGL`.
 
 **`useSimulationStore.ts`** — store Zustand global:
 - `waterLevel` — nível da água (metros), passado ao `WaterLayer`
@@ -361,7 +393,8 @@ SimulationsPage
 | Elevação normalizada 0–1 no blueprint | Permite resampling independente de resolução; desnormalizado no shader com `elevationMin/Max`. |
 | Centímetros como unidade do motor | Precisão máxima para edifícios pequenos sem sacrificar escala de cidade (5km × 100 = 500.000 unidades). |
 | `SatelliteCanvasCache` global | Compartilha o canvas entre `CityBlueprintBuilder` (quem busca) e `CityScaleWebGL` (quem usa como textura) sem re-fetch. |
-| `Promise.all` para satélite + DEM | Carregamento paralelo reduz latência percebida. Falha de um não bloqueia o outro. |
+| Fallback backend `/scenes/data` fora do caminho normal | Preserva o fluxo de 21/03 e evita que `504` no scene-data bloqueie o frontend. |
+| `runSimulation()` sem `setResultData(response)` | Garante que a simulação física não substitua o payload urbano usado pela cena. |
 
 ---
 
@@ -371,3 +404,82 @@ SimulationsPage
 - O grid de densidade populacional (32×32) não é reamostrado para coincidir com o grid semântico/de elevação.
 - Dados climáticos globais buscam apenas temperatura/umidade, sem atividade sísmica.
 - DEM do backend (`osmData.elevationGrid`) frequentemente vazio — o `TerrainTileLoader` (AWS) é o fallback confiável.
+
+---
+
+## Processo Operacional 21/03
+
+O motor deve executar esta sequência para renderizar uma cidade:
+
+1. O usuário abre `/app/simulations` e seleciona a área no mapa.
+2. A página calcula `bbox = [minLat, minLon, maxLat, maxLon]`.
+3. `useSimulationsController.captureBlueprint(bbox)` inicia o fluxo e bloqueia captura duplicada via `isCapturingRef`.
+4. O frontend chama `POST /api/v1/urban/pipeline` com `minLat`, `minLon`, `maxLat`, `maxLon` e `resolution`.
+5. O backend retorna `UrbanSimulationResult` com `bbox`, `elevationGrid`, `urbanFeatures`, `soil`, `landCover`, `populationDensity` e metadados quando disponíveis.
+6. O frontend mescla hotspots opcionais e normaliza `urbanFeatures` para sempre existir como listas.
+7. `CityBlueprintBuilder.build()` carrega o satélite via `TileLoader.loadSatelliteTiles()`.
+8. O canvas de satélite é salvo em `SatelliteCanvasCache`, nunca serializado com `toDataURL()`.
+9. `SemanticTileProcessor` transforma o canvas em `SemanticGrid`.
+10. `CityBlueprintBuilder` reamostra a elevação para o grid semântico e calcula `worldSpanX/worldSpanZ`.
+11. O `CityBlueprint` é salvo em cache por bbox e enviado para `CityScaleWebGL`.
+12. `CityScaleWebGL` cria os programas WebGL, texturas, buffers, malha de terreno, vias, edifícios, água, zonas, amenidades, vegetação e partículas.
+13. O loop de render usa refs vivas para `simData`, `layers`, `topoScale`, iluminação e intensidade de partículas sem reconstruir o contexto WebGL a cada mudança.
+14. Ao rodar o cenário, `runSimulation()` chama `POST /api/simulation/run`, mas não substitui `resultData` nem `blueprint`.
+15. A cidade permanece igual; os efeitos de desastre mudam por uniforms de shader, overlays e `simData`.
+
+---
+
+## Ambiente Local Como 21/03
+
+Pré-requisitos:
+
+- Docker e Docker Compose disponíveis.
+- Portas livres: `8088` frontend, `8080` Keycloak, `8000` backend, `5432` Postgres, `8090` risk-analysis.
+- Arquivo `.env` opcional. Se necessário, copie `.env.example` para `.env` e ajuste apenas integrações externas.
+
+Subida limpa do ambiente:
+
+```bash
+docker compose build backend frontend risk-analysis
+docker compose up -d postgres keycloak backend frontend risk-analysis
+docker compose ps
+```
+
+URLs esperadas:
+
+| Serviço | URL |
+|---------|-----|
+| Frontend | `http://localhost:8088` |
+| Simulações | `http://localhost:8088/app/simulations` |
+| Backend direto | `http://localhost:8000/api/health` |
+| Backend via frontend | `http://localhost:8088/api/health` |
+| Keycloak | `http://localhost:8080` |
+
+Validação mínima:
+
+1. Abra `http://localhost:8088/app/simulations`.
+2. Faça login pelo Keycloak local.
+3. Escolha uma bbox pequena, idealmente entre `0.01` e `0.025` graus por eixo.
+4. Aguarde a etapa `INDEXING` terminar sem erro fatal.
+5. Confirme no HUD 3D:
+   - `MESH: REAL_OSM` quando houver OSM real.
+   - `SATELITE: ESRI` quando o canvas de satélite carregar.
+   - `SEMANTICA: ATIVO` quando a segmentação gerar geometria.
+6. Execute um cenário. A câmera, os edifícios e as vias devem permanecer na mesma cidade; apenas água, partículas, fogo, tremor, neve ou overlays devem mudar.
+
+Validação por API quando estiver autenticado:
+
+```bash
+curl -s http://localhost:8000/api/health
+```
+
+Para `POST /api/v1/urban/pipeline`, use o frontend logado ou um token local do realm `sos-location`. Esse endpoint deve responder antes do timeout do proxy; se Overpass estiver instável, o backend deve cair para fallback sintético em vez de deixar a página travar.
+
+Problemas conhecidos no console:
+
+| Mensagem | Interpretação |
+|----------|---------------|
+| Keycloak `silent-check-sso.html` sandbox warning | Aviso do iframe de SSO silencioso; não é erro de renderização 3D. |
+| SignalR negotiation stopped then WebSocket connected | Transitório quando a primeira negociação é cancelada e a conexão seguinte abre. |
+| `/api/simulation/v1/scenes/data` 504 | Não deve ocorrer no caminho normal do contrato 21/03; se aparecer, algum fluxo voltou a chamar scene-data como primário. |
+| Canvas `willReadFrequently` | `SemanticTileProcessor` deve pedir contexto 2D com `willReadFrequently: true`. |

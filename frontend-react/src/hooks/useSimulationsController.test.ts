@@ -6,6 +6,13 @@ import { simulationsApi } from '../services/simulationsApi';
 vi.mock('../services/simulationsApi', () => ({
   simulationsApi: {
     runSimulation: vi.fn(),
+    indexUrbanPipeline: vi.fn(),
+  },
+}));
+
+vi.mock('../services/dataHubApi', () => ({
+  dataHubApi: {
+    weatherForecast: vi.fn(() => new Promise(() => {})),
   },
 }));
 
@@ -39,11 +46,19 @@ describe('useSimulationsController', () => {
 
     const { result } = renderHook(() => useSimulationsController());
 
+    let response: unknown;
     await act(async () => {
-      await result.current.actions.runSimulation();
+      response = await result.current.actions.runSimulation();
     });
 
-    expect(result.current.resultData).toEqual(mockData);
+    expect(response).toEqual(mockData);
+    expect(result.current.resultData).toBeNull();
     expect(result.current.isSimulating).toBe(false);
+    expect(simulationsApi.runSimulation).toHaveBeenCalledWith(expect.objectContaining({
+      minLat: -21.1335,
+      minLon: -42.9547,
+      maxLat: -21.1095,
+      maxLon: -42.9307,
+    }));
   });
 });

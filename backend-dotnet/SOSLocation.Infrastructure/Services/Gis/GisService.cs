@@ -4,6 +4,7 @@ using SOSLocation.Application.DTOs.Simulation;
 using SOSLocation.Domain.Interfaces;
 using SOSLocation.Infrastructure.Services.Gis.Providers;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -16,6 +17,7 @@ namespace SOSLocation.Infrastructure.Services.Gis
         private readonly ILogger<GisService> _logger;
         private readonly IMemoryCache _cache;
         private readonly UrbanGeoprocessingService _urbanProcessor;
+        private readonly ConcurrentDictionary<string, Task<UrbanDataResponse>> _urbanFetches = new();
 
         public GisService(
             IEnumerable<IGisDataProvider> providers, 
@@ -92,10 +94,13 @@ namespace SOSLocation.Infrastructure.Services.Gis
                 }
             }
 
+            var fetchTask = _urbanFetches.GetOrAdd(
+                cacheKey,
+                _ => FetchUrbanFeaturesFromProviderAsync(provider, minLat, minLon, maxLat, maxLon));
+
             try
             {
-                var urbanData = (UrbanDataResponse?)await provider.FetchDataAsync(minLat, minLon, maxLat, maxLon)
-                    ?? new UrbanDataResponse();
+                var urbanData = await fetchTask;
 
                 if (!urbanData.IsSynthetic)
                 {
@@ -115,6 +120,24 @@ namespace SOSLocation.Infrastructure.Services.Gis
                 }
 
                 return urbanData;
+            }
+            finally
+            {
+                _urbanFetches.TryRemove(cacheKey, out _);
+            }
+        }
+
+        private async Task<UrbanDataResponse> FetchUrbanFeaturesFromProviderAsync(
+            OverpassProvider provider,
+            double minLat,
+            double minLon,
+            double maxLat,
+            double maxLon)
+        {
+            try
+            {
+                return (UrbanDataResponse?)await provider.FetchDataAsync(minLat, minLon, maxLat, maxLon)
+                    ?? new UrbanDataResponse();
             }
             catch (Exception ex)
             {

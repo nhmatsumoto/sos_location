@@ -235,6 +235,7 @@ export interface UrbanSimulationResult {
     parkingLots?: GISNaturalArea[];
     trees?: GISAmenity[];
     barriers?: GISHighway[];
+    metadata?: Record<string, unknown>;
   };
   soil?: {
     type: string;

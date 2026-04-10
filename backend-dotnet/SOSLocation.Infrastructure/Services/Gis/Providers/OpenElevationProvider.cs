@@ -18,7 +18,7 @@ namespace SOSLocation.Infrastructure.Services.Gis.Providers
     {
         private readonly HttpClient _httpClient;
         private readonly ILogger<OpenElevationProvider> _logger;
-        private const int SampleGrid = 32;   // 32×32 = 1024 sample points
+        private const int SampleGrid = 16;   // 16×16 keeps the GET URL below common proxy limits
         private const int TargetRes  = 128;  // upsampled output grid
 
         public string ProviderName => "OpenElevation";

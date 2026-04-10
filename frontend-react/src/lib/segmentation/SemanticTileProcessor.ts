@@ -27,7 +27,7 @@ export class SemanticTileProcessor {
    * @param tileSize Pixels per semantic cell — smaller = finer grid (default 16)
    */
   static classify(canvas: HTMLCanvasElement, tileSize = 16): SemanticGrid {
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) throw new Error('Could not get 2D context from canvas');
 
     const W = canvas.width;
