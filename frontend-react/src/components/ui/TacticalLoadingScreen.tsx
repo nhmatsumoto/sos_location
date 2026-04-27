@@ -9,7 +9,7 @@ const LOADING_STEPS = [
 
 export const TacticalLoadingScreen: React.FC = () => {
   const [progress, setProgress] = useState(0);
-  const [statusText, setStatusText] = useState(LOADING_STEPS[0]);
+  const [statusText, setStatusText] = useState<string>(LOADING_STEPS[0]);
 
   useEffect(() => {
     let step = 0;

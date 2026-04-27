@@ -174,10 +174,25 @@ using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<SOSLocationDbContext>();
 
+    const int maxRetries = 8;
+    const int retryDelaySeconds = 5;
+
     if (applyMigrationsOnStartup)
     {
-        Log.Information("Applying database migrations on startup.");
-        context.Database.Migrate();
+        for (int attempt = 1; attempt <= maxRetries; attempt++)
+        {
+            try
+            {
+                Log.Information("Applying database migrations on startup (attempt {Attempt}/{Max}).", attempt, maxRetries);
+                context.Database.Migrate();
+                break;
+            }
+            catch (Exception ex) when (attempt < maxRetries)
+            {
+                Log.Warning(ex, "Migration attempt {Attempt} failed. Retrying in {Delay}s...", attempt, retryDelaySeconds);
+                Thread.Sleep(TimeSpan.FromSeconds(retryDelaySeconds));
+            }
+        }
     }
     else
     {

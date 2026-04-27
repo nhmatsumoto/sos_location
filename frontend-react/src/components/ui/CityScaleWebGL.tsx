@@ -612,7 +612,7 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
       const identityMatrix = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
 
       // ── TERRAIN GEOMETRY (metric coordinates) ────────────────────────────────
-      // Grid resolution: 4× DEM resolution for smooth interpolated curves, min 512, max 1024.
+      // Grid resolution: 4× DEM resolution for smooth interpolated curves, min 512, max 2048.
       // WebGL2 Uint32Array IBO supports up to 4 billion indices — no practical limit.
       // At 1024×1024: ~2M triangles, ~33MB VBO + ~25MB IBO — fine on any modern GPU.
       const demRows = blueprint?.elevation?.length ?? resultData?.elevationGrid?.length ?? 0;
@@ -1672,6 +1672,7 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
           ];
         }
 
+        renderer.resizeToDisplaySize();
         const { width, height } = canvasRef.current;
         renderer.setViewport(width, height);
         renderer.clear(0.01, 0.02, 0.04, 1.0);
@@ -2429,10 +2430,14 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
         if (lcVegVBO) gl.deleteBuffer(lcVegVBO);
         if (lcWaterVBO) gl.deleteBuffer(lcWaterVBO);
         gl.deleteProgram(fireProgram);
+        renderer.dispose();
+        rendererRef.current = null;
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Falha ao iniciar visualizacao 3D.';
       console.error('CityScaleWebGL initialization failed', error);
+      rendererRef.current?.dispose();
+      rendererRef.current = null;
       setRenderInitError(message);
       return;
     }
@@ -2628,8 +2633,8 @@ export const CityScaleWebGL: React.FC<CityScaleWebGLProps> = ({
       <canvas
         ref={canvasRef}
         style={{ width: '100%', height: '100%', display: 'block' }}
-        width={window.innerWidth * window.devicePixelRatio}
-        height={window.innerHeight * window.devicePixelRatio}
+        width={1}
+        height={1}
       />
     </Box>
   );

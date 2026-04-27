@@ -17,6 +17,10 @@
 | [FEATURES.md](FEATURES.md) | Catálogo de funcionalidades |
 | [ANALYTICAL_MODELS_AND_PHYSICS.md](ANALYTICAL_MODELS_AND_PHYSICS.md) | Modelos matemáticos, físicos e notação AsciiMath |
 | [FRONTEND_TOTAL_REFACTOR_PLAN.md](FRONTEND_TOTAL_REFACTOR_PLAN.md) | Plano diretor da refatoração total do frontend |
+| [3D_ENGINE_AUDIT.md](3D_ENGINE_AUDIT.md) | Auditoria do motor 3D ativo, riscos e bugs corrigidos |
+| [3D_CITY_RENDERING_ARCHITECTURE.md](3D_CITY_RENDERING_ARCHITECTURE.md) | Arquitetura alvo para renderização 3D de cidades |
+| [3D_DATA_SOURCES_BRAZIL_JAPAN.md](3D_DATA_SOURCES_BRAZIL_JAPAN.md) | Fontes geoespaciais e estratégia Brasil/Japão |
+| [3D_DISASTER_OVERLAY_CONTRACT.md](3D_DISASTER_OVERLAY_CONTRACT.md) | Contrato de overlays de desastre para simulações futuras |
 | [API_ENDPOINT_MAP.md](API_ENDPOINT_MAP.md) | Mapa de endpoints da API |
 | [AUTHZ_ROLES.md](AUTHZ_ROLES.md) | Controle de acesso e papéis (RBAC) |
 | [DOMAIN_SPECIFICATION.md](DOMAIN_SPECIFICATION.md) | Especificação do domínio DDD |

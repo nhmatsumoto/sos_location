@@ -117,7 +117,7 @@ export function OperationalMapPage() {
   // Actually, I moved the logic to the hook but I need to expose the functions!
 
   return (
-    <div className="flex flex-col h-screen w-full bg-slate-900 text-slate-200 font-sans overflow-hidden">
+    <div className="flex h-screen w-full bg-slate-900 text-slate-200 font-sans overflow-hidden">
       <MapToolsSidebar 
         {...state} 
         displayedHotspots={displayedHotspots}
@@ -129,30 +129,32 @@ export function OperationalMapPage() {
         ENABLE_SIMULATION={ENABLE_SIMULATION}
       />
 
-      <OperationalMap 
-        {...state}
-        displayedHotspots={displayedHotspots}
-        flowPathLatLng={flowPathLatLng}
-        openPanel={openPanel}
-      />
+      <div className="relative flex-1 min-w-0">
+        <OperationalMap 
+          {...state}
+          displayedHotspots={displayedHotspots}
+          flowPathLatLng={flowPathLatLng}
+          openPanel={openPanel}
+        />
 
-      <div className="absolute inset-x-0 bottom-0 z-420 pointer-events-none p-4 flex items-end justify-between">
-        <div className="flex gap-4 pointer-events-auto">
-          {!state.dockedPanels.global && (
-            <DraggablePanel 
-              title="Condições Locais" 
-              position={state.floatingPanelPositions.global}
-              onDragStart={() => {}} // Handle drag
-              onToggleDock={() => state.setDockedPanels((p) => ({ ...p, global: !p.global }))}
-            >
-              <LocalConditionsPanel 
-                snapshot={state.climakiSnapshot} 
-                loading={state.loadingClimaki} 
-                error={state.climakiError} 
-                onRefresh={state.loadClimakiContext} 
-              />
-            </DraggablePanel>
-          )}
+        <div className="absolute inset-x-0 bottom-0 z-420 pointer-events-none p-4 flex items-end justify-between">
+          <div className="flex gap-4 pointer-events-auto">
+            {!state.dockedPanels.global && (
+              <DraggablePanel 
+                title="Condições Locais" 
+                position={state.floatingPanelPositions.global}
+                onDragStart={() => {}} // Handle drag
+                onToggleDock={() => state.setDockedPanels((p) => ({ ...p, global: !p.global }))}
+              >
+                <LocalConditionsPanel 
+                  snapshot={state.climakiSnapshot} 
+                  loading={state.loadingClimaki} 
+                  error={state.climakiError} 
+                  onRefresh={state.loadClimakiContext} 
+                />
+              </DraggablePanel>
+            )}
+          </div>
         </div>
       </div>
 

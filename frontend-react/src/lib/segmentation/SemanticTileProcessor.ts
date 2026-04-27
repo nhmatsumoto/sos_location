@@ -218,12 +218,13 @@ export class SemanticTileProcessor {
    * Vertex layout (8 floats): [x, y, z, semanticClass, intensity, u, v, isFace]
    *   isFace=0 → terrain cell (shader applies topo displacement)
    *   isFace=1 → building face (y is already in world units)
+   * @param worldUnitsPerMeter scene scale multiplier, e.g. 100 when 1 unit = 1 cm
    */
   static buildGeometry(
     grid: SemanticGrid,
     worldScale: number,
     areaHalf: number,
-    metersPerUnit: number,
+    worldUnitsPerMeter: number,
   ): { terrainVerts: Float32Array; buildingVerts: Float32Array } {
     const terrainArr: number[] = [];
     const buildingArr: number[] = [];
@@ -259,7 +260,7 @@ export class SemanticTileProcessor {
         // 3D extrusion for built-up classes
         const heightM = SemanticTileProcessor.estimateHeight(cls, inten);
         if (heightM > 0) {
-          const h = heightM / metersPerUnit;
+          const h = heightM * worldUnitsPerMeter;
           const cx = (x0 + x1) / 2;
           const cz = (z0 + z1) / 2;
           const hw = cellW * 0.42;
@@ -297,7 +298,7 @@ export class SemanticTileProcessor {
           const cx = (x0 + x1) / 2;
           const cz = (z0 + z1) / 2;
           // Tree height: 4–12 m based on intensity
-          const treeH = (4 + inten * 8) / metersPerUnit;
+          const treeH = (4 + inten * 8) * worldUnitsPerMeter;
           const trunkH = treeH * 0.25;
           const crownR = Math.min(cellW, cellH) * 0.38;
 
@@ -330,7 +331,7 @@ export class SemanticTileProcessor {
         if (cls === SemanticClass.BARE_GROUND && inten > 0.5 && (row + col) % 4 === 0) {
           const cx = (x0 + x1) / 2;
           const cz = (z0 + z1) / 2;
-          const mH = (2 + inten * 3) / metersPerUnit;
+          const mH = (2 + inten * 3) * worldUnitsPerMeter;
           const mR = Math.min(cellW, cellH) * 0.25;
           buildingArr.push(
             cx - mR, 0,  cz - mR, cls, inten, u0, v0, 1,

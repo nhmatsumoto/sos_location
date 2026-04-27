@@ -19,6 +19,8 @@ import { reportsApi } from '../services/reportsApi';
 import { demarcationsApi } from '../services/demarcationsApi';
 import { frontendLogger } from '../lib/logger';
 
+export type OperationalSidebarTab = 'news' | 'hotspots' | 'support' | 'volunteers' | 'admin';
+
 const mapNewsToUpdate = (item: NewsNotification, fallbackCity: string): NewsUpdate => {
   const publishedAtUtc = item.publishedAtUtc ?? item.publishedAt ?? item.at ?? new Date().toISOString();
   const city = item.location || item.country || (fallbackCity && fallbackCity !== 'Todas' ? fallbackCity : 'Global');
@@ -34,6 +36,14 @@ const mapNewsToUpdate = (item: NewsNotification, fallbackCity: string): NewsUpda
     thumbnailUrl: item.thumbnailUrl || 'https://portaldatransparencia.gov.br/favicon.ico',
     kind: topic.includes('government') || topic.includes('governo') ? 'government_action' : 'alert',
   };
+};
+
+const getSidebarTabFromPath = (pathname: string): OperationalSidebarTab => {
+  if (pathname === '/news' || pathname === '/app/news') return 'news';
+  if (pathname === '/support' || pathname === '/app/support' || pathname === '/app/rescue-support') return 'support';
+  if (pathname === '/volunteers' || pathname === '/app/volunteer') return 'volunteers';
+  if (pathname === '/admin' || pathname === '/admin/approvals' || pathname === '/admin/data-sources') return 'admin';
+  return 'hotspots';
 };
 
 export function useOperationalState() {
@@ -86,11 +96,14 @@ export function useOperationalState() {
   const [demarcationForm, setDemarcationForm] = useState(initialDemarcationForm);
   
   const location = useLocation();
-  const sidebarTab = useMemo<'news' | 'hotspots' | 'support' | 'volunteers'>(() => {
-    if (location.pathname === '/news') return 'news';
-    if (location.pathname === '/support') return 'support';
-    if (location.pathname === '/volunteers') return 'volunteers';
-    return 'hotspots';
+  const [sidebarTab, setSidebarTab] = useState<OperationalSidebarTab>(() => getSidebarTabFromPath(location.pathname));
+
+  useEffect(() => {
+    if (location.pathname === '/app/operational-map') {
+      return;
+    }
+
+    setSidebarTab(getSidebarTabFromPath(location.pathname));
   }, [location.pathname]);
 
   const [mapActionMode, setMapActionMode] = useState<'none' | 'incident' | 'risk' | 'support' | 'demarcation'>('none');
@@ -385,6 +398,7 @@ export function useOperationalState() {
     demarcationSuccess,
     demarcationForm, setDemarcationForm,
     sidebarTab,
+    setSidebarTab,
     mapActionMode, setMapActionMode,
     mapQuickMenu, setMapQuickMenu,
     lastMapClick, setLastMapClick,

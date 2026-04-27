@@ -74,7 +74,6 @@ export class RenderOrchestrator {
   public update(lat: number, lon: number, activeLayers?: TerrainLayerConfig) {
     if (activeLayers) this.activeLayers = activeLayers;
     this.streamManager.update(lat, lon);
-    this.streamManager.update(lat, lon);
     
     if (this.terrainSystem) {
       this.terrainSystem.update(lat, lon, this.activeLayers);

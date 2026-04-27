@@ -3,7 +3,7 @@ import { apiClient } from '../services/apiClient';
 import type { AttentionAlert, MissingPerson, Hotspot } from '../types';
 import { initialMissingForm, initialRiskForm } from '../constants';
 
-type HotspotApiRecord = Partial<Hotspot> & {
+type HotspotApiRecord = Omit<Partial<Hotspot>, 'riskFactors'> & {
   lat?: number | string | null;
   lng?: number | string | null;
   score?: number | string | null;

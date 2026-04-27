@@ -50,7 +50,7 @@ const renderIconNode = (
   return <Icon as={icon as ElementType} boxSize={boxSize} color={color} />;
 };
 
-export interface PageHeaderProps extends BoxProps {
+export interface PageHeaderProps extends Omit<BoxProps, 'title'> {
   title: ReactNode;
   description?: ReactNode;
   eyebrow?: string;
@@ -121,7 +121,7 @@ export function PageHeader({
   );
 }
 
-export interface PagePanelProps extends BoxProps {
+export interface PagePanelProps extends Omit<BoxProps, 'title'> {
   title?: ReactNode;
   description?: ReactNode;
   eyebrow?: string;
@@ -273,7 +273,7 @@ export function MetricCard({
   );
 }
 
-interface StateFrameProps extends CenterProps {
+interface StateFrameProps extends Omit<CenterProps, 'title'> {
   title: ReactNode;
   description?: ReactNode;
   action?: ReactNode;

@@ -79,7 +79,7 @@ export const OperationalMap: React.FC<OperationalMapProps> = (props) => {
   } = props;
 
   return (
-    <div ref={mapOverlayRef} className="w-full flex-1 relative z-10">
+    <div ref={mapOverlayRef} className="relative z-10 h-full w-full">
       <TacticalMap 
         center={[-21.1215, -42.9427]} 
         zoom={14} 

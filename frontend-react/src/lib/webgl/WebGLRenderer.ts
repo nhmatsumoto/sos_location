@@ -6,6 +6,7 @@
 export class WebGLRenderer {
   private gl: WebGL2RenderingContext;
   private program: WebGLProgram | null = null;
+  private disposed = false;
 
   constructor(canvas: HTMLCanvasElement) {
     const gl = canvas.getContext('webgl2', { antialias: true, alpha: true });
@@ -17,6 +18,10 @@ export class WebGLRenderer {
 
   public getContext(): WebGL2RenderingContext {
     return this.gl;
+  }
+
+  public getCanvas(): HTMLCanvasElement {
+    return this.gl.canvas as HTMLCanvasElement;
   }
 
   public createShader(type: number, source: string): WebGLShader {
@@ -63,6 +68,23 @@ export class WebGLRenderer {
 
   public setSize(width: number, height: number) {
     this.gl.viewport(0, 0, width, height);
+  }
+
+  public resizeToDisplaySize(maxDevicePixelRatio = 2): boolean {
+    const canvas = this.getCanvas();
+    const rect = canvas.getBoundingClientRect();
+    const dpr = Math.max(1, Math.min(maxDevicePixelRatio, window.devicePixelRatio || 1));
+    const width = Math.max(1, Math.floor(rect.width * dpr));
+    const height = Math.max(1, Math.floor(rect.height * dpr));
+
+    if (canvas.width === width && canvas.height === height) {
+      return false;
+    }
+
+    canvas.width = width;
+    canvas.height = height;
+    this.setSize(width, height);
+    return true;
   }
 
   public setViewport(width: number, height: number) {
@@ -152,5 +174,17 @@ export class WebGLRenderer {
     if (!this.program) throw new Error('No program in use.');
     const location = this.gl.getUniformLocation(this.program, name);
     this.gl.uniform4f(location, x, y, z, w);
+  }
+
+  public dispose(options: { loseContext?: boolean } = {}) {
+    if (this.disposed) return;
+    this.gl.useProgram(null);
+    this.program = null;
+
+    if (options.loseContext) {
+      this.gl.getExtension('WEBGL_lose_context')?.loseContext();
+    }
+
+    this.disposed = true;
   }
 }

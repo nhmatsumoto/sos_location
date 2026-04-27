@@ -1,17 +1,19 @@
 import React from 'react';
 import { 
   Flame, Newspaper, Users, 
-  AlertTriangle, Play, Activity, LayoutGrid, Brain,
+  AlertTriangle, Play, Activity, LayoutGrid, Brain, LifeBuoy,
   Camera, MapPin
 } from 'lucide-react';
 import type { 
   Hotspot, NewsUpdate, MissingPerson, AttentionAlert, SupportPoint, 
   DonationTask, Catastrophe, MapDemarcation
 } from '../types';
+import type { OperationalSidebarTab } from '../hooks/useOperationalState';
 import { MapToolsPanel } from './MapToolsPanel.tsx';
 
 interface MapToolsSidebarProps {
-  sidebarTab: 'news' | 'hotspots' | 'support' | 'volunteers' | 'admin';
+  sidebarTab: OperationalSidebarTab;
+  setSidebarTab: (tab: OperationalSidebarTab) => void;
   hotspots: Hotspot[];
   displayedHotspots: Hotspot[];
   loading: boolean;
@@ -56,14 +58,27 @@ interface MapToolsSidebarProps {
   setMissingError: (err: string) => void;
   setMissingSuccess: (msg: string) => void;
   demarcations: MapDemarcation[];
-  setMapActionMode: (mode: any) => void;
+  mapActionMode: 'none' | 'incident' | 'risk' | 'support' | 'demarcation';
+  setMapActionMode: (mode: 'none' | 'incident' | 'risk' | 'support' | 'demarcation') => void;
 }
+
+const sidebarSections: Array<{
+  id: OperationalSidebarTab;
+  label: string;
+  icon: typeof Flame;
+}> = [
+  { id: 'hotspots', label: 'Hotspots', icon: Flame },
+  { id: 'support', label: 'Apoio', icon: LifeBuoy },
+  { id: 'volunteers', label: 'Voluntários', icon: Users },
+  { id: 'news', label: 'Notícias', icon: Newspaper },
+  { id: 'admin', label: 'Admin', icon: Brain },
+];
 
 export const MapToolsSidebar: React.FC<MapToolsSidebarProps> = (props) => {
   const {
-    sidebarTab, displayedHotspots, loading, 
+    sidebarTab, setSidebarTab, displayedHotspots, loading, 
     filteredNewsUpdates, loadingNews, selectedNewsCity, setSelectedNewsCity,
-    missingPeople, attentionAlerts, 
+    missingPeople, attentionAlerts, supportPoints,
     donationTasks, donationForm, setDonationForm, handleDonationSubmit,
     catastrophes, selectedCatastropheId, setSelectedCatastropheId,
     activeCatastrophe, catastropheEventForm, setCatastropheEventForm,
@@ -72,12 +87,32 @@ export const MapToolsSidebar: React.FC<MapToolsSidebarProps> = (props) => {
     ENABLE_SIMULATION, splatForm, setSplatForm, handleSplatUpload,
     splatUploading, splatError, setShowMissingModal,
     setShowUploadModal, setUploadError, setUploadSuccess, setMissingError,
-    setMissingSuccess, demarcations, setMapActionMode
+    setMissingSuccess, demarcations, mapActionMode, setMapActionMode
   } = props;
 
   return (
     <MapToolsPanel title="Painel de ferramentas">
       <>
+        <div className="sticky top-0 z-20 border-b border-slate-700 bg-slate-900/95 px-3 py-3 backdrop-blur">
+          <div className="grid grid-cols-2 gap-2">
+            {sidebarSections.map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setSidebarTab(id)}
+                className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold transition-colors ${
+                  sidebarTab === id
+                    ? 'border-cyan-500/60 bg-cyan-500/15 text-cyan-100'
+                    : 'border-slate-700 bg-slate-800/70 text-slate-300 hover:border-slate-500 hover:bg-slate-800'
+                }`}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                <span>{label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className={`px-4 py-3 border-b border-slate-700 bg-slate-800/50 transition-all duration-300 ${sidebarTab === 'hotspots' ? 'opacity-100 translate-y-0' : 'hidden opacity-0 -translate-y-1'}`}>
           <h2 className="text-xs uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-2">
             <Flame className="w-3 h-3" /> Catástrofe (modo operacional)
@@ -254,6 +289,87 @@ export const MapToolsSidebar: React.FC<MapToolsSidebarProps> = (props) => {
         </div>
 
         <div className={`px-4 py-3 border-b border-slate-700 bg-slate-800/50 transition-all duration-300 ${sidebarTab === 'support' ? 'opacity-100 translate-y-0' : 'hidden opacity-0 -translate-y-1'}`}>
+          <h2 className="mb-2 flex items-center gap-2 text-xs uppercase tracking-wider text-slate-400">
+            <LifeBuoy className="h-3 w-3" /> Apoio tático no mapa
+          </h2>
+          <p className="mb-3 text-[11px] text-slate-400">Use estas ações para selecionar o incidente principal, registrar pontos de apoio e abrir uma área de risco diretamente no mapa.</p>
+
+          <div className="mb-3 grid grid-cols-2 gap-2 text-[11px]">
+            <div className="rounded border border-slate-700 bg-slate-900/60 p-2">
+              <p className="text-slate-400">Pontos de apoio</p>
+              <p className="font-semibold text-cyan-300">{supportPoints.length}</p>
+            </div>
+            <div className="rounded border border-slate-700 bg-slate-900/60 p-2">
+              <p className="text-slate-400">Modo ativo</p>
+              <p className="font-semibold text-white">{mapActionMode === 'none' ? 'Nenhum' : mapActionMode}</p>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <button
+              type="button"
+              onClick={() => setMapActionMode('incident')}
+              className={`w-full rounded px-3 py-2 text-xs font-semibold transition-colors ${
+                mapActionMode === 'incident'
+                  ? 'bg-cyan-500 text-slate-950'
+                  : 'bg-cyan-600 text-white hover:bg-cyan-500'
+              }`}
+            >
+              Selecionar ponto do incidente
+            </button>
+            <button
+              type="button"
+              onClick={() => setMapActionMode('support')}
+              className={`w-full rounded px-3 py-2 text-xs font-semibold transition-colors ${
+                mapActionMode === 'support'
+                  ? 'bg-emerald-400 text-slate-950'
+                  : 'bg-emerald-600 text-white hover:bg-emerald-500'
+              }`}
+            >
+              Adicionar ponto de apoio
+            </button>
+            <button
+              type="button"
+              onClick={() => setMapActionMode('risk')}
+              className={`w-full rounded px-3 py-2 text-xs font-semibold transition-colors ${
+                mapActionMode === 'risk'
+                  ? 'bg-amber-400 text-slate-950'
+                  : 'bg-amber-600 text-white hover:bg-amber-500'
+              }`}
+            >
+              Registrar área de risco
+            </button>
+          </div>
+
+          {selectedIncidentPoint ? (
+            <div className="mt-3 rounded-xl border border-slate-700 bg-slate-900/60 p-3 text-[11px]">
+              <p className="mb-1 font-semibold text-white">Incidente selecionado</p>
+              <p className="text-slate-400">{selectedIncidentPoint.lat.toFixed(5)}, {selectedIncidentPoint.lng.toFixed(5)}</p>
+              <button
+                type="button"
+                onClick={() => setMapActionMode('support')}
+                className="mt-2 w-full rounded border border-slate-600 px-2 py-1.5 text-xs text-slate-200 transition-colors hover:border-cyan-400"
+              >
+                Marcar apoio a partir deste incidente
+              </button>
+            </div>
+          ) : (
+            <p className="mt-3 text-[11px] text-slate-500">Nenhum incidente marcado. Clique em "Selecionar ponto do incidente" e depois escolha a posição no mapa.</p>
+          )}
+
+          <div className="mt-4 border-t border-slate-700 pt-3">
+            <h3 className="mb-2 text-[11px] uppercase tracking-wide text-slate-400">Últimos pontos de apoio</h3>
+            <ul className="space-y-2">
+              {supportPoints.slice(0, 4).map((point) => (
+                <li key={point.id} className="rounded-md border border-slate-700 bg-slate-900/60 p-2 text-xs">
+                  <p className="font-semibold text-white">{point.type}</p>
+                  <p className="text-slate-400">{point.lat.toFixed(5)}, {point.lng.toFixed(5)}</p>
+                  {point.notes ? <p className="mt-1 text-slate-500">{point.notes}</p> : null}
+                </li>
+              ))}
+              {supportPoints.length === 0 ? <p className="text-[11px] text-slate-500">Nenhum ponto de apoio cadastrado nesta sessão.</p> : null}
+            </ul>
+          </div>
         </div>
 
         <div className={`px-4 py-3 border-b border-slate-700 bg-slate-800/50 transition-all duration-300 ${sidebarTab === 'admin' ? 'opacity-100 translate-y-0' : 'hidden opacity-0 -translate-y-1'}`}>
@@ -268,8 +384,13 @@ export const MapToolsSidebar: React.FC<MapToolsSidebarProps> = (props) => {
                 <LayoutGrid className="w-3 h-3" /> Ferramentas de Campo
               </h3>
               <button
+                type="button"
                 onClick={() => setMapActionMode('demarcation')}
-                className="w-full flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
+                className={`w-full flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  mapActionMode === 'demarcation'
+                    ? 'bg-purple-400 text-slate-950'
+                    : 'bg-purple-600 text-white hover:bg-purple-500'
+                }`}
               >
                 <MapPin className="w-3 h-3" /> Demarcar Ponto Operacional
               </button>

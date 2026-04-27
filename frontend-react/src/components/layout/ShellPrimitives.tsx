@@ -5,9 +5,9 @@ import {
   Text,
   type BadgeProps,
   type BoxProps,
-  type HStackProps,
   type TextProps,
 } from '@chakra-ui/react';
+import { createElement } from 'react';
 
 type ShellSurfaceVariant = 'panel' | 'toolbar' | 'subtle' | 'rail';
 type ShellTone = 'default' | 'info' | 'success' | 'warning' | 'critical';
@@ -79,20 +79,23 @@ export function ShellSurface({
 }
 
 export function ShellSectionEyebrow(props: TextProps) {
-  return (
-    <Text
-      fontSize="10px"
-      fontWeight="700"
-      color="text.tertiary"
-      textTransform="uppercase"
-      letterSpacing="widest"
-      {...props}
-    />
-  );
+  return createElement(Text, {
+    fontSize: '10px',
+    fontWeight: '700',
+    color: 'text.tertiary',
+    textTransform: 'uppercase',
+    letterSpacing: 'widest',
+    ...props,
+  });
 }
 
-export interface ShellLiveIndicatorProps extends HStackProps {
+type ResponsiveStyleValue = string | number | Record<string, string | number>;
+
+export interface ShellLiveIndicatorProps {
   label: string;
+  px?: ResponsiveStyleValue;
+  py?: ResponsiveStyleValue;
+  className?: string;
 }
 
 export function ShellLiveIndicator({
@@ -124,18 +127,16 @@ export function ShellTelemetryBadge({
   tone = 'default',
   ...props
 }: ShellTelemetryBadgeProps) {
-  return (
-    <Badge
-      px={2}
-      py={1}
-      borderRadius="full"
-      border="1px solid"
-      fontSize="10px"
-      fontWeight="700"
-      letterSpacing="wider"
-      textTransform="uppercase"
-      {...toneStyles[tone]}
-      {...props}
-    />
-  );
+  return createElement(Badge, {
+    px: 2,
+    py: 1,
+    borderRadius: 'full',
+    border: '1px solid',
+    fontSize: '10px',
+    fontWeight: '700',
+    letterSpacing: 'wider',
+    textTransform: 'uppercase',
+    ...toneStyles[tone],
+    ...props,
+  });
 }

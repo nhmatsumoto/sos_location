@@ -37,6 +37,7 @@ export class ThreeSceneManager {
     this.bars.forEach((mesh, id) => {
       if (!keep.has(id)) {
         this.scene.remove(mesh);
+        this.disposeMesh(mesh);
         this.bars.delete(id);
       }
     });
@@ -44,10 +45,17 @@ export class ThreeSceneManager {
     nextBars.forEach((bar) => {
       const geometry = new THREE.BoxGeometry(10, Math.max(4, bar.height), 10);
       const material = new THREE.MeshBasicMaterial({ color: '#22d3ee' });
-      const mesh = this.bars.get(bar.id) ?? new THREE.Mesh(geometry, material);
-      mesh.position.set(bar.x, bar.y - bar.height / 2, 0);
-      this.scene.add(mesh);
-      this.bars.set(bar.id, mesh);
+      const mesh = this.bars.get(bar.id);
+      if (mesh) {
+        this.disposeGeometry(mesh.geometry);
+        this.disposeMaterial(mesh.material);
+        mesh.geometry = geometry;
+        mesh.material = material;
+      }
+      const nextMesh = mesh ?? new THREE.Mesh(geometry, material);
+      nextMesh.position.set(bar.x, bar.y - bar.height / 2, 0);
+      this.scene.add(nextMesh);
+      this.bars.set(bar.id, nextMesh);
     });
   }
 
@@ -56,6 +64,28 @@ export class ThreeSceneManager {
   }
 
   dispose() {
+    this.bars.forEach((mesh) => {
+      this.scene.remove(mesh);
+      this.disposeMesh(mesh);
+    });
+    this.bars.clear();
     this.renderer.dispose();
+  }
+
+  private disposeMesh(mesh: THREE.Mesh) {
+    this.disposeGeometry(mesh.geometry);
+    this.disposeMaterial(mesh.material);
+  }
+
+  private disposeGeometry(geometry: THREE.BufferGeometry) {
+    geometry.dispose();
+  }
+
+  private disposeMaterial(material: THREE.Material | THREE.Material[]) {
+    if (Array.isArray(material)) {
+      material.forEach((item) => item.dispose());
+      return;
+    }
+    material.dispose();
   }
 }
