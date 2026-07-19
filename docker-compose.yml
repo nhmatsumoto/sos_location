@@ -1,217 +1,104 @@
-name: sos-location-simulation
+name: sos-location
 
 services:
   postgres:
-    image: postgres:15-alpine
-    pull_policy: always
-    container_name: sos-location-db-postgres
-    restart: unless-stopped
+    image: postgis/postgis:18-3.6
     environment:
-      POSTGRES_DB: sos_location
-      POSTGRES_USER: sos_location_user
-      POSTGRES_PASSWORD: sos_location_password
-      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256 --auth-local=scram-sha-256
+      POSTGRES_DB: ${POSTGRES_DB:-sos_location}
+      POSTGRES_USER: ${POSTGRES_USER:-sos}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sos_dev_password}
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      # PostgreSQL 18+: montar em /var/lib/postgresql (dados ficam em subdiretório versionado).
+      - postgres-data:/var/lib/postgresql
     ports:
-      - "5432:5432"
-    command:
-      - postgres
-      - -c
-      - max_connections=200
-      - -c
-      - shared_buffers=256MB
-      - -c
-      - work_mem=8MB
-      - -c
-      - maintenance_work_mem=64MB
-      - -c
-      - effective_cache_size=1GB
-      - -c
-      - idle_in_transaction_session_timeout=60000
-      - -c
-      - statement_timeout=120000
+      - "${POSTGRES_PORT:-5432}:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U sos_location_user -d sos_location"]
-      interval: 10s
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sos} -d ${POSTGRES_DB:-sos_location}"]
+      interval: 5s
       timeout: 5s
-      retries: 6
-    networks:
-      - sos-location-network
+      retries: 12
+    networks: [sos]
 
-  keycloak:
-    image: quay.io/keycloak/keycloak:26.0
-    container_name: sos-location-sso-keycloak
-    restart: unless-stopped
-    command:
-      [
-        "start-dev",
-        "--import-realm",
-        "--http-enabled=true",
-        "--hostname-strict=false"
-      ]
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
     environment:
-      KC_HEALTH_ENABLED: "true"
-      KC_HTTP_PORT: 8080
-      KC_HTTP_ENABLED: "true"
-      # Optimize JVM for low-memory environment to prevent disk thrashing
-      JAVA_OPTS: "-Xms256m -Xmx512m -XX:+UseG1GC"
-      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
-      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-sos-minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-sos_minio_dev_password}
     volumes:
-      - ./infra/keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
-      - ./infra/keycloak/theme/sos-theme:/opt/keycloak/themes/sos-theme:ro
-      - ./infra/certs:/opt/keycloak/data/certs:ro
-      - keycloak_data:/opt/keycloak/data
+      - minio-data:/data
     ports:
-      - "${KEYCLOAK_PORT:-8080}:8080"
+      - "${MINIO_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
     healthcheck:
-      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/9000; echo -e \"GET /health/live HTTP/1.1\\r\\nhost: localhost\\r\\nConnection: close\\r\\n\\r\\n\" >&3; cat <&3 | grep -q \"200 OK\"'"]
-      interval: 10s
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
       timeout: 5s
-      retries: 15
-      start_period: 45s
-    networks:
-      - sos-location-network
+      retries: 12
+    networks: [sos]
 
-  backend:
-    build:
-      context: ./backend-dotnet
-      dockerfile: Dockerfile
-    container_name: sos-location-api-backend-net
-    labels:
-      - "version=2.0.0"
-    restart: unless-stopped
-    environment:
-      - ASPNETCORE_ENVIRONMENT=Development
-      - ASPNETCORE_URLS=http://+:8000
-      - ConnectionStrings__DefaultConnection=Host=postgres;Database=sos_location;Username=sos_location_user;Password=sos_location_password
-      - Keycloak__Authority=http://keycloak:8080/realms/sos-location
-      - Keycloak__Audience=sos-location-frontend
-      - Keycloak__RequireHttpsMetadata=false
-      - ExternalIntegrations__InmetUrl=${INMET_URL:-https://apiprevmet3.inmet.gov.br/avisos/ativos}
-      - ExternalIntegrations__OpenTopographyUrl=${OPENTOPOGRAPHY_URL:-https://portal.opentopography.org/API/globaldem}
-      - ExternalIntegrations__OpenTopographyApiKey=${OPENTOPOGRAPHY_API_KEY:-}
-      - ExternalIntegrations__OverpassUrl=${OVERPASS_URL:-https://overpass-api.de/api/interpreter}
-      - ExternalIntegrations__OpenMeteoUrl=${OPENMETEO_URL:-https://api.open-meteo.com/v1/forecast}
-      - ExternalIntegrations__EarthdataToken=${NASA_EARTHDATA_TOKEN:-}
-      - ExternalIntegrations__RiskServiceUrl=http://risk-analysis:8000
-      - RISK_ENGINE_URL=http://risk-analysis:8000
-      - ExternalIntegrations__CacheExpirationMinutes=${GIS_CACHE_EXPIRATION_MINUTES:-15}
-      - ExternalIntegrations__IndexingIntervalMinutes=${GIS_INDEXING_INTERVAL_MINUTES:-30}
-    volumes:
-      - ./infra/certs:/app/certs:ro
-    depends_on:
-      postgres:
-        condition: service_healthy
-      keycloak:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-fkL", "http://localhost:8000/api/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    ports:
-      - "${BACKEND_PORT:-8001}:8001"
-      - "8000:8000"
-    networks:
-      - sos-location-network
-
-  frontend:
+  api:
     build:
       context: .
-      dockerfile: ./frontend-react/Dockerfile
-      args:
-        - VITE_API_BASE_URL=/api
-        - VITE_KEYCLOAK_URL=http://localhost:8080
-        - BUILD_HASH=${BUILD_HASH:-dev}
-    container_name: sos-location-web-frontend
-    labels:
-      - "version=2.0.0"
+      dockerfile: infra/docker/Dockerfile.api
+      network: host
+    # DNS explícito: hosts com systemd-resolved (127.0.0.53) quebram a resolução
+    # externa na rede bridge; Nominatim/Overpass precisam resolver em runtime.
+    dns: [1.1.1.1, 8.8.8.8]
     environment:
-      VITE_API_BASE_URL: /api
-      VITE_KEYCLOAK_URL: http://localhost:8080
-    ports:
-      - "${FRONTEND_PORT:-8088}:8000"
-    restart: unless-stopped
-    depends_on:
-      backend:
-        condition: service_started
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000"]
-      interval: 20s
-      timeout: 10s
-      retries: 5
-      start_period: 20s
-    networks:
-      - sos-location-network
-
-  dozzle:
-    image: amir20/dozzle:latest
-    container_name: sos-location-logs-dozzle
-    restart: unless-stopped
-    environment:
-      DOZZLE_LEVEL: ${DOZZLE_LEVEL:-info}
-      DOZZLE_TAILSIZE: ${DOZZLE_TAILSIZE:-300}
-      DOZZLE_NO_ANALYTICS: "true"
-    ports:
-      - "${DOZZLE_PORT:-9999}:8080"
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    depends_on:
-      backend:
-        condition: service_healthy
-      frontend:
-        condition: service_healthy
-    networks:
-      - sos-location-network
-
-  risk-analysis:
-    build:
-      context: ./risk-analysis-unit
-      dockerfile: Dockerfile
-    container_name: sos-location-ml-risk-unit
-    labels:
-      - "version=2.0.0"
-    restart: unless-stopped
-    environment:
-      - INTERNAL_API_URL=http://backend:8000
-      - PYTHONUNBUFFERED=1
-    volumes:
-      - ./risk_model_parameters.json:/app/model_parameters.json:ro
-      - ./risk_training_data.csv:/app/training_data.csv:ro
-    depends_on:
-      backend:
-        condition: service_healthy
-    ports:
-      - "8090:8000"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    networks:
-      - sos-location-network
-
-  db-backup:
-    build:
-      context: ./infra/db-backup
-    container_name: sos-location-db-backup
-    restart: unless-stopped
-    environment:
-      - PGPASSWORD=sos_location_password
-    volumes:
-      - ./infra/backups:/backups
+      ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-sos_location};Username=${POSTGRES_USER:-sos};Password=${POSTGRES_PASSWORD:-sos_dev_password}"
+      ObjectStorage__Endpoint: "minio:9000"
+      ObjectStorage__AccessKey: ${MINIO_ROOT_USER:-sos-minio}
+      ObjectStorage__SecretKey: ${MINIO_ROOT_PASSWORD:-sos_minio_dev_password}
+      ObjectStorage__Bucket: ${MINIO_BUCKET:-sos-location}
+      Fixture__Path: /app/tools/fixtures/demo-district.geojson
+      Cors__AllowedOrigins__0: http://localhost:8080
+      Cors__AllowedOrigins__1: http://localhost:5173
     depends_on:
       postgres:
         condition: service_healthy
-    networks:
-      - sos-location-network
+      minio:
+        condition: service_healthy
+    ports:
+      - "${API_PORT:-5080}:8080"
+    networks: [sos]
+
+  worker:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.worker
+      network: host
+    dns: [1.1.1.1, 8.8.8.8]
+    environment:
+      ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-sos_location};Username=${POSTGRES_USER:-sos};Password=${POSTGRES_PASSWORD:-sos_dev_password}"
+      ObjectStorage__Endpoint: "minio:9000"
+      ObjectStorage__AccessKey: ${MINIO_ROOT_USER:-sos-minio}
+      ObjectStorage__SecretKey: ${MINIO_ROOT_PASSWORD:-sos_minio_dev_password}
+      ObjectStorage__Bucket: ${MINIO_BUCKET:-sos-location}
+      Fixture__Path: /app/tools/fixtures/demo-district.geojson
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks: [sos]
+
+  web:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.web
+      network: host
+    depends_on:
+      api:
+        condition: service_started
+    ports:
+      - "${WEB_PORT:-8080}:80"
+    networks: [sos]
 
 volumes:
-  postgres_data:
-  keycloak_data:
+  postgres-data:
+  minio-data:
 
 networks:
-  sos-location-network:
+  sos:
     driver: bridge

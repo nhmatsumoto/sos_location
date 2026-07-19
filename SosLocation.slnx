@@ -1,0 +1,15 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/SosLocation.Api/SosLocation.Api.csproj" />
+    <Project Path="src/SosLocation.Application/SosLocation.Application.csproj" />
+    <Project Path="src/SosLocation.Domain/SosLocation.Domain.csproj" />
+    <Project Path="src/SosLocation.GeoProcessing/SosLocation.GeoProcessing.csproj" />
+    <Project Path="src/SosLocation.Infrastructure/SosLocation.Infrastructure.csproj" />
+    <Project Path="src/SosLocation.Worker/SosLocation.Worker.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/SosLocation.ArchitectureTests/SosLocation.ArchitectureTests.csproj" />
+    <Project Path="tests/SosLocation.IntegrationTests/SosLocation.IntegrationTests.csproj" />
+    <Project Path="tests/SosLocation.UnitTests/SosLocation.UnitTests.csproj" />
+  </Folder>
+</Solution>

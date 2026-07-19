@@ -1,0 +1,2994 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "properties": {
+    "sos:kind": "boundary",
+    "name": "Demo District"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9075378,
+       35.2876227
+      ],
+      [
+       136.9150658,
+       35.2876227
+      ],
+      [
+       136.9150658,
+       35.2937672
+      ],
+      [
+       136.9075378,
+       35.2937672
+      ],
+      [
+       136.9075378,
+       35.2876227
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "road-ns-0",
+    "highway": "residential",
+    "name": "NS Street 1",
+    "lanes": "2"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      136.908,
+      35.2876766
+     ],
+     [
+      136.908,
+      35.2937133
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "road-ew-0",
+    "highway": "residential",
+    "name": "EW Street 1",
+    "lanes": "2"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      136.9076038,
+      35.288
+     ],
+     [
+      136.9149998,
+      35.288
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "road-ns-1",
+    "highway": "residential",
+    "name": "NS Street 2",
+    "lanes": "2"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      136.9093207,
+      35.2876766
+     ],
+     [
+      136.9093207,
+      35.2937133
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "road-ew-1",
+    "highway": "residential",
+    "name": "EW Street 2",
+    "lanes": "2"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      136.9076038,
+      35.289078
+     ],
+     [
+      136.9149998,
+      35.289078
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "road-ns-2",
+    "highway": "primary",
+    "name": "North Avenue 3",
+    "lanes": "4"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      136.9106414,
+      35.2876766
+     ],
+     [
+      136.9106414,
+      35.2937133
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "road-ew-2",
+    "highway": "secondary",
+    "name": "Central Boulevard",
+    "lanes": "4"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      136.9076038,
+      35.2901559
+     ],
+     [
+      136.9149998,
+      35.2901559
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "road-ns-3",
+    "highway": "residential",
+    "name": "NS Street 4",
+    "lanes": "2"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      136.9119621,
+      35.2876766
+     ],
+     [
+      136.9119621,
+      35.2937133
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "road-ew-3",
+    "highway": "residential",
+    "name": "EW Street 4",
+    "lanes": "2"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      136.9076038,
+      35.2912339
+     ],
+     [
+      136.9149998,
+      35.2912339
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "road-ns-4",
+    "highway": "residential",
+    "name": "NS Street 5",
+    "lanes": "2"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      136.9132829,
+      35.2876766
+     ],
+     [
+      136.9132829,
+      35.2937133
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "road-ew-4",
+    "highway": "residential",
+    "name": "EW Street 5",
+    "lanes": "2"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      136.9076038,
+      35.2923119
+     ],
+     [
+      136.9149998,
+      35.2923119
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "road-ns-5",
+    "highway": "residential",
+    "name": "NS Street 6",
+    "lanes": "2"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      136.9146036,
+      35.2876766
+     ],
+     [
+      136.9146036,
+      35.2937133
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "road-ew-5",
+    "highway": "residential",
+    "name": "EW Street 6",
+    "lanes": "2"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      136.9076038,
+      35.2933899
+     ],
+     [
+      136.9149998,
+      35.2933899
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "road-bridge-east",
+    "highway": "secondary",
+    "name": "River Bridge",
+    "bridge": "yes",
+    "lanes": "2"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      136.9149998,
+      35.2901559
+     ],
+     [
+      136.9157262,
+      35.2901559
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "rail-south",
+    "railway": "rail",
+    "name": "Demo Line"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      136.9076038,
+      35.2877628
+     ],
+     [
+      136.9157262,
+      35.2877628
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "river-east",
+    "natural": "water",
+    "water": "river",
+    "name": "Demo River"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9151979,
+       35.2876227
+      ],
+      [
+       136.9155281,
+       35.2876227
+      ],
+      [
+       136.9155281,
+       35.2937672
+      ],
+      [
+       136.9151979,
+       35.2937672
+      ],
+      [
+       136.9151979,
+       35.2876227
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "waterway-east",
+    "waterway": "river",
+    "name": "Demo River"
+   },
+   "geometry": {
+    "type": "LineString",
+    "coordinates": [
+     [
+      136.915363,
+      35.2876227
+     ],
+     [
+      136.915363,
+      35.2937672
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "pond-park",
+    "natural": "water",
+    "water": "pond",
+    "name": "Park Pond"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9083302,
+       35.2925814
+      ],
+      [
+       136.9089905,
+       35.2925814
+      ],
+      [
+       136.9089905,
+       35.293088
+      ],
+      [
+       136.9083302,
+       35.293088
+      ],
+      [
+       136.9083302,
+       35.2925814
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "lu-park",
+    "leisure": "park",
+    "name": "North Park"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.908,
+       35.2923119
+      ],
+      [
+       136.9093207,
+       35.2923119
+      ],
+      [
+       136.9093207,
+       35.2933899
+      ],
+      [
+       136.908,
+       35.2933899
+      ],
+      [
+       136.908,
+       35.2923119
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "lu-res-n",
+    "landuse": "residential"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9093471,
+       35.2923335
+      ],
+      [
+       136.9119621,
+       35.2923335
+      ],
+      [
+       136.9119621,
+       35.2933899
+      ],
+      [
+       136.9093471,
+       35.2933899
+      ],
+      [
+       136.9093471,
+       35.2923335
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "lu-ind",
+    "landuse": "industrial"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.908,
+       35.288
+      ],
+      [
+       136.9106414,
+       35.288
+      ],
+      [
+       136.9106414,
+       35.2901559
+      ],
+      [
+       136.908,
+       35.2901559
+      ],
+      [
+       136.908,
+       35.288
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "lu-com",
+    "landuse": "commercial"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9106678,
+       35.288
+      ],
+      [
+       136.9146036,
+       35.288
+      ],
+      [
+       136.9146036,
+       35.2901559
+      ],
+      [
+       136.9106678,
+       35.2901559
+      ],
+      [
+       136.9106678,
+       35.288
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "lu-res-c",
+    "landuse": "residential"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.908,
+       35.2901775
+      ],
+      [
+       136.9146036,
+       35.2901775
+      ],
+      [
+       136.9146036,
+       35.2922903
+      ],
+      [
+       136.908,
+       35.2922903
+      ],
+      [
+       136.908,
+       35.2901775
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-001",
+    "building": "industrial",
+    "building:levels": "1"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9081585,
+       35.2881078
+      ],
+      [
+       136.9086339,
+       35.2881078
+      ],
+      [
+       136.9086339,
+       35.2887022
+      ],
+      [
+       136.9081585,
+       35.2887022
+      ],
+      [
+       136.9081585,
+       35.2881078
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-002",
+    "building": "warehouse",
+    "building:levels": "1"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9086868,
+       35.2881078
+      ],
+      [
+       136.9091622,
+       35.2881078
+      ],
+      [
+       136.9091622,
+       35.2886359
+      ],
+      [
+       136.9086868,
+       35.2886359
+      ],
+      [
+       136.9086868,
+       35.2881078
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-003",
+    "building": "warehouse",
+    "building:levels": "1"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9081585,
+       35.2891858
+      ],
+      [
+       136.9086339,
+       35.2891858
+      ],
+      [
+       136.9086339,
+       35.2897184
+      ],
+      [
+       136.9081585,
+       35.2897184
+      ],
+      [
+       136.9081585,
+       35.2891858
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-004",
+    "building": "warehouse",
+    "building:levels": "1"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9086868,
+       35.2891858
+      ],
+      [
+       136.9091622,
+       35.2891858
+      ],
+      [
+       136.9091622,
+       35.2900175
+      ],
+      [
+       136.9086868,
+       35.2900175
+      ],
+      [
+       136.9086868,
+       35.2891858
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-005",
+    "building": "apartments",
+    "building:levels": "2",
+    "roof:levels": "0",
+    "roof:shape": "gabled"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9081585,
+       35.2902637
+      ],
+      [
+       136.9084578,
+       35.2902637
+      ],
+      [
+       136.9084578,
+       35.2907786
+      ],
+      [
+       136.9081585,
+       35.2907786
+      ],
+      [
+       136.9081585,
+       35.2902637
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-006",
+    "building": "house",
+    "building:levels": "2",
+    "roof:levels": "0",
+    "roof:shape": "gabled"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9085107,
+       35.2902637
+      ],
+      [
+       136.90881,
+       35.2902637
+      ],
+      [
+       136.90881,
+       35.2910344
+      ],
+      [
+       136.9085107,
+       35.2910344
+      ],
+      [
+       136.9085107,
+       35.2902637
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-007",
+    "building": "house",
+    "building:levels": "2",
+    "roof:levels": "1",
+    "roof:shape": "gabled"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9088629,
+       35.2902637
+      ],
+      [
+       136.9091622,
+       35.2902637
+      ],
+      [
+       136.9091622,
+       35.2909008
+      ],
+      [
+       136.9088629,
+       35.2909008
+      ],
+      [
+       136.9088629,
+       35.2902637
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-008",
+    "building": "apartments",
+    "building:levels": "5",
+    "roof:levels": "1",
+    "roof:shape": "flat"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9081585,
+       35.2913417
+      ],
+      [
+       136.9084578,
+       35.2913417
+      ],
+      [
+       136.9084578,
+       35.2920385
+      ],
+      [
+       136.9081585,
+       35.2920385
+      ],
+      [
+       136.9081585,
+       35.2913417
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-009",
+    "building": "yes"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9085107,
+       35.2913417
+      ],
+      [
+       136.90881,
+       35.2913417
+      ],
+      [
+       136.90881,
+       35.2920943
+      ],
+      [
+       136.9085107,
+       35.2920943
+      ],
+      [
+       136.9085107,
+       35.2913417
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-010",
+    "building": "house",
+    "building:levels": "1",
+    "roof:levels": "0",
+    "roof:shape": "flat"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9088629,
+       35.2913417
+      ],
+      [
+       136.9091622,
+       35.2913417
+      ],
+      [
+       136.9091622,
+       35.291983
+      ],
+      [
+       136.9088629,
+       35.291983
+      ],
+      [
+       136.9088629,
+       35.2913417
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-011",
+    "building": "industrial",
+    "building:levels": "2"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9094792,
+       35.2881078
+      ],
+      [
+       136.9099547,
+       35.2881078
+      ],
+      [
+       136.9099547,
+       35.2889382
+      ],
+      [
+       136.9094792,
+       35.2889382
+      ],
+      [
+       136.9094792,
+       35.2881078
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-012",
+    "building": "industrial",
+    "building:levels": "2"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9100075,
+       35.2881078
+      ],
+      [
+       136.9104829,
+       35.2881078
+      ],
+      [
+       136.9104829,
+       35.2888036
+      ],
+      [
+       136.9100075,
+       35.2888036
+      ],
+      [
+       136.9100075,
+       35.2881078
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-013",
+    "building": "industrial",
+    "building:levels": "1"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9094792,
+       35.2891858
+      ],
+      [
+       136.9099547,
+       35.2891858
+      ],
+      [
+       136.9099547,
+       35.2899074
+      ],
+      [
+       136.9094792,
+       35.2899074
+      ],
+      [
+       136.9094792,
+       35.2891858
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-014",
+    "building": "warehouse",
+    "building:levels": "2"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9100075,
+       35.2891858
+      ],
+      [
+       136.9104829,
+       35.2891858
+      ],
+      [
+       136.9104829,
+       35.2900128
+      ],
+      [
+       136.9100075,
+       35.2900128
+      ],
+      [
+       136.9100075,
+       35.2891858
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-015",
+    "building": "apartments",
+    "building:levels": "1",
+    "roof:levels": "0",
+    "roof:shape": "gabled"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9094792,
+       35.2902637
+      ],
+      [
+       136.9097786,
+       35.2902637
+      ],
+      [
+       136.9097786,
+       35.2910149
+      ],
+      [
+       136.9094792,
+       35.2910149
+      ],
+      [
+       136.9094792,
+       35.2902637
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-016",
+    "building": "house",
+    "building:levels": "2",
+    "roof:levels": "0",
+    "roof:shape": "gabled"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9098314,
+       35.2902637
+      ],
+      [
+       136.9101308,
+       35.2902637
+      ],
+      [
+       136.9101308,
+       35.290923
+      ],
+      [
+       136.9098314,
+       35.290923
+      ],
+      [
+       136.9098314,
+       35.2902637
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-017",
+    "building": "house",
+    "building:levels": "1",
+    "roof:levels": "1",
+    "roof:shape": "gabled"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9101836,
+       35.2902637
+      ],
+      [
+       136.9104829,
+       35.2902637
+      ],
+      [
+       136.9104829,
+       35.2910326
+      ],
+      [
+       136.9101836,
+       35.2910326
+      ],
+      [
+       136.9101836,
+       35.2902637
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-018",
+    "building": "apartments",
+    "height": "15"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9094792,
+       35.2913417
+      ],
+      [
+       136.9097786,
+       35.2913417
+      ],
+      [
+       136.9097786,
+       35.2918599
+      ],
+      [
+       136.9094792,
+       35.2918599
+      ],
+      [
+       136.9094792,
+       35.2913417
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-019",
+    "building": "house",
+    "building:levels": "3",
+    "roof:levels": "1",
+    "roof:shape": "flat"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9098314,
+       35.2913417
+      ],
+      [
+       136.9101308,
+       35.2913417
+      ],
+      [
+       136.9101308,
+       35.2921079
+      ],
+      [
+       136.9098314,
+       35.2921079
+      ],
+      [
+       136.9098314,
+       35.2913417
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-020",
+    "building": "residential",
+    "building:levels": "2",
+    "roof:levels": "1",
+    "roof:shape": "gabled"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9101836,
+       35.2913417
+      ],
+      [
+       136.9104829,
+       35.2913417
+      ],
+      [
+       136.9104829,
+       35.2921579
+      ],
+      [
+       136.9101836,
+       35.2921579
+      ],
+      [
+       136.9101836,
+       35.2913417
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-021",
+    "building": "apartments",
+    "height": "21"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9094792,
+       35.2924197
+      ],
+      [
+       136.9097786,
+       35.2924197
+      ],
+      [
+       136.9097786,
+       35.2930403
+      ],
+      [
+       136.9094792,
+       35.2930403
+      ],
+      [
+       136.9094792,
+       35.2924197
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-022",
+    "building": "residential",
+    "building:levels": "2",
+    "roof:levels": "0",
+    "roof:shape": "gabled"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9098314,
+       35.2924197
+      ],
+      [
+       136.9101308,
+       35.2924197
+      ],
+      [
+       136.9101308,
+       35.293258
+      ],
+      [
+       136.9098314,
+       35.293258
+      ],
+      [
+       136.9098314,
+       35.2924197
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-023",
+    "building": "house",
+    "building:levels": "2",
+    "roof:levels": "0",
+    "roof:shape": "flat"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9101836,
+       35.2924197
+      ],
+      [
+       136.9104829,
+       35.2924197
+      ],
+      [
+       136.9104829,
+       35.2932018
+      ],
+      [
+       136.9101836,
+       35.2932018
+      ],
+      [
+       136.9101836,
+       35.2924197
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-024",
+    "building": "retail",
+    "building:levels": "3"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9107999,
+       35.2881078
+      ],
+      [
+       136.9112754,
+       35.2881078
+      ],
+      [
+       136.9112754,
+       35.2886381
+      ],
+      [
+       136.9107999,
+       35.2886381
+      ],
+      [
+       136.9107999,
+       35.2881078
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-025",
+    "building": "retail",
+    "building:levels": "2"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9113282,
+       35.2881078
+      ],
+      [
+       136.9118037,
+       35.2881078
+      ],
+      [
+       136.9118037,
+       35.288964
+      ],
+      [
+       136.9113282,
+       35.288964
+      ],
+      [
+       136.9113282,
+       35.2881078
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-026",
+    "building": "commercial",
+    "height": "24",
+    "building:levels": "10",
+    "name": "Office Tower 26"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9107999,
+       35.2891858
+      ],
+      [
+       136.9110993,
+       35.2891858
+      ],
+      [
+       136.9110993,
+       35.2900429
+      ],
+      [
+       136.9107999,
+       35.2900429
+      ],
+      [
+       136.9107999,
+       35.2891858
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-027",
+    "building": "commercial",
+    "height": "36",
+    "building:levels": "10",
+    "name": "Office Tower 27"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9111521,
+       35.2891858
+      ],
+      [
+       136.9114515,
+       35.2891858
+      ],
+      [
+       136.9114515,
+       35.2897452
+      ],
+      [
+       136.9111521,
+       35.2897452
+      ],
+      [
+       136.9111521,
+       35.2891858
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-028",
+    "building": "retail",
+    "building:levels": "4"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9115043,
+       35.2891858
+      ],
+      [
+       136.9118037,
+       35.2891858
+      ],
+      [
+       136.9118037,
+       35.289688
+      ],
+      [
+       136.9115043,
+       35.289688
+      ],
+      [
+       136.9115043,
+       35.2891858
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-029",
+    "building": "house",
+    "building:levels": "2",
+    "roof:levels": "0",
+    "roof:shape": "flat"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9107999,
+       35.2902637
+      ],
+      [
+       136.9112754,
+       35.2902637
+      ],
+      [
+       136.9112754,
+       35.2908587
+      ],
+      [
+       136.9107999,
+       35.2908587
+      ],
+      [
+       136.9107999,
+       35.2902637
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-030",
+    "building": "apartments",
+    "building:levels": "1",
+    "roof:levels": "1",
+    "roof:shape": "gabled"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9113282,
+       35.2902637
+      ],
+      [
+       136.9118037,
+       35.2902637
+      ],
+      [
+       136.9118037,
+       35.2908741
+      ],
+      [
+       136.9113282,
+       35.2908741
+      ],
+      [
+       136.9113282,
+       35.2902637
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-031",
+    "building": "apartments",
+    "building:levels": "3",
+    "roof:levels": "0",
+    "roof:shape": "flat"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9107999,
+       35.2913417
+      ],
+      [
+       136.9110993,
+       35.2913417
+      ],
+      [
+       136.9110993,
+       35.2920673
+      ],
+      [
+       136.9107999,
+       35.2920673
+      ],
+      [
+       136.9107999,
+       35.2913417
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-032",
+    "building": "house",
+    "building:levels": "2",
+    "roof:levels": "0",
+    "roof:shape": "flat"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9111521,
+       35.2913417
+      ],
+      [
+       136.9114515,
+       35.2913417
+      ],
+      [
+       136.9114515,
+       35.2919755
+      ],
+      [
+       136.9111521,
+       35.2919755
+      ],
+      [
+       136.9111521,
+       35.2913417
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-033",
+    "building": "house",
+    "building:levels": "2",
+    "roof:levels": "0",
+    "roof:shape": "gabled"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9115043,
+       35.2913417
+      ],
+      [
+       136.9118037,
+       35.2913417
+      ],
+      [
+       136.9118037,
+       35.2920192
+      ],
+      [
+       136.9115043,
+       35.2920192
+      ],
+      [
+       136.9115043,
+       35.2913417
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-034",
+    "building": "apartments",
+    "building:levels": "1",
+    "roof:levels": "0",
+    "roof:shape": "flat"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9107999,
+       35.2924197
+      ],
+      [
+       136.9112754,
+       35.2924197
+      ],
+      [
+       136.9112754,
+       35.2929599
+      ],
+      [
+       136.9107999,
+       35.2929599
+      ],
+      [
+       136.9107999,
+       35.2924197
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-035",
+    "building": "apartments",
+    "height": "27"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9113282,
+       35.2924197
+      ],
+      [
+       136.9118037,
+       35.2924197
+      ],
+      [
+       136.9118037,
+       35.2929982
+      ],
+      [
+       136.9113282,
+       35.2929982
+      ],
+      [
+       136.9113282,
+       35.2924197
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-036",
+    "building": "retail",
+    "building:levels": "3"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9121206,
+       35.2881078
+      ],
+      [
+       136.9125961,
+       35.2881078
+      ],
+      [
+       136.9125961,
+       35.2885967
+      ],
+      [
+       136.9121206,
+       35.2885967
+      ],
+      [
+       136.9121206,
+       35.2881078
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-037",
+    "building": "retail",
+    "building:levels": "4"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9126489,
+       35.2881078
+      ],
+      [
+       136.9131244,
+       35.2881078
+      ],
+      [
+       136.9131244,
+       35.2886483
+      ],
+      [
+       136.9126489,
+       35.2886483
+      ],
+      [
+       136.9126489,
+       35.2881078
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-038",
+    "building": "retail",
+    "building:levels": "2"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9121206,
+       35.2891858
+      ],
+      [
+       136.9125961,
+       35.2891858
+      ],
+      [
+       136.9125961,
+       35.2897582
+      ],
+      [
+       136.9121206,
+       35.2897582
+      ],
+      [
+       136.9121206,
+       35.2891858
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-039",
+    "building": "commercial",
+    "height": "30",
+    "building:levels": "5",
+    "name": "Office Tower 39"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9126489,
+       35.2891858
+      ],
+      [
+       136.9131244,
+       35.2891858
+      ],
+      [
+       136.9131244,
+       35.2897405
+      ],
+      [
+       136.9126489,
+       35.2897405
+      ],
+      [
+       136.9126489,
+       35.2891858
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-040",
+    "building": "residential",
+    "building:levels": "1",
+    "roof:levels": "1",
+    "roof:shape": "gabled"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9121206,
+       35.2902637
+      ],
+      [
+       136.91242,
+       35.2902637
+      ],
+      [
+       136.91242,
+       35.2910065
+      ],
+      [
+       136.9121206,
+       35.2910065
+      ],
+      [
+       136.9121206,
+       35.2902637
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-041",
+    "building": "apartments",
+    "height": "21"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9124728,
+       35.2902637
+      ],
+      [
+       136.9127722,
+       35.2902637
+      ],
+      [
+       136.9127722,
+       35.2910688
+      ],
+      [
+       136.9124728,
+       35.2910688
+      ],
+      [
+       136.9124728,
+       35.2902637
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-042",
+    "building": "apartments",
+    "building:levels": "1",
+    "roof:levels": "0",
+    "roof:shape": "gabled"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.912825,
+       35.2902637
+      ],
+      [
+       136.9131244,
+       35.2902637
+      ],
+      [
+       136.9131244,
+       35.2908267
+      ],
+      [
+       136.912825,
+       35.2908267
+      ],
+      [
+       136.912825,
+       35.2902637
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-043",
+    "building": "apartments",
+    "height": "21"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9121206,
+       35.2913417
+      ],
+      [
+       136.9125961,
+       35.2913417
+      ],
+      [
+       136.9125961,
+       35.2919464
+      ],
+      [
+       136.9121206,
+       35.2919464
+      ],
+      [
+       136.9121206,
+       35.2913417
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-044",
+    "building": "residential",
+    "building:levels": "2",
+    "roof:levels": "0",
+    "roof:shape": "flat"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9126489,
+       35.2913417
+      ],
+      [
+       136.9131244,
+       35.2913417
+      ],
+      [
+       136.9131244,
+       35.2921201
+      ],
+      [
+       136.9126489,
+       35.2921201
+      ],
+      [
+       136.9126489,
+       35.2913417
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-045",
+    "building": "apartments",
+    "building:levels": "2",
+    "roof:levels": "0",
+    "roof:shape": "flat"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9121206,
+       35.2924197
+      ],
+      [
+       136.91242,
+       35.2924197
+      ],
+      [
+       136.91242,
+       35.2932602
+      ],
+      [
+       136.9121206,
+       35.2932602
+      ],
+      [
+       136.9121206,
+       35.2924197
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-046",
+    "building": "apartments",
+    "building:levels": "5",
+    "roof:levels": "0",
+    "roof:shape": "flat"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9124728,
+       35.2924197
+      ],
+      [
+       136.9127722,
+       35.2924197
+      ],
+      [
+       136.9127722,
+       35.293255
+      ],
+      [
+       136.9124728,
+       35.293255
+      ],
+      [
+       136.9124728,
+       35.2924197
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-047",
+    "building": "apartments",
+    "height": "27"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.912825,
+       35.2924197
+      ],
+      [
+       136.9131244,
+       35.2924197
+      ],
+      [
+       136.9131244,
+       35.2929126
+      ],
+      [
+       136.912825,
+       35.2929126
+      ],
+      [
+       136.912825,
+       35.2924197
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-048",
+    "building": "retail",
+    "building:levels": "3"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9134413,
+       35.2881078
+      ],
+      [
+       136.9137407,
+       35.2881078
+      ],
+      [
+       136.9137407,
+       35.2887348
+      ],
+      [
+       136.9134413,
+       35.2887348
+      ],
+      [
+       136.9134413,
+       35.2881078
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-049",
+    "building": "retail",
+    "building:levels": "3"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9137935,
+       35.2881078
+      ],
+      [
+       136.9140929,
+       35.2881078
+      ],
+      [
+       136.9140929,
+       35.2886974
+      ],
+      [
+       136.9137935,
+       35.2886974
+      ],
+      [
+       136.9137935,
+       35.2881078
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-050",
+    "building": "commercial",
+    "height": "36",
+    "building:levels": "10",
+    "name": "Office Tower 50"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9141457,
+       35.2881078
+      ],
+      [
+       136.9144451,
+       35.2881078
+      ],
+      [
+       136.9144451,
+       35.2886196
+      ],
+      [
+       136.9141457,
+       35.2886196
+      ],
+      [
+       136.9141457,
+       35.2881078
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-051",
+    "building": "retail",
+    "building:levels": "4"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9134413,
+       35.2891858
+      ],
+      [
+       136.9137407,
+       35.2891858
+      ],
+      [
+       136.9137407,
+       35.2898727
+      ],
+      [
+       136.9134413,
+       35.2898727
+      ],
+      [
+       136.9134413,
+       35.2891858
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-052",
+    "building": "commercial",
+    "height": "36",
+    "building:levels": "5",
+    "name": "Office Tower 52"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9137935,
+       35.2891858
+      ],
+      [
+       136.9140929,
+       35.2891858
+      ],
+      [
+       136.9140929,
+       35.2898376
+      ],
+      [
+       136.9137935,
+       35.2898376
+      ],
+      [
+       136.9137935,
+       35.2891858
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-053",
+    "building": "commercial",
+    "height": "24",
+    "building:levels": "8",
+    "name": "Office Tower 53"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9141457,
+       35.2891858
+      ],
+      [
+       136.9144451,
+       35.2891858
+      ],
+      [
+       136.9144451,
+       35.2897401
+      ],
+      [
+       136.9141457,
+       35.2897401
+      ],
+      [
+       136.9141457,
+       35.2891858
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-054",
+    "building": "apartments",
+    "building:levels": "2",
+    "roof:levels": "0",
+    "roof:shape": "gabled"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9134413,
+       35.2902637
+      ],
+      [
+       136.9139168,
+       35.2902637
+      ],
+      [
+       136.9139168,
+       35.2908006
+      ],
+      [
+       136.9134413,
+       35.2908006
+      ],
+      [
+       136.9134413,
+       35.2902637
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-055",
+    "building": "residential",
+    "building:levels": "5",
+    "roof:levels": "0",
+    "roof:shape": "gabled"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9139696,
+       35.2902637
+      ],
+      [
+       136.9144451,
+       35.2902637
+      ],
+      [
+       136.9144451,
+       35.2908306
+      ],
+      [
+       136.9139696,
+       35.2908306
+      ],
+      [
+       136.9139696,
+       35.2902637
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-056",
+    "building": "apartments",
+    "height": "21"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9134413,
+       35.2913417
+      ],
+      [
+       136.9137407,
+       35.2913417
+      ],
+      [
+       136.9137407,
+       35.2921675
+      ],
+      [
+       136.9134413,
+       35.2921675
+      ],
+      [
+       136.9134413,
+       35.2913417
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-057",
+    "building": "apartments",
+    "building:levels": "1",
+    "roof:levels": "0",
+    "roof:shape": "flat"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9137935,
+       35.2913417
+      ],
+      [
+       136.9140929,
+       35.2913417
+      ],
+      [
+       136.9140929,
+       35.2918841
+      ],
+      [
+       136.9137935,
+       35.2918841
+      ],
+      [
+       136.9137935,
+       35.2913417
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-058",
+    "building": "apartments",
+    "height": "15"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9141457,
+       35.2913417
+      ],
+      [
+       136.9144451,
+       35.2913417
+      ],
+      [
+       136.9144451,
+       35.2920438
+      ],
+      [
+       136.9141457,
+       35.2920438
+      ],
+      [
+       136.9141457,
+       35.2913417
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-059",
+    "building": "yes"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9134413,
+       35.2924197
+      ],
+      [
+       136.9137407,
+       35.2924197
+      ],
+      [
+       136.9137407,
+       35.2930682
+      ],
+      [
+       136.9134413,
+       35.2930682
+      ],
+      [
+       136.9134413,
+       35.2924197
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-060",
+    "building": "residential",
+    "building:levels": "2",
+    "roof:levels": "0",
+    "roof:shape": "flat"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9137935,
+       35.2924197
+      ],
+      [
+       136.9140929,
+       35.2924197
+      ],
+      [
+       136.9140929,
+       35.2929416
+      ],
+      [
+       136.9137935,
+       35.2929416
+      ],
+      [
+       136.9137935,
+       35.2924197
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-061",
+    "building": "apartments",
+    "height": "15"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9141457,
+       35.2924197
+      ],
+      [
+       136.9144451,
+       35.2924197
+      ],
+      [
+       136.9144451,
+       35.2932146
+      ],
+      [
+       136.9141457,
+       35.2932146
+      ],
+      [
+       136.9141457,
+       35.2924197
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-062",
+    "building": "hospital",
+    "amenity": "hospital",
+    "name": "Demo General Hospital",
+    "height": "22",
+    "building:levels": "6"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9121602,
+       35.2913956
+      ],
+      [
+       136.9130847,
+       35.2913956
+      ],
+      [
+       136.9130847,
+       35.2920963
+      ],
+      [
+       136.9121602,
+       35.2920963
+      ],
+      [
+       136.9121602,
+       35.2913956
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-063",
+    "building": "school",
+    "amenity": "school",
+    "name": "Demo Elementary School",
+    "building:levels": "3"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9095188,
+       35.2913956
+      ],
+      [
+       136.9103773,
+       35.2913956
+      ],
+      [
+       136.9103773,
+       35.2920963
+      ],
+      [
+       136.9095188,
+       35.2920963
+      ],
+      [
+       136.9095188,
+       35.2913956
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-064",
+    "building": "school",
+    "amenity": "university",
+    "name": "Demo Technical College",
+    "building:levels": "4"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.913481,
+       35.2914495
+      ],
+      [
+       136.9143394,
+       35.2914495
+      ],
+      [
+       136.9143394,
+       35.2920747
+      ],
+      [
+       136.913481,
+       35.2920747
+      ],
+      [
+       136.913481,
+       35.2914495
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-065",
+    "building": "public",
+    "amenity": "townhall",
+    "name": "Demo City Hall",
+    "height": "16"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9109056,
+       35.2903715
+      ],
+      [
+       136.911698,
+       35.2903715
+      ],
+      [
+       136.911698,
+       35.2910183
+      ],
+      [
+       136.9109056,
+       35.2910183
+      ],
+      [
+       136.9109056,
+       35.2903715
+      ]
+     ]
+    ]
+   }
+  },
+  {
+   "type": "Feature",
+   "properties": {
+    "id": "bldg-066",
+    "building": "public",
+    "name": "Park Pavilion"
+   },
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       136.9083962,
+       35.2931527
+      ],
+      [
+       136.9089245,
+       35.2931527
+      ],
+      [
+       136.9089245,
+       35.293336
+      ],
+      [
+       136.9083962,
+       35.293336
+      ],
+      [
+       136.9083962,
+       35.2931527
+      ]
+     ]
+    ]
+   }
+  }
+ ]
+}

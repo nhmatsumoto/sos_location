@@ -1,0 +1,245 @@
+import type {
+  DataDrivenPropertyValueSpecification,
+  LayerSpecification,
+  SourceSpecification,
+} from 'maplibre-gl';
+import {
+  BOUNDARY_COLOR,
+  BUILDING_COLORS,
+  LAND_USE_COLORS,
+  ROAD_COLORS,
+  rgbaCss,
+  WATER_COLOR,
+} from '../materials/theme';
+import type { LayerKey } from '../../stores/appStore';
+
+export type FeatureKind = 'building' | 'road' | 'water';
+
+export interface CityStyleOptions {
+  revisionId: string;
+  visibility: Record<LayerKey, boolean>;
+  boundaryBox?: { west: number; south: number; east: number; north: number } | null;
+}
+
+const SOURCE_PREFIX = 'sos-';
+
+function tileSource(revisionId: string, kind: string, minzoom: number, maxzoom: number): SourceSpecification {
+  return {
+    type: 'vector',
+    tiles: [`${window.location.origin}/api/v1/tiles/${revisionId}/${kind}/{z}/{x}/{y}.mvt`],
+    minzoom,
+    maxzoom,
+    // promoteId: o id (uuid) do banco vira o feature id — habilita feature-state.
+    promoteId: 'id',
+  };
+}
+
+/**
+ * Camadas urbanas como estilo nativo MapLibre (abordagem OpenMapTiles/Google-Maps-like):
+ * fill-extrusion trata winding do MVT corretamente (paredes sempre presentes),
+ * suporta base (min_height + ground_elevation) e gradiente vertical de sombreamento.
+ * deck.gl permanece reservado para camadas de simulação (ADR-0003).
+ */
+export function buildCitySources(revisionId: string): Record<string, SourceSpecification> {
+  return {
+    [`${SOURCE_PREFIX}buildings`]: tileSource(revisionId, 'buildings', 12, 16),
+    [`${SOURCE_PREFIX}roads`]: tileSource(revisionId, 'roads', 8, 16),
+    [`${SOURCE_PREFIX}water`]: tileSource(revisionId, 'water', 6, 16),
+    [`${SOURCE_PREFIX}land-use`]: tileSource(revisionId, 'land-use', 8, 16),
+  };
+}
+
+/** Expressão de cor semântica com seleção via feature-state e gradiente por altura. */
+function buildingColorExpression(): DataDrivenPropertyValueSpecification<string> {
+  return [
+    'case',
+    ['boolean', ['feature-state', 'selected'], false],
+    '#ffd666',
+    [
+      'match',
+      ['get', 'building_type'],
+      'residential', rgbaCss(BUILDING_COLORS.residential),
+      'commercial', rgbaCss(BUILDING_COLORS.commercial),
+      'industrial', rgbaCss(BUILDING_COLORS.industrial),
+      'public', rgbaCss(BUILDING_COLORS.public),
+      'hospital', rgbaCss(BUILDING_COLORS.hospital),
+      'school', rgbaCss(BUILDING_COLORS.school),
+      // unknown: gradiente calculado por altura (leitura de skyline).
+      [
+        'interpolate',
+        ['linear'],
+        ['coalesce', ['get', 'height_m'], 0],
+        0, '#454c56',
+        25, '#707a87',
+        80, '#a8b3c1',
+        180, '#dde5ef',
+      ],
+    ],
+  ] as unknown as DataDrivenPropertyValueSpecification<string>;
+}
+
+export function buildCityLayers(options: CityStyleOptions): LayerSpecification[] {
+  const { visibility } = options;
+  const layers: LayerSpecification[] = [];
+
+  if (visibility.landUse) {
+    layers.push({
+      id: 'sos-land-use-fill',
+      type: 'fill',
+      source: `${SOURCE_PREFIX}land-use`,
+      'source-layer': 'land_use',
+      paint: {
+        'fill-color': [
+          'match',
+          ['get', 'land_use_type'],
+          'residential', rgbaCss(LAND_USE_COLORS.residential),
+          'commercial', rgbaCss(LAND_USE_COLORS.commercial),
+          'industrial', rgbaCss(LAND_USE_COLORS.industrial),
+          'green', rgbaCss(LAND_USE_COLORS.green),
+          'agricultural', rgbaCss(LAND_USE_COLORS.agricultural),
+          rgbaCss(LAND_USE_COLORS.other),
+        ],
+      },
+    });
+  }
+
+  if (visibility.water) {
+    layers.push(
+      {
+        id: 'sos-water-fill',
+        type: 'fill',
+        source: `${SOURCE_PREFIX}water`,
+        'source-layer': 'water',
+        filter: ['==', ['geometry-type'], 'Polygon'],
+        paint: { 'fill-color': rgbaCss(WATER_COLOR) },
+      },
+      {
+        id: 'sos-water-line',
+        type: 'line',
+        source: `${SOURCE_PREFIX}water`,
+        'source-layer': 'water',
+        filter: ['==', ['geometry-type'], 'LineString'],
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: {
+          'line-color': 'rgba(80, 140, 210, 0.85)',
+          'line-width': ['interpolate', ['exponential', 1.5], ['zoom'], 8, 0.8, 16, 4],
+        },
+      },
+    );
+  }
+
+  if (visibility.roads) {
+    layers.push({
+      id: 'sos-roads-line',
+      type: 'line',
+      source: `${SOURCE_PREFIX}roads`,
+      'source-layer': 'roads',
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: {
+        'line-color': [
+          'match',
+          ['get', 'road_class'],
+          'highway', rgbaCss(ROAD_COLORS.highway),
+          'primary', rgbaCss(ROAD_COLORS.primary),
+          'secondary', rgbaCss(ROAD_COLORS.secondary),
+          'tertiary', rgbaCss(ROAD_COLORS.tertiary),
+          'residential', rgbaCss(ROAD_COLORS.residential),
+          'service', rgbaCss(ROAD_COLORS.service),
+          'path', rgbaCss(ROAD_COLORS.path),
+          'cycleway', rgbaCss(ROAD_COLORS.cycleway),
+          'rail', rgbaCss(ROAD_COLORS.rail),
+          rgbaCss(ROAD_COLORS.minor),
+        ],
+        'line-width': [
+          'interpolate',
+          ['exponential', 1.5],
+          ['zoom'],
+          8,
+          ['match', ['get', 'road_class'], 'highway', 1.6, 'primary', 1.2, 'rail', 0.8, 0.5],
+          18,
+          [
+            'match',
+            ['get', 'road_class'],
+            'highway', 20,
+            'primary', 16,
+            'secondary', 12,
+            'tertiary', 9,
+            'rail', 4,
+            7,
+          ],
+        ],
+      },
+    });
+  }
+
+  if (visibility.buildings) {
+    layers.push({
+      id: 'sos-buildings-3d',
+      type: 'fill-extrusion',
+      source: `${SOURCE_PREFIX}buildings`,
+      'source-layer': 'buildings',
+      minzoom: 12,
+      paint: {
+        'fill-extrusion-color': buildingColorExpression(),
+        'fill-extrusion-height': ['coalesce', ['get', 'height_m'], 0],
+        // Base real: building:part com min_height + elevação do solo.
+        'fill-extrusion-base': [
+          '+',
+          ['coalesce', ['get', 'min_height_m'], 0],
+          ['coalesce', ['get', 'ground_elevation_m'], 0],
+        ],
+        // Levemente translúcido (estilo Mini Tokyo 3D): trens e vias continuam
+        // legíveis atrás das construções.
+        'fill-extrusion-opacity': 0.9,
+        // Gradiente vertical: paredes escurecem em direção à base (leitura de volume).
+        'fill-extrusion-vertical-gradient': true,
+      },
+    });
+  }
+
+  if (visibility.boundary && options.boundaryBox) {
+    layers.push({
+      id: 'sos-boundary-line',
+      type: 'line',
+      source: `${SOURCE_PREFIX}boundary`,
+      paint: {
+        'line-color': rgbaCss(BOUNDARY_COLOR),
+        'line-width': 2.5,
+        'line-dasharray': [3, 2],
+      },
+    });
+  }
+
+  return layers;
+}
+
+/** Ordem de prioridade do picking (o que o clique deve preferir). */
+export const PICKABLE_LAYERS: { id: string; kind: FeatureKind }[] = [
+  { id: 'sos-buildings-3d', kind: 'building' },
+  { id: 'sos-roads-line', kind: 'road' },
+  { id: 'sos-water-fill', kind: 'water' },
+  { id: 'sos-water-line', kind: 'water' },
+];
+
+export function boundaryGeoJson(box: {
+  west: number;
+  south: number;
+  east: number;
+  north: number;
+}): GeoJSON.Feature {
+  const { west, south, east, north } = box;
+  return {
+    type: 'Feature',
+    properties: {},
+    geometry: {
+      type: 'LineString',
+      coordinates: [
+        [west, south],
+        [east, south],
+        [east, north],
+        [west, north],
+        [west, south],
+      ],
+    },
+  };
+}
