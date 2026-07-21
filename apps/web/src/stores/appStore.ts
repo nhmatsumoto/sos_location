@@ -9,7 +9,17 @@ export type LayerKey =
   | 'landUse'
   | 'boundary'
   | 'trains'
+  | 'terrain'
+  | 'seismicIntensity'
   | 'debugTiles';
+
+export interface ActiveSimulation {
+  id: string;
+  west: number;
+  south: number;
+  east: number;
+  north: number;
+}
 
 export interface SelectedFeature {
   kind: 'building' | 'road' | 'water';
@@ -28,6 +38,9 @@ interface AppState {
   layers: Record<LayerKey, boolean>;
   selectedFeature: SelectedFeature | null;
   watchedJobId: string | null;
+  watchedSimulationId: string | null;
+  activeSimulation: ActiveSimulation | null;
+  damageByBuildingId: Record<string, string> | null;
   camera: CameraState | null;
   /** Câmera a aplicar assim que a cena existir (deep-link). */
   pendingCamera: CameraState | null;
@@ -40,6 +53,9 @@ interface AppState {
   toggleLayer: (key: LayerKey) => void;
   setSelectedFeature: (feature: SelectedFeature | null) => void;
   setWatchedJobId: (jobId: string | null) => void;
+  setWatchedSimulationId: (runId: string | null) => void;
+  setActiveSimulation: (simulation: ActiveSimulation | null) => void;
+  setDamageByBuildingId: (damage: Record<string, string> | null) => void;
   setCamera: (camera: CameraState) => void;
   setPendingCamera: (camera: CameraState | null) => void;
   setFps: (fps: number) => void;
@@ -58,10 +74,15 @@ export const useAppStore = create<AppState>((set) => ({
     landUse: true,
     boundary: true,
     trains: true,
+    terrain: true,
+    seismicIntensity: false,
     debugTiles: false,
   },
   selectedFeature: null,
   watchedJobId: null,
+  watchedSimulationId: null,
+  activeSimulation: null,
+  damageByBuildingId: null,
   camera: null,
   pendingCamera: null,
   fps: 0,
@@ -75,6 +96,9 @@ export const useAppStore = create<AppState>((set) => ({
     set((state) => ({ layers: { ...state.layers, [key]: !state.layers[key] } })),
   setSelectedFeature: (feature) => set({ selectedFeature: feature }),
   setWatchedJobId: (jobId) => set({ watchedJobId: jobId }),
+  setWatchedSimulationId: (runId) => set({ watchedSimulationId: runId }),
+  setActiveSimulation: (simulation) => set({ activeSimulation: simulation }),
+  setDamageByBuildingId: (damage) => set({ damageByBuildingId: damage }),
   setCamera: (camera) => set({ camera }),
   setPendingCamera: (camera) => set({ pendingCamera: camera }),
   setFps: (fps) => set({ fps }),

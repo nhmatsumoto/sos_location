@@ -9,6 +9,7 @@ using OpenTelemetry.Trace;
 using Serilog;
 using SosLocation.Api.Endpoints;
 using SosLocation.Application.Import;
+using SosLocation.Application.Simulation;
 using SosLocation.Infrastructure;
 using SosLocation.Infrastructure.Persistence;
 
@@ -31,6 +32,7 @@ try
         new ImportRequestValidator(
             sp.GetRequiredService<SosLocation.Application.Options.ImportLimits>(),
             sp.GetRequiredService<SosLocation.Application.Profiles.ReconstructionProfileRegistry>()));
+    builder.Services.AddScoped<IValidator<SimulationRequest>, SimulationRequestValidator>();
 
     builder.Services.AddOpenApi();
     builder.Services.AddProblemDetails(); // Erros padronizados, sem stack traces expostos.
@@ -98,7 +100,9 @@ try
     api.MapCitiesEndpoints();
     api.MapImportsEndpoints();
     api.MapTilesEndpoints();
+    api.MapTerrainEndpoints();
     api.MapFeaturesEndpoints();
+    api.MapSimulationsEndpoints();
 
     // Migrations automáticas controladas + seed da fixture offline.
     if (!app.Configuration.GetValue("SkipMigrations", false))

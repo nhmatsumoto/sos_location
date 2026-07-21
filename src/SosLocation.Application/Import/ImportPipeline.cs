@@ -31,6 +31,7 @@ public sealed class ImportPipeline(
     IGeocoder geocoder,
     IOsmSource osmSource,
     IFixtureSource fixtureSource,
+    IElevationProvider elevationProvider,
     IObjectStorage objectStorage,
     IEnumerable<ICityDataNormalizer> normalizers,
     ReconstructionProfileRegistry profiles,
@@ -50,6 +51,20 @@ public sealed class ImportPipeline(
 
         if (!profiles.TryGet(request.ReconstructionProfile, out var profile))
             throw new InvalidOperationException($"Unknown reconstruction profile '{request.ReconstructionProfile}'.");
+
+        // Uma publicação pode ter sido persistida antes de uma falha tardia ao
+        // concluir o job. Nesse caso, retomar significa apenas concluir o job;
+        // revisões publicadas nunca voltam a ser reconstruídas.
+        if (job.CityRevisionId is { } existingRevisionId)
+        {
+            var existingRevision = await revisions.FindByIdAsync(existingRevisionId, ct);
+            if (existingRevision?.Status == CityRevisionStatus.Published)
+            {
+                job.Complete(DateTimeOffset.UtcNow);
+                await unitOfWork.SaveChangesAsync(ct);
+                return;
+            }
+        }
 
         // resolve-boundary
         job.AdvanceStage(ImportStage.ResolveBoundary, 5, "Resolving boundary");
@@ -87,6 +102,7 @@ public sealed class ImportPipeline(
             MaximumFeatureCount = limits.MaximumFeatureCount,
             MaximumVerticesPerFeature = limits.MaximumVerticesPerFeature,
         });
+        await jobs.ClearIssuesAsync(job.Id, ct);
         foreach (var issue in normalized.Issues)
         {
             await jobs.AddIssueAsync(new ProcessingIssue
@@ -120,7 +136,6 @@ public sealed class ImportPipeline(
         job.AdvanceStage(ImportStage.InvalidateCache, 98, "Invalidating caches");
         await unitOfWork.SaveChangesAsync(ct);
 
-        job.CityRevisionId = revision.Id;
         job.Complete(DateTimeOffset.UtcNow);
         await unitOfWork.SaveChangesAsync(ct);
 
@@ -136,7 +151,16 @@ public sealed class ImportPipeline(
         string? region = null;
         BoundingBox area;
 
-        if (request.PlaceProviderId is not null && request.Source == ImportSources.OpenStreetMap)
+        // A UI envia o bounding box devolvido pela busca. Ele é validado antes
+        // do enqueue e evita repetir a consulta ao geocoder dentro do worker.
+        if (request.BoundingBox is not null)
+        {
+            name = request.Name ?? request.DisplayName ?? "Custom Area";
+            countryCode = request.CountryCode;
+            region = request.Region;
+            area = request.BoundingBox.ToDomain();
+        }
+        else if (request.PlaceProviderId is not null && request.Source == ImportSources.OpenStreetMap)
         {
             var place = await geocoder.ResolveAsync(request.PlaceProviderId, ct)
                         ?? throw new InvalidOperationException($"Place '{request.PlaceProviderId}' could not be resolved.");
@@ -144,11 +168,6 @@ public sealed class ImportPipeline(
             countryCode = place.CountryCode;
             region = place.Region;
             area = place.BoundingBox;
-        }
-        else if (request.BoundingBox is not null)
-        {
-            name = request.Name ?? request.DisplayName ?? "Custom Area";
-            area = request.BoundingBox.ToDomain();
         }
         else if (request.Source is ImportSources.Fixture or ImportSources.GeoJson)
         {
@@ -206,12 +225,6 @@ public sealed class ImportPipeline(
             SourcePayloadFormat.OsmPbf => "osm.pbf",
             _ => "bin",
         };
-        var storageKey = $"raw/{payload.SourceName}/{job.Id}/{checksum}.{extension}";
-
-        if (!await objectStorage.ExistsAsync(storageKey, ct))
-            await objectStorage.PutAsync(storageKey, payload.Content,
-                payload.ContentType ?? "application/octet-stream", ct);
-
         var dataset = await datasets.FindByNameAsync(payload.SourceName, ct);
         if (dataset is null)
         {
@@ -238,7 +251,19 @@ public sealed class ImportPipeline(
                 },
             };
             await datasets.AddAsync(dataset, ct);
+            await unitOfWork.SaveChangesAsync(ct);
         }
+
+        // Retentativas e reimportações do mesmo snapshot reutilizam a versão e
+        // o objeto bruto já preservado, em vez de criar metadados duplicados.
+        var existingVersion = await datasets.FindVersionByChecksumAsync(dataset.Id, checksum, ct);
+        if (existingVersion is not null)
+            return existingVersion;
+
+        var storageKey = $"raw/{payload.SourceName}/{job.Id}/{checksum}.{extension}";
+        if (!await objectStorage.ExistsAsync(storageKey, ct))
+            await objectStorage.PutAsync(storageKey, payload.Content,
+                payload.ContentType ?? "application/octet-stream", ct);
 
         var version = new DatasetVersion
         {
@@ -263,29 +288,63 @@ public sealed class ImportPipeline(
         DatasetVersion datasetVersion,
         CancellationToken ct)
     {
-        var revision = new CityRevision
+        CityRevision revision;
+        if (job.CityRevisionId is { } revisionId)
         {
-            CityId = city.Id,
-            RevisionNumber = await revisions.NextRevisionNumberAsync(city.Id, ct),
-            ReconstructionProfile = profile.Name,
-            SourceSummary = JsonSerializer.Serialize(new
+            revision = await revisions.FindByIdAsync(revisionId, ct)
+                ?? throw new InvalidOperationException(
+                    $"Revision '{revisionId}' associated with the job no longer exists.");
+            if (revision.CityId != city.Id)
+                throw new InvalidOperationException("The job revision belongs to a different city.");
+            if (revision.Status is CityRevisionStatus.Published or CityRevisionStatus.Archived)
+                throw new InvalidOperationException($"Revision '{revision.Id}' is immutable ({revision.Status}).");
+        }
+        else
+        {
+            revision = new CityRevision
             {
-                source = payload.SourceName,
-                datasetVersionId = datasetVersion.Id,
-                buildings = normalized.Buildings.Count,
-                roads = normalized.Roads.Count,
-                water = normalized.Water.Count,
-                landUse = normalized.LandUse.Count,
-                issues = normalized.Issues.Count,
-            }),
-        };
+                CityId = city.Id,
+                RevisionNumber = await revisions.NextRevisionNumberAsync(city.Id, ct),
+                ReconstructionProfile = profile.Name,
+            };
+            await revisions.AddAsync(revision, ct);
+            job.CityRevisionId = revision.Id;
+        }
+
+        revision.SourceSummary = JsonSerializer.Serialize(new
+        {
+            source = payload.SourceName,
+            datasetVersionId = datasetVersion.Id,
+            buildings = normalized.Buildings.Count,
+            roads = normalized.Roads.Count,
+            water = normalized.Water.Count,
+            landUse = normalized.LandUse.Count,
+            issues = normalized.Issues.Count,
+        });
         revision.MarkProcessing();
-        await revisions.AddAsync(revision, ct);
         await unitOfWork.SaveChangesAsync(ct);
 
         // Reexecução idempotente: limpa qualquer resíduo antes de inserir.
         await featureWriter.DeleteRevisionFeaturesAsync(revision.Id, ct);
 
+        // Elevação real do solo (DEM) por centroide; null → terreno plano estimado.
+        var elevationPoints = normalized.Buildings
+            .Select(nb => (nb.Footprint.Centroid.X, nb.Footprint.Centroid.Y))
+            .ToList();
+        var groundElevations = await elevationProvider.SampleAsync(elevationPoints, ct);
+        var hasRealElevation = groundElevations is not null;
+        if (!hasRealElevation && normalized.Buildings.Count > 0)
+        {
+            await jobs.AddIssueAsync(new ProcessingIssue
+            {
+                JobId = job.Id,
+                Severity = IssueSeverity.Info,
+                Code = "elevation-unavailable",
+                Message = "DEM source unavailable; ground elevation kept flat (estimated).",
+            }, ct);
+        }
+
+        var buildingIndex = 0;
         var buildings = new List<Building>(normalized.Buildings.Count);
         foreach (var nb in normalized.Buildings)
         {
@@ -305,7 +364,7 @@ public sealed class ImportPipeline(
                 Centroid = centroid,
                 HeightMeters = heightResult.HeightMeters,
                 MinHeightMeters = nb.MinHeightMeters,
-                GroundElevationMeters = 0, // Terreno plano no MVP; elevação declarada como estimada.
+                GroundElevationMeters = groundElevations?[buildingIndex++] ?? 0,
                 BuildingLevels = nb.BuildingLevels,
                 RoofLevels = nb.RoofLevels,
                 BuildingType = nb.BuildingType,
@@ -373,6 +432,14 @@ public sealed class ImportPipeline(
         await featureWriter.BulkInsertWaterAsync(water, ct);
         await featureWriter.BulkInsertLandUseAsync(landUse, ct);
 
+        // Tiles de relevo preservados no object storage → renderização offline.
+        var prefetched = await elevationProvider.PrefetchTilesAsync(area, ct);
+        if (prefetched > 0)
+        {
+            logger.LogInformation("Prefetched {Count} terrain tiles for offline rendering.", prefetched);
+            await RegisterTerrainDatasetAsync(ct);
+        }
+
         revision.SpatialCoverage = normalized.Boundary ?? BboxPolygon(area);
         revision.SpatialCoverage.SRID = 4326;
 
@@ -401,6 +468,22 @@ public sealed class ImportPipeline(
         return observedRatio >= 0.5
             ? QualityLevel.L3ObservedHeights
             : QualityLevel.L2FootprintsInferredHeights;
+    }
+
+    private async Task RegisterTerrainDatasetAsync(CancellationToken ct)
+    {
+        if (await datasets.FindByNameAsync("aws-terrain-tiles", ct) is not null) return;
+        await datasets.AddAsync(new Dataset
+        {
+            Name = "aws-terrain-tiles",
+            Provider = "AWS Open Data / Mapzen",
+            DatasetType = "raster-dem",
+            License = "Public domain (SRTM, NED, GMTED, ETOPO1)",
+            Attribution = "Terrain Tiles © Mapzen, AWS Open Data; SRTM © NASA/USGS",
+            LicenseUri = "https://registry.opendata.aws/terrain-tiles/",
+            SourceUri = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium",
+        }, ct);
+        await unitOfWork.SaveChangesAsync(ct);
     }
 
     private static string? SerializeTags(IReadOnlyDictionary<string, string> tags)

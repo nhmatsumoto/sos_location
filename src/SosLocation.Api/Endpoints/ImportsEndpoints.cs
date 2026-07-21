@@ -84,5 +84,6 @@ public static class ImportsEndpoints
         job.StageMessage,
         job.Error,
         job.Attempts,
+        job.NextAttemptAt,
         job.StartedAt, job.CompletedAt, job.CreatedAt);
 }

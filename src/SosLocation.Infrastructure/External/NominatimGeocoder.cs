@@ -16,13 +16,17 @@ public sealed class NominatimOptions
 /// Adapter de geocodificação via Nominatim. Executado sempre no backend,
 /// com identificação da aplicação (User-Agent) e timeout controlado.
 /// </summary>
-public sealed class NominatimGeocoder(HttpClient httpClient, ILogger<NominatimGeocoder> logger) : IGeocoder
+public sealed class NominatimGeocoder(
+    HttpClient httpClient,
+    NominatimOptions options,
+    ILogger<NominatimGeocoder> logger) : IGeocoder
 {
     public async Task<IReadOnlyList<PlaceSearchResult>> SearchAsync(string query, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(query)) return [];
 
-        var url = $"search?q={Uri.EscapeDataString(query)}&format=jsonv2&addressdetails=1&limit=8";
+        var maxResults = Math.Clamp(options.MaxResults, 1, 20);
+        var url = $"search?q={Uri.EscapeDataString(query)}&format=jsonv2&addressdetails=1&limit={maxResults}";
         using var response = await httpClient.GetAsync(url, ct);
         response.EnsureSuccessStatusCode();
 

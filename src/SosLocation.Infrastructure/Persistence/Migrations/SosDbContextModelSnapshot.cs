@@ -125,6 +125,9 @@ namespace SosLocation.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("DatasetId");
 
+                    b.HasIndex("DatasetId", "Checksum")
+                        .IsUnique();
+
                     b.ToTable("dataset_versions", (string)null);
                 });
 
@@ -248,6 +251,155 @@ namespace SosLocation.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("city_revisions", (string)null);
+                });
+
+            modelBuilder.Entity("SosLocation.Domain.Disasters.BuildingSeismicResponse", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("BuildingId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("building_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("DamageState")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("damage_state");
+
+                    b.Property<double>("NaturalPeriodSeconds")
+                        .HasColumnType("double precision")
+                        .HasColumnName("natural_period_seconds");
+
+                    b.Property<double>("PeakDriftRatio")
+                        .HasColumnType("double precision")
+                        .HasColumnName("peak_drift_ratio");
+
+                    b.Property<double>("PeakGroundAccelerationG")
+                        .HasColumnType("double precision")
+                        .HasColumnName("peak_ground_acceleration_g");
+
+                    b.Property<double>("PeakGroundVelocityCms")
+                        .HasColumnType("double precision")
+                        .HasColumnName("peak_ground_velocity_cms");
+
+                    b.Property<Guid>("SimulationRunId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("simulation_run_id");
+
+                    b.Property<double>("SpectralAccelerationG")
+                        .HasColumnType("double precision")
+                        .HasColumnName("spectral_acceleration_g");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BuildingId");
+
+                    b.HasIndex("SimulationRunId");
+
+                    b.HasIndex("SimulationRunId", "BuildingId")
+                        .IsUnique();
+
+                    b.ToTable("building_seismic_responses", (string)null);
+                });
+
+            modelBuilder.Entity("SosLocation.Domain.Disasters.SimulationRun", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer")
+                        .HasColumnName("attempts");
+
+                    b.Property<Guid>("CityRevisionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("city_revision_id");
+
+                    b.Property<DateTimeOffset?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("completed_at");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CurrentStage")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("current_stage");
+
+                    b.Property<string>("DisasterType")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("disaster_type");
+
+                    b.Property<string>("Error")
+                        .HasColumnType("text")
+                        .HasColumnName("error");
+
+                    b.Property<double?>("IntensityEast")
+                        .HasColumnType("double precision")
+                        .HasColumnName("intensity_east");
+
+                    b.Property<double?>("IntensityNorth")
+                        .HasColumnType("double precision")
+                        .HasColumnName("intensity_north");
+
+                    b.Property<double?>("IntensitySouth")
+                        .HasColumnType("double precision")
+                        .HasColumnName("intensity_south");
+
+                    b.Property<double?>("IntensityWest")
+                        .HasColumnType("double precision")
+                        .HasColumnName("intensity_west");
+
+                    b.Property<string>("Parameters")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("parameters");
+
+                    b.Property<int>("Progress")
+                        .HasColumnType("integer")
+                        .HasColumnName("progress");
+
+                    b.Property<string>("StageMessage")
+                        .HasColumnType("text")
+                        .HasColumnName("stage_message");
+
+                    b.Property<DateTimeOffset?>("StartedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("started_at");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("status");
+
+                    b.Property<string>("WorkerId")
+                        .HasColumnType("text")
+                        .HasColumnName("worker_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CityRevisionId");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("Status");
+
+                    b.ToTable("simulation_runs", (string)null);
                 });
 
             modelBuilder.Entity("SosLocation.Domain.Features.Building", b =>
@@ -586,6 +738,10 @@ namespace SosLocation.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(64)")
                         .HasColumnName("job_type");
 
+                    b.Property<DateTimeOffset?>("NextAttemptAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("next_attempt_at");
+
                     b.Property<int>("Progress")
                         .HasColumnType("integer")
                         .HasColumnName("progress");
@@ -618,6 +774,8 @@ namespace SosLocation.Infrastructure.Persistence.Migrations
                     b.HasIndex("CreatedAt");
 
                     b.HasIndex("Status");
+
+                    b.HasIndex("Status", "NextAttemptAt");
 
                     b.ToTable("import_jobs", (string)null);
                 });
@@ -683,6 +841,30 @@ namespace SosLocation.Infrastructure.Persistence.Migrations
                     b.HasOne("SosLocation.Domain.Cities.City", null)
                         .WithMany()
                         .HasForeignKey("CityId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("SosLocation.Domain.Disasters.BuildingSeismicResponse", b =>
+                {
+                    b.HasOne("SosLocation.Domain.Features.Building", null)
+                        .WithMany()
+                        .HasForeignKey("BuildingId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SosLocation.Domain.Disasters.SimulationRun", null)
+                        .WithMany()
+                        .HasForeignKey("SimulationRunId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("SosLocation.Domain.Disasters.SimulationRun", b =>
+                {
+                    b.HasOne("SosLocation.Domain.Cities.CityRevision", null)
+                        .WithMany()
+                        .HasForeignKey("CityRevisionId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

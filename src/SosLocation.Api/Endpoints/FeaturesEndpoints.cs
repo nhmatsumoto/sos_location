@@ -31,7 +31,9 @@ public static class FeaturesEndpoints
                     includeGeometry == true ? building.Footprint : null),
                 revision = revision is null ? null : CitiesEndpoints.ToDto(revision),
                 provenance,
-                elevationNote = "Ground elevation is estimated (flat terrain, no DEM in this revision).",
+                elevationNote = building.GroundElevationMeters == 0
+                    ? "Ground elevation is unavailable or at sea level; 0 m is used."
+                    : "Ground elevation was sampled from the revision's DEM source.",
             });
         }).WithName("GetBuilding");
 

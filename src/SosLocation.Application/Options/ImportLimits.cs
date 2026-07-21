@@ -12,5 +12,5 @@ public sealed class ImportLimits
     public int MaximumVerticesPerFeature { get; set; } = 50_000;
     public int ExternalProcessTimeoutSeconds { get; set; } = 300;
     public string[] AllowedImportHosts { get; set; } =
-        ["overpass-api.de", "nominatim.openstreetmap.org", "download.geofabrik.de"];
+        ["overpass-api.de", "overpass.kumi.systems", "nominatim.openstreetmap.org", "download.geofabrik.de", "s3.amazonaws.com"];
 }

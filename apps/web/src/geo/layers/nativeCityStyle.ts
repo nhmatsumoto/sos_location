@@ -6,6 +6,7 @@ import type {
 import {
   BOUNDARY_COLOR,
   BUILDING_COLORS,
+  DAMAGE_COLORS,
   LAND_USE_COLORS,
   ROAD_COLORS,
   rgbaCss,
@@ -19,6 +20,14 @@ export interface CityStyleOptions {
   revisionId: string;
   visibility: Record<LayerKey, boolean>;
   boundaryBox?: { west: number; south: number; east: number; north: number } | null;
+  /** Simulação de desastre concluída a exibir como overlay de intensidade (PGA). */
+  activeSimulation?: {
+    id: string;
+    west: number;
+    south: number;
+    east: number;
+    north: number;
+  } | null;
 }
 
 const SOURCE_PREFIX = 'sos-';
@@ -49,12 +58,28 @@ export function buildCitySources(revisionId: string): Record<string, SourceSpeci
   };
 }
 
-/** Expressão de cor semântica com seleção via feature-state e gradiente por altura. */
+/** Cor por estado de dano (resposta sísmica), aplicada via feature-state — nenhuma mudança de tile necessária. */
+function damageColorExpression(): DataDrivenPropertyValueSpecification<string> {
+  return [
+    'match',
+    ['feature-state', 'damageState'],
+    'none', rgbaCss(DAMAGE_COLORS.none),
+    'slight', rgbaCss(DAMAGE_COLORS.slight),
+    'moderate', rgbaCss(DAMAGE_COLORS.moderate),
+    'extensive', rgbaCss(DAMAGE_COLORS.extensive),
+    'complete', rgbaCss(DAMAGE_COLORS.complete),
+    rgbaCss(DAMAGE_COLORS.none),
+  ] as unknown as DataDrivenPropertyValueSpecification<string>;
+}
+
+/** Expressão de cor semântica com seleção/dano via feature-state e gradiente por altura. */
 function buildingColorExpression(): DataDrivenPropertyValueSpecification<string> {
   return [
     'case',
     ['boolean', ['feature-state', 'selected'], false],
     '#ffd666',
+    ['!=', ['feature-state', 'damageState'], null],
+    damageColorExpression(),
     [
       'match',
       ['get', 'building_type'],
@@ -182,12 +207,10 @@ export function buildCityLayers(options: CityStyleOptions): LayerSpecification[]
       paint: {
         'fill-extrusion-color': buildingColorExpression(),
         'fill-extrusion-height': ['coalesce', ['get', 'height_m'], 0],
-        // Base real: building:part com min_height + elevação do solo.
-        'fill-extrusion-base': [
-          '+',
-          ['coalesce', ['get', 'min_height_m'], 0],
-          ['coalesce', ['get', 'ground_elevation_m'], 0],
-        ],
+        // Base = min_height (building:part). A elevação do solo vem do terreno
+        // 3D do MapLibre (setTerrain) — somá-la aqui duplicaria o deslocamento;
+        // ground_elevation_m permanece nos tiles como dado analítico.
+        'fill-extrusion-base': ['coalesce', ['get', 'min_height_m'], 0],
         // Levemente translúcido (estilo Mini Tokyo 3D): trens e vias continuam
         // legíveis atrás das construções.
         'fill-extrusion-opacity': 0.9,

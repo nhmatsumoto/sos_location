@@ -18,6 +18,7 @@ try
 
     builder.Services.AddSosInfrastructure(builder.Configuration);
     builder.Services.AddHostedService<JobProcessorService>();
+    builder.Services.AddHostedService<SimulationProcessorService>();
 
     var host = builder.Build();
     host.Run();

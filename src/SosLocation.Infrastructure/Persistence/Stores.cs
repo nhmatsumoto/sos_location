@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using SosLocation.Application.Abstractions;
 using SosLocation.Domain.Catalog;
 using SosLocation.Domain.Cities;
+using SosLocation.Domain.Disasters;
 using SosLocation.Domain.Features;
 using SosLocation.Domain.Jobs;
 
@@ -21,7 +22,11 @@ public sealed class CityStore(SosDbContext context) : ICityStore
         => context.Cities.FirstOrDefaultAsync(c => c.Slug == slug, ct);
 
     public async Task<IReadOnlyList<City>> ListAsync(CancellationToken ct)
-        => await context.Cities.OrderBy(c => c.Name).ToListAsync(ct);
+        => await context.Cities
+            .Where(c => context.CityRevisions.Any(r =>
+                r.CityId == c.Id && r.Status == CityRevisionStatus.Published))
+            .OrderBy(c => c.Name)
+            .ToListAsync(ct);
 
     public async Task AddAsync(City city, CancellationToken ct)
         => await context.Cities.AddAsync(city, ct);
@@ -34,7 +39,7 @@ public sealed class RevisionStore(SosDbContext context) : IRevisionStore
 
     public async Task<IReadOnlyList<CityRevision>> ListByCityAsync(Guid cityId, CancellationToken ct)
         => await context.CityRevisions
-            .Where(r => r.CityId == cityId)
+            .Where(r => r.CityId == cityId && r.Status == CityRevisionStatus.Published)
             .OrderByDescending(r => r.RevisionNumber)
             .ToListAsync(ct);
 
@@ -55,6 +60,11 @@ public sealed class DatasetStore(SosDbContext context) : IDatasetStore
     public Task<Dataset?> FindByNameAsync(string name, CancellationToken ct)
         => context.Datasets.FirstOrDefaultAsync(d => d.Name == name, ct);
 
+    public Task<DatasetVersion?> FindVersionByChecksumAsync(
+        Guid datasetId, string checksum, CancellationToken ct)
+        => context.DatasetVersions.FirstOrDefaultAsync(
+            version => version.DatasetId == datasetId && version.Checksum == checksum, ct);
+
     public async Task AddAsync(Dataset dataset, CancellationToken ct)
         => await context.Datasets.AddAsync(dataset, ct);
 
@@ -70,6 +80,12 @@ public sealed class DatasetStore(SosDbContext context) : IDatasetStore
             .Union(context.Roads
                 .Where(r => r.CityRevisionId == revisionId && r.SourceDatasetVersionId != null)
                 .Select(r => r.SourceDatasetVersionId!.Value))
+            .Union(context.WaterFeatures
+                .Where(w => w.CityRevisionId == revisionId && w.SourceDatasetVersionId != null)
+                .Select(w => w.SourceDatasetVersionId!.Value))
+            .Union(context.LandUseAreas
+                .Where(l => l.CityRevisionId == revisionId && l.SourceDatasetVersionId != null)
+                .Select(l => l.SourceDatasetVersionId!.Value))
             .Distinct()
             .ToListAsync(ct);
 
@@ -99,6 +115,9 @@ public sealed class ImportJobStore(SosDbContext context) : IImportJobStore
     public async Task AddIssueAsync(ProcessingIssue issue, CancellationToken ct)
         => await context.ProcessingIssues.AddAsync(issue, ct);
 
+    public Task ClearIssuesAsync(Guid jobId, CancellationToken ct)
+        => context.ProcessingIssues.Where(issue => issue.JobId == jobId).ExecuteDeleteAsync(ct);
+
     public async Task<IReadOnlyList<ProcessingIssue>> ListIssuesAsync(Guid jobId, CancellationToken ct)
         => await context.ProcessingIssues
             .Where(i => i.JobId == jobId)
@@ -115,7 +134,8 @@ public sealed class ImportJobStore(SosDbContext context) : IImportJobStore
             .SqlQuery<Guid>($@"
                 SELECT id AS ""Value"" FROM import_jobs
                 WHERE status IN ('Queued', 'Retrying')
-                ORDER BY created_at
+                  AND (next_attempt_at IS NULL OR next_attempt_at <= CURRENT_TIMESTAMP)
+                ORDER BY COALESCE(next_attempt_at, created_at), created_at
                 LIMIT 1
                 FOR UPDATE SKIP LOCKED")
             .ToListAsync(ct);
@@ -131,6 +151,66 @@ public sealed class ImportJobStore(SosDbContext context) : IImportJobStore
         await context.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
         return job;
+    }
+}
+
+public sealed class SimulationRunStore(SosDbContext context) : ISimulationRunStore
+{
+    public Task<SimulationRun?> FindByIdAsync(Guid id, CancellationToken ct)
+        => context.SimulationRuns.FirstOrDefaultAsync(r => r.Id == id, ct);
+
+    public async Task<IReadOnlyList<SimulationRun>> ListRecentAsync(int limit, CancellationToken ct)
+        => await context.SimulationRuns
+            .OrderByDescending(r => r.CreatedAt)
+            .Take(limit)
+            .ToListAsync(ct);
+
+    public async Task AddAsync(SimulationRun run, CancellationToken ct)
+        => await context.SimulationRuns.AddAsync(run, ct);
+
+    public async Task BulkInsertResponsesAsync(IReadOnlyList<BuildingSeismicResponse> responses, CancellationToken ct)
+    {
+        await context.BuildingSeismicResponses.AddRangeAsync(responses, ct);
+        await context.SaveChangesAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<BuildingSeismicResponse>> ListResponsesAsync(Guid runId, CancellationToken ct)
+        => await context.BuildingSeismicResponses
+            .Where(r => r.SimulationRunId == runId)
+            .ToListAsync(ct);
+
+    public Task<SimulationRunStatus?> GetStatusAsync(Guid id, CancellationToken ct)
+        => context.SimulationRuns.AsNoTracking()
+            .Where(r => r.Id == id)
+            .Select(r => (SimulationRunStatus?)r.Status)
+            .FirstOrDefaultAsync(ct);
+
+    public async Task<SimulationRun?> ReserveNextAsync(string workerId, CancellationToken ct)
+    {
+        // Reserva durável: FOR UPDATE SKIP LOCKED garante que dois workers
+        // nunca peguem o mesmo run, sem depender de estado em memória.
+        await using var transaction = await context.Database.BeginTransactionAsync(ct);
+
+        var ids = await context.Database
+            .SqlQuery<Guid>($@"
+                SELECT id AS ""Value"" FROM simulation_runs
+                WHERE status IN ('Queued', 'Retrying')
+                ORDER BY created_at
+                LIMIT 1
+                FOR UPDATE SKIP LOCKED")
+            .ToListAsync(ct);
+
+        if (ids.Count == 0)
+        {
+            await transaction.RollbackAsync(ct);
+            return null;
+        }
+
+        var run = await context.SimulationRuns.FirstAsync(r => r.Id == ids[0], ct);
+        run.Start(workerId, DateTimeOffset.UtcNow);
+        await context.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
+        return run;
     }
 }
 
@@ -181,6 +261,11 @@ public sealed class FeatureStore(SosDbContext context) : IFeatureWriter, IFeatur
         => await context.Roads
             .Where(r => r.CityRevisionId == revisionId && r.RoadClass == "rail")
             .OrderBy(r => r.ExternalId)
+            .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<Building>> ListBuildingsAsync(Guid revisionId, CancellationToken ct)
+        => await context.Buildings
+            .Where(b => b.CityRevisionId == revisionId)
             .ToListAsync(ct);
 
     public async Task<(int Buildings, int Roads, int Water, int LandUse)> CountByRevisionAsync(

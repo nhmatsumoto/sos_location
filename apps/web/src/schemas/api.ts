@@ -58,11 +58,44 @@ export const importJobSchema = z.object({
   stageMessage: z.string().nullish(),
   error: z.string().nullish(),
   attempts: z.number(),
+  nextAttemptAt: z.string().nullish(),
   startedAt: z.string().nullish(),
   completedAt: z.string().nullish(),
   createdAt: z.string(),
 });
 export type ImportJob = z.infer<typeof importJobSchema>;
+
+export const simulationRunSchema = z.object({
+  id: z.string(),
+  cityRevisionId: z.string(),
+  disasterType: z.string(),
+  status: z.string(),
+  progress: z.number(),
+  currentStage: z.string().nullish(),
+  stageMessage: z.string().nullish(),
+  error: z.string().nullish(),
+  attempts: z.number(),
+  intensityWest: z.number().nullish(),
+  intensitySouth: z.number().nullish(),
+  intensityEast: z.number().nullish(),
+  intensityNorth: z.number().nullish(),
+  startedAt: z.string().nullish(),
+  completedAt: z.string().nullish(),
+  createdAt: z.string(),
+});
+export type SimulationRun = z.infer<typeof simulationRunSchema>;
+
+export const buildingSeismicResponseSchema = z.object({
+  id: z.string(),
+  buildingId: z.string(),
+  naturalPeriodSeconds: z.number(),
+  peakGroundAccelerationG: z.number(),
+  peakGroundVelocityCms: z.number(),
+  spectralAccelerationG: z.number(),
+  peakDriftRatio: z.number(),
+  damageState: z.string(),
+});
+export type BuildingSeismicResponse = z.infer<typeof buildingSeismicResponseSchema>;
 
 export const provenanceSchema = z.object({
   dataset: z.string(),

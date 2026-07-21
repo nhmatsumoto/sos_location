@@ -2,6 +2,7 @@ import maplibregl from 'maplibre-gl';
 import type { StyleSpecification } from 'maplibre-gl';
 import { MapboxOverlay } from '@deck.gl/mapbox';
 import type { Layer } from '@deck.gl/core';
+import { simulationIntensityUrl } from '../api/client';
 import { createBaseStyle } from './materials/theme';
 import {
   boundaryGeoJson,
@@ -129,6 +130,18 @@ export class GeoScene {
     this.applySelection(null);
   }
 
+  /** Aplica o estado de dano por edifício (feature-state) — sem alterar os tiles. */
+  setDamageStates(responses: readonly { buildingId: string; damageState: string }[] | null): void {
+    const map = this.map;
+    if (!map || !map.getSource('sos-buildings')) return;
+    for (const r of responses ?? []) {
+      map.setFeatureState(
+        { source: 'sos-buildings', sourceLayer: 'buildings', id: r.buildingId },
+        { damageState: r.damageState },
+      );
+    }
+  }
+
   /** Posiciona a câmera imediatamente (restauração de deep-link). */
   jumpTo(camera: CameraState): void {
     this.map?.jumpTo({
@@ -179,7 +192,8 @@ export class GeoScene {
     const map = this.map;
     if (!map) return;
 
-    // Remove camadas e sources anteriores (ordem: layers antes de sources).
+    // Remove camadas e sources anteriores (ordem: terrain → layers → sources).
+    map.setTerrain(null);
     for (const layer of map.getStyle().layers ?? []) {
       if (layer.id.startsWith('sos-')) map.removeLayer(layer.id);
     }
@@ -192,6 +206,53 @@ export class GeoScene {
 
     const options = this.cityOptions;
     if (!options) return;
+
+    // Relevo real (encoding Terrarium) servido pelo backend a partir do object
+    // storage — dados de elevação computados, não imagery (ADR-0004 preservado).
+    if (options.visibility.terrain) {
+      map.addSource('sos-terrain', {
+        type: 'raster-dem',
+        tiles: [`${window.location.origin}/api/v1/terrain/{z}/{x}/{y}.png`],
+        encoding: 'terrarium',
+        tileSize: 256,
+        minzoom: 8,
+        maxzoom: 12,
+      });
+      map.addLayer({
+        id: 'sos-hillshade',
+        type: 'hillshade',
+        source: 'sos-terrain',
+        paint: {
+          'hillshade-exaggeration': 0.35,
+          'hillshade-shadow-color': '#04060a',
+          'hillshade-highlight-color': '#26313e',
+          'hillshade-accent-color': '#0b0f14',
+        },
+      });
+      map.setTerrain({ source: 'sos-terrain', exaggeration: 1.0 });
+    }
+
+    // Overlay de intensidade sísmica (PGA): uma imagem única por simulação
+    // concluída (não uma pirâmide de tiles) — ver IntensityRasterEncoding no backend.
+    if (options.visibility.seismicIntensity && options.activeSimulation) {
+      const { west, south, east, north } = options.activeSimulation;
+      map.addSource('sos-intensity', {
+        type: 'image',
+        url: simulationIntensityUrl(options.activeSimulation.id),
+        coordinates: [
+          [west, north],
+          [east, north],
+          [east, south],
+          [west, south],
+        ],
+      });
+      map.addLayer({
+        id: 'sos-intensity-raster',
+        type: 'raster',
+        source: 'sos-intensity',
+        paint: { 'raster-opacity': 0.55 },
+      });
+    }
 
     for (const [id, source] of Object.entries(buildCitySources(options.revisionId))) {
       map.addSource(id, source);

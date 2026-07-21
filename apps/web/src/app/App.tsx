@@ -2,6 +2,7 @@ import { CityViewer } from '../features/city-viewer/CityViewer';
 import { SearchPanel } from '../features/city-search/SearchPanel';
 import { CitiesPanel } from '../features/city-search/CitiesPanel';
 import { ImportPanel } from '../features/city-import/ImportPanel';
+import { SimulationPanel } from '../features/disaster-simulation/SimulationPanel';
 import { LayerPanel } from '../features/layer-control/LayerPanel';
 import { InspectorPanel } from '../features/feature-inspector/InspectorPanel';
 import { DiagnosticsBar } from '../features/diagnostics/DiagnosticsBar';
@@ -32,6 +33,7 @@ export function App() {
           <CitiesPanel />
           <LayerPanel />
           <ImportPanel />
+          <SimulationPanel />
         </aside>
 
         <main className="relative min-w-0 flex-1">

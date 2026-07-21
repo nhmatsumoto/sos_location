@@ -52,6 +52,15 @@ export const LAND_USE_COLORS: Record<string, RGBA> = {
 
 export const BOUNDARY_COLOR: RGBA = [255, 214, 102, 180];
 
+/** Cores por estado de dano estrutural (resposta sísmica) — escala clara→escura de severidade. */
+export const DAMAGE_COLORS: Record<string, RGBA> = {
+  none: [141, 163, 191, 255],
+  slight: [232, 214, 90, 255],
+  moderate: [224, 158, 60, 255],
+  extensive: [206, 92, 56, 255],
+  complete: [110, 32, 32, 255],
+};
+
 export function buildingColor(type: string | undefined, heightMeters?: number): RGBA {
   const base = BUILDING_COLORS[type ?? 'unknown'] ?? BUILDING_COLORS.unknown;
   // Gradiente calculado (não é textura): edifícios sem categoria semântica

@@ -1,5 +1,6 @@
 using Microsoft.Net.Http.Headers;
 using SosLocation.Application.Abstractions;
+using SosLocation.Domain.Cities;
 
 namespace SosLocation.Api.Endpoints;
 
@@ -11,10 +12,14 @@ public static class TilesEndpoints
     {
         group.MapGet("/tiles/{revisionId:guid}/{layer}/{z:int}/{x:int}/{y:int}.mvt", async (
             Guid revisionId, string layer, int z, int x, int y,
-            ITileReader tiles, HttpContext http, CancellationToken ct) =>
+            ITileReader tiles, IRevisionStore revisions, HttpContext http, CancellationToken ct) =>
         {
             var kind = ParseLayer(layer);
             if (kind is null) return Results.NotFound();
+
+            var revision = await revisions.FindByIdAsync(revisionId, ct);
+            if (revision?.Status != CityRevisionStatus.Published)
+                return Results.NotFound();
 
             // Revisões são imutáveis: o ETag é determinístico e o cache pode ser agressivo.
             var etag = $"\"{revisionId:N}-{layer}-{z}-{x}-{y}\"";

@@ -9,6 +9,7 @@ public sealed class OverpassOptions
 {
     public const string SectionName = "Overpass";
     public string BaseUrl { get; set; } = "https://overpass-api.de";
+    public string[] BaseUrls { get; set; } = [];
     public int QueryTimeoutSeconds { get; set; } = 120;
 }
 
@@ -25,11 +26,6 @@ public sealed class OverpassOsmSource(
 {
     public async Task<SourcePayload> DownloadAreaAsync(BoundingBox area, CancellationToken ct)
     {
-        var baseUri = new Uri(options.BaseUrl);
-        if (!limits.AllowedImportHosts.Contains(baseUri.Host, StringComparer.OrdinalIgnoreCase))
-            throw new InvalidOperationException(
-                $"Host '{baseUri.Host}' is not in the allowed import hosts list (SSRF protection).");
-
         var bbox = string.Create(System.Globalization.CultureInfo.InvariantCulture,
             $"{area.South},{area.West},{area.North},{area.East}");
         var query = $"""
@@ -50,13 +46,54 @@ public sealed class OverpassOsmSource(
             out tags geom;
             """;
 
-        logger.LogInformation("Overpass download for bbox {Bbox} ({Area:0.0} km²)", bbox, area.AreaKm2);
+        var endpoints = options.BaseUrls.Length > 0 ? options.BaseUrls : [options.BaseUrl];
+        Exception? lastError = null;
 
-        using var content = new FormUrlEncodedContent([new KeyValuePair<string, string>("data", query)]);
-        using var response = await httpClient.PostAsync(new Uri(baseUri, "/api/interpreter"), content, ct);
-        response.EnsureSuccessStatusCode();
+        foreach (var endpoint in endpoints.Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            var baseUri = new Uri(endpoint);
+            if (!limits.AllowedImportHosts.Contains(baseUri.Host, StringComparer.OrdinalIgnoreCase))
+                throw new InvalidOperationException(
+                    $"Host '{baseUri.Host}' is not in the allowed import hosts list (SSRF protection).");
 
-        // Lê com limite explícito: respostas maiores que o permitido são abortadas.
+            try
+            {
+                logger.LogInformation(
+                    "Overpass download from {Host} for bbox {Bbox} ({Area:0.0} km²)",
+                    baseUri.Host, bbox, area.AreaKm2);
+
+                using var content = new FormUrlEncodedContent(
+                    [new KeyValuePair<string, string>("data", query)]);
+                using var response = await httpClient.PostAsync(
+                    new Uri(baseUri, "/api/interpreter"), content, ct);
+                response.EnsureSuccessStatusCode();
+
+                return new SourcePayload
+                {
+                    Content = await ReadLimitedAsync(response, ct),
+                    Format = SourcePayloadFormat.OverpassJson,
+                    SourceName = "openstreetmap",
+                    SourceUri = $"{baseUri.GetLeftPart(UriPartial.Authority)}/api/interpreter",
+                    ContentType = "application/json",
+                };
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+            {
+                lastError = ex;
+                logger.LogWarning(ex, "Overpass endpoint {Host} failed; trying the next configured endpoint", baseUri.Host);
+            }
+        }
+
+        throw new HttpRequestException(
+            "All configured Overpass endpoints failed.", lastError);
+    }
+
+    private async Task<byte[]> ReadLimitedAsync(HttpResponseMessage response, CancellationToken ct)
+    {
         await using var stream = await response.Content.ReadAsStreamAsync(ct);
         using var buffer = new MemoryStream();
         var chunk = new byte[81920];
@@ -69,13 +106,6 @@ public sealed class OverpassOsmSource(
                     $"Overpass response exceeded the maximum of {limits.MaximumDownloadBytes} bytes.");
         }
 
-        return new SourcePayload
-        {
-            Content = buffer.ToArray(),
-            Format = SourcePayloadFormat.OverpassJson,
-            SourceName = "openstreetmap",
-            SourceUri = $"{options.BaseUrl}/api/interpreter",
-            ContentType = "application/json",
-        };
+        return buffer.ToArray();
     }
 }

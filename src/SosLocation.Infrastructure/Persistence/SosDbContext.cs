@@ -2,6 +2,7 @@ using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using SosLocation.Domain.Catalog;
 using SosLocation.Domain.Cities;
+using SosLocation.Domain.Disasters;
 using SosLocation.Domain.Features;
 using SosLocation.Domain.Jobs;
 using SosLocation.Domain.ValueObjects;
@@ -20,6 +21,8 @@ public partial class SosDbContext(DbContextOptions<SosDbContext> options) : DbCo
     public DbSet<Road> Roads => Set<Road>();
     public DbSet<WaterFeature> WaterFeatures => Set<WaterFeature>();
     public DbSet<LandUseArea> LandUseAreas => Set<LandUseArea>();
+    public DbSet<SimulationRun> SimulationRuns => Set<SimulationRun>();
+    public DbSet<BuildingSeismicResponse> BuildingSeismicResponses => Set<BuildingSeismicResponse>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -66,6 +69,7 @@ public partial class SosDbContext(DbContextOptions<SosDbContext> options) : DbCo
             entity.HasKey(v => v.Id);
             entity.Property(v => v.Metadata).HasColumnType("jsonb");
             entity.HasIndex(v => v.DatasetId);
+            entity.HasIndex(v => new { v.DatasetId, v.Checksum }).IsUnique();
             entity.HasOne<Dataset>().WithMany().HasForeignKey(v => v.DatasetId).OnDelete(DeleteBehavior.Cascade);
         });
 
@@ -79,6 +83,7 @@ public partial class SosDbContext(DbContextOptions<SosDbContext> options) : DbCo
             entity.Property(j => j.Request).HasColumnType("jsonb");
             entity.HasIndex(j => j.Status);
             entity.HasIndex(j => j.CreatedAt);
+            entity.HasIndex(j => new { j.Status, j.NextAttemptAt });
         });
 
         modelBuilder.Entity<ProcessingIssue>(entity =>
@@ -157,6 +162,31 @@ public partial class SosDbContext(DbContextOptions<SosDbContext> options) : DbCo
             entity.HasIndex(l => new { l.CityRevisionId, l.ExternalId }).IsUnique();
             entity.HasIndex(l => l.Geometry).HasMethod("gist");
             entity.HasOne<CityRevision>().WithMany().HasForeignKey(l => l.CityRevisionId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<SimulationRun>(entity =>
+        {
+            entity.ToTable("simulation_runs");
+            entity.HasKey(r => r.Id);
+            entity.Property(r => r.DisasterType).HasConversion<string>().HasMaxLength(32);
+            entity.Property(r => r.Status).HasConversion<string>().HasMaxLength(32);
+            entity.Property(r => r.CurrentStage).HasConversion<string?>().HasMaxLength(64);
+            entity.Property(r => r.Parameters).HasColumnType("jsonb");
+            entity.HasIndex(r => r.Status);
+            entity.HasIndex(r => r.CreatedAt);
+            entity.HasIndex(r => r.CityRevisionId);
+            entity.HasOne<CityRevision>().WithMany().HasForeignKey(r => r.CityRevisionId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<BuildingSeismicResponse>(entity =>
+        {
+            entity.ToTable("building_seismic_responses");
+            entity.HasKey(r => r.Id);
+            entity.Property(r => r.DamageState).HasConversion<string>().HasMaxLength(16);
+            entity.HasIndex(r => r.SimulationRunId);
+            entity.HasIndex(r => new { r.SimulationRunId, r.BuildingId }).IsUnique();
+            entity.HasOne<SimulationRun>().WithMany().HasForeignKey(r => r.SimulationRunId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne<Building>().WithMany().HasForeignKey(r => r.BuildingId).OnDelete(DeleteBehavior.Cascade);
         });
 
         ApplySnakeCaseNames(modelBuilder);

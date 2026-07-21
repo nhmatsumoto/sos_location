@@ -15,6 +15,8 @@ export function CityViewer() {
   const selectedFeature = useAppStore((s) => s.selectedFeature);
   const pendingCamera = useAppStore((s) => s.pendingCamera);
   const layers = useAppStore((s) => s.layers);
+  const activeSimulation = useAppStore((s) => s.activeSimulation);
+  const damageByBuildingId = useAppStore((s) => s.damageByBuildingId);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -56,8 +58,20 @@ export function CityViewer() {
             north: selectedPlace.north,
           }
         : null,
+      activeSimulation,
     });
-  }, [selectedRevision, layers, selectedPlace]);
+  }, [selectedRevision, layers, selectedPlace, activeSimulation]);
+
+  // Colore os edifícios por estado de dano assim que a resposta da simulação chega
+  // (feature-state — não requer reconstruir tiles/sources).
+  useEffect(() => {
+    if (!damageByBuildingId) return;
+    const entries = Object.entries(damageByBuildingId).map(([buildingId, damageState]) => ({
+      buildingId,
+      damageState,
+    }));
+    sceneRef.current?.setDamageStates(entries);
+  }, [damageByBuildingId]);
 
   // Trens em movimento por horário (simulação determinística sobre ferrovias OSM
   // da revisão ativa — funciona para qualquer cidade importada).

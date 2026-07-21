@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using SosLocation.Application.Abstractions;
 using SosLocation.Application.Import;
+using SosLocation.Domain.Jobs;
 using SosLocation.Infrastructure.Persistence;
 
 namespace SosLocation.Worker;
@@ -67,11 +68,38 @@ public sealed class JobProcessorService(
         catch (Exception ex)
         {
             logger.LogError(ex, "Job {JobId} failed on attempt {Attempt}", job.Id, job.Attempts);
-            job.Fail(ex.Message, DateTimeOffset.UtcNow);
+            var now = DateTimeOffset.UtcNow;
+            var retryAt = job.Attempts < ImportJob.MaxAttempts
+                ? now.Add(RetryDelay(job.Attempts))
+                : (DateTimeOffset?)null;
+            job.Fail(ex.Message, now, retryAt);
+
+            if (retryAt is null && job.CityRevisionId is { } revisionId)
+            {
+                var revisions = scope.ServiceProvider.GetRequiredService<IRevisionStore>();
+                var revision = await revisions.FindByIdAsync(revisionId, CancellationToken.None);
+                if (revision is not null && revision.Status is not
+                    (SosLocation.Domain.Cities.CityRevisionStatus.Published
+                    or SosLocation.Domain.Cities.CityRevisionStatus.Archived))
+                {
+                    revision.MarkFailed();
+                }
+            }
+
             await unitOfWork.SaveChangesAsync(CancellationToken.None);
+
+            if (retryAt is not null)
+                logger.LogWarning("Job {JobId} scheduled for retry at {RetryAt}", job.Id, retryAt);
         }
 
         return true;
+    }
+
+    private static TimeSpan RetryDelay(int attempts)
+    {
+        var exponentialSeconds = 5 * Math.Pow(3, Math.Max(0, attempts - 1));
+        var jitterSeconds = Random.Shared.NextDouble() * 3;
+        return TimeSpan.FromSeconds(exponentialSeconds + jitterSeconds);
     }
 
     /// <summary>Espera as migrations (aplicadas pela API) ficarem completas; aplica localmente como fallback.</summary>

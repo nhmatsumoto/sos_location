@@ -36,9 +36,38 @@ public sealed record ImportJobDto(
     string? StageMessage,
     string? Error,
     int Attempts,
+    DateTimeOffset? NextAttemptAt,
     DateTimeOffset? StartedAt,
     DateTimeOffset? CompletedAt,
     DateTimeOffset CreatedAt);
+
+public sealed record SimulationRunDto(
+    Guid Id,
+    Guid CityRevisionId,
+    string DisasterType,
+    string Status,
+    int Progress,
+    string? CurrentStage,
+    string? StageMessage,
+    string? Error,
+    int Attempts,
+    double? IntensityWest,
+    double? IntensitySouth,
+    double? IntensityEast,
+    double? IntensityNorth,
+    DateTimeOffset? StartedAt,
+    DateTimeOffset? CompletedAt,
+    DateTimeOffset CreatedAt);
+
+public sealed record BuildingSeismicResponseDto(
+    Guid Id,
+    Guid BuildingId,
+    double NaturalPeriodSeconds,
+    double PeakGroundAccelerationG,
+    double PeakGroundVelocityCms,
+    double SpectralAccelerationG,
+    double PeakDriftRatio,
+    string DamageState);
 
 public sealed record PlaceDto(
     string ProviderId,

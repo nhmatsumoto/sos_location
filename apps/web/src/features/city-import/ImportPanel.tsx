@@ -22,24 +22,21 @@ export function ImportPanel() {
   const startImport = useMutation({
     mutationFn: () => {
       const place = selectedPlace!;
-      // Lugares do catálogo (provider "catalog") não existem no geocoder:
-      // importa/reimporta usando a própria área da cidade (nova revisão).
-      if (place.provider === 'catalog') {
-        return api.createImport({
-          name: place.name,
-          boundingBox: {
-            west: place.west,
-            south: place.south,
-            east: place.east,
-            north: place.north,
-          },
-          source: 'openstreetmap',
-          reconstructionProfile: 'osm-basic-v1',
-        });
-      }
+      // O resultado da busca já contém a área resolvida. Reutilizá-la evita uma
+      // segunda chamada ao Nominatim no worker e permite validar o limite antes
+      // de enfileirar o job. placeProviderId fica preservado como referência.
       return api.createImport({
         placeProviderId: place.providerId,
         displayName: place.name,
+        name: place.name,
+        countryCode: place.countryCode ?? undefined,
+        region: place.region ?? undefined,
+        boundingBox: {
+          west: place.west,
+          south: place.south,
+          east: place.east,
+          north: place.north,
+        },
         source: 'openstreetmap',
         reconstructionProfile: 'osm-basic-v1',
       });

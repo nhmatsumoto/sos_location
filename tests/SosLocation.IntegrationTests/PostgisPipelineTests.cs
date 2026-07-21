@@ -19,6 +19,8 @@ namespace SosLocation.IntegrationTests;
 
 public sealed class PostgisContainerFixture : IAsyncLifetime
 {
+    internal InMemoryObjectStorage Storage { get; } = new();
+
     public PostgreSqlContainer Container { get; } = new PostgreSqlBuilder()
         .WithImage("postgis/postgis:18-3.6")
         .WithDatabase("sos_test")
@@ -101,7 +103,7 @@ public class PostgisPipelineTests(PostgisContainerFixture fixture)
     {
         var context = fixture.CreateContext();
         var featureStore = new FeatureStore(context);
-        var storage = new InMemoryObjectStorage();
+        var storage = fixture.Storage;
         var pipeline = new ImportPipeline(
             new CityStore(context),
             new RevisionStore(context),
@@ -113,6 +115,7 @@ public class PostgisPipelineTests(PostgisContainerFixture fixture)
             new UnusedGeocoder(),
             new UnusedOsmSource(),
             new FileFixtureSource(new FixtureOptions { Path = FindFixturePath() }),
+            new NullElevationProvider(), // testes determinísticos: terreno plano
             storage,
             [new GeoJsonNormalizer(NullLogger<GeoJsonNormalizer>.Instance),
              new OverpassNormalizer(NullLogger<OverpassNormalizer>.Instance)],
@@ -195,6 +198,14 @@ public class PostgisPipelineTests(PostgisContainerFixture fixture)
         var secondCount = await context.Buildings.CountAsync(b => b.CityRevisionId == secondRevision.Id);
         Assert.Equal(firstCount, secondCount);
 
+        // O mesmo conteúdo bruto é referenciado por uma única versão imutável.
+        var duplicateSnapshots = await context.DatasetVersions
+            .Where(v => v.Checksum != null)
+            .GroupBy(v => new { v.DatasetId, v.Checksum })
+            .Where(group => group.Count() > 1)
+            .CountAsync();
+        Assert.Equal(0, duplicateSnapshots);
+
         // external_id é único por revisão (constraint verificada pelo banco).
         var duplicates = await context.Buildings
             .Where(b => b.CityRevisionId == secondRevision.Id)
@@ -274,6 +285,37 @@ public class PostgisPipelineTests(PostgisContainerFixture fixture)
         await using var context2 = fixture.CreateContext();
         var store2 = new ImportJobStore(context2);
         Assert.Null(await store2.ReserveNextAsync("worker-b", default));
+    }
+
+    [Fact]
+    public async Task JobQueue_SkipsRetryUntilBackoffExpires()
+    {
+        var now = DateTimeOffset.UtcNow;
+        Guid dueJobId;
+
+        await using (var setup = fixture.CreateContext())
+        {
+            await setup.Database.ExecuteSqlRawAsync(
+                "UPDATE import_jobs SET status = 'Completed' WHERE status IN ('Queued','Retrying')");
+
+            var delayed = NewFixtureJob();
+            delayed.Start("worker", now);
+            delayed.Fail("temporary", now, now.AddHours(1));
+
+            var due = NewFixtureJob();
+            due.Start("worker", now);
+            due.Fail("temporary", now, now.AddSeconds(-1));
+            dueJobId = due.Id;
+
+            await setup.ImportJobs.AddRangeAsync(delayed, due);
+            await setup.SaveChangesAsync();
+        }
+
+        await using var context = fixture.CreateContext();
+        var reserved = await new ImportJobStore(context).ReserveNextAsync("worker-b", default);
+
+        Assert.NotNull(reserved);
+        Assert.Equal(dueJobId, reserved!.Id);
     }
 
     private static (int X, int Y) TileMath(double lon, double lat, int z)

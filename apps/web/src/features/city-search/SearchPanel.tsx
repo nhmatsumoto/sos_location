@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../api/client';
 import { useAppStore } from '../../stores/appStore';
@@ -10,18 +10,28 @@ export function SearchPanel() {
   const setSelectedPlace = useAppStore((s) => s.setSelectedPlace);
   const [open, setOpen] = useState(false);
 
+  useEffect(() => {
+    const normalized = query.trim();
+    if (normalized.length < 2) {
+      setDebounced('');
+      return;
+    }
+
+    const timer = window.setTimeout(() => setDebounced(normalized), 400);
+    return () => window.clearTimeout(timer);
+  }, [query]);
+
   const { data: places, isFetching, error } = useQuery({
     queryKey: ['places', debounced],
     queryFn: ({ signal }) => api.searchPlaces(debounced, signal),
-    enabled: debounced.trim().length >= 2,
+    enabled: open && debounced.length >= 2,
     staleTime: 60_000,
   });
 
   const onChange = (value: string) => {
     setQuery(value);
     setOpen(true);
-    window.clearTimeout((onChange as { t?: number }).t);
-    (onChange as { t?: number }).t = window.setTimeout(() => setDebounced(value), 400);
+    setSelectedPlace(null);
   };
 
   const choose = (place: Place) => {

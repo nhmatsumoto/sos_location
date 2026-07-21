@@ -45,6 +45,8 @@ e os edifícios 3D carregam progressivamente por tiles.
 
 Portas: web `8080`, API direta `5080`, PostGIS `5432`, MinIO `9000` (console `9001`).
 Variáveis: veja `.env.example` (defaults de desenvolvimento embutidos).
+Se a partição do Docker estiver próxima do limite, defina `MINIO_DATA_PATH`
+para um diretório em uma unidade com espaço antes de importar cidades grandes.
 
 ## Importar uma cidade real (OSM)
 
@@ -115,10 +117,9 @@ make e2e                # Playwright (requer stack no ar: docker compose up)
 - Picking de topos de edifícios em vista estritamente top-down (pitch 0) é
   instável sob WebGL por software (SwiftShader); em perspectiva funciona
   normalmente — cenário coberto pelo E2E.
-- Hosts cujo firewall bloqueia o egress da rede bridge do Docker impedem
-  Nominatim/Overpass a partir dos containers (o modo offline não é afetado;
-  `make api-dev` na máquina host funciona). O compose já configura
-  `dns: [1.1.1.1, 8.8.8.8]` para o caso comum de systemd-resolved.
+- API e worker usam a rede do host para que Nominatim/Overpass sigam o mesmo
+  caminho de DNS/egress do sistema. PostgreSQL, MinIO e web continuam isolados;
+  o Nginx acessa a API por `127.0.0.1` mantendo a UI na porta configurada.
 - Sem simulações de desastre nesta versão — a arquitetura (revisões imutáveis
   + camadas registráveis na GeoScene) foi desenhada para recebê-las como
   camadas temporais.

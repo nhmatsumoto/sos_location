@@ -27,6 +27,8 @@ public sealed record ImportRequest
     public string? DisplayName { get; init; }
     /// <summary>Nome para importações por área explícita.</summary>
     public string? Name { get; init; }
+    public string? CountryCode { get; init; }
+    public string? Region { get; init; }
     public BoundingBoxDto? BoundingBox { get; init; }
     public required string Source { get; init; }
     public required string ReconstructionProfile { get; init; }

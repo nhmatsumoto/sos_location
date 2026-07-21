@@ -13,9 +13,14 @@ describe('appStore', () => {
         landUse: false,
         boundary: true,
         trains: true,
+        terrain: true,
+        seismicIntensity: false,
         debugTiles: false,
       },
       tileStats: { loaded: 0, pending: 0 },
+      watchedSimulationId: null,
+      activeSimulation: null,
+      damageByBuildingId: null,
     });
   });
 
@@ -54,5 +59,22 @@ describe('appStore', () => {
 
     useAppStore.getState().setTileStats(12, -1); // pendência nunca fica negativa
     expect(useAppStore.getState().tileStats).toEqual({ loaded: 12, pending: 0 });
+  });
+
+  it('tracks the active simulation overlay and per-building damage state', () => {
+    useAppStore.getState().setWatchedSimulationId('run-1');
+    expect(useAppStore.getState().watchedSimulationId).toBe('run-1');
+
+    useAppStore.getState().setActiveSimulation({
+      id: 'run-1',
+      west: 139.0,
+      south: 35.0,
+      east: 139.1,
+      north: 35.1,
+    });
+    expect(useAppStore.getState().activeSimulation?.id).toBe('run-1');
+
+    useAppStore.getState().setDamageByBuildingId({ 'building-1': 'moderate' });
+    expect(useAppStore.getState().damageByBuildingId).toEqual({ 'building-1': 'moderate' });
   });
 });

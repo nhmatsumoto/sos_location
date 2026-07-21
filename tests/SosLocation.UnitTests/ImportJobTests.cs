@@ -36,11 +36,14 @@ public class ImportJobTests
     public void Fail_BeforeMaxAttempts_GoesToRetrying()
     {
         var job = NewJob();
-        job.Start("w", DateTimeOffset.UtcNow);
-        job.Fail("boom", DateTimeOffset.UtcNow);
+        var now = DateTimeOffset.UtcNow;
+        var retryAt = now.AddSeconds(10);
+        job.Start("w", now);
+        job.Fail("boom", now, retryAt);
 
         Assert.Equal(JobStatus.Retrying, job.Status);
         Assert.Equal("boom", job.Error);
+        Assert.Equal(retryAt, job.NextAttemptAt);
         Assert.Null(job.CompletedAt);
     }
 
@@ -68,6 +71,7 @@ public class ImportJobTests
 
         Assert.Equal(JobStatus.Running, job.Status);
         Assert.Null(job.Error);
+        Assert.Null(job.NextAttemptAt);
         Assert.Equal(2, job.Attempts);
     }
 

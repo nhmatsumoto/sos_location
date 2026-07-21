@@ -43,6 +43,7 @@ public class ImportJob
     public string? Error { get; private set; }
     public int Attempts { get; private set; }
     public string? WorkerId { get; private set; }
+    public DateTimeOffset? NextAttemptAt { get; private set; }
     public DateTimeOffset? StartedAt { get; private set; }
     public DateTimeOffset? CompletedAt { get; private set; }
     public DateTimeOffset CreatedAt { get; init; } = DateTimeOffset.UtcNow;
@@ -58,6 +59,7 @@ public class ImportJob
         Attempts++;
         StartedAt ??= now;
         Error = null;
+        NextAttemptAt = null;
     }
 
     public void AdvanceStage(ImportStage stage, int progress, string? message = null)
@@ -76,19 +78,22 @@ public class ImportJob
         Status = JobStatus.Completed;
         CurrentStage = ImportStage.Complete;
         Progress = 100;
+        NextAttemptAt = null;
         CompletedAt = now;
     }
 
-    public void Fail(string error, DateTimeOffset now)
+    public void Fail(string error, DateTimeOffset now, DateTimeOffset? retryAt = null)
     {
         Error = error;
         if (Attempts < MaxAttempts)
         {
             Status = JobStatus.Retrying;
+            NextAttemptAt = retryAt ?? now;
         }
         else
         {
             Status = JobStatus.Failed;
+            NextAttemptAt = null;
             CompletedAt = now;
         }
     }
@@ -97,6 +102,7 @@ public class ImportJob
     {
         if (IsTerminal) return false;
         Status = JobStatus.Cancelled;
+        NextAttemptAt = null;
         CompletedAt = now;
         return true;
     }

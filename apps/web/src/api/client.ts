@@ -1,18 +1,22 @@
 import { z } from 'zod';
 import {
   buildingDetailSchema,
+  buildingSeismicResponseSchema,
   citySchema,
   importJobSchema,
   placeSchema,
   revisionSchema,
   roadDetailSchema,
+  simulationRunSchema,
   waterDetailSchema,
   type BuildingDetail,
+  type BuildingSeismicResponse,
   type City,
   type ImportJob,
   type Place,
   type Revision,
   type RoadDetail,
+  type SimulationRun,
   type WaterDetail,
 } from '../schemas/api';
 
@@ -42,6 +46,8 @@ export const api = {
     placeProviderId?: string;
     displayName?: string;
     name?: string;
+    countryCode?: string;
+    region?: string;
     boundingBox?: { west: number; south: number; east: number; north: number };
     source: string;
     reconstructionProfile: string;
@@ -60,6 +66,41 @@ export const api = {
 
   cancelImport: async (jobId: string): Promise<void> => {
     const response = await fetch(`${BASE}/imports/${jobId}/cancel`, { method: 'POST' });
+    if (!response.ok && response.status !== 409)
+      throw new Error(`Cancel failed: ${response.status}`);
+  },
+
+  listSimulations: (): Promise<SimulationRun[]> =>
+    getJson('/simulations', z.array(simulationRunSchema)),
+
+  getSimulation: (runId: string): Promise<SimulationRun> =>
+    getJson(`/simulations/${runId}`, simulationRunSchema),
+
+  listSimulationBuildingResponses: (runId: string): Promise<BuildingSeismicResponse[]> =>
+    getJson(`/simulations/${runId}/buildings`, z.array(buildingSeismicResponseSchema)),
+
+  createSimulation: async (request: {
+    cityRevisionId: string;
+    disasterType: string;
+    epicenterLon: number;
+    epicenterLat: number;
+    depthKm: number;
+    momentMagnitude: number;
+  }): Promise<SimulationRun> => {
+    const response = await fetch(`${BASE}/simulations`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    });
+    if (!response.ok) {
+      const body = await response.text();
+      throw new Error(`Simulation request rejected (${response.status}): ${body}`);
+    }
+    return simulationRunSchema.parse(await response.json());
+  },
+
+  cancelSimulation: async (runId: string): Promise<void> => {
+    const response = await fetch(`${BASE}/simulations/${runId}/cancel`, { method: 'POST' });
     if (!response.ok && response.status !== 409)
       throw new Error(`Cancel failed: ${response.status}`);
   },
@@ -88,4 +129,8 @@ export const api = {
 
 export function tileUrl(revisionId: string, layer: string): string {
   return `${BASE}/tiles/${revisionId}/${layer}/{z}/{x}/{y}.mvt`;
+}
+
+export function simulationIntensityUrl(runId: string): string {
+  return `${BASE}/simulations/${runId}/intensity.png`;
 }

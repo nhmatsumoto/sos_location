@@ -26,7 +26,8 @@ services:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-sos-minio}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-sos_minio_dev_password}
     volumes:
-      - minio-data:/data
+      # Aceita volume nomeado (default) ou um caminho absoluto em disco amplo.
+      - ${MINIO_DATA_PATH:-minio-data}:/data
     ports:
       - "${MINIO_PORT:-9000}:9000"
       - "${MINIO_CONSOLE_PORT:-9001}:9001"
@@ -42,12 +43,14 @@ services:
       context: .
       dockerfile: infra/docker/Dockerfile.api
       network: host
-    # DNS explícito: hosts com systemd-resolved (127.0.0.53) quebram a resolução
-    # externa na rede bridge; Nominatim/Overpass precisam resolver em runtime.
-    dns: [1.1.1.1, 8.8.8.8]
+    # Nominatim/Overpass precisam do mesmo egress do host. Em máquinas cujo
+    # firewall bloqueia saída da bridge, host mode evita DNS/TCP divergentes.
+    network_mode: host
     environment:
-      ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-sos_location};Username=${POSTGRES_USER:-sos};Password=${POSTGRES_PASSWORD:-sos_dev_password}"
-      ObjectStorage__Endpoint: "minio:9000"
+      ASPNETCORE_URLS: "http://0.0.0.0:${API_PORT:-5080}"
+      API_HEALTH_PORT: ${API_PORT:-5080}
+      ConnectionStrings__Postgres: "Host=127.0.0.1;Port=${POSTGRES_PORT:-5432};Database=${POSTGRES_DB:-sos_location};Username=${POSTGRES_USER:-sos};Password=${POSTGRES_PASSWORD:-sos_dev_password}"
+      ObjectStorage__Endpoint: "127.0.0.1:${MINIO_PORT:-9000}"
       ObjectStorage__AccessKey: ${MINIO_ROOT_USER:-sos-minio}
       ObjectStorage__SecretKey: ${MINIO_ROOT_PASSWORD:-sos_minio_dev_password}
       ObjectStorage__Bucket: ${MINIO_BUCKET:-sos-location}
@@ -59,19 +62,16 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
-    ports:
-      - "${API_PORT:-5080}:8080"
-    networks: [sos]
 
   worker:
     build:
       context: .
       dockerfile: infra/docker/Dockerfile.worker
       network: host
-    dns: [1.1.1.1, 8.8.8.8]
+    network_mode: host
     environment:
-      ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-sos_location};Username=${POSTGRES_USER:-sos};Password=${POSTGRES_PASSWORD:-sos_dev_password}"
-      ObjectStorage__Endpoint: "minio:9000"
+      ConnectionStrings__Postgres: "Host=127.0.0.1;Port=${POSTGRES_PORT:-5432};Database=${POSTGRES_DB:-sos_location};Username=${POSTGRES_USER:-sos};Password=${POSTGRES_PASSWORD:-sos_dev_password}"
+      ObjectStorage__Endpoint: "127.0.0.1:${MINIO_PORT:-9000}"
       ObjectStorage__AccessKey: ${MINIO_ROOT_USER:-sos-minio}
       ObjectStorage__SecretKey: ${MINIO_ROOT_PASSWORD:-sos_minio_dev_password}
       ObjectStorage__Bucket: ${MINIO_BUCKET:-sos-location}
@@ -81,7 +81,6 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
-    networks: [sos]
 
   web:
     build:
@@ -91,9 +90,11 @@ services:
     depends_on:
       api:
         condition: service_started
-    ports:
-      - "${WEB_PORT:-8080}:80"
-    networks: [sos]
+    network_mode: host
+    environment:
+      API_UPSTREAM: "http://127.0.0.1:${API_PORT:-5080}"
+      WEB_LISTEN_PORT: ${WEB_PORT:-8080}
+      WEB_HEALTH_PORT: ${WEB_PORT:-8080}
 
 volumes:
   postgres-data:

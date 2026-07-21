@@ -8,9 +8,12 @@ RUN npm run build
 
 # --- runtime -------------------------------------------------------------
 FROM nginx:1.29-alpine
-COPY infra/nginx/default.conf /etc/nginx/conf.d/default.conf
+# O entrypoint oficial aplica envsubst em /etc/nginx/templates, permitindo que
+# a bridge do web alcance a API executada com o egress do host.
+COPY infra/nginx/default.conf /etc/nginx/templates/default.conf.template
 COPY --from=build /app/dist /usr/share/nginx/html
+ENV WEB_LISTEN_PORT=80 WEB_HEALTH_PORT=80 API_UPSTREAM=http://127.0.0.1:8080
 EXPOSE 80
 # 127.0.0.1 explícito: "localhost" resolve ::1 e o nginx escuta apenas IPv4.
 HEALTHCHECK --interval=10s --timeout=5s --retries=5 \
-    CMD wget -q --spider http://127.0.0.1/ || exit 1
+    CMD wget -q --spider http://127.0.0.1:${WEB_HEALTH_PORT:-80}/ || exit 1
