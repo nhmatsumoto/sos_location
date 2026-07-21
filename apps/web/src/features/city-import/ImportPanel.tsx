@@ -9,8 +9,6 @@ export function ImportPanel() {
   const queryClient = useQueryClient();
   const selectedPlace = useAppStore((s) => s.selectedPlace);
   const setWatchedJobId = useAppStore((s) => s.setWatchedJobId);
-  const setSelectedRevision = useAppStore((s) => s.setSelectedRevision);
-  const setSelectedCity = useAppStore((s) => s.setSelectedCity);
 
   const { data: jobs } = useQuery({
     queryKey: ['imports'],
@@ -55,14 +53,21 @@ export function ImportPanel() {
   const openResult = async (job: ImportJob) => {
     if (!job.cityId || !job.cityRevisionId) return;
     const [cities, revisions] = await Promise.all([
-      api.listCities(),
-      api.listRevisions(job.cityId),
+      queryClient.fetchQuery({ queryKey: ['cities'], queryFn: api.listCities }),
+      queryClient.fetchQuery({
+        queryKey: ['revisions', job.cityId],
+        queryFn: () => api.listRevisions(job.cityId!),
+      }),
     ]);
     const city = cities.find((c) => c.id === job.cityId) ?? null;
     const revision = revisions.find((r) => r.id === job.cityRevisionId) ?? null;
-    setSelectedCity(city);
-    setSelectedRevision(revision);
-    void queryClient.invalidateQueries({ queryKey: ['cities'] });
+    useAppStore.setState({
+      selectedCity: city,
+      selectedRevision: revision,
+      selectedFeature: null,
+      activeSimulation: null,
+      tileStats: { loaded: 0, pending: 0 },
+    });
   };
 
   return (

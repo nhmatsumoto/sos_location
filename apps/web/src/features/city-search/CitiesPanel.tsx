@@ -1,16 +1,15 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api/client';
 import { QUALITY_LABELS } from '../../schemas/api';
 import { useAppStore } from '../../stores/appStore';
-import type { City } from '../../schemas/api';
+import type { City, Place } from '../../schemas/api';
 
 /** Lista cidades já importadas e permite abrir uma revisão publicada. */
 export function CitiesPanel() {
+  const queryClient = useQueryClient();
   const selectedCity = useAppStore((s) => s.selectedCity);
   const selectedRevision = useAppStore((s) => s.selectedRevision);
-  const setSelectedCity = useAppStore((s) => s.setSelectedCity);
   const setSelectedRevision = useAppStore((s) => s.setSelectedRevision);
-  const setSelectedPlace = useAppStore((s) => s.setSelectedPlace);
 
   const { data: cities, isLoading, error } = useQuery({
     queryKey: ['cities'],
@@ -22,18 +21,24 @@ export function CitiesPanel() {
     queryKey: ['revisions', selectedCity?.id],
     queryFn: () => api.listRevisions(selectedCity!.id),
     enabled: selectedCity !== null,
+    staleTime: 60_000,
   });
 
   const openCity = async (city: City) => {
-    setSelectedCity(city);
-    const cityRevisions = await api.listRevisions(city.id);
+    // fetchQuery compartilha o mesmo cache da lista abaixo. Isso elimina a
+    // segunda chamada disparada quando selectedCity muda.
+    const cityRevisions = await queryClient.fetchQuery({
+      queryKey: ['revisions', city.id],
+      queryFn: () => api.listRevisions(city.id),
+      staleTime: 60_000,
+    });
     const published = cityRevisions.find((r) => r.status === 'published') ?? cityRevisions[0] ?? null;
-    setSelectedRevision(published);
+    let place: Place | null = null;
     if (city.centerLon != null && city.centerLat != null) {
       // Usa o boundary real da cidade quando disponível; senão ~2km em torno do centro.
       const hasBounds =
         city.west != null && city.south != null && city.east != null && city.north != null;
-      setSelectedPlace({
+      place = {
         providerId: `city/${city.id}`,
         provider: 'catalog',
         name: city.name,
@@ -46,8 +51,18 @@ export function CitiesPanel() {
         south: hasBounds ? city.south! : city.centerLat - 0.009,
         east: hasBounds ? city.east! : city.centerLon + 0.012,
         north: hasBounds ? city.north! : city.centerLat + 0.009,
-      });
+      };
     }
+    // Uma única transição evita reconstruir sources/tiles entre cidade,
+    // revisão e enquadramento ainda inconsistentes.
+    useAppStore.setState({
+      selectedCity: city,
+      selectedRevision: published,
+      selectedPlace: place,
+      selectedFeature: null,
+      activeSimulation: null,
+      tileStats: { loaded: 0, pending: 0 },
+    });
   };
 
   return (

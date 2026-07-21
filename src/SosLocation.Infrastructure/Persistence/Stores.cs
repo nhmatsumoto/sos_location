@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
+using NpgsqlTypes;
 using SosLocation.Application.Abstractions;
 using SosLocation.Domain.Catalog;
 using SosLocation.Domain.Cities;
@@ -23,6 +25,7 @@ public sealed class CityStore(SosDbContext context) : ICityStore
 
     public async Task<IReadOnlyList<City>> ListAsync(CancellationToken ct)
         => await context.Cities
+            .AsNoTracking()
             .Where(c => context.CityRevisions.Any(r =>
                 r.CityId == c.Id && r.Status == CityRevisionStatus.Published))
             .OrderBy(c => c.Name)
@@ -39,6 +42,7 @@ public sealed class RevisionStore(SosDbContext context) : IRevisionStore
 
     public async Task<IReadOnlyList<CityRevision>> ListByCityAsync(Guid cityId, CancellationToken ct)
         => await context.CityRevisions
+            .AsNoTracking()
             .Where(r => r.CityId == cityId && r.Status == CityRevisionStatus.Published)
             .OrderByDescending(r => r.RevisionNumber)
             .ToListAsync(ct);
@@ -105,6 +109,7 @@ public sealed class ImportJobStore(SosDbContext context) : IImportJobStore
 
     public async Task<IReadOnlyList<ImportJob>> ListRecentAsync(int limit, CancellationToken ct)
         => await context.ImportJobs
+            .AsNoTracking()
             .OrderByDescending(j => j.CreatedAt)
             .Take(limit)
             .ToListAsync(ct);
@@ -161,6 +166,7 @@ public sealed class SimulationRunStore(SosDbContext context) : ISimulationRunSto
 
     public async Task<IReadOnlyList<SimulationRun>> ListRecentAsync(int limit, CancellationToken ct)
         => await context.SimulationRuns
+            .AsNoTracking()
             .OrderByDescending(r => r.CreatedAt)
             .Take(limit)
             .ToListAsync(ct);
@@ -170,12 +176,56 @@ public sealed class SimulationRunStore(SosDbContext context) : ISimulationRunSto
 
     public async Task BulkInsertResponsesAsync(IReadOnlyList<BuildingSeismicResponse> responses, CancellationToken ct)
     {
-        await context.BuildingSeismicResponses.AddRangeAsync(responses, ct);
-        await context.SaveChangesAsync(ct);
+        if (responses.Count == 0) return;
+
+        // Torna um retry do mesmo run idempotente caso uma tentativa anterior
+        // tenha persistido resultados antes de falhar numa etapa posterior.
+        var runId = responses[0].SimulationRunId;
+        await context.BuildingSeismicResponses
+            .Where(response => response.SimulationRunId == runId)
+            .ExecuteDeleteAsync(ct);
+
+        // COPY binário evita criar/tracking de centenas de milhares de entries
+        // no ChangeTracker e reduz a persistência a um único fluxo PostgreSQL.
+        var connection = (NpgsqlConnection)context.Database.GetDbConnection();
+        var shouldClose = connection.State != System.Data.ConnectionState.Open;
+        if (shouldClose) await connection.OpenAsync(ct);
+        try
+        {
+            await using var writer = await connection.BeginBinaryImportAsync("""
+                COPY building_seismic_responses
+                    (id, simulation_run_id, building_id, natural_period_seconds,
+                     peak_ground_acceleration_g, peak_ground_velocity_cms,
+                     spectral_acceleration_g, peak_drift_ratio, damage_state, created_at)
+                FROM STDIN (FORMAT BINARY)
+                """, ct);
+
+            foreach (var response in responses)
+            {
+                await writer.StartRowAsync(ct);
+                await writer.WriteAsync(response.Id, NpgsqlDbType.Uuid, ct);
+                await writer.WriteAsync(response.SimulationRunId, NpgsqlDbType.Uuid, ct);
+                await writer.WriteAsync(response.BuildingId, NpgsqlDbType.Uuid, ct);
+                await writer.WriteAsync(response.NaturalPeriodSeconds, NpgsqlDbType.Double, ct);
+                await writer.WriteAsync(response.PeakGroundAccelerationG, NpgsqlDbType.Double, ct);
+                await writer.WriteAsync(response.PeakGroundVelocityCms, NpgsqlDbType.Double, ct);
+                await writer.WriteAsync(response.SpectralAccelerationG, NpgsqlDbType.Double, ct);
+                await writer.WriteAsync(response.PeakDriftRatio, NpgsqlDbType.Double, ct);
+                await writer.WriteAsync(response.DamageState.ToString(), NpgsqlDbType.Varchar, ct);
+                await writer.WriteAsync(response.CreatedAt, NpgsqlDbType.TimestampTz, ct);
+            }
+
+            await writer.CompleteAsync(ct);
+        }
+        finally
+        {
+            if (shouldClose) await connection.CloseAsync();
+        }
     }
 
     public async Task<IReadOnlyList<BuildingSeismicResponse>> ListResponsesAsync(Guid runId, CancellationToken ct)
         => await context.BuildingSeismicResponses
+            .AsNoTracking()
             .Where(r => r.SimulationRunId == runId)
             .ToListAsync(ct);
 
@@ -249,23 +299,28 @@ public sealed class FeatureStore(SosDbContext context) : IFeatureWriter, IFeatur
     }
 
     public Task<Building?> FindBuildingAsync(Guid id, CancellationToken ct)
-        => context.Buildings.FirstOrDefaultAsync(b => b.Id == id, ct);
+        => context.Buildings.AsNoTracking().FirstOrDefaultAsync(b => b.Id == id, ct);
 
     public Task<Road?> FindRoadAsync(Guid id, CancellationToken ct)
-        => context.Roads.FirstOrDefaultAsync(r => r.Id == id, ct);
+        => context.Roads.AsNoTracking().FirstOrDefaultAsync(r => r.Id == id, ct);
 
     public Task<WaterFeature?> FindWaterAsync(Guid id, CancellationToken ct)
-        => context.WaterFeatures.FirstOrDefaultAsync(w => w.Id == id, ct);
+        => context.WaterFeatures.AsNoTracking().FirstOrDefaultAsync(w => w.Id == id, ct);
 
     public async Task<IReadOnlyList<Road>> ListRailwaysAsync(Guid revisionId, CancellationToken ct)
         => await context.Roads
+            .AsNoTracking()
             .Where(r => r.CityRevisionId == revisionId && r.RoadClass == "rail")
             .OrderBy(r => r.ExternalId)
             .ToListAsync(ct);
 
-    public async Task<IReadOnlyList<Building>> ListBuildingsAsync(Guid revisionId, CancellationToken ct)
+    public async Task<IReadOnlyList<SimulationBuildingInput>> ListSimulationBuildingsAsync(
+        Guid revisionId, CancellationToken ct)
         => await context.Buildings
+            .AsNoTracking()
             .Where(b => b.CityRevisionId == revisionId)
+            .Select(b => new SimulationBuildingInput(
+                b.Id, b.Centroid.X, b.Centroid.Y, b.HeightMeters))
             .ToListAsync(ct);
 
     public async Task<(int Buildings, int Roads, int Water, int LandUse)> CountByRevisionAsync(

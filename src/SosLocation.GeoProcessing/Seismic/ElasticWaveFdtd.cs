@@ -12,8 +12,8 @@ public sealed class ElasticWaveFdtd
 {
     private readonly int _cols;
     private readonly int _rows;
-    private readonly double _dx;
-    private readonly double[] _vs2;
+    private readonly double[] _waveScale;
+    private readonly double _sourceTimeScale;
     private readonly double[] _dampingProfile;
     private double[] _uPrev;
     private double[] _uCurr;
@@ -34,17 +34,21 @@ public sealed class ElasticWaveFdtd
 
         _cols = cols;
         _rows = rows;
-        _dx = dxMeters;
-        _vs2 = new double[shearVelocityFieldMps.Length];
         var vsMax = 0.0;
         for (var i = 0; i < shearVelocityFieldMps.Length; i++)
         {
-            _vs2[i] = shearVelocityFieldMps[i] * shearVelocityFieldMps[i];
             if (shearVelocityFieldMps[i] > vsMax) vsMax = shearVelocityFieldMps[i];
         }
 
         // Condição CFL para o esquema explícito 2D: dt <= dx / (Vmax * sqrt(2)).
         TimeStepSeconds = courantNumber * dxMeters / (vsMax * Math.Sqrt(2.0));
+        _sourceTimeScale = TimeStepSeconds * TimeStepSeconds;
+        _waveScale = new double[shearVelocityFieldMps.Length];
+        for (var i = 0; i < shearVelocityFieldMps.Length; i++)
+        {
+            var vs = shearVelocityFieldMps[i];
+            _waveScale[i] = _sourceTimeScale * vs * vs / (dxMeters * dxMeters);
+        }
 
         _uPrev = new double[cols * rows];
         _uCurr = new double[cols * rows];
@@ -75,24 +79,30 @@ public sealed class ElasticWaveFdtd
     /// </summary>
     public void Step(int sourceCol, int sourceRow, double sourceForcing)
     {
-        var dt2 = TimeStepSeconds * TimeStepSeconds;
-        var dx2 = _dx * _dx;
-
         for (var row = 0; row < _rows; row++)
         {
+            var rowOffset = row * _cols;
+            var downOffset = row == 0 ? rowOffset : rowOffset - _cols;
+            var upOffset = row == _rows - 1 ? rowOffset : rowOffset + _cols;
             for (var col = 0; col < _cols; col++)
             {
-                var idx = Index(col, row);
-                var left = _uCurr[Index(Math.Max(col - 1, 0), row)];
-                var right = _uCurr[Index(Math.Min(col + 1, _cols - 1), row)];
-                var down = _uCurr[Index(col, Math.Max(row - 1, 0))];
-                var up = _uCurr[Index(col, Math.Min(row + 1, _rows - 1))];
-                var laplacian = (left + right + down + up - 4.0 * _uCurr[idx]) / dx2;
-
-                var source = (col == sourceCol && row == sourceRow) ? sourceForcing : 0.0;
-                var next = 2.0 * _uCurr[idx] - _uPrev[idx] + dt2 * (_vs2[idx] * laplacian + source);
+                var idx = rowOffset + col;
+                var left = _uCurr[col == 0 ? idx : idx - 1];
+                var right = _uCurr[col == _cols - 1 ? idx : idx + 1];
+                var down = _uCurr[downOffset + col];
+                var up = _uCurr[upOffset + col];
+                var neighborDelta = left + right + down + up - 4.0 * _uCurr[idx];
+                var next = 2.0 * _uCurr[idx] - _uPrev[idx] + _waveScale[idx] * neighborDelta;
                 _uNext[idx] = next * _dampingProfile[idx];
             }
+        }
+
+        if (sourceForcing != 0.0
+            && sourceCol >= 0 && sourceCol < _cols
+            && sourceRow >= 0 && sourceRow < _rows)
+        {
+            var sourceIndex = sourceRow * _cols + sourceCol;
+            _uNext[sourceIndex] += _sourceTimeScale * sourceForcing * _dampingProfile[sourceIndex];
         }
 
         (_uPrev, _uCurr, _uNext) = (_uCurr, _uNext, _uPrev);

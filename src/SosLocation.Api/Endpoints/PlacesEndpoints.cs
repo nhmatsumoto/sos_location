@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Caching.Memory;
 using SosLocation.Application.Abstractions;
 using SosLocation.Application.Dto;
 using SosLocation.Domain.Cities;
@@ -12,6 +13,7 @@ public static class PlacesEndpoints
             string? q,
             IGeocoder geocoder,
             ICityStore cities,
+            IMemoryCache cache,
             ILoggerFactory loggerFactory,
             CancellationToken ct) =>
         {
@@ -27,10 +29,26 @@ public static class PlacesEndpoints
                 .Take(8)
                 .ToList();
 
-            IReadOnlyList<PlaceSearchResult> places = [];
+            // A versão importada é autoritativa e já tem o boundary efetivamente
+            // usado pelo sistema. Para nome exato, evita rede e devolve mais rápido.
+            if (local.Any(place => string.Equals(place.Name, normalized, StringComparison.OrdinalIgnoreCase)))
+                return Results.Ok(local);
+
+            IReadOnlyList<PlaceDto> external;
             try
             {
-                places = await geocoder.SearchAsync(normalized, ct);
+                var cacheKey = $"place-search:{normalized.Normalize().ToUpperInvariant()}";
+                external = await cache.GetOrCreateAsync(cacheKey, async entry =>
+                {
+                    entry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(15);
+                    var places = await geocoder.SearchAsync(normalized, ct);
+                    return (IReadOnlyList<PlaceDto>)places.Select(p => new PlaceDto(
+                            p.ProviderId, p.Provider, p.Name, p.Country, p.CountryCode, p.Region,
+                            p.CenterLon, p.CenterLat,
+                            p.BoundingBox.West, p.BoundingBox.South,
+                            p.BoundingBox.East, p.BoundingBox.North))
+                        .ToArray();
+                }) ?? [];
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
@@ -49,11 +67,6 @@ public static class PlacesEndpoints
                     detail: "The external geocoding service could not be reached. The offline demo city remains available.",
                     statusCode: StatusCodes.Status503ServiceUnavailable);
             }
-
-            var external = places.Select(p => new PlaceDto(
-                p.ProviderId, p.Provider, p.Name, p.Country, p.CountryCode, p.Region,
-                p.CenterLon, p.CenterLat,
-                p.BoundingBox.West, p.BoundingBox.South, p.BoundingBox.East, p.BoundingBox.North));
 
             return Results.Ok(local.Concat(external).Take(8));
         })

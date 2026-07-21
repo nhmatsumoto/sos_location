@@ -9,6 +9,9 @@ export default defineConfig({
   use: {
     baseURL: process.env.E2E_BASE_URL ?? 'http://localhost:8080',
     trace: 'on-first-retry',
+    // Evita que animações do MapLibre monopolizem o SwiftShader no ambiente
+    // headless; a posição final e os eventos funcionais continuam validados.
+    reducedMotion: 'reduce',
     viewport: { width: 1440, height: 900 },
   },
   reporter: [['list']],

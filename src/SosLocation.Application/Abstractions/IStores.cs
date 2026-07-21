@@ -87,11 +87,21 @@ public interface IFeatureReader
     Task<WaterFeature?> FindWaterAsync(Guid id, CancellationToken ct);
     /// <summary>Ferrovias da revisão (para a camada de simulação de trens).</summary>
     Task<IReadOnlyList<Road>> ListRailwaysAsync(Guid revisionId, CancellationToken ct);
-    /// <summary>Todos os edifícios da revisão (para simulações de desastre).</summary>
-    Task<IReadOnlyList<Building>> ListBuildingsAsync(Guid revisionId, CancellationToken ct);
+    /// <summary>
+    /// Projeção mínima dos edifícios usada pela simulação. Não carrega footprint,
+    /// tags ou tracking do EF para centenas de milhares de entidades.
+    /// </summary>
+    Task<IReadOnlyList<SimulationBuildingInput>> ListSimulationBuildingsAsync(
+        Guid revisionId, CancellationToken ct);
     Task<(int Buildings, int Roads, int Water, int LandUse)> CountByRevisionAsync(Guid revisionId, CancellationToken ct);
     Task<double> ObservedHeightRatioAsync(Guid revisionId, CancellationToken ct);
 }
+
+public sealed record SimulationBuildingInput(
+    Guid Id,
+    double Longitude,
+    double Latitude,
+    double HeightMeters);
 
 /// <summary>Unidade de persistência compartilhada pelos stores baseados em EF Core.</summary>
 public interface IUnitOfWork

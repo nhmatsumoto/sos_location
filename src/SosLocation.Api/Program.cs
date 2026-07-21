@@ -36,6 +36,7 @@ try
 
     builder.Services.AddOpenApi();
     builder.Services.AddProblemDetails(); // Erros padronizados, sem stack traces expostos.
+    builder.Services.AddMemoryCache();
 
     builder.Services.ConfigureHttpJsonOptions(options =>
         options.SerializerOptions.Converters.Add(new GeoJsonConverterFactory()));

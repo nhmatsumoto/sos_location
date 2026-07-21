@@ -32,20 +32,23 @@ export function DeepLinkSync() {
           null;
         if (cancelled) return;
 
-        const store = useAppStore.getState();
-        store.setSelectedCity(city);
-        store.setSelectedRevision(revision);
-        if (view.camera) {
-          store.setPendingCamera(view.camera);
-        } else if (city.centerLon != null && city.centerLat != null) {
-          store.setPendingCamera({
-            longitude: city.centerLon,
-            latitude: city.centerLat,
-            zoom: 14,
-            pitch: 45,
-            bearing: 0,
-          });
-        }
+        const pendingCamera = view.camera ?? (city.centerLon != null && city.centerLat != null
+          ? {
+              longitude: city.centerLon,
+              latitude: city.centerLat,
+              zoom: 14,
+              pitch: 45,
+              bearing: 0,
+            }
+          : null);
+        useAppStore.setState({
+          selectedCity: city,
+          selectedRevision: revision,
+          selectedFeature: null,
+          activeSimulation: null,
+          tileStats: { loaded: 0, pending: 0 },
+          pendingCamera,
+        });
       } catch {
         // Hash inválido ou API indisponível: segue o fluxo normal.
       }

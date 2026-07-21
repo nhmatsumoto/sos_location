@@ -4,7 +4,6 @@ using Microsoft.Extensions.Logging;
 using SosLocation.Application.Abstractions;
 using SosLocation.Application.Options;
 using SosLocation.Domain.Disasters;
-using SosLocation.Domain.Features;
 using SosLocation.Domain.ValueObjects;
 
 namespace SosLocation.GeoProcessing.Seismic;
@@ -96,7 +95,7 @@ public sealed class SeismicSimulationPipeline(
         var parameters = JsonSerializer.Deserialize<EarthquakeParameters>(run.Parameters, JsonOptions)
             ?? throw new InvalidOperationException("Invalid earthquake parameters payload.");
 
-        var buildings = await features.ListBuildingsAsync(run.CityRevisionId, ct);
+        var buildings = await features.ListSimulationBuildingsAsync(run.CityRevisionId, ct);
 
         run.AdvanceStage(SimulationStage.PreparingDomain, 5, "Building simulation domain.");
         await unitOfWork.SaveChangesAsync(ct);
@@ -140,7 +139,7 @@ public sealed class SeismicSimulationPipeline(
 
     private async Task<List<BuildingSeismicResponse>> PropagateAndRespondAsync(
         SimulationRun run, SeismicGrid grid, double[] vsField, EarthquakeParameters parameters,
-        IReadOnlyList<Building> buildings, CancellationToken ct)
+        IReadOnlyList<SimulationBuildingInput> buildings, CancellationToken ct)
     {
         var wave = new ElasticWaveFdtd(grid.Cols, grid.Rows, grid.SpacingMeters, vsField, options.CourantNumber);
         var dt = wave.TimeStepSeconds;
@@ -155,53 +154,90 @@ public sealed class SeismicSimulationPipeline(
         var (sourceCol, sourceRow) = grid.LonLatToCell(parameters.EpicenterLon, parameters.EpicenterLat);
         var depthMeters = parameters.DepthKm * 1000.0;
 
-        // Estado por edifício mantido em O(1) por passo (não O(steps)): o
-        // integrador SDOF e os picos de PGA/PGV só dependem da amostra atual e
-        // da anterior, nunca do acelerograma inteiro — evita alocar
-        // buildings.Count × steps doubles (poderia chegar a dezenas de GB numa
-        // revisão com centenas de milhares de edifícios).
-        var buildingCellIndex = new int[buildings.Count];
-        var sdofIntegrators = new SdofOnlineIntegrator[buildings.Count];
-        var naturalPeriods = new double[buildings.Count];
-        var peakGroundAccelMps2 = new double[buildings.Count];
-        var velocityMps = new double[buildings.Count];
-        var peakVelocityMps = new double[buildings.Count];
-        var prevBuildingAccelMps2 = new double[buildings.Count];
-        for (var i = 0; i < buildings.Count; i++)
+        // Edifícios na mesma célula recebem exatamente o mesmo acelerograma. Se
+        // também possuem o mesmo período natural, sua recorrência SDOF é
+        // matematicamente idêntica e pode ser integrada uma única vez, sem
+        // aproximação ou perda de informação.
+        var sampleIndexByCell = new Dictionary<int, int>();
+        var sampleCells = new List<int>();
+        int GetSampleIndex(int cell)
         {
-            var (col, row) = grid.LonLatToCell(buildings[i].Centroid.X, buildings[i].Centroid.Y);
-            buildingCellIndex[i] = grid.Index(col, row);
-            naturalPeriods[i] = SdofResponseSolver.EstimatePeriodSeconds(buildings[i].HeightMeters);
-            sdofIntegrators[i] = new SdofOnlineIntegrator(dt, naturalPeriods[i], options.DampingRatio);
+            if (sampleIndexByCell.TryGetValue(cell, out var existing)) return existing;
+            var created = sampleCells.Count;
+            sampleCells.Add(cell);
+            sampleIndexByCell.Add(cell, created);
+            return created;
         }
 
-        var rasterStrideCol = Math.Max(1, grid.Cols / MaxRasterDimension);
-        var rasterStrideRow = Math.Max(1, grid.Rows / MaxRasterDimension);
+        var buildingGroupIndex = new int[buildings.Count];
+        var buildingSampleIndexes = new HashSet<int>();
+        var groupIndexByResponse = new Dictionary<(int SampleIndex, long PeriodBits), int>();
+        var responseGroups = new List<ResponseGroup>();
+        for (var i = 0; i < buildings.Count; i++)
+        {
+            var (col, row) = grid.LonLatToCell(buildings[i].Longitude, buildings[i].Latitude);
+            var sampleIndex = GetSampleIndex(grid.Index(col, row));
+            buildingSampleIndexes.Add(sampleIndex);
+            var naturalPeriod = SdofResponseSolver.EstimatePeriodSeconds(buildings[i].HeightMeters);
+            var key = (sampleIndex, BitConverter.DoubleToInt64Bits(naturalPeriod));
+            if (!groupIndexByResponse.TryGetValue(key, out var groupIndex))
+            {
+                groupIndex = responseGroups.Count;
+                responseGroups.Add(new ResponseGroup(
+                    sampleIndex,
+                    naturalPeriod,
+                    new SdofOnlineIntegrator(dt, naturalPeriod, options.DampingRatio)));
+                groupIndexByResponse.Add(key, groupIndex);
+            }
+            buildingGroupIndex[i] = groupIndex;
+        }
+
+        var rasterStrideCol = Math.Max(1, (int)Math.Ceiling(grid.Cols / (double)MaxRasterDimension));
+        var rasterStrideRow = Math.Max(1, (int)Math.Ceiling(grid.Rows / (double)MaxRasterDimension));
         var rasterCols = (grid.Cols + rasterStrideCol - 1) / rasterStrideCol;
         var rasterRows = (grid.Rows + rasterStrideRow - 1) / rasterStrideRow;
         var peakPgaG = new double[rasterCols * rasterRows];
-        var rasterHypocentralDistance = new double[rasterCols * rasterRows];
+        var rasterSampleIndexes = new int[rasterCols * rasterRows];
         for (var rr = 0; rr < rasterRows; rr++)
         {
             for (var rc = 0; rc < rasterCols; rc++)
             {
                 var col = Math.Min(rc * rasterStrideCol, grid.Cols - 1);
                 var row = Math.Min(rr * rasterStrideRow, grid.Rows - 1);
-                var horizontal = grid.DistanceMeters(col, row, parameters.EpicenterLon, parameters.EpicenterLat);
-                rasterHypocentralDistance[rr * rasterCols + rc] =
-                    BruneSourceModel.HypocentralDistanceMeters(horizontal, depthMeters);
+                rasterSampleIndexes[rr * rasterCols + rc] = GetSampleIndex(grid.Index(col, row));
             }
         }
 
+        // Uma única correção de distância por célula amostrada. Antes ela era
+        // aplicada apenas ao raster: PGA/PGV e SDOF dos edifícios ficavam em
+        // escala diferente da imagem de intensidade.
+        var spreadingCorrection = new double[sampleCells.Count];
+        for (var i = 0; i < sampleCells.Count; i++)
+        {
+            var cell = sampleCells[i];
+            var col = cell % grid.Cols;
+            var row = cell / grid.Cols;
+            var horizontal = grid.DistanceMeters(col, row, parameters.EpicenterLon, parameters.EpicenterLat);
+            var hypocentral = BruneSourceModel.HypocentralDistanceMeters(horizontal, depthMeters);
+            spreadingCorrection[i] = BruneSourceModel.GeometricSpreadingCorrection(hypocentral);
+        }
+
         run.AdvanceStage(SimulationStage.PropagatingField, 20,
-            $"Propagating wave field over {steps} steps ({totalSeconds:0.0}s simulated).");
+            $"Propagating {steps} steps; {responseGroups.Count} unique structural responses for {buildings.Count} buildings.");
         await unitOfWork.SaveChangesAsync(ct);
 
-        var cellCount = grid.CellCount;
-        var prev2 = new double[cellCount]; // t = -dt (fictício, zero — condição inicial implícita do FDTD)
-        var prev1 = new double[cellCount]; // t = 0
-        var current = new double[cellCount];
+        // Só guardamos histórico das células realmente consultadas. O solver
+        // continua propagando a malha completa, mas não copiamos o campo inteiro
+        // três vezes a cada passo para extrair aceleração.
+        var samplePrev2 = new double[sampleCells.Count];
+        var samplePrev1 = new double[sampleCells.Count];
+        var sampleAcceleration = new double[sampleCells.Count];
+        var peakGroundAccelMps2 = new double[sampleCells.Count];
+        var velocityMps = new double[sampleCells.Count];
+        var peakVelocityMps = new double[sampleCells.Count];
+        var prevAccelerationMps2 = new double[sampleCells.Count];
         var dt2 = dt * dt;
+        var progressInterval = Math.Max(1, steps / 10);
 
         for (var step = 0; step < steps; step++)
         {
@@ -209,41 +245,45 @@ public sealed class SeismicSimulationPipeline(
             var forcing = BruneSourceModel.SourceTimeFunction(step * dt, parameters.MomentMagnitude)
                           * options.SourceAmplitudeScale;
             wave.Step(sourceCol, sourceRow, forcing);
-            Array.Copy(wave.Field, current, cellCount);
+            var field = wave.Field;
 
-            for (var i = 0; i < buildings.Count; i++)
+            for (var i = 0; i < sampleCells.Count; i++)
             {
-                var idx = buildingCellIndex[i];
-                var accel = (current[idx] - 2.0 * prev1[idx] + prev2[idx]) / dt2;
-                sdofIntegrators[i].AddSample(accel);
+                var displacement = field[sampleCells[i]];
+                var rawAcceleration = (displacement - 2.0 * samplePrev1[i] + samplePrev2[i]) / dt2;
+                sampleAcceleration[i] = rawAcceleration * spreadingCorrection[i];
+                samplePrev2[i] = samplePrev1[i];
+                samplePrev1[i] = displacement;
+            }
 
+            foreach (var i in buildingSampleIndexes)
+            {
+                var accel = sampleAcceleration[i];
                 var absAccel = Math.Abs(accel);
                 if (absAccel > peakGroundAccelMps2[i]) peakGroundAccelMps2[i] = absAccel;
 
-                if (step > 0) velocityMps[i] += 0.5 * (accel + prevBuildingAccelMps2[i]) * dt;
+                if (step > 0) velocityMps[i] += 0.5 * (accel + prevAccelerationMps2[i]) * dt;
                 var absVelocity = Math.Abs(velocityMps[i]);
                 if (absVelocity > peakVelocityMps[i]) peakVelocityMps[i] = absVelocity;
-                prevBuildingAccelMps2[i] = accel;
+                prevAccelerationMps2[i] = accel;
             }
 
-            for (var rr = 0; rr < rasterRows; rr++)
+            foreach (var group in responseGroups)
+                group.Integrator.AddSample(sampleAcceleration[group.SampleIndex]);
+
+            for (var i = 0; i < rasterSampleIndexes.Length; i++)
             {
-                for (var rc = 0; rc < rasterCols; rc++)
-                {
-                    var col = Math.Min(rc * rasterStrideCol, grid.Cols - 1);
-                    var row = Math.Min(rr * rasterStrideRow, grid.Rows - 1);
-                    var idx = grid.Index(col, row);
-                    var accel = (current[idx] - 2.0 * prev1[idx] + prev2[idx]) / dt2;
-
-                    var rasterIdx = rr * rasterCols + rc;
-                    var corrected = Math.Abs(accel)
-                        * BruneSourceModel.GeometricSpreadingCorrection(rasterHypocentralDistance[rasterIdx]);
-                    var pgaG = corrected / GravityMps2;
-                    if (pgaG > peakPgaG[rasterIdx]) peakPgaG[rasterIdx] = pgaG;
-                }
+                var pgaG = Math.Abs(sampleAcceleration[rasterSampleIndexes[i]]) / GravityMps2;
+                if (pgaG > peakPgaG[i]) peakPgaG[i] = pgaG;
             }
 
-            (prev2, prev1, current) = (prev1, current, prev2);
+            if ((step + 1) % progressInterval == 0 && step + 1 < steps)
+            {
+                var progress = 20 + (int)Math.Floor((step + 1) / (double)steps * 60.0);
+                run.AdvanceStage(SimulationStage.PropagatingField, progress,
+                    $"Propagated {step + 1}/{steps} time steps.");
+                await unitOfWork.SaveChangesAsync(ct);
+            }
         }
 
         run.AdvanceStage(SimulationStage.PropagatingField, 80,
@@ -256,7 +296,8 @@ public sealed class SeismicSimulationPipeline(
         for (var i = 0; i < buildings.Count; i++)
         {
             var building = buildings[i];
-            var sdof = sdofIntegrators[i].Result;
+            var group = responseGroups[buildingGroupIndex[i]];
+            var sdof = group.Integrator.Result;
             var peakDriftRatio = building.HeightMeters > 0
                 ? sdof.PeakRelativeDisplacementMeters / building.HeightMeters
                 : 0.0;
@@ -265,9 +306,9 @@ public sealed class SeismicSimulationPipeline(
             {
                 SimulationRunId = run.Id,
                 BuildingId = building.Id,
-                NaturalPeriodSeconds = naturalPeriods[i],
-                PeakGroundAccelerationG = peakGroundAccelMps2[i] / GravityMps2,
-                PeakGroundVelocityCms = peakVelocityMps[i] * 100.0,
+                NaturalPeriodSeconds = group.NaturalPeriodSeconds,
+                PeakGroundAccelerationG = peakGroundAccelMps2[group.SampleIndex] / GravityMps2,
+                PeakGroundVelocityCms = peakVelocityMps[group.SampleIndex] * 100.0,
                 SpectralAccelerationG = sdof.PeakAbsoluteAccelerationMps2 / GravityMps2,
                 PeakDriftRatio = peakDriftRatio,
                 DamageState = DamageStateClassifier.FromPeakDriftRatio(peakDriftRatio),
@@ -276,6 +317,11 @@ public sealed class SeismicSimulationPipeline(
 
         return responses;
     }
+
+    private sealed record ResponseGroup(
+        int SampleIndex,
+        double NaturalPeriodSeconds,
+        SdofOnlineIntegrator Integrator);
 
     private async Task WriteIntensityRasterAsync(
         Guid runId, int cols, int rows, double[] peakPgaG, CancellationToken ct)
@@ -293,15 +339,17 @@ public sealed class SeismicSimulationPipeline(
         await objectStorage.PutAsync($"simulations/{runId}/intensity.png", png, "image/png", ct);
     }
 
-    private BoundingBox ComputeDomain(IReadOnlyList<Building> buildings, EarthquakeParameters parameters)
+    private BoundingBox ComputeDomain(
+        IReadOnlyList<SimulationBuildingInput> buildings,
+        EarthquakeParameters parameters)
     {
         double buildingsWest, buildingsSouth, buildingsEast, buildingsNorth;
         if (buildings.Count > 0)
         {
-            buildingsWest = buildings.Min(b => b.Centroid.X);
-            buildingsEast = buildings.Max(b => b.Centroid.X);
-            buildingsSouth = buildings.Min(b => b.Centroid.Y);
-            buildingsNorth = buildings.Max(b => b.Centroid.Y);
+            buildingsWest = buildings.Min(b => b.Longitude);
+            buildingsEast = buildings.Max(b => b.Longitude);
+            buildingsSouth = buildings.Min(b => b.Latitude);
+            buildingsNorth = buildings.Max(b => b.Latitude);
         }
         else
         {

@@ -54,24 +54,24 @@ export function SimulationPanel() {
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['simulations'] }),
   });
 
-  const showOnMap = async (run: SimulationRun) => {
+  const showOnMap = (run: SimulationRun) => {
     if (run.intensityWest == null || run.intensitySouth == null
       || run.intensityEast == null || run.intensityNorth == null) return;
 
-    useAppStore.getState().setWatchedSimulationId(run.id);
-    useAppStore.getState().setActiveSimulation({
-      id: run.id,
-      west: run.intensityWest,
-      south: run.intensitySouth,
-      east: run.intensityEast,
-      north: run.intensityNorth,
-    });
-    useAppStore.setState((state) => ({ layers: { ...state.layers, seismicIntensity: true } }));
-
-    const responses = await api.listSimulationBuildingResponses(run.id);
-    const damageByBuildingId: Record<string, string> = {};
-    for (const r of responses) damageByBuildingId[r.buildingId] = r.damageState;
-    useAppStore.getState().setDamageByBuildingId(damageByBuildingId);
+    // Ativa dados de dano + raster em uma única transição, evitando dois
+    // rebuilds consecutivos das sources do mapa.
+    useAppStore.setState((state) => ({
+      watchedSimulationId: run.id,
+      activeSimulation: {
+        id: run.id,
+        revisionId: run.cityRevisionId,
+        west: run.intensityWest!,
+        south: run.intensitySouth!,
+        east: run.intensityEast!,
+        north: run.intensityNorth!,
+      },
+      layers: { ...state.layers, seismicIntensity: true },
+    }));
   };
 
   return (
@@ -169,11 +169,11 @@ export function SimulationPanel() {
                   cancel
                 </button>
               )}
-              {run.status === 'completed' && (
+              {run.status === 'completed' && run.cityRevisionId === selectedRevision?.id && (
                 <button
                   type="button"
                   data-testid={`show-on-map-${run.id}`}
-                  onClick={() => void showOnMap(run)}
+                  onClick={() => showOnMap(run)}
                   className="text-[11px] text-sky-400 underline hover:text-sky-300"
                 >
                   {watchedSimulationId === run.id ? 'shown on map' : 'show on map'}

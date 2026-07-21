@@ -12,5 +12,12 @@ public enum TileLayerKind
 public interface ITileReader
 {
     /// <returns>Bytes do tile MVT, ou null quando vazio.</returns>
-    Task<byte[]?> GetTileAsync(Guid revisionId, TileLayerKind layer, int z, int x, int y, CancellationToken ct);
+    Task<byte[]?> GetTileAsync(
+        Guid revisionId,
+        TileLayerKind layer,
+        int z,
+        int x,
+        int y,
+        CancellationToken ct,
+        Guid? simulationRunId = null);
 }

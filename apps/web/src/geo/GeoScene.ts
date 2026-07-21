@@ -1,6 +1,6 @@
 import maplibregl from 'maplibre-gl';
 import type { StyleSpecification } from 'maplibre-gl';
-import { MapboxOverlay } from '@deck.gl/mapbox';
+import type { MapboxOverlay } from '@deck.gl/mapbox';
 import type { Layer } from '@deck.gl/core';
 import { simulationIntensityUrl } from '../api/client';
 import { createBaseStyle } from './materials/theme';
@@ -45,8 +45,15 @@ export interface GeoSceneEvents {
 export class GeoScene {
   private map: maplibregl.Map | null = null;
   private overlay: MapboxOverlay | null = null;
+  private overlayLoading: Promise<void> | null = null;
+  private simulationLayers: Layer[] = [];
   private events: GeoSceneEvents = {};
-  private fpsHandle: number | null = null;
+  private hoverFrame: number | null = null;
+  private pendingHoverPoint: maplibregl.Point | null = null;
+  private cameraTimer: number | null = null;
+  private tileStatsTimer: number | null = null;
+  private renderedFrames = 0;
+  private fpsWindowStartedAt = performance.now();
   private cityOptions: CityStyleOptions | null = null;
   private styleReady = false;
   private selected: { source: string; sourceLayer: string; id: string } | null = null;
@@ -54,6 +61,10 @@ export class GeoScene {
 
   init(container: HTMLElement, events: GeoSceneEvents): void {
     this.events = events;
+    const browser = navigator as Navigator & { deviceMemory?: number };
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const lowPowerDevice = (browser.hardwareConcurrency > 0 && browser.hardwareConcurrency <= 4)
+      || (browser.deviceMemory != null && browser.deviceMemory <= 4);
     this.map = new maplibregl.Map({
       container,
       style: createBaseStyle() as unknown as StyleSpecification,
@@ -63,7 +74,16 @@ export class GeoScene {
       bearing: 0,
       maxPitch: 75,
       attributionControl: false,
-      canvasContextAttributes: { antialias: true },
+      // Perfil adaptativo: mantém a geometria/dados completos, mas reduz o
+      // custo de framebuffer, cache e animações em hardware limitado.
+      pixelRatio: Math.min(window.devicePixelRatio || 1, lowPowerDevice ? 1.25 : 2),
+      maxTileCacheZoomLevels: lowPowerDevice ? 2 : 4,
+      fadeDuration: reducedMotion || lowPowerDevice ? 0 : 200,
+      reduceMotion: reducedMotion,
+      canvasContextAttributes: {
+        antialias: !lowPowerDevice,
+        powerPreference: lowPowerDevice ? 'low-power' : 'high-performance',
+      },
     });
 
     this.map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-right');
@@ -74,11 +94,8 @@ export class GeoScene {
       }),
     );
 
-    // Reservado para futuras camadas de simulação (água dinâmica, agentes...).
-    this.overlay = new MapboxOverlay({ interleaved: true, layers: [] });
-    this.map.addControl(this.overlay);
-
-    this.map.on('move', () => this.emitCamera());
+    this.map.on('move', () => this.scheduleCameraEmit());
+    this.map.on('render', () => this.recordRenderedFrame());
     this.map.on('load', () => {
       this.styleReady = true;
       this.emitCamera();
@@ -91,55 +108,83 @@ export class GeoScene {
       const e = event as { tile?: unknown; sourceId?: string };
       if (e.tile && e.sourceId?.startsWith('sos-')) {
         this.loadedTiles += 1;
-        this.emitTileStats();
+        this.scheduleTileStats();
       }
     });
-    this.map.on('idle', () => this.emitTileStats());
+    this.map.on('idle', () => {
+      this.scheduleTileStats();
+      this.events.onFps?.(0);
+    });
 
     this.map.on('click', (event) => this.handleClick(event.point));
     this.map.on('mousemove', (event) => {
-      if (!this.map) return;
-      const feature = this.queryTopFeature(event.point);
-      this.map.getCanvas().style.cursor = feature ? 'pointer' : '';
+      this.pendingHoverPoint = event.point;
+      if (this.hoverFrame !== null) return;
+      this.hoverFrame = requestAnimationFrame(() => {
+        this.hoverFrame = null;
+        if (!this.map || !this.pendingHoverPoint) return;
+        const feature = this.queryTopFeature(this.pendingHoverPoint);
+        this.map.getCanvas().style.cursor = feature ? 'pointer' : '';
+      });
     });
-
-    this.startFpsMeter();
   }
 
   destroy(): void {
-    if (this.fpsHandle !== null) cancelAnimationFrame(this.fpsHandle);
-    this.fpsHandle = null;
+    if (this.hoverFrame !== null) cancelAnimationFrame(this.hoverFrame);
+    if (this.cameraTimer !== null) window.clearTimeout(this.cameraTimer);
+    if (this.tileStatsTimer !== null) window.clearTimeout(this.tileStatsTimer);
+    this.hoverFrame = null;
+    this.cameraTimer = null;
+    this.tileStatsTimer = null;
     if (this.overlay && this.map) this.map.removeControl(this.overlay);
     this.overlay = null;
+    this.simulationLayers = [];
     this.map?.remove();
     this.map = null;
   }
 
   /** Registra/atualiza as camadas urbanas nativas da revisão ativa. */
   setCityTiles(options: CityStyleOptions | null): void {
+    const previous = this.cityOptions;
     this.cityOptions = options;
-    if (this.styleReady) this.applyCityStyle();
+    if (!this.styleReady) return;
+    if (previous && options && this.canReuseCitySources(previous, options)) {
+      this.applyLayerVisibility(options);
+      return;
+    }
+    this.applyCityStyle();
   }
 
   /** Camadas deck.gl adicionais (reservado para simulações futuras). */
   setSimulationLayers(layers: Layer[]): void {
-    this.overlay?.setProps({ layers });
+    this.simulationLayers = layers;
+    if (!this.map) return;
+    if (layers.length === 0) {
+      if (this.overlay) this.map.removeControl(this.overlay);
+      this.overlay = null;
+      return;
+    }
+    if (!this.overlay) {
+      if (this.overlayLoading) return;
+      const targetMap = this.map;
+      // deck.gl é grande e trens vêm desativados por padrão: carrega todo o
+      // runtime apenas quando uma camada animada é realmente solicitada.
+      this.overlayLoading = import('@deck.gl/mapbox')
+        .then(({ MapboxOverlay: Overlay }) => {
+          if (this.map !== targetMap || this.simulationLayers.length === 0) return;
+          this.overlay = new Overlay({ interleaved: true, layers: this.simulationLayers });
+          targetMap.addControl(this.overlay);
+        })
+        .finally(() => {
+          this.overlayLoading = null;
+        });
+      return;
+    }
+    this.overlay.setProps({ layers });
   }
 
   clearSelection(): void {
     this.applySelection(null);
-  }
-
-  /** Aplica o estado de dano por edifício (feature-state) — sem alterar os tiles. */
-  setDamageStates(responses: readonly { buildingId: string; damageState: string }[] | null): void {
-    const map = this.map;
-    if (!map || !map.getSource('sos-buildings')) return;
-    for (const r of responses ?? []) {
-      map.setFeatureState(
-        { source: 'sos-buildings', sourceLayer: 'buildings', id: r.buildingId },
-        { damageState: r.damageState },
-      );
-    }
   }
 
   /** Posiciona a câmera imediatamente (restauração de deep-link). */
@@ -153,12 +198,13 @@ export class GeoScene {
   }
 
   flyToBounds(west: number, south: number, east: number, north: number): void {
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     this.map?.fitBounds(
       [
         [west, south],
         [east, north],
       ],
-      { pitch: 45, duration: 2500, padding: 60, maxZoom: 16 },
+      { pitch: 45, duration: reduceMotion ? 0 : 2500, padding: 60, maxZoom: 16 },
     );
   }
 
@@ -254,7 +300,7 @@ export class GeoScene {
       });
     }
 
-    for (const [id, source] of Object.entries(buildCitySources(options.revisionId))) {
+    for (const [id, source] of Object.entries(buildCitySources(options))) {
       map.addSource(id, source);
     }
     if (options.boundaryBox) {
@@ -266,6 +312,51 @@ export class GeoScene {
     for (const layer of buildCityLayers(options)) {
       map.addLayer(layer);
     }
+  }
+
+  /**
+   * Visibilidade de camadas vetoriais é uma alteração de layout barata. Manter
+   * sources e tiles existentes evita novo download, parse e upload ao WebGL.
+   */
+  private applyLayerVisibility(options: CityStyleOptions): void {
+    const map = this.map;
+    if (!map) return;
+    const layerVisibility: Array<[string, boolean]> = [
+      ['sos-land-use-fill', options.visibility.landUse],
+      ['sos-water-fill', options.visibility.water],
+      ['sos-water-line', options.visibility.water],
+      ['sos-roads-line', options.visibility.roads],
+      ['sos-buildings-footprint', options.visibility.buildings],
+      ['sos-buildings-3d', options.visibility.buildings],
+      ['sos-boundary-line', options.visibility.boundary],
+    ];
+    for (const [layerId, visible] of layerVisibility) {
+      if (map.getLayer(layerId)) {
+        map.setLayoutProperty(layerId, 'visibility', visible ? 'visible' : 'none');
+      }
+    }
+  }
+
+  private canReuseCitySources(previous: CityStyleOptions, next: CityStyleOptions): boolean {
+    if (previous.revisionId !== next.revisionId) return false;
+    // Terrain e intensity criam/removem sources próprios; são mudanças raras e
+    // continuam passando pelo rebuild seguro.
+    if (previous.visibility.terrain !== next.visibility.terrain) return false;
+    if (previous.visibility.seismicIntensity !== next.visibility.seismicIntensity) return false;
+    if (!GeoScene.sameBounds(previous.boundaryBox, next.boundaryBox)) return false;
+    if (previous.activeSimulation?.id !== next.activeSimulation?.id) return false;
+    return true;
+  }
+
+  private static sameBounds(
+    first: CityStyleOptions['boundaryBox'],
+    second: CityStyleOptions['boundaryBox'],
+  ): boolean {
+    if (!first || !second) return first === second;
+    return first.west === second.west
+      && first.south === second.south
+      && first.east === second.east
+      && first.north === second.north;
   }
 
   // ----------------------------------------------------------------- picking
@@ -336,6 +427,22 @@ export class GeoScene {
     if (camera) this.events.onCameraChange?.(camera);
   }
 
+  private scheduleCameraEmit(): void {
+    if (this.cameraTimer !== null) return;
+    this.cameraTimer = window.setTimeout(() => {
+      this.cameraTimer = null;
+      this.emitCamera();
+    }, 100);
+  }
+
+  private scheduleTileStats(): void {
+    if (this.tileStatsTimer !== null) return;
+    this.tileStatsTimer = window.setTimeout(() => {
+      this.tileStatsTimer = null;
+      this.emitTileStats();
+    }, 100);
+  }
+
   private emitTileStats(): void {
     const map = this.map;
     if (!map) return;
@@ -351,19 +458,13 @@ export class GeoScene {
     this.events.onTileStats?.(this.loadedTiles, pending);
   }
 
-  private startFpsMeter(): void {
-    let frames = 0;
-    let last = performance.now();
-    const tick = () => {
-      frames += 1;
-      const now = performance.now();
-      if (now - last >= 1000) {
-        this.events.onFps?.(Math.round((frames * 1000) / (now - last)));
-        frames = 0;
-        last = now;
-      }
-      this.fpsHandle = requestAnimationFrame(tick);
-    };
-    this.fpsHandle = requestAnimationFrame(tick);
+  private recordRenderedFrame(): void {
+    this.renderedFrames += 1;
+    const now = performance.now();
+    const elapsed = now - this.fpsWindowStartedAt;
+    if (elapsed < 1000) return;
+    this.events.onFps?.(Math.round((this.renderedFrames * 1000) / elapsed));
+    this.renderedFrames = 0;
+    this.fpsWindowStartedAt = now;
   }
 }

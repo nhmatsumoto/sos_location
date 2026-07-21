@@ -6,8 +6,8 @@ const LAYERS: { key: LayerKey; label: string }[] = [
   { key: 'water', label: 'Water' },
   { key: 'landUse', label: 'Land Use' },
   { key: 'boundary', label: 'Administrative Boundary' },
-  { key: 'trains', label: 'Trains (schedule simulation)' },
-  { key: 'terrain', label: 'Terrain (real elevation)' },
+  { key: 'trains', label: 'Trains (higher CPU use)' },
+  { key: 'terrain', label: 'Terrain (higher CPU use)' },
   { key: 'seismicIntensity', label: 'Earthquake Intensity (PGA)' },
   { key: 'debugTiles', label: 'Debug Tiles' },
 ];

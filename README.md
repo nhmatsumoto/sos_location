@@ -11,7 +11,7 @@ demonstração incluída. Fundação técnica para futuras camadas de simulaçã
 
 ```text
 pesquisa → boundary → import job → download → normalização → PostGIS
-→ CityRevision publicada → vector tiles (MVT) → deck.gl 3D → inspeção
+→ CityRevision publicada → vector tiles (MVT) → MapLibre 2D/3D → inspeção/simulação
 ```
 
 ## Stack
@@ -36,11 +36,14 @@ Aguarde os health checks. A UI fica em **http://localhost:8080**.
 No primeiro boot a API semeia um job de importação da fixture offline
 (**Demo District**, ~66 edifícios, vias, rio, parque); o worker o processa em
 segundos. Clique na cidade no painel **Cities** → a câmera voa até o distrito
-e os edifícios 3D carregam progressivamente por tiles.
+e os edifícios carregam progressivamente por tiles (footprints em zoom médio,
+extrusão 3D somente em zoom próximo).
 
 - Clique em um edifício → painel de inspeção (altura, níveis, fonte da altura,
   confiança, proveniência do dataset, tags).
-- Painel **Layers**: Buildings / Roads / Water / Land Use / Boundary / Debug Tiles.
+- Painel **Layers**: Buildings / Roads / Water / Land Use / Boundary / Terrain /
+  Trains / Seismic intensity / Debug Tiles. Terreno e animação iniciam desligados
+  para preservar CPU/memória em computadores modestos.
 - Barra inferior: FPS, tiles carregados/pendentes, zoom, lon/lat, pitch, bearing.
 
 Portas: web `8080`, API direta `5080`, PostGIS `5432`, MinIO `9000` (console `9001`).
@@ -92,9 +95,10 @@ make e2e                # Playwright (requer stack no ar: docker compose up)
 | `GET /places/search?q=` | Pesquisa de cidades (geocoder atrás de adapter) |
 | `GET /cities` · `/cities/{id}` · `/cities/{id}/revisions[/{revId}]` | Catálogo |
 | `POST /imports` · `GET /imports[/{id}]` · `POST /imports/{id}/cancel` · `GET /imports/{id}/issues` | Jobs de importação |
-| `GET /tiles/{revisionId}/{buildings\|roads\|water\|land-use}/{z}/{x}/{y}.mvt` | Vector tiles (ETag, immutable, brotli) |
+| `GET /tiles/{revisionId}/{buildings\|roads\|water\|land-use}/{z}/{x}/{y}.mvt` | Vector tiles (ETag, immutable; `?simulationId=` inclui dano no tile) |
 | `GET /features/buildings/{id}` · `/roads/{id}` · `/water/{id}` | Inspeção com proveniência (`?includeGeometry=true` para GeoJSON) |
 | `GET /revisions/{id}/manifest` | Manifesto de fontes/licenças da revisão |
+| `POST /simulations` · `GET /simulations[/{id}]` · `GET /simulations/{id}/intensity.png` | Simulação sísmica e raster de PGA |
 | `GET /health` · `/health/ready` · `/health/live` · `GET /openapi/v1.json` | Diagnóstico |
 
 ## Documentação
@@ -111,18 +115,16 @@ make e2e                # Playwright (requer stack no ar: docker compose up)
 ## Limitações conhecidas
 
 - Terreno plano (sem DEM): `ground_elevation_m = 0`, declarado como estimado.
-- `min_height` ainda não desloca a base da extrusão no deck.gl.
 - Boundary renderizada como bounding box (polígono real fica no PostGIS).
 - PLATEAU / CityGML / 3D Tiles: fase 6 (adapters previstos no domínio).
 - Picking de topos de edifícios em vista estritamente top-down (pitch 0) é
   instável sob WebGL por software (SwiftShader); em perspectiva funciona
   normalmente — cenário coberto pelo E2E.
-- API e worker usam a rede do host para que Nominatim/Overpass sigam o mesmo
-  caminho de DNS/egress do sistema. PostgreSQL, MinIO e web continuam isolados;
+- API, worker e web usam a rede do host para que Nominatim/Overpass sigam o mesmo
+  caminho de DNS/egress do sistema. PostgreSQL e MinIO permanecem na rede bridge;
   o Nginx acessa a API por `127.0.0.1` mantendo a UI na porta configurada.
-- Sem simulações de desastre nesta versão — a arquitetura (revisões imutáveis
-  + camadas registráveis na GeoScene) foi desenhada para recebê-las como
-  camadas temporais.
+- O motor atual cobre terremotos com propagação FDTD 2D + resposta estrutural
+  SDOF; enchente, incêndio e evacuação ainda são extensões futuras.
 
 ## Licenças
 

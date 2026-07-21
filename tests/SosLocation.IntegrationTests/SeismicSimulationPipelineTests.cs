@@ -11,6 +11,7 @@ using SosLocation.Domain.Features;
 using SosLocation.GeoProcessing.Seismic;
 using SosLocation.Infrastructure.External;
 using SosLocation.Infrastructure.Persistence;
+using SosLocation.Infrastructure.Tiles;
 using Xunit;
 
 namespace SosLocation.IntegrationTests;
@@ -180,6 +181,17 @@ public class SeismicSimulationPipelineTests(PostgisContainerFixture fixture)
         Assert.All(responses, r => Assert.True(r.PeakDriftRatio >= 0));
 
         Assert.Contains(storage.Objects.Keys, k => k == $"simulations/{run.Id}/intensity.png");
+
+        // O estado de dano é consultado junto ao MVT, evitando o download de
+        // todas as respostas e milhares de setFeatureState no navegador.
+        var reader = new MvtTileReader(context);
+        var (tileX, tileY) = TileMath(EpicenterLon, EpicenterLat, 14);
+        var baseTile = await reader.GetTileAsync(revision.Id, TileLayerKind.Buildings, 14, tileX, tileY, default);
+        var simulationTile = await reader.GetTileAsync(
+            revision.Id, TileLayerKind.Buildings, 14, tileX, tileY, default, run.Id);
+        Assert.NotNull(baseTile);
+        Assert.NotNull(simulationTile);
+        Assert.False(baseTile!.SequenceEqual(simulationTile!));
     }
 
     [Fact]
@@ -201,5 +213,15 @@ public class SeismicSimulationPipelineTests(PostgisContainerFixture fixture)
         Assert.True(
             strongResponse.PeakGroundAccelerationG > weakResponse.PeakGroundAccelerationG,
             "A larger magnitude at the same location must produce a larger PGA.");
+    }
+
+    private static (int X, int Y) TileMath(double lon, double lat, int zoom)
+    {
+        var scale = 1 << zoom;
+        var x = (int)Math.Floor((lon + 180.0) / 360.0 * scale);
+        var latRad = lat * Math.PI / 180.0;
+        var y = (int)Math.Floor(
+            (1.0 - Math.Asinh(Math.Tan(latRad)) / Math.PI) / 2.0 * scale);
+        return (x, y);
     }
 }

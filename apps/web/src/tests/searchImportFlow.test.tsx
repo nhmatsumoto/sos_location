@@ -44,7 +44,7 @@ describe('city search and import flow', () => {
     fireEvent.change(input, { target: { value: 'Komaki' } });
 
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(399);
+      await vi.advanceTimersByTimeAsync(249);
     });
     expect(fetchMock).not.toHaveBeenCalled();
 

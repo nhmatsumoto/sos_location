@@ -23,6 +23,7 @@ export interface CityStyleOptions {
   /** Simulação de desastre concluída a exibir como overlay de intensidade (PGA). */
   activeSimulation?: {
     id: string;
+    revisionId: string;
     west: number;
     south: number;
     east: number;
@@ -32,10 +33,17 @@ export interface CityStyleOptions {
 
 const SOURCE_PREFIX = 'sos-';
 
-function tileSource(revisionId: string, kind: string, minzoom: number, maxzoom: number): SourceSpecification {
+function tileSource(
+  revisionId: string,
+  kind: string,
+  minzoom: number,
+  maxzoom: number,
+  simulationId?: string,
+): SourceSpecification {
+  const query = simulationId ? `?simulationId=${encodeURIComponent(simulationId)}` : '';
   return {
     type: 'vector',
-    tiles: [`${window.location.origin}/api/v1/tiles/${revisionId}/${kind}/{z}/{x}/{y}.mvt`],
+    tiles: [`${window.location.origin}/api/v1/tiles/${revisionId}/${kind}/{z}/{x}/{y}.mvt${query}`],
     minzoom,
     maxzoom,
     // promoteId: o id (uuid) do banco vira o feature id — habilita feature-state.
@@ -49,20 +57,24 @@ function tileSource(revisionId: string, kind: string, minzoom: number, maxzoom: 
  * suporta base (min_height + ground_elevation) e gradiente vertical de sombreamento.
  * deck.gl permanece reservado para camadas de simulação (ADR-0003).
  */
-export function buildCitySources(revisionId: string): Record<string, SourceSpecification> {
+export function buildCitySources(options: CityStyleOptions): Record<string, SourceSpecification> {
+  const { revisionId } = options;
+  const simulationId = options.activeSimulation?.revisionId === revisionId
+    ? options.activeSimulation.id
+    : undefined;
   return {
-    [`${SOURCE_PREFIX}buildings`]: tileSource(revisionId, 'buildings', 12, 16),
+    [`${SOURCE_PREFIX}buildings`]: tileSource(revisionId, 'buildings', 12, 16, simulationId),
     [`${SOURCE_PREFIX}roads`]: tileSource(revisionId, 'roads', 8, 16),
     [`${SOURCE_PREFIX}water`]: tileSource(revisionId, 'water', 6, 16),
     [`${SOURCE_PREFIX}land-use`]: tileSource(revisionId, 'land-use', 8, 16),
   };
 }
 
-/** Cor por estado de dano (resposta sísmica), aplicada via feature-state — nenhuma mudança de tile necessária. */
+/** Cor por estado de dano, vinda do tile da simulação (com fallback legado para feature-state). */
 function damageColorExpression(): DataDrivenPropertyValueSpecification<string> {
   return [
     'match',
-    ['feature-state', 'damageState'],
+    ['coalesce', ['get', 'damage_state'], ['feature-state', 'damageState'], 'none'],
     'none', rgbaCss(DAMAGE_COLORS.none),
     'slight', rgbaCss(DAMAGE_COLORS.slight),
     'moderate', rgbaCss(DAMAGE_COLORS.moderate),
@@ -72,13 +84,17 @@ function damageColorExpression(): DataDrivenPropertyValueSpecification<string> {
   ] as unknown as DataDrivenPropertyValueSpecification<string>;
 }
 
-/** Expressão de cor semântica com seleção/dano via feature-state e gradiente por altura. */
+/** Expressão de cor semântica com seleção, dano do tile e gradiente por altura. */
 function buildingColorExpression(): DataDrivenPropertyValueSpecification<string> {
   return [
     'case',
     ['boolean', ['feature-state', 'selected'], false],
     '#ffd666',
-    ['!=', ['feature-state', 'damageState'], null],
+    [
+      '!=',
+      ['coalesce', ['get', 'damage_state'], ['feature-state', 'damageState'], 'none'],
+      'none',
+    ],
     damageColorExpression(),
     [
       'match',
@@ -107,12 +123,13 @@ export function buildCityLayers(options: CityStyleOptions): LayerSpecification[]
   const { visibility } = options;
   const layers: LayerSpecification[] = [];
 
-  if (visibility.landUse) {
+  {
     layers.push({
       id: 'sos-land-use-fill',
       type: 'fill',
       source: `${SOURCE_PREFIX}land-use`,
       'source-layer': 'land_use',
+      layout: { visibility: visibility.landUse ? 'visible' : 'none' },
       paint: {
         'fill-color': [
           'match',
@@ -128,13 +145,14 @@ export function buildCityLayers(options: CityStyleOptions): LayerSpecification[]
     });
   }
 
-  if (visibility.water) {
+  {
     layers.push(
       {
         id: 'sos-water-fill',
         type: 'fill',
         source: `${SOURCE_PREFIX}water`,
         'source-layer': 'water',
+        layout: { visibility: visibility.water ? 'visible' : 'none' },
         filter: ['==', ['geometry-type'], 'Polygon'],
         paint: { 'fill-color': rgbaCss(WATER_COLOR) },
       },
@@ -144,7 +162,11 @@ export function buildCityLayers(options: CityStyleOptions): LayerSpecification[]
         source: `${SOURCE_PREFIX}water`,
         'source-layer': 'water',
         filter: ['==', ['geometry-type'], 'LineString'],
-        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        layout: {
+          'line-cap': 'round',
+          'line-join': 'round',
+          visibility: visibility.water ? 'visible' : 'none',
+        },
         paint: {
           'line-color': 'rgba(80, 140, 210, 0.85)',
           'line-width': ['interpolate', ['exponential', 1.5], ['zoom'], 8, 0.8, 16, 4],
@@ -153,13 +175,17 @@ export function buildCityLayers(options: CityStyleOptions): LayerSpecification[]
     );
   }
 
-  if (visibility.roads) {
+  {
     layers.push({
       id: 'sos-roads-line',
       type: 'line',
       source: `${SOURCE_PREFIX}roads`,
       'source-layer': 'roads',
-      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      layout: {
+        'line-cap': 'round',
+        'line-join': 'round',
+        visibility: visibility.roads ? 'visible' : 'none',
+      },
       paint: {
         'line-color': [
           'match',
@@ -197,34 +223,50 @@ export function buildCityLayers(options: CityStyleOptions): LayerSpecification[]
     });
   }
 
-  if (visibility.buildings) {
-    layers.push({
-      id: 'sos-buildings-3d',
-      type: 'fill-extrusion',
-      source: `${SOURCE_PREFIX}buildings`,
-      'source-layer': 'buildings',
-      minzoom: 12,
-      paint: {
-        'fill-extrusion-color': buildingColorExpression(),
-        'fill-extrusion-height': ['coalesce', ['get', 'height_m'], 0],
-        // Base = min_height (building:part). A elevação do solo vem do terreno
-        // 3D do MapLibre (setTerrain) — somá-la aqui duplicaria o deslocamento;
-        // ground_elevation_m permanece nos tiles como dado analítico.
-        'fill-extrusion-base': ['coalesce', ['get', 'min_height_m'], 0],
-        // Levemente translúcido (estilo Mini Tokyo 3D): trens e vias continuam
-        // legíveis atrás das construções.
-        'fill-extrusion-opacity': 0.9,
-        // Gradiente vertical: paredes escurecem em direção à base (leitura de volume).
-        'fill-extrusion-vertical-gradient': true,
+  {
+    layers.push(
+      {
+        // Em zoom intermediário, footprints preservam toda a informação espacial
+        // com custo muito menor que milhares de extrusões simultâneas.
+        id: 'sos-buildings-footprint',
+        type: 'fill',
+        source: `${SOURCE_PREFIX}buildings`,
+        'source-layer': 'buildings',
+        minzoom: 12,
+        maxzoom: 14,
+        layout: { visibility: visibility.buildings ? 'visible' : 'none' },
+        paint: {
+          'fill-color': buildingColorExpression(),
+          'fill-opacity': 0.82,
+        },
       },
-    });
+      {
+        id: 'sos-buildings-3d',
+        type: 'fill-extrusion',
+        source: `${SOURCE_PREFIX}buildings`,
+        'source-layer': 'buildings',
+        minzoom: 14,
+        layout: { visibility: visibility.buildings ? 'visible' : 'none' },
+        paint: {
+          'fill-extrusion-color': buildingColorExpression(),
+          'fill-extrusion-height': ['coalesce', ['get', 'height_m'], 0],
+          // Base = min_height (building:part). A elevação do solo vem do terreno
+          // 3D do MapLibre (setTerrain) — somá-la aqui duplicaria o deslocamento;
+          // ground_elevation_m permanece nos tiles como dado analítico.
+          'fill-extrusion-base': ['coalesce', ['get', 'min_height_m'], 0],
+          'fill-extrusion-opacity': 0.9,
+          'fill-extrusion-vertical-gradient': true,
+        },
+      },
+    );
   }
 
-  if (visibility.boundary && options.boundaryBox) {
+  if (options.boundaryBox) {
     layers.push({
       id: 'sos-boundary-line',
       type: 'line',
       source: `${SOURCE_PREFIX}boundary`,
+      layout: { visibility: visibility.boundary ? 'visible' : 'none' },
       paint: {
         'line-color': rgbaCss(BOUNDARY_COLOR),
         'line-width': 2.5,
@@ -239,6 +281,7 @@ export function buildCityLayers(options: CityStyleOptions): LayerSpecification[]
 /** Ordem de prioridade do picking (o que o clique deve preferir). */
 export const PICKABLE_LAYERS: { id: string; kind: FeatureKind }[] = [
   { id: 'sos-buildings-3d', kind: 'building' },
+  { id: 'sos-buildings-footprint', kind: 'building' },
   { id: 'sos-roads-line', kind: 'road' },
   { id: 'sos-water-fill', kind: 'water' },
   { id: 'sos-water-line', kind: 'water' },

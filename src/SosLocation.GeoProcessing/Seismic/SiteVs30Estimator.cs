@@ -53,12 +53,20 @@ public static class SiteVs30Estimator
 
     private static double LocalSlope(double[] elevation, SeismicGrid grid, int col, int row)
     {
-        var left = elevation[grid.Index(Math.Max(col - 1, 0), row)];
-        var right = elevation[grid.Index(Math.Min(col + 1, grid.Cols - 1), row)];
-        var down = elevation[grid.Index(col, Math.Max(row - 1, 0))];
-        var up = elevation[grid.Index(col, Math.Min(row + 1, grid.Rows - 1))];
-        var dzdx = (right - left) / (2.0 * grid.SpacingMeters);
-        var dzdy = (up - down) / (2.0 * grid.SpacingMeters);
+        var leftCol = Math.Max(col - 1, 0);
+        var rightCol = Math.Min(col + 1, grid.Cols - 1);
+        var downRow = Math.Max(row - 1, 0);
+        var upRow = Math.Min(row + 1, grid.Rows - 1);
+        var left = elevation[grid.Index(leftCol, row)];
+        var right = elevation[grid.Index(rightCol, row)];
+        var down = elevation[grid.Index(col, downRow)];
+        var up = elevation[grid.Index(col, upRow)];
+        // Nas bordas a stencil possui apenas um intervalo, não dois. Usar
+        // sempre 2*spacing subestimava o slope e mudava artificialmente o Vs30.
+        var dx = Math.Max(1, rightCol - leftCol) * grid.SpacingMeters;
+        var dy = Math.Max(1, upRow - downRow) * grid.SpacingMeters;
+        var dzdx = (right - left) / dx;
+        var dzdy = (up - down) / dy;
         return Math.Sqrt(dzdx * dzdx + dzdy * dzdy);
     }
 }

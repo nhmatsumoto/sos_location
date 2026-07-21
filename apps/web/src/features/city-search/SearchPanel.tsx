@@ -17,7 +17,9 @@ export function SearchPanel() {
       return;
     }
 
-    const timer = window.setTimeout(() => setDebounced(normalized), 400);
+    // 250 ms mantém a busca responsiva; a query anterior é cancelada via
+    // AbortSignal e o backend protege o geocodificador com cache.
+    const timer = window.setTimeout(() => setDebounced(normalized), 250);
     return () => window.clearTimeout(timer);
   }, [query]);
 
@@ -63,6 +65,7 @@ export function SearchPanel() {
           {places?.map((place) => (
             <button
               type="button"
+              data-testid="city-search-result"
               key={place.providerId}
               onClick={() => choose(place)}
               className="block w-full px-3 py-2 text-left text-sm hover:bg-slate-800"

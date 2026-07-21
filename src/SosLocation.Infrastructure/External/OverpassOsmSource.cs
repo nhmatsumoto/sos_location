@@ -62,10 +62,17 @@ public sealed class OverpassOsmSource(
                     "Overpass download from {Host} for bbox {Bbox} ({Area:0.0} km²)",
                     baseUri.Host, bbox, area.AreaKm2);
 
-                using var content = new FormUrlEncodedContent(
-                    [new KeyValuePair<string, string>("data", query)]);
-                using var response = await httpClient.PostAsync(
-                    new Uri(baseUri, "/api/interpreter"), content, ct);
+                using var request = new HttpRequestMessage(
+                    HttpMethod.Post,
+                    new Uri(baseUri, "/api/interpreter"))
+                {
+                    Content = new FormUrlEncodedContent(
+                        [new KeyValuePair<string, string>("data", query)]),
+                };
+                using var response = await httpClient.SendAsync(
+                    request,
+                    HttpCompletionOption.ResponseHeadersRead,
+                    ct);
                 response.EnsureSuccessStatusCode();
 
                 return new SourcePayload

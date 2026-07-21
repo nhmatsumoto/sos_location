@@ -111,6 +111,7 @@ test('city search + simulated import with progress and recoverable error', async
   );
 
   let polls = 0;
+  let importStarted = false;
   const jobId = '11111111-1111-1111-1111-111111111111';
   const jobBase = {
     id: jobId,
@@ -124,24 +125,38 @@ test('city search + simulated import with progress and recoverable error', async
     completedAt: null,
     createdAt: new Date().toISOString(),
   };
-  await page.route('**/api/v1/imports', (route) => {
+  await page.route('**/api/v1/imports', async (route) => {
     if (route.request().method() === 'POST') {
-      return route.fulfill({
+      importStarted = true;
+      polls = 0;
+      await route.fulfill({
         status: 202,
-        json: { ...jobBase, status: 'queued', progress: 0, currentStage: null },
+        contentType: 'application/json',
+        body: JSON.stringify({
+          ...jobBase,
+          status: 'queued',
+          progress: 0,
+          currentStage: null,
+        }),
       });
+      return;
     }
+    if (!importStarted) {
+      await route.fulfill({ json: [] });
+      return;
+    }
+
     polls += 1;
     const job =
       polls < 3
         ? { ...jobBase, status: 'running', progress: 40, currentStage: 'Normalize' }
         : { ...jobBase, status: 'failed', progress: 55, currentStage: 'Reconstruct', error: 'Overpass timeout (recoverable: retry later)' };
-    return route.fulfill({ json: [job] });
+    await route.fulfill({ json: [job] });
   });
 
   await page.goto('/');
   await page.getByTestId('city-search-input').fill('Komaki');
-  await page.getByRole('button', { name: /Komaki/ }).click();
+  await page.getByTestId('city-search-result').filter({ hasText: 'Komaki' }).click();
 
   await page.getByTestId('start-import').click();
   await expect(page.getByTestId('import-panel')).toContainText(/running|queued/, {

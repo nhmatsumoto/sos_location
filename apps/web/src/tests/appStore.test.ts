@@ -20,7 +20,6 @@ describe('appStore', () => {
       tileStats: { loaded: 0, pending: 0 },
       watchedSimulationId: null,
       activeSimulation: null,
-      damageByBuildingId: null,
     });
   });
 
@@ -61,20 +60,18 @@ describe('appStore', () => {
     expect(useAppStore.getState().tileStats).toEqual({ loaded: 12, pending: 0 });
   });
 
-  it('tracks the active simulation overlay and per-building damage state', () => {
+  it('tracks the active simulation overlay', () => {
     useAppStore.getState().setWatchedSimulationId('run-1');
     expect(useAppStore.getState().watchedSimulationId).toBe('run-1');
 
     useAppStore.getState().setActiveSimulation({
       id: 'run-1',
+      revisionId: 'rev-1',
       west: 139.0,
       south: 35.0,
       east: 139.1,
       north: 35.1,
     });
     expect(useAppStore.getState().activeSimulation?.id).toBe('run-1');
-
-    useAppStore.getState().setDamageByBuildingId({ 'building-1': 'moderate' });
-    expect(useAppStore.getState().damageByBuildingId).toEqual({ 'building-1': 'moderate' });
   });
 });

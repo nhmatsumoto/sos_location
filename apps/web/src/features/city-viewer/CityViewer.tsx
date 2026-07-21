@@ -3,7 +3,6 @@ import { GeoScene } from '../../geo/GeoScene';
 import { useAppStore } from '../../stores/appStore';
 import { api } from '../../api/client';
 import { buildRailRoutes, trainsAtTime } from '../trains/trainSimulation';
-import { buildTrainsLayer } from '../trains/trainsLayer';
 
 /** Ponte React → GeoScene. Mantém o runtime geoespacial fora do ciclo do React. */
 export function CityViewer() {
@@ -16,7 +15,6 @@ export function CityViewer() {
   const pendingCamera = useAppStore((s) => s.pendingCamera);
   const layers = useAppStore((s) => s.layers);
   const activeSimulation = useAppStore((s) => s.activeSimulation);
-  const damageByBuildingId = useAppStore((s) => s.damageByBuildingId);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -62,17 +60,6 @@ export function CityViewer() {
     });
   }, [selectedRevision, layers, selectedPlace, activeSimulation]);
 
-  // Colore os edifícios por estado de dano assim que a resposta da simulação chega
-  // (feature-state — não requer reconstruir tiles/sources).
-  useEffect(() => {
-    if (!damageByBuildingId) return;
-    const entries = Object.entries(damageByBuildingId).map(([buildingId, damageState]) => ({
-      buildingId,
-      damageState,
-    }));
-    sceneRef.current?.setDamageStates(entries);
-  }, [damageByBuildingId]);
-
   // Trens em movimento por horário (simulação determinística sobre ferrovias OSM
   // da revisão ativa — funciona para qualquer cidade importada).
   useEffect(() => {
@@ -87,9 +74,11 @@ export function CityViewer() {
     let rafHandle = 0;
     let lastUpdate = 0;
 
-    api
-      .getRailways(selectedRevision.id)
-      .then((features) => {
+    Promise.all([
+      api.getRailways(selectedRevision.id),
+      import('../trains/trainsLayer'),
+    ])
+      .then(([features, { buildTrainsLayer }]) => {
         if (cancelled) return;
         const routes = buildRailRoutes(features);
         if (routes.length === 0) return;
