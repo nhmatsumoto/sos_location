@@ -1,0 +1,17 @@
+# --- build ---------------------------------------------------------------
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+WORKDIR /src
+COPY Directory.Build.props ./
+COPY src/ src/
+RUN dotnet publish src/SosLocation.Api -c Release -o /app/publish
+
+# --- runtime -------------------------------------------------------------
+FROM mcr.microsoft.com/dotnet/aspnet:10.0
+WORKDIR /app
+COPY --from=build /app/publish .
+COPY tools/fixtures /app/tools/fixtures
+ENV ASPNETCORE_URLS=http://0.0.0.0:8080 API_HEALTH_PORT=8080
+EXPOSE 8080
+# Healthcheck sem dependências externas (bash /dev/tcp já existe na imagem Debian).
+HEALTHCHECK --interval=10s --timeout=5s --retries=10 CMD ["bash", "-c", "exec 3<>/dev/tcp/localhost/${API_HEALTH_PORT:-8080} && printf 'GET /health HTTP/1.0\\r\\n\\r\\n' >&3 && grep -q ' 200 ' <&3"]
+ENTRYPOINT ["dotnet", "SosLocation.Api.dll"]

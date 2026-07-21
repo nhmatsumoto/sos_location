@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.0" />
+    <PackageReference Include="Serilog.Extensions.Hosting" Version="10.0.0" />
+    <PackageReference Include="Serilog.Sinks.Console" Version="6.1.1" />
+    <PackageReference Include="Serilog.Settings.Configuration" Version="10.0.0" />
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.16.0" />
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.16.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\SosLocation.Application\SosLocation.Application.csproj" />
+    <ProjectReference Include="..\SosLocation.GeoProcessing\SosLocation.GeoProcessing.csproj" />
+    <ProjectReference Include="..\SosLocation.Infrastructure\SosLocation.Infrastructure.csproj" />
+  </ItemGroup>
+</Project>

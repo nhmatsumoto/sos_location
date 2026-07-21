@@ -1,33 +1,46 @@
-.PHONY: up down build logs frontend-typecheck frontend-lint backend-test python-test checks
+.PHONY: up down logs build test test-unit test-integration test-arch test-web fixture api-dev worker-dev web-dev migrate
 
-# Sobe todos os serviços, sempre rebuilda o frontend com o hash atual do git.
-# Isso evita que o Docker reutilize cache de builds anteriores quando o código
-# foi revertido para um commit anterior (git reset --hard).
-up:
-	BUILD_HASH=$(shell git rev-parse HEAD) docker compose up -d --build
+up: ## Sobe a plataforma completa (web em http://localhost:8080)
+	docker compose up --build -d
 
-# Rebuild apenas o frontend (mais rápido quando só o código front mudou)
-build-frontend:
-	BUILD_HASH=$(shell git rev-parse HEAD) docker compose build --no-cache frontend
-
-# Derruba todos os containers
 down:
 	docker compose down
 
-# Acompanha logs de todos os serviços
 logs:
-	docker compose logs -f
+	docker compose logs -f --tail=100
 
-frontend-typecheck:
-	cd frontend-react && bun x tsc -b --pretty false
+build:
+	dotnet build SosLocation.slnx
+	cd apps/web && npm run build
 
-frontend-lint:
-	cd frontend-react && bun x eslint .
+test: test-unit test-arch test-web
 
-backend-test:
-	DOTNET_CLI_HOME=/tmp/sos-location-dotnet-home DOTNET_SKIP_FIRST_TIME_EXPERIENCE=1 dotnet test backend-dotnet/SOSLocation.slnx --nologo
+test-unit:
+	dotnet test tests/SosLocation.UnitTests --nologo
 
-python-test:
-	PYTHONPATH=risk-analysis-unit python3 -m unittest discover -s risk-analysis-unit/tests -p "test_*.py"
+test-arch:
+	dotnet test tests/SosLocation.ArchitectureTests --nologo
 
-checks: frontend-typecheck frontend-lint backend-test python-test
+test-integration: ## Requer Docker (Testcontainers + PostGIS real)
+	dotnet test tests/SosLocation.IntegrationTests --nologo
+
+test-web:
+	cd apps/web && npx vitest run
+
+e2e: ## Requer a stack no ar (make up) e browsers do Playwright instalados
+	cd apps/web && npx playwright test
+
+fixture: ## Regenera a fixture offline Demo District
+	python tools/fixtures/generate_fixture.py
+
+migrate: ## Gera uma nova migration (ex.: make migrate NAME=AddSomething)
+	dotnet ef migrations add $(NAME) -p src/SosLocation.Infrastructure -s src/SosLocation.Infrastructure -o Persistence/Migrations
+
+api-dev: ## API local em http://localhost:5080 (requer postgres/minio: docker compose up postgres minio)
+	dotnet run --project src/SosLocation.Api --urls http://localhost:5080
+
+worker-dev:
+	dotnet run --project src/SosLocation.Worker
+
+web-dev: ## Vite dev server em http://localhost:5173 (proxy /api -> :5080)
+	cd apps/web && npm run dev

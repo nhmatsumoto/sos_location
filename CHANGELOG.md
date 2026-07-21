@@ -1,26 +1,28 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
+## [3.0.0] — 2026-07-16
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+Reboot completo do repositório como **SOS_LOCATION City Reconstruction Platform**.
 
-## [2.0.0] - 2026-03-16
+### Adicionado
+- Monolito modular .NET 10 (`Domain`, `Application`, `GeoProcessing`,
+  `Infrastructure`, `Api`, `Worker`) com fronteiras verificadas por NetArchTest.
+- PostGIS autoritativo (SRID 4326) + vector tiles MVT gerados no banco
+  (`ST_AsMVT`) com simplificação e atributos por zoom.
+- Pipeline de importação em 10 estágios idempotentes com fila durável no
+  PostgreSQL (`FOR UPDATE SKIP LOCKED`), revisões urbanas imutáveis
+  (`CityRevision`) e proveniência completa (`Dataset`/`DatasetVersion` + MinIO).
+- Adapters Nominatim (pesquisa) e Overpass (importação por bbox) com allowlist,
+  timeout e limites de tamanho; importação GeoJSON inline.
+- Frontend React 19 + MapLibre + deck.gl interleaved atrás da classe `GeoScene`:
+  edifícios extrudados selecionáveis, painéis de camadas/importação/inspeção,
+  diagnóstico (FPS, tiles, câmera). Renderização 100% sem texturas (ADR 0004).
+- Fixture offline "Demo District" (66 edifícios, vias, rio, parque) semeada
+  automaticamente no primeiro boot — a aplicação funciona sem APIs externas.
+- Testes: 84 unit + 4 arquitetura + 5 integração (PostGIS real via
+  Testcontainers) + 15 frontend (Vitest) + 4 cenários E2E (Playwright).
+- Docker Compose completo (web/nginx, api, worker, postgis, minio) com health
+  checks, migrations automáticas e seed.
 
-### Added
-- **Guardian Engine v3.5 (City-Scale WebGL)**: Pure WebGL 2.0 implementation for city-scale GIS rendering.
-- **Raster-to-3D Extrusion**: Image intensity-driven building height processing.
-- **Layered GIS Rendering**: Separate Terrain, Infrastructure, and Vegetation layers.
-- **Volunteer Task Management**: Backend and frontend modules for mission coordination.
-- **Asset Prefetching**: Proactive module loading for optimized first-contentful paint.
-- **GIS Caching**: IndexedDB integration for offline-first spatial data.
-
-### Changed
-- **UI System**: Upgraded to Guardian Design System with tático HUD layouts across all modules.
-- **Simulation Engine**: Replaced Three.js with a custom low-level GPU renderer.
-- **Branding**: Official transition to "The Guardian Beacon" project identity.
-
-### Fixed
-- Multiple TypeScript strict-mode compilation errors.
-- Docker build stability and container health checks.
-- SignalR real-time stream connectivity for simulations.
+### Removido
+- Todo o código da plataforma anterior (v2.x) — histórico preservado no git.
