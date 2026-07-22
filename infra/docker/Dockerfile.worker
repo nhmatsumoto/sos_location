@@ -7,10 +7,10 @@ COPY src/SosLocation.Application/SosLocation.Application.csproj src/SosLocation.
 COPY src/SosLocation.GeoProcessing/SosLocation.GeoProcessing.csproj src/SosLocation.GeoProcessing/
 COPY src/SosLocation.Infrastructure/SosLocation.Infrastructure.csproj src/SosLocation.Infrastructure/
 COPY src/SosLocation.Worker/SosLocation.Worker.csproj src/SosLocation.Worker/
-RUN --mount=type=cache,target=/root/.nuget/packages \
+RUN --mount=type=cache,id=sos-worker-nuget,target=/root/.nuget/packages,sharing=locked \
     dotnet restore src/SosLocation.Worker/SosLocation.Worker.csproj
 COPY src/ src/
-RUN --mount=type=cache,target=/root/.nuget/packages \
+RUN --mount=type=cache,id=sos-worker-nuget,target=/root/.nuget/packages,sharing=locked \
     dotnet publish src/SosLocation.Worker -c Release -o /app/publish --no-restore
 
 # --- runtime -------------------------------------------------------------
