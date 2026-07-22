@@ -74,6 +74,13 @@ public static class SimulationsEndpoints
             return Results.Ok(responses.Select(ToDto));
         }).WithName("ListSimulationBuildingResponses");
 
+        group.MapGet("/simulations/{runId:guid}/buildings/{buildingId:guid}", async (
+            Guid runId, Guid buildingId, ISimulationRunStore runs, CancellationToken ct) =>
+        {
+            var response = await runs.FindResponseAsync(runId, buildingId, ct);
+            return response is null ? Results.NotFound() : Results.Ok(ToDto(response));
+        }).WithName("GetSimulationBuildingResponse");
+
         group.MapPost("/simulations/{runId:guid}/cancel", async (
             Guid runId, ISimulationRunStore runs, IUnitOfWork unitOfWork, CancellationToken ct) =>
         {
@@ -97,6 +104,34 @@ public static class SimulationsEndpoints
             http.Response.Headers[HeaderNames.CacheControl] = "public, max-age=2592000, immutable";
             return Results.Bytes(bytes, "image/png");
         }).WithName("GetSimulationIntensity");
+
+        group.MapGet("/simulations/{runId:guid}/replay", async (
+            Guid runId, ISimulationRunStore runs, IObjectStorage storage, HttpContext http, CancellationToken ct) =>
+        {
+            var run = await runs.FindByIdAsync(runId, ct);
+            if (run is null || run.Status != SimulationRunStatus.Completed) return Results.NotFound();
+
+            var bytes = await storage.GetAsync($"simulations/{runId}/replay.json", ct);
+            if (bytes is null) return Results.NotFound();
+
+            http.Response.Headers[HeaderNames.CacheControl] = "public, max-age=2592000, immutable";
+            return Results.Bytes(bytes, "application/json");
+        }).WithName("GetSimulationReplay");
+
+        group.MapGet("/simulations/{runId:guid}/replay/{frameIndex:int}.png", async (
+            Guid runId, int frameIndex, ISimulationRunStore runs, IObjectStorage storage,
+            HttpContext http, CancellationToken ct) =>
+        {
+            if (frameIndex < 0) return Results.NotFound();
+            var run = await runs.FindByIdAsync(runId, ct);
+            if (run is null || run.Status != SimulationRunStatus.Completed) return Results.NotFound();
+
+            var bytes = await storage.GetAsync($"simulations/{runId}/replay/{frameIndex:D4}.png", ct);
+            if (bytes is null) return Results.NotFound();
+
+            http.Response.Headers[HeaderNames.CacheControl] = "public, max-age=2592000, immutable";
+            return Results.Bytes(bytes, "image/png");
+        }).WithName("GetSimulationReplayFrame");
 
         return group;
     }

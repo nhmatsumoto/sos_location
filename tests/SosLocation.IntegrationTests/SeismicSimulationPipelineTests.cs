@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using NetTopologySuite.Geometries;
 using SosLocation.Application.Abstractions;
+using SosLocation.Application.Dto;
 using SosLocation.Application.Options;
 using SosLocation.Domain.Cities;
 using SosLocation.Domain.Disasters;
@@ -45,6 +46,7 @@ public class SeismicSimulationPipelineTests(PostgisContainerFixture fixture)
         DomainMarginKm = 1.0,
         MaxSimulationSeconds = 6.0,
         MaxSimulationSteps = 300,
+        MaxReplayFrames = 8,
         SourceAmplitudeScale = 1.0e-18,
     };
 
@@ -181,6 +183,23 @@ public class SeismicSimulationPipelineTests(PostgisContainerFixture fixture)
         Assert.All(responses, r => Assert.True(r.PeakDriftRatio >= 0));
 
         Assert.Contains(storage.Objects.Keys, k => k == $"simulations/{run.Id}/intensity.png");
+
+        var manifestBytes = storage.Objects[$"simulations/{run.Id}/replay.json"];
+        var replay = JsonSerializer.Deserialize<SeismicReplayManifestDto>(manifestBytes, JsonOptions);
+        Assert.NotNull(replay);
+        Assert.Equal(buildings.Count, replay.BuildingCount);
+        Assert.InRange(replay.Frames.Count, 2, FastTestOptions().MaxReplayFrames);
+        Assert.Equal(0, replay.Frames[0].Index);
+        Assert.True(replay.Frames[^1].TimeSeconds > replay.Frames[0].TimeSeconds);
+        Assert.All(replay.Frames, frame =>
+        {
+            Assert.Equal(
+                buildings.Count,
+                frame.None + frame.Slight + frame.Moderate + frame.Extensive + frame.Complete);
+            Assert.Contains(
+                $"simulations/{run.Id}/replay/{frame.Index:D4}.png",
+                storage.Objects.Keys);
+        });
 
         // O estado de dano é consultado junto ao MVT, evitando o download de
         // todas as respostas e milhares de setFeatureState no navegador.

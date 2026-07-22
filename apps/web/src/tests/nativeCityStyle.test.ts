@@ -29,6 +29,7 @@ const options: CityStyleOptions = {
     south: 35.2,
     east: 137,
     north: 35.4,
+    replayFrameIndex: null,
   },
 };
 

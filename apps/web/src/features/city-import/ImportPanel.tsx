@@ -4,6 +4,7 @@ import { useAppStore } from '../../stores/appStore';
 import type { ImportJob } from '../../schemas/api';
 
 const ACTIVE_STATUSES = new Set(['queued', 'running', 'retrying']);
+const LISTED_STATUSES = new Set(['queued', 'running', 'retrying', 'completed']);
 
 export function ImportPanel() {
   const queryClient = useQueryClient();
@@ -49,6 +50,10 @@ export function ImportPanel() {
     mutationFn: (jobId: string) => api.cancelImport(jobId),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['imports'] }),
   });
+
+  // A API já omite falhas definitivas e cancelamentos. Este filtro evita que
+  // respostas antigas em cache voltem a exibi-los durante uma atualização.
+  const visibleJobs = jobs?.filter((job) => LISTED_STATUSES.has(job.status));
 
   const openResult = async (job: ImportJob) => {
     if (!job.cityId || !job.cityRevisionId) return;
@@ -100,7 +105,7 @@ export function ImportPanel() {
       )}
 
       <ul className="space-y-2">
-        {jobs?.map((job) => (
+        {visibleJobs?.map((job) => (
           <li key={job.id} className="rounded border border-slate-800 bg-slate-900/70 p-2">
             <div className="flex items-center justify-between text-xs">
               <span className="font-medium text-slate-200">{job.jobType}</span>
@@ -140,7 +145,7 @@ export function ImportPanel() {
             </div>
           </li>
         ))}
-        {jobs?.length === 0 && <li className="text-xs text-slate-500">No import jobs yet.</li>}
+        {visibleJobs?.length === 0 && <li className="text-xs text-slate-500">No import jobs yet.</li>}
       </ul>
     </section>
   );

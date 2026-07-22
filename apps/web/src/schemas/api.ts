@@ -97,6 +97,43 @@ export const buildingSeismicResponseSchema = z.object({
 });
 export type BuildingSeismicResponse = z.infer<typeof buildingSeismicResponseSchema>;
 
+export const seismicReplayFrameSchema = z.object({
+  index: z.number().int().nonnegative(),
+  step: z.number().int().positive(),
+  timeSeconds: z.number().nonnegative(),
+  peakAccelerationG: z.number().nonnegative(),
+  maxCumulativeDriftRatio: z.number().nonnegative(),
+  none: z.number().int().nonnegative(),
+  slight: z.number().int().nonnegative(),
+  moderate: z.number().int().nonnegative(),
+  extensive: z.number().int().nonnegative(),
+  complete: z.number().int().nonnegative(),
+});
+export type SeismicReplayFrame = z.infer<typeof seismicReplayFrameSchema>;
+
+export const seismicReplayManifestSchema = z.object({
+  modelVersion: z.string(),
+  gridColumns: z.number().int().positive(),
+  gridRows: z.number().int().positive(),
+  rasterColumns: z.number().int().positive(),
+  rasterRows: z.number().int().positive(),
+  gridSpacingMeters: z.number().positive(),
+  timeStepSeconds: z.number().positive(),
+  totalSteps: z.number().int().positive(),
+  totalSeconds: z.number().positive(),
+  buildingCount: z.number().int().nonnegative(),
+  epicenterLon: z.number(),
+  epicenterLat: z.number(),
+  depthKm: z.number().positive(),
+  momentMagnitude: z.number().positive(),
+  west: z.number(),
+  south: z.number(),
+  east: z.number(),
+  north: z.number(),
+  frames: z.array(seismicReplayFrameSchema).min(1),
+});
+export type SeismicReplayManifest = z.infer<typeof seismicReplayManifestSchema>;
+
 export const provenanceSchema = z.object({
   dataset: z.string(),
   provider: z.string(),

@@ -2,8 +2,16 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 COPY Directory.Build.props ./
+COPY src/SosLocation.Domain/SosLocation.Domain.csproj src/SosLocation.Domain/
+COPY src/SosLocation.Application/SosLocation.Application.csproj src/SosLocation.Application/
+COPY src/SosLocation.GeoProcessing/SosLocation.GeoProcessing.csproj src/SosLocation.GeoProcessing/
+COPY src/SosLocation.Infrastructure/SosLocation.Infrastructure.csproj src/SosLocation.Infrastructure/
+COPY src/SosLocation.Worker/SosLocation.Worker.csproj src/SosLocation.Worker/
+RUN --mount=type=cache,target=/root/.nuget/packages \
+    dotnet restore src/SosLocation.Worker/SosLocation.Worker.csproj
 COPY src/ src/
-RUN dotnet publish src/SosLocation.Worker -c Release -o /app/publish
+RUN --mount=type=cache,target=/root/.nuget/packages \
+    dotnet publish src/SosLocation.Worker -c Release -o /app/publish --no-restore
 
 # --- runtime -------------------------------------------------------------
 FROM mcr.microsoft.com/dotnet/runtime:10.0

@@ -47,9 +47,9 @@ services:
     # firewall bloqueia saída da bridge, host mode evita DNS/TCP divergentes.
     network_mode: host
     environment:
-      ASPNETCORE_URLS: "http://0.0.0.0:${API_PORT:-5080}"
+      ASPNETCORE_HTTP_PORTS: ${API_PORT:-5080}
       API_HEALTH_PORT: ${API_PORT:-5080}
-      ConnectionStrings__Postgres: "Host=127.0.0.1;Port=${POSTGRES_PORT:-5432};Database=${POSTGRES_DB:-sos_location};Username=${POSTGRES_USER:-sos};Password=${POSTGRES_PASSWORD:-sos_dev_password}"
+      ConnectionStrings__Postgres: "Host=127.0.0.1;Port=${POSTGRES_PORT:-5432};Database=${POSTGRES_DB:-sos_location};Username=${POSTGRES_USER:-sos};Password=${POSTGRES_PASSWORD:-sos_dev_password};GSS Encryption Mode=Disable"
       ObjectStorage__Endpoint: "127.0.0.1:${MINIO_PORT:-9000}"
       ObjectStorage__AccessKey: ${MINIO_ROOT_USER:-sos-minio}
       ObjectStorage__SecretKey: ${MINIO_ROOT_PASSWORD:-sos_minio_dev_password}
@@ -70,7 +70,7 @@ services:
       network: host
     network_mode: host
     environment:
-      ConnectionStrings__Postgres: "Host=127.0.0.1;Port=${POSTGRES_PORT:-5432};Database=${POSTGRES_DB:-sos_location};Username=${POSTGRES_USER:-sos};Password=${POSTGRES_PASSWORD:-sos_dev_password}"
+      ConnectionStrings__Postgres: "Host=127.0.0.1;Port=${POSTGRES_PORT:-5432};Database=${POSTGRES_DB:-sos_location};Username=${POSTGRES_USER:-sos};Password=${POSTGRES_PASSWORD:-sos_dev_password};GSS Encryption Mode=Disable"
       ObjectStorage__Endpoint: "127.0.0.1:${MINIO_PORT:-9000}"
       ObjectStorage__AccessKey: ${MINIO_ROOT_USER:-sos-minio}
       ObjectStorage__SecretKey: ${MINIO_ROOT_PASSWORD:-sos_minio_dev_password}

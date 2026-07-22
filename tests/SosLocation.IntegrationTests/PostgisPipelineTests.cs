@@ -21,8 +21,7 @@ public sealed class PostgisContainerFixture : IAsyncLifetime
 {
     internal InMemoryObjectStorage Storage { get; } = new();
 
-    public PostgreSqlContainer Container { get; } = new PostgreSqlBuilder()
-        .WithImage("postgis/postgis:18-3.6")
+    public PostgreSqlContainer Container { get; } = new PostgreSqlBuilder("postgis/postgis:18-3.6")
         .WithDatabase("sos_test")
         .WithUsername("sos")
         .WithPassword("sos_test_password")
@@ -316,6 +315,41 @@ public class PostgisPipelineTests(PostgisContainerFixture fixture)
 
         Assert.NotNull(reserved);
         Assert.Equal(dueJobId, reserved!.Id);
+    }
+
+    [Fact]
+    public async Task JobList_HidesFailedAndCancelled_ButKeepsActiveAndCompleted()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var failed = NewFixtureJob();
+        for (var attempt = 0; attempt < ImportJob.MaxAttempts; attempt++)
+        {
+            failed.Start("worker", now);
+            failed.Fail("terminal failure", now);
+        }
+
+        var cancelled = NewFixtureJob();
+        cancelled.TryCancel(now);
+        var queued = NewFixtureJob();
+        var completed = NewFixtureJob();
+        completed.Start("worker", now);
+        completed.Complete(now);
+
+        await using (var setup = fixture.CreateContext())
+        {
+            await setup.ImportJobs.AddRangeAsync(failed, cancelled, queued, completed);
+            await setup.SaveChangesAsync();
+        }
+
+        await using var context = fixture.CreateContext();
+        var listedIds = (await new ImportJobStore(context).ListRecentAsync(100, default))
+            .Select(job => job.Id)
+            .ToHashSet();
+
+        Assert.DoesNotContain(failed.Id, listedIds);
+        Assert.DoesNotContain(cancelled.Id, listedIds);
+        Assert.Contains(queued.Id, listedIds);
+        Assert.Contains(completed.Id, listedIds);
     }
 
     private static (int X, int Y) TileMath(double lon, double lat, int z)

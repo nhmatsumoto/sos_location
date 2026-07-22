@@ -63,13 +63,20 @@ public static class ImportsEndpoints
         }).WithName("ListImportIssues");
 
         group.MapPost("/imports/{jobId:guid}/cancel", async (
-            Guid jobId, IImportJobStore jobs, IUnitOfWork unitOfWork, CancellationToken ct) =>
+            Guid jobId,
+            IImportJobStore jobs,
+            IUnitOfWork unitOfWork,
+            ILoggerFactory loggerFactory,
+            CancellationToken ct) =>
         {
             var job = await jobs.FindByIdAsync(jobId, ct);
             if (job is null) return Results.NotFound();
             if (!job.TryCancel(DateTimeOffset.UtcNow))
                 return Results.Conflict(new { error = $"Job is already {job.Status} and cannot be cancelled." });
             await unitOfWork.SaveChangesAsync(ct);
+            loggerFactory.CreateLogger("SosLocation.Api.Imports").LogInformation(
+                "Import job {JobId} ({JobType}) cancelled at stage {Stage} after {Attempt} attempts",
+                job.Id, job.JobType, job.CurrentStage, job.Attempts);
             return Results.Ok(ToDto(job));
         }).WithName("CancelImport");
 

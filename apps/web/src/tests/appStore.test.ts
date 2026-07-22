@@ -71,6 +71,7 @@ describe('appStore', () => {
       south: 35.0,
       east: 139.1,
       north: 35.1,
+      replayFrameIndex: null,
     });
     expect(useAppStore.getState().activeSimulation?.id).toBe('run-1');
   });

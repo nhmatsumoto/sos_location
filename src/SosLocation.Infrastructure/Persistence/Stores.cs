@@ -110,6 +110,7 @@ public sealed class ImportJobStore(SosDbContext context) : IImportJobStore
     public async Task<IReadOnlyList<ImportJob>> ListRecentAsync(int limit, CancellationToken ct)
         => await context.ImportJobs
             .AsNoTracking()
+            .Where(j => j.Status != JobStatus.Failed && j.Status != JobStatus.Cancelled)
             .OrderByDescending(j => j.CreatedAt)
             .Take(limit)
             .ToListAsync(ct);
@@ -161,6 +162,11 @@ public sealed class ImportJobStore(SosDbContext context) : IImportJobStore
 
 public sealed class SimulationRunStore(SosDbContext context) : ISimulationRunStore
 {
+    // O COMMIT do COPY precisa atualizar FKs/índices de uma cidade inteira e
+    // pode exceder os 30 s padrão do Npgsql. Mantemos um teto explícito e
+    // restrito a esta operação pesada, sem relaxar timeouts das consultas web.
+    private static readonly TimeSpan BulkCopyTimeout = TimeSpan.FromMinutes(5);
+
     public Task<SimulationRun?> FindByIdAsync(Guid id, CancellationToken ct)
         => context.SimulationRuns.FirstOrDefaultAsync(r => r.Id == id, ct);
 
@@ -199,6 +205,7 @@ public sealed class SimulationRunStore(SosDbContext context) : ISimulationRunSto
                      spectral_acceleration_g, peak_drift_ratio, damage_state, created_at)
                 FROM STDIN (FORMAT BINARY)
                 """, ct);
+            writer.Timeout = BulkCopyTimeout;
 
             foreach (var response in responses)
             {
@@ -228,6 +235,14 @@ public sealed class SimulationRunStore(SosDbContext context) : ISimulationRunSto
             .AsNoTracking()
             .Where(r => r.SimulationRunId == runId)
             .ToListAsync(ct);
+
+    public Task<BuildingSeismicResponse?> FindResponseAsync(
+        Guid runId, Guid buildingId, CancellationToken ct)
+        => context.BuildingSeismicResponses
+            .AsNoTracking()
+            .FirstOrDefaultAsync(
+                response => response.SimulationRunId == runId && response.BuildingId == buildingId,
+                ct);
 
     public Task<SimulationRunStatus?> GetStatusAsync(Guid id, CancellationToken ct)
         => context.SimulationRuns.AsNoTracking()

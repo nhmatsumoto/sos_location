@@ -35,6 +35,7 @@ public interface IDatasetStore
 public interface IImportJobStore
 {
     Task<ImportJob?> FindByIdAsync(Guid id, CancellationToken ct);
+    /// <summary>Lista somente jobs úteis para acompanhamento; falhas definitivas e cancelamentos ficam nos logs.</summary>
     Task<IReadOnlyList<ImportJob>> ListRecentAsync(int limit, CancellationToken ct);
     Task AddAsync(ImportJob job, CancellationToken ct);
     Task AddIssueAsync(ProcessingIssue issue, CancellationToken ct);
@@ -55,6 +56,7 @@ public interface ISimulationRunStore
     Task AddAsync(SimulationRun run, CancellationToken ct);
     Task BulkInsertResponsesAsync(IReadOnlyList<BuildingSeismicResponse> responses, CancellationToken ct);
     Task<IReadOnlyList<BuildingSeismicResponse>> ListResponsesAsync(Guid runId, CancellationToken ct);
+    Task<BuildingSeismicResponse?> FindResponseAsync(Guid runId, Guid buildingId, CancellationToken ct);
 
     /// <summary>
     /// Leitura sem tracking do status atual — usada por um watcher concorrente

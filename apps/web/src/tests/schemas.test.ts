@@ -5,6 +5,7 @@ import {
   importJobSchema,
   placeSchema,
   QUALITY_LABELS,
+  seismicReplayManifestSchema,
 } from '../schemas/api';
 
 describe('formatConfidence', () => {
@@ -91,5 +92,41 @@ describe('API schemas', () => {
     ]) {
       expect(QUALITY_LABELS[level]).toBeTruthy();
     }
+  });
+
+  it('parses a deterministic seismic replay manifest', () => {
+    const replay = seismicReplayManifestSchema.parse({
+      modelVersion: 'fdtd-sh-2d/newmark-beta-1',
+      gridColumns: 20,
+      gridRows: 18,
+      rasterColumns: 20,
+      rasterRows: 18,
+      gridSpacingMeters: 30,
+      timeStepSeconds: 0.01,
+      totalSteps: 100,
+      totalSeconds: 1,
+      buildingCount: 2,
+      epicenterLon: 139,
+      epicenterLat: 35,
+      depthKm: 10,
+      momentMagnitude: 6.5,
+      west: 138.9,
+      south: 34.9,
+      east: 139.1,
+      north: 35.1,
+      frames: [{
+        index: 0,
+        step: 1,
+        timeSeconds: 0.01,
+        peakAccelerationG: 0.02,
+        maxCumulativeDriftRatio: 0.001,
+        none: 1,
+        slight: 1,
+        moderate: 0,
+        extensive: 0,
+        complete: 0,
+      }],
+    });
+    expect(replay.frames[0].slight).toBe(1);
   });
 });
