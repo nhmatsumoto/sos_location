@@ -25,6 +25,12 @@ function ProvenanceBlock({ provenance }: { provenance: Provenance[] }) {
           <div className="text-slate-500">
             {p.license} · v{p.version} · captured {new Date(p.capturedAt).toLocaleDateString()}
           </div>
+          {p.sourceKey && (
+            <div className="text-slate-500">
+              {p.sourceKey} · priority {p.sourcePriority}
+              {p.isStatistical ? ' · statistical' : ''}
+            </div>
+          )}
         </div>
       ))}
     </div>
@@ -52,6 +58,7 @@ function TagsBlock({ tags }: { tags: Record<string, string> | null | undefined }
 export function InspectorPanel() {
   const selectedFeature = useAppStore((s) => s.selectedFeature);
   const setSelectedFeature = useAppStore((s) => s.setSelectedFeature);
+  const activeSimulation = useAppStore((s) => s.activeSimulation);
 
   const buildingQuery = useQuery({
     queryKey: ['building', selectedFeature?.id],
@@ -67,6 +74,14 @@ export function InspectorPanel() {
     queryKey: ['water', selectedFeature?.id],
     queryFn: () => api.getWater(selectedFeature!.id),
     enabled: selectedFeature?.kind === 'water',
+  });
+  const seismicResponseQuery = useQuery({
+    queryKey: ['simulation-building', activeSimulation?.id, selectedFeature?.id],
+    queryFn: () => api.getSimulationBuildingResponse(
+      activeSimulation!.id,
+      selectedFeature!.id,
+    ),
+    enabled: selectedFeature?.kind === 'building' && activeSimulation != null,
   });
 
   if (!selectedFeature) return null;
@@ -117,6 +132,44 @@ export function InspectorPanel() {
           />
           {buildingQuery.data.revision && (
             <Row label="Revision" value={`#${buildingQuery.data.revision.revisionNumber}`} />
+          )}
+          {activeSimulation && (
+            <div className="mt-2 rounded border border-amber-800/60 bg-amber-950/30 p-2">
+              <h3 className="mb-1 text-xs font-medium text-amber-200">Seismic response</h3>
+              {seismicResponseQuery.isLoading && (
+                <p className="text-[11px] text-slate-400">Loading calculated response…</p>
+              )}
+              {seismicResponseQuery.data && (
+                <>
+                  <Row label="Damage state" value={seismicResponseQuery.data.damageState} />
+                  <Row
+                    label="Peak ground acceleration"
+                    value={`${seismicResponseQuery.data.peakGroundAccelerationG.toFixed(3)} g`}
+                  />
+                  <Row
+                    label="Peak ground velocity"
+                    value={`${seismicResponseQuery.data.peakGroundVelocityCms.toFixed(2)} cm/s`}
+                  />
+                  <Row
+                    label="Spectral acceleration"
+                    value={`${seismicResponseQuery.data.spectralAccelerationG.toFixed(3)} g`}
+                  />
+                  <Row
+                    label="Peak drift"
+                    value={`${(seismicResponseQuery.data.peakDriftRatio * 100).toFixed(3)}%`}
+                  />
+                  <Row
+                    label="Natural period"
+                    value={`${seismicResponseQuery.data.naturalPeriodSeconds.toFixed(3)} s`}
+                  />
+                </>
+              )}
+              {seismicResponseQuery.isError && (
+                <p className="text-[11px] text-slate-500">
+                  This building has no response in the active simulation.
+                </p>
+              )}
+            </div>
           )}
           <div className="mt-2 border-t border-slate-800 pt-2">
             <h3 className="mb-1 text-xs font-medium text-slate-300">Provenance</h3>

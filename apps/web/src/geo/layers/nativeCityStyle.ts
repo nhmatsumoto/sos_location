@@ -28,6 +28,7 @@ export interface CityStyleOptions {
     south: number;
     east: number;
     north: number;
+    replayFrameIndex: number | null;
   } | null;
 }
 

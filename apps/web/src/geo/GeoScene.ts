@@ -2,7 +2,7 @@ import maplibregl from 'maplibre-gl';
 import type { StyleSpecification } from 'maplibre-gl';
 import type { MapboxOverlay } from '@deck.gl/mapbox';
 import type { Layer } from '@deck.gl/core';
-import { simulationIntensityUrl } from '../api/client';
+import { simulationIntensityUrl, simulationReplayFrameUrl } from '../api/client';
 import { createBaseStyle } from './materials/theme';
 import {
   boundaryGeoJson,
@@ -149,6 +149,10 @@ export class GeoScene {
     this.cityOptions = options;
     if (!this.styleReady) return;
     if (previous && options && this.canReuseCitySources(previous, options)) {
+      if (previous.activeSimulation?.replayFrameIndex
+        !== options.activeSimulation?.replayFrameIndex) {
+        this.updateSeismicImage(options);
+      }
       this.applyLayerVisibility(options);
       return;
     }
@@ -284,7 +288,7 @@ export class GeoScene {
       const { west, south, east, north } = options.activeSimulation;
       map.addSource('sos-intensity', {
         type: 'image',
-        url: simulationIntensityUrl(options.activeSimulation.id),
+        url: this.seismicImageUrl(options),
         coordinates: [
           [west, north],
           [east, north],
@@ -335,6 +339,21 @@ export class GeoScene {
         map.setLayoutProperty(layerId, 'visibility', visible ? 'visible' : 'none');
       }
     }
+  }
+
+  private seismicImageUrl(options: CityStyleOptions): string {
+    const simulation = options.activeSimulation!;
+    return simulation.replayFrameIndex == null
+      ? simulationIntensityUrl(simulation.id)
+      : simulationReplayFrameUrl(simulation.id, simulation.replayFrameIndex);
+  }
+
+  /** Troca somente a imagem: preserva os MVTs, a seleção e a câmera durante o replay. */
+  private updateSeismicImage(options: CityStyleOptions): void {
+    const map = this.map;
+    if (!map || !options.visibility.seismicIntensity || !options.activeSimulation) return;
+    const source = map.getSource('sos-intensity') as maplibregl.ImageSource | undefined;
+    source?.updateImage({ url: this.seismicImageUrl(options) });
   }
 
   private canReuseCitySources(previous: CityStyleOptions, next: CityStyleOptions): boolean {

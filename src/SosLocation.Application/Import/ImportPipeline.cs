@@ -239,6 +239,9 @@ public sealed class ImportPipeline(
                     Attribution = "© OpenStreetMap contributors",
                     LicenseUri = "https://www.openstreetmap.org/copyright",
                     SourceUri = payload.SourceUri,
+                    SourceKey = UrbanDataSources.OpenStreetMap,
+                    SourcePriority = UrbanDataSources.DefaultPriority(UrbanDataSources.OpenStreetMap),
+                    IsStatistical = false,
                 },
                 _ => new Dataset
                 {

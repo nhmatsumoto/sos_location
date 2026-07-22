@@ -6,6 +6,7 @@ using SosLocation.Application.Abstractions;
 using SosLocation.Application.Import;
 using SosLocation.Application.Options;
 using SosLocation.Application.Profiles;
+using SosLocation.Domain.Catalog;
 using SosLocation.Domain.Cities;
 using SosLocation.Domain.Jobs;
 using SosLocation.Domain.ValueObjects;
@@ -21,8 +22,7 @@ public sealed class PostgisContainerFixture : IAsyncLifetime
 {
     internal InMemoryObjectStorage Storage { get; } = new();
 
-    public PostgreSqlContainer Container { get; } = new PostgreSqlBuilder()
-        .WithImage("postgis/postgis:18-3.6")
+    public PostgreSqlContainer Container { get; } = new PostgreSqlBuilder("postgis/postgis:18-3.6")
         .WithDatabase("sos_test")
         .WithUsername("sos")
         .WithPassword("sos_test_password")
@@ -81,6 +81,25 @@ internal sealed class UnusedOsmSource : IOsmSource
         => throw new NotSupportedException("OSM source must not be called in fixture imports.");
 }
 
+/// <summary>Retorna um payload Overpass mínimo, sem rede, para testar o caminho de importação OSM.</summary>
+internal sealed class FakeOsmSource : IOsmSource
+{
+    public Task<SourcePayload> DownloadAreaAsync(BoundingBox area, CancellationToken ct) => Task.FromResult(new SourcePayload
+    {
+        Content = System.Text.Encoding.UTF8.GetBytes("""
+            {"version":0.6,"elements":[{"type":"way","id":1,
+              "tags":{"building":"apartments","building:levels":"5"},
+              "geometry":[{"lat":35.2905,"lon":136.9110},{"lat":35.2905,"lon":136.9112},
+                          {"lat":35.2907,"lon":136.9112},{"lat":35.2907,"lon":136.9110},
+                          {"lat":35.2905,"lon":136.9110}]}]}
+            """),
+        Format = SourcePayloadFormat.OverpassJson,
+        SourceName = "openstreetmap",
+        SourceUri = "https://overpass-api.de/api/interpreter",
+        ContentType = "application/json",
+    });
+}
+
 [CollectionDefinition("postgis")]
 public class PostgisCollection : ICollectionFixture<PostgisContainerFixture>;
 
@@ -99,7 +118,8 @@ public class PostgisPipelineTests(PostgisContainerFixture fixture)
         throw new FileNotFoundException("demo-district.geojson not found.");
     }
 
-    private (ImportPipeline Pipeline, SosDbContext Context, InMemoryObjectStorage Storage) CreatePipeline()
+    private (ImportPipeline Pipeline, SosDbContext Context, InMemoryObjectStorage Storage) CreatePipeline(
+        IOsmSource? osmSource = null)
     {
         var context = fixture.CreateContext();
         var featureStore = new FeatureStore(context);
@@ -113,7 +133,7 @@ public class PostgisPipelineTests(PostgisContainerFixture fixture)
             featureStore,
             new EfUnitOfWork(context),
             new UnusedGeocoder(),
-            new UnusedOsmSource(),
+            osmSource ?? new UnusedOsmSource(),
             new FileFixtureSource(new FixtureOptions { Path = FindFixturePath() }),
             new NullElevationProvider(), // testes determinísticos: terreno plano
             storage,
@@ -177,6 +197,37 @@ public class PostgisPipelineTests(PostgisContainerFixture fixture)
 
         Assert.Contains(buildings, b => b.HeightSource == Domain.Features.HeightSource.Observed);
         Assert.Contains(buildings, b => b.HeightSource == Domain.Features.HeightSource.Inferred);
+    }
+
+    [Fact]
+    public async Task OsmImport_PersistsDataset_WithOpenStreetMapSourceMetadata()
+    {
+        var (pipeline, context, _) = CreatePipeline(new FakeOsmSource());
+        await using var _disposeContext = context;
+
+        var job = new ImportJob
+        {
+            JobType = "osm-import",
+            Request = JsonSerializer.Serialize(new ImportRequest
+            {
+                Name = "OSM Metadata Test Area",
+                Source = ImportSources.OpenStreetMap,
+                ReconstructionProfile = "osm-basic-v1",
+                BoundingBox = new BoundingBoxDto(136.9109, 35.2904, 136.9113, 35.2908),
+            }, new JsonSerializerOptions(JsonSerializerDefaults.Web)),
+        };
+        await context.ImportJobs.AddAsync(job);
+        await context.SaveChangesAsync();
+        job.Start("test-worker", DateTimeOffset.UtcNow);
+        await context.SaveChangesAsync();
+
+        await pipeline.ExecuteAsync(job, CancellationToken.None);
+
+        await using var verifyContext = fixture.CreateContext();
+        var dataset = await verifyContext.Datasets.SingleAsync(d => d.Name == "openstreetmap");
+        Assert.Equal(UrbanDataSources.OpenStreetMap, dataset.SourceKey);
+        Assert.Equal(50, dataset.SourcePriority);
+        Assert.False(dataset.IsStatistical);
     }
 
     [Fact]
@@ -316,6 +367,41 @@ public class PostgisPipelineTests(PostgisContainerFixture fixture)
 
         Assert.NotNull(reserved);
         Assert.Equal(dueJobId, reserved!.Id);
+    }
+
+    [Fact]
+    public async Task JobList_KeepsFailedButHidesCancelled_AndKeepsActiveAndCompleted()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var failed = NewFixtureJob();
+        for (var attempt = 0; attempt < ImportJob.MaxAttempts; attempt++)
+        {
+            failed.Start("worker", now);
+            failed.Fail("terminal failure", now);
+        }
+
+        var cancelled = NewFixtureJob();
+        cancelled.TryCancel(now);
+        var queued = NewFixtureJob();
+        var completed = NewFixtureJob();
+        completed.Start("worker", now);
+        completed.Complete(now);
+
+        await using (var setup = fixture.CreateContext())
+        {
+            await setup.ImportJobs.AddRangeAsync(failed, cancelled, queued, completed);
+            await setup.SaveChangesAsync();
+        }
+
+        await using var context = fixture.CreateContext();
+        var listedIds = (await new ImportJobStore(context).ListRecentAsync(100, default))
+            .Select(job => job.Id)
+            .ToHashSet();
+
+        Assert.Contains(failed.Id, listedIds);
+        Assert.DoesNotContain(cancelled.Id, listedIds);
+        Assert.Contains(queued.Id, listedIds);
+        Assert.Contains(completed.Id, listedIds);
     }
 
     private static (int X, int Y) TileMath(double lon, double lat, int z)

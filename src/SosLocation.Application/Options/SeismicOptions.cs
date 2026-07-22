@@ -32,6 +32,12 @@ public sealed class SeismicOptions
     /// <summary>Teto absoluto de passos de tempo, independente do teto de segundos.</summary>
     public int MaxSimulationSteps { get; set; } = 6_000;
     /// <summary>
+    /// Quantidade máxima de quadros persistidos para a reprodução temporal.
+    /// Os quadros são amostras uniformes da própria integração FDTD/SDOF, não
+    /// uma animação reconstruída depois da simulação.
+    /// </summary>
+    public int MaxReplayFrames { get; set; } = 48;
+    /// <summary>
     /// Fator de calibração de engenharia entre a taxa de momento de Brune (N·m/s)
     /// e o termo de força injetado na equação de onda (que não modela massa/
     /// rigidez explicitamente). Ajustado para que o PGA próximo à fonte caia em

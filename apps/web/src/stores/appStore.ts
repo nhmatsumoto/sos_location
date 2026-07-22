@@ -20,6 +20,8 @@ export interface ActiveSimulation {
   south: number;
   east: number;
   north: number;
+  /** null exibe PGA máximo; um índice exibe o snapshot temporal do solver. */
+  replayFrameIndex: number | null;
 }
 
 export interface SelectedFeature {

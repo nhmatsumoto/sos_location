@@ -124,7 +124,8 @@ public static class FeaturesEndpoints
         var pairs = await datasets.ListVersionsForRevisionAsync(revisionId, ct);
         return pairs.Select(p => new ProvenanceDto(
             p.Dataset.Name, p.Dataset.Provider, p.Dataset.License, p.Dataset.Attribution,
-            p.Dataset.LicenseUri, p.Version.Version, p.Version.Checksum, p.Version.CapturedAt)).ToList();
+            p.Dataset.LicenseUri, p.Version.Version, p.Version.Checksum, p.Version.CapturedAt,
+            p.Dataset.SourceKey, p.Dataset.SourcePriority, p.Dataset.IsStatistical)).ToList();
     }
 
     private static IReadOnlyDictionary<string, string>? DeserializeTags(string? tags)

@@ -67,11 +67,25 @@ public sealed class JobProcessorService(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Job {JobId} failed on attempt {Attempt}", job.Id, job.Attempts);
             var now = DateTimeOffset.UtcNow;
             var retryAt = job.Attempts < ImportJob.MaxAttempts
                 ? now.Add(RetryDelay(job.Attempts))
                 : (DateTimeOffset?)null;
+
+            if (retryAt is null)
+            {
+                logger.LogError(ex,
+                    "Import job {JobId} ({JobType}) failed permanently after {Attempt}/{MaxAttempts} attempts at stage {Stage}; city {CityId}, revision {RevisionId}",
+                    job.Id, job.JobType, job.Attempts, ImportJob.MaxAttempts,
+                    job.CurrentStage, job.CityId, job.CityRevisionId);
+            }
+            else
+            {
+                logger.LogWarning(ex,
+                    "Import job {JobId} ({JobType}) failed on attempt {Attempt}/{MaxAttempts} at stage {Stage}",
+                    job.Id, job.JobType, job.Attempts, ImportJob.MaxAttempts, job.CurrentStage);
+            }
+
             job.Fail(ex.Message, now, retryAt);
 
             if (retryAt is null && job.CityRevisionId is { } revisionId)

@@ -8,6 +8,7 @@ import {
   revisionSchema,
   roadDetailSchema,
   simulationRunSchema,
+  seismicReplayManifestSchema,
   waterDetailSchema,
   type BuildingDetail,
   type BuildingSeismicResponse,
@@ -17,6 +18,7 @@ import {
   type Revision,
   type RoadDetail,
   type SimulationRun,
+  type SeismicReplayManifest,
   type WaterDetail,
 } from '../schemas/api';
 
@@ -79,6 +81,15 @@ export const api = {
   listSimulationBuildingResponses: (runId: string): Promise<BuildingSeismicResponse[]> =>
     getJson(`/simulations/${runId}/buildings`, z.array(buildingSeismicResponseSchema)),
 
+  getSimulationBuildingResponse: (
+    runId: string,
+    buildingId: string,
+  ): Promise<BuildingSeismicResponse> =>
+    getJson(`/simulations/${runId}/buildings/${buildingId}`, buildingSeismicResponseSchema),
+
+  getSimulationReplay: (runId: string): Promise<SeismicReplayManifest> =>
+    getJson(`/simulations/${runId}/replay`, seismicReplayManifestSchema),
+
   createSimulation: async (request: {
     cityRevisionId: string;
     disasterType: string;
@@ -133,4 +144,8 @@ export function tileUrl(revisionId: string, layer: string): string {
 
 export function simulationIntensityUrl(runId: string): string {
   return `${BASE}/simulations/${runId}/intensity.png`;
+}
+
+export function simulationReplayFrameUrl(runId: string, frameIndex: number): string {
+  return `${BASE}/simulations/${runId}/replay/${frameIndex}.png`;
 }

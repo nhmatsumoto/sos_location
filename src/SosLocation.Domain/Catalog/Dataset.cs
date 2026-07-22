@@ -11,6 +11,18 @@ public class Dataset
     public required string Attribution { get; set; }
     public string? LicenseUri { get; set; }
     public string? SourceUri { get; set; }
+
+    /// <summary>Uma das constantes de <see cref="UrbanDataSources"/>, ou null se o dataset
+    /// não participar da hierarquia de fusão de fontes (ex.: relevo).</summary>
+    public string? SourceKey { get; set; }
+
+    /// <summary>Prioridade de fusão entre fontes sobrepostas; ver <see cref="UrbanDataSources.DefaultPriority"/>.</summary>
+    public int SourcePriority { get; set; }
+
+    /// <summary>Quando true, os atributos deste dataset são estatística territorial/inferência,
+    /// e nunca devem substituir um atributo observado diretamente de outra fonte.</summary>
+    public bool IsStatistical { get; set; }
+
     public DateTimeOffset CreatedAt { get; init; } = DateTimeOffset.UtcNow;
 }
 

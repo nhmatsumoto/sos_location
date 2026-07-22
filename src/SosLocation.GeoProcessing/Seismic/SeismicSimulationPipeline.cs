@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using SosLocation.Application.Abstractions;
+using SosLocation.Application.Dto;
 using SosLocation.Application.Options;
 using SosLocation.Domain.Disasters;
 using SosLocation.Domain.ValueObjects;
@@ -208,6 +209,17 @@ public sealed class SeismicSimulationPipeline(
             }
         }
 
+        // Índices distribuídos uniformemente no tempo. Guardamos snapshots da
+        // mesma integração que produz PGA e dano, para que pause/avanço no
+        // cliente seja uma reprodução determinística, não uma interpolação.
+        var replayFrameCount = Math.Min(steps, Math.Max(2, options.MaxReplayFrames));
+        var replayStepIndexes = Enumerable.Range(0, replayFrameCount)
+            .Select(index => replayFrameCount == 1
+                ? steps - 1
+                : (int)Math.Round(index * (steps - 1.0) / (replayFrameCount - 1.0)))
+            .ToHashSet();
+        var replayFrames = new List<ReplayFrameArtifact>(replayStepIndexes.Count);
+
         // Uma única correção de distância por célula amostrada. Antes ela era
         // aplicada apenas ao raster: PGA/PGV e SDOF dos edifícios ficavam em
         // escala diferente da imagem de intensidade.
@@ -277,6 +289,21 @@ public sealed class SeismicSimulationPipeline(
                 if (pgaG > peakPgaG[i]) peakPgaG[i] = pgaG;
             }
 
+            if (replayStepIndexes.Contains(step))
+            {
+                replayFrames.Add(CaptureReplayFrame(
+                    replayFrames.Count,
+                    step + 1,
+                    (step + 1) * dt,
+                    rasterCols,
+                    rasterRows,
+                    rasterSampleIndexes,
+                    sampleAcceleration,
+                    buildings,
+                    buildingGroupIndex,
+                    responseGroups));
+            }
+
             if ((step + 1) % progressInterval == 0 && step + 1 < steps)
             {
                 var progress = 20 + (int)Math.Floor((step + 1) / (double)steps * 60.0);
@@ -291,6 +318,17 @@ public sealed class SeismicSimulationPipeline(
         await unitOfWork.SaveChangesAsync(ct);
 
         await WriteIntensityRasterAsync(run.Id, rasterCols, rasterRows, peakPgaG, ct);
+        await WriteReplayAsync(
+            run,
+            grid,
+            parameters,
+            rasterCols,
+            rasterRows,
+            dt,
+            steps,
+            buildings.Count,
+            replayFrames,
+            ct);
 
         var responses = new List<BuildingSeismicResponse>(buildings.Count);
         for (var i = 0; i < buildings.Count; i++)
@@ -323,16 +361,143 @@ public sealed class SeismicSimulationPipeline(
         double NaturalPeriodSeconds,
         SdofOnlineIntegrator Integrator);
 
+    private sealed record ReplayFrameArtifact(SeismicReplayFrameDto Metadata, byte[] Rgb);
+
+    private ReplayFrameArtifact CaptureReplayFrame(
+        int index,
+        int step,
+        double timeSeconds,
+        int rasterCols,
+        int rasterRows,
+        IReadOnlyList<int> rasterSampleIndexes,
+        IReadOnlyList<double> sampleAcceleration,
+        IReadOnlyList<SimulationBuildingInput> buildings,
+        IReadOnlyList<int> buildingGroupIndex,
+        IReadOnlyList<ResponseGroup> responseGroups)
+    {
+        var rgb = new byte[rasterCols * rasterRows * 3];
+        var peakAccelerationG = 0.0;
+        for (var row = 0; row < rasterRows; row++)
+        {
+            // A malha nasce no sul e cresce para o norte; PNG cresce de cima
+            // para baixo. A inversão mantém o quadro alinhado ao WGS84 no mapa.
+            var imageRow = rasterRows - 1 - row;
+            for (var col = 0; col < rasterCols; col++)
+            {
+                var sourceIndex = row * rasterCols + col;
+                var accelerationG = Math.Abs(sampleAcceleration[rasterSampleIndexes[sourceIndex]]) / GravityMps2;
+                peakAccelerationG = Math.Max(peakAccelerationG, accelerationG);
+                var (red, green, blue) = WaveRasterColorizer.ColorizeAccelerationG(accelerationG);
+                var targetIndex = (imageRow * rasterCols + col) * 3;
+                rgb[targetIndex] = red;
+                rgb[targetIndex + 1] = green;
+                rgb[targetIndex + 2] = blue;
+            }
+        }
+
+        var none = 0;
+        var slight = 0;
+        var moderate = 0;
+        var extensive = 0;
+        var complete = 0;
+        var maxDriftRatio = 0.0;
+        for (var i = 0; i < buildings.Count; i++)
+        {
+            var response = responseGroups[buildingGroupIndex[i]].Integrator.Result;
+            var driftRatio = buildings[i].HeightMeters > 0
+                ? response.PeakRelativeDisplacementMeters / buildings[i].HeightMeters
+                : 0.0;
+            maxDriftRatio = Math.Max(maxDriftRatio, driftRatio);
+            switch (DamageStateClassifier.FromPeakDriftRatio(driftRatio))
+            {
+                case DamageState.None: none++; break;
+                case DamageState.Slight: slight++; break;
+                case DamageState.Moderate: moderate++; break;
+                case DamageState.Extensive: extensive++; break;
+                case DamageState.Complete: complete++; break;
+            }
+        }
+
+        return new ReplayFrameArtifact(
+            new SeismicReplayFrameDto(
+                index,
+                step,
+                timeSeconds,
+                peakAccelerationG,
+                maxDriftRatio,
+                none,
+                slight,
+                moderate,
+                extensive,
+                complete),
+            rgb);
+    }
+
+    private async Task WriteReplayAsync(
+        SimulationRun run,
+        SeismicGrid grid,
+        EarthquakeParameters parameters,
+        int rasterCols,
+        int rasterRows,
+        double dt,
+        int steps,
+        int buildingCount,
+        IReadOnlyList<ReplayFrameArtifact> frames,
+        CancellationToken ct)
+    {
+        foreach (var frame in frames)
+        {
+            var png = rasterEncoder.EncodeRgbPng(rasterCols, rasterRows, frame.Rgb);
+            await objectStorage.PutAsync(
+                $"simulations/{run.Id}/replay/{frame.Metadata.Index:D4}.png",
+                png,
+                "image/png",
+                ct);
+        }
+
+        var manifest = new SeismicReplayManifestDto(
+            "fdtd-sh-2d/newmark-beta-1",
+            grid.Cols,
+            grid.Rows,
+            rasterCols,
+            rasterRows,
+            grid.SpacingMeters,
+            dt,
+            steps,
+            steps * dt,
+            buildingCount,
+            parameters.EpicenterLon,
+            parameters.EpicenterLat,
+            parameters.DepthKm,
+            parameters.MomentMagnitude,
+            run.IntensityWest ?? grid.OriginLon,
+            run.IntensitySouth ?? grid.OriginLat,
+            run.IntensityEast ?? grid.CellToLonLat(grid.Cols - 1, grid.Rows - 1).Lon,
+            run.IntensityNorth ?? grid.CellToLonLat(grid.Cols - 1, grid.Rows - 1).Lat,
+            frames.Select(frame => frame.Metadata).ToList());
+        await objectStorage.PutAsync(
+            $"simulations/{run.Id}/replay.json",
+            JsonSerializer.SerializeToUtf8Bytes(manifest, JsonOptions),
+            "application/json",
+            ct);
+    }
+
     private async Task WriteIntensityRasterAsync(
         Guid runId, int cols, int rows, double[] peakPgaG, CancellationToken ct)
     {
         var rgb = new byte[cols * rows * 3];
-        for (var i = 0; i < cols * rows; i++)
+        for (var row = 0; row < rows; row++)
         {
-            var (r, g) = IntensityRasterEncoding.EncodePgaG(peakPgaG[i]);
-            rgb[i * 3] = r;
-            rgb[i * 3 + 1] = g;
-            rgb[i * 3 + 2] = 0;
+            var imageRow = rows - 1 - row;
+            for (var col = 0; col < cols; col++)
+            {
+                var sourceIndex = row * cols + col;
+                var targetIndex = (imageRow * cols + col) * 3;
+                var (red, green) = IntensityRasterEncoding.EncodePgaG(peakPgaG[sourceIndex]);
+                rgb[targetIndex] = red;
+                rgb[targetIndex + 1] = green;
+                rgb[targetIndex + 2] = 0;
+            }
         }
 
         var png = rasterEncoder.EncodeRgbPng(cols, rows, rgb);

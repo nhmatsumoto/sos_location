@@ -69,6 +69,47 @@ public sealed record BuildingSeismicResponseDto(
     double PeakDriftRatio,
     string DamageState);
 
+/// <summary>
+/// Metadados suficientes para reproduzir a linha do tempo calculada pelo
+/// motor sísmico e auditar a discretização usada naquela execução.
+/// </summary>
+public sealed record SeismicReplayManifestDto(
+    string ModelVersion,
+    int GridColumns,
+    int GridRows,
+    int RasterColumns,
+    int RasterRows,
+    double GridSpacingMeters,
+    double TimeStepSeconds,
+    int TotalSteps,
+    double TotalSeconds,
+    int BuildingCount,
+    double EpicenterLon,
+    double EpicenterLat,
+    double DepthKm,
+    double MomentMagnitude,
+    double West,
+    double South,
+    double East,
+    double North,
+    IReadOnlyList<SeismicReplayFrameDto> Frames);
+
+/// <summary>
+/// Snapshot de uma etapa real da integração. O dano é cumulativo porque usa o
+/// maior drift estrutural observado até o instante do quadro.
+/// </summary>
+public sealed record SeismicReplayFrameDto(
+    int Index,
+    int Step,
+    double TimeSeconds,
+    double PeakAccelerationG,
+    double MaxCumulativeDriftRatio,
+    int None,
+    int Slight,
+    int Moderate,
+    int Extensive,
+    int Complete);
+
 public sealed record PlaceDto(
     string ProviderId,
     string Provider,
@@ -91,7 +132,10 @@ public sealed record ProvenanceDto(
     string? LicenseUri,
     string Version,
     string? Checksum,
-    DateTimeOffset CapturedAt);
+    DateTimeOffset CapturedAt,
+    string? SourceKey,
+    int SourcePriority,
+    bool IsStatistical);
 
 public sealed record BuildingDetailDto(
     Guid Id,

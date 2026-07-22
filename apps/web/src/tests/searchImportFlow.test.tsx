@@ -110,4 +110,38 @@ describe('city search and import flow', () => {
       boundingBox: { west: 136.85, south: 35.25, east: 136.97, north: 35.33 },
     });
   });
+
+  it('lists failed operations with diagnostics but hides cancelled operations', async () => {
+    const createdAt = new Date().toISOString();
+    const makeJob = (jobType: string, status: string) => ({
+      id: `${jobType}-id`,
+      cityId: null,
+      cityRevisionId: null,
+      jobType,
+      status,
+      progress: status === 'completed' ? 100 : 0,
+      currentStage: null,
+      stageMessage: null,
+      error: status === 'failed' ? 'diagnostic detail' : null,
+      attempts: status === 'failed' ? 3 : 0,
+      nextAttemptAt: null,
+      startedAt: null,
+      completedAt: null,
+      createdAt,
+    });
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify([
+      makeJob('queued-import', 'queued'),
+      makeJob('completed-import', 'completed'),
+      makeJob('failed-import', 'failed'),
+      makeJob('cancelled-import', 'cancelled'),
+    ]), { status: 200, headers: { 'Content-Type': 'application/json' } })));
+
+    renderWithQueryClient(<ImportPanel />);
+
+    await waitFor(() => expect(screen.getByText('queued-import')).toBeInTheDocument());
+    expect(screen.getByText('completed-import')).toBeInTheDocument();
+    expect(screen.getByText('failed-import')).toBeInTheDocument();
+    expect(screen.queryByText('cancelled-import')).not.toBeInTheDocument();
+    expect(screen.getByText('diagnostic detail')).toBeInTheDocument();
+  });
 });
