@@ -25,6 +25,12 @@ function ProvenanceBlock({ provenance }: { provenance: Provenance[] }) {
           <div className="text-slate-500">
             {p.license} · v{p.version} · captured {new Date(p.capturedAt).toLocaleDateString()}
           </div>
+          {p.sourceKey && (
+            <div className="text-slate-500">
+              {p.sourceKey} · priority {p.sourcePriority}
+              {p.isStatistical ? ' · statistical' : ''}
+            </div>
+          )}
         </div>
       ))}
     </div>

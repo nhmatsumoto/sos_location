@@ -143,6 +143,9 @@ export const provenanceSchema = z.object({
   version: z.string(),
   checksum: z.string().nullish(),
   capturedAt: z.string(),
+  sourceKey: z.string().nullish(),
+  sourcePriority: z.number(),
+  isStatistical: z.boolean(),
 });
 export type Provenance = z.infer<typeof provenanceSchema>;
 

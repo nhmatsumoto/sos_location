@@ -111,7 +111,7 @@ describe('city search and import flow', () => {
     });
   });
 
-  it('does not list failed or cancelled import operations', async () => {
+  it('lists failed operations with diagnostics but hides cancelled operations', async () => {
     const createdAt = new Date().toISOString();
     const makeJob = (jobType: string, status: string) => ({
       id: `${jobType}-id`,
@@ -140,8 +140,8 @@ describe('city search and import flow', () => {
 
     await waitFor(() => expect(screen.getByText('queued-import')).toBeInTheDocument());
     expect(screen.getByText('completed-import')).toBeInTheDocument();
-    expect(screen.queryByText('failed-import')).not.toBeInTheDocument();
+    expect(screen.getByText('failed-import')).toBeInTheDocument();
     expect(screen.queryByText('cancelled-import')).not.toBeInTheDocument();
-    expect(screen.queryByText('diagnostic detail')).not.toBeInTheDocument();
+    expect(screen.getByText('diagnostic detail')).toBeInTheDocument();
   });
 });

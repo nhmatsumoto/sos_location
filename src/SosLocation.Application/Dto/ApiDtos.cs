@@ -132,7 +132,10 @@ public sealed record ProvenanceDto(
     string? LicenseUri,
     string Version,
     string? Checksum,
-    DateTimeOffset CapturedAt);
+    DateTimeOffset CapturedAt,
+    string? SourceKey,
+    int SourcePriority,
+    bool IsStatistical);
 
 public sealed record BuildingDetailDto(
     Guid Id,

@@ -110,7 +110,9 @@ public sealed class ImportJobStore(SosDbContext context) : IImportJobStore
     public async Task<IReadOnlyList<ImportJob>> ListRecentAsync(int limit, CancellationToken ct)
         => await context.ImportJobs
             .AsNoTracking()
-            .Where(j => j.Status != JobStatus.Failed && j.Status != JobStatus.Cancelled)
+            // Falhas terminais permanecem visíveis para expor o diagnóstico ao
+            // usuário; cancelamentos voluntários continuam fora da listagem.
+            .Where(j => j.Status != JobStatus.Cancelled)
             .OrderByDescending(j => j.CreatedAt)
             .Take(limit)
             .ToListAsync(ct);

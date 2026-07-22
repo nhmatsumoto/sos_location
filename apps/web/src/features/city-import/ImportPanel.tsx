@@ -4,7 +4,7 @@ import { useAppStore } from '../../stores/appStore';
 import type { ImportJob } from '../../schemas/api';
 
 const ACTIVE_STATUSES = new Set(['queued', 'running', 'retrying']);
-const LISTED_STATUSES = new Set(['queued', 'running', 'retrying', 'completed']);
+const LISTED_STATUSES = new Set(['queued', 'running', 'retrying', 'completed', 'failed']);
 
 export function ImportPanel() {
   const queryClient = useQueryClient();
@@ -51,8 +51,9 @@ export function ImportPanel() {
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['imports'] }),
   });
 
-  // A API já omite falhas definitivas e cancelamentos. Este filtro evita que
-  // respostas antigas em cache voltem a exibi-los durante uma atualização.
+  // A API omite cancelamentos voluntários, mas mantém falhas para que o
+  // diagnóstico seja exibido ao usuário. Este filtro também protege contra
+  // estados desconhecidos em respostas antigas/cacheadas.
   const visibleJobs = jobs?.filter((job) => LISTED_STATUSES.has(job.status));
 
   const openResult = async (job: ImportJob) => {
