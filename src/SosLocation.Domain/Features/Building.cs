@@ -21,6 +21,8 @@ public class Building
     public double HeightMeters { get; set; }
     public double MinHeightMeters { get; set; }
     public double GroundElevationMeters { get; set; }
+    /// <summary>Altura do volume de telhado aproximado (0 = topo plano). Ver BuildingRoofCalculator.</summary>
+    public double RoofHeightMeters { get; set; }
     public int? BuildingLevels { get; set; }
     public int? RoofLevels { get; set; }
     public string BuildingType { get; set; } = "unknown";

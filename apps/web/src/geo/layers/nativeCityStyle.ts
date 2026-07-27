@@ -3,15 +3,39 @@ import type {
   LayerSpecification,
   SourceSpecification,
 } from 'maplibre-gl';
+import type { RGBA } from '../materials/theme';
 import {
   BOUNDARY_COLOR,
   BUILDING_COLORS,
   DAMAGE_COLORS,
+  darkenColorForRoof,
   LAND_USE_COLORS,
+  liftColorForHeight,
   ROAD_COLORS,
   rgbaCss,
   WATER_COLOR,
 } from '../materials/theme';
+
+/** Alturas (m) amostradas para a interpolação de clareamento por altura. */
+const HEIGHT_GRADIENT_STOPS_METERS = [9, 20, 40, 70, 120];
+
+/**
+ * Expressão MapLibre: clareia `base` conforme `height_m` sobe, mesma casas e
+ * prédios de uma mesma categoria (cor/matiz) ficam distinguíveis por altura —
+ * casas baixas com o tom saturado, prédios altos claros (leitura de skyline).
+ */
+function heightGradientExpression(base: RGBA): DataDrivenPropertyValueSpecification<string> {
+  const stops: (number | string)[] = [0, rgbaCss(base)];
+  for (const heightMeters of HEIGHT_GRADIENT_STOPS_METERS) {
+    stops.push(heightMeters, rgbaCss(liftColorForHeight(base, heightMeters)));
+  }
+  return [
+    'interpolate',
+    ['linear'],
+    ['coalesce', ['get', 'height_m'], 0],
+    ...stops,
+  ] as unknown as DataDrivenPropertyValueSpecification<string>;
+}
 import type { LayerKey } from '../../stores/appStore';
 
 export type FeatureKind = 'building' | 'road' | 'water';
@@ -85,6 +109,24 @@ function damageColorExpression(): DataDrivenPropertyValueSpecification<string> {
   ] as unknown as DataDrivenPropertyValueSpecification<string>;
 }
 
+/** Match por building_type + gradiente de altura, com transformação de cor injetável
+ *  (identidade para paredes, escurecida para o boné de telhado). */
+function buildingTypeMatchExpression(
+  colorFor: (base: RGBA) => RGBA,
+): DataDrivenPropertyValueSpecification<string> {
+  return [
+    'match',
+    ['get', 'building_type'],
+    'residential', heightGradientExpression(colorFor(BUILDING_COLORS.residential)),
+    'commercial', heightGradientExpression(colorFor(BUILDING_COLORS.commercial)),
+    'industrial', heightGradientExpression(colorFor(BUILDING_COLORS.industrial)),
+    'public', heightGradientExpression(colorFor(BUILDING_COLORS.public)),
+    'hospital', heightGradientExpression(colorFor(BUILDING_COLORS.hospital)),
+    'school', heightGradientExpression(colorFor(BUILDING_COLORS.school)),
+    heightGradientExpression(colorFor(BUILDING_COLORS.unknown)),
+  ] as unknown as DataDrivenPropertyValueSpecification<string>;
+}
+
 /** Expressão de cor semântica com seleção, dano do tile e gradiente por altura. */
 function buildingColorExpression(): DataDrivenPropertyValueSpecification<string> {
   return [
@@ -97,26 +139,23 @@ function buildingColorExpression(): DataDrivenPropertyValueSpecification<string>
       'none',
     ],
     damageColorExpression(),
+    buildingTypeMatchExpression((base) => base),
+  ] as unknown as DataDrivenPropertyValueSpecification<string>;
+}
+
+/** Mesma expressão, tom escurecido — usada pelo boné de telhado (sos-buildings-roof). */
+function buildingRoofColorExpression(): DataDrivenPropertyValueSpecification<string> {
+  return [
+    'case',
+    ['boolean', ['feature-state', 'selected'], false],
+    '#ffd666',
     [
-      'match',
-      ['get', 'building_type'],
-      'residential', rgbaCss(BUILDING_COLORS.residential),
-      'commercial', rgbaCss(BUILDING_COLORS.commercial),
-      'industrial', rgbaCss(BUILDING_COLORS.industrial),
-      'public', rgbaCss(BUILDING_COLORS.public),
-      'hospital', rgbaCss(BUILDING_COLORS.hospital),
-      'school', rgbaCss(BUILDING_COLORS.school),
-      // unknown: gradiente calculado por altura (leitura de skyline).
-      [
-        'interpolate',
-        ['linear'],
-        ['coalesce', ['get', 'height_m'], 0],
-        0, '#454c56',
-        25, '#707a87',
-        80, '#a8b3c1',
-        180, '#dde5ef',
-      ],
+      '!=',
+      ['coalesce', ['get', 'damage_state'], ['feature-state', 'damageState'], 'none'],
+      'none',
     ],
+    damageColorExpression(),
+    buildingTypeMatchExpression(darkenColorForRoof),
   ] as unknown as DataDrivenPropertyValueSpecification<string>;
 }
 
@@ -255,6 +294,28 @@ export function buildCityLayers(options: CityStyleOptions): LayerSpecification[]
           // 3D do MapLibre (setTerrain) — somá-la aqui duplicaria o deslocamento;
           // ground_elevation_m permanece nos tiles como dado analítico.
           'fill-extrusion-base': ['coalesce', ['get', 'min_height_m'], 0],
+          'fill-extrusion-opacity': 0.9,
+          'fill-extrusion-vertical-gradient': true,
+        },
+      },
+      {
+        // Boné de telhado: segundo volume, mais estreito (footprint com buffer
+        // negativo calculado no tile), aproximando telhado em cumeeira/pirâmide
+        // sobre casas e construções com roof:shape != flat (BuildingRoofCalculator
+        // na importação). Camada MVT separada ('buildings_roof') dentro do mesmo
+        // tile de buildings — só existe onde roof_height_m > 0.
+        id: 'sos-buildings-roof',
+        type: 'fill-extrusion',
+        source: `${SOURCE_PREFIX}buildings`,
+        'source-layer': 'buildings_roof',
+        minzoom: 14,
+        layout: { visibility: visibility.buildings ? 'visible' : 'none' },
+        paint: {
+          'fill-extrusion-color': buildingRoofColorExpression(),
+          'fill-extrusion-height': ['coalesce', ['get', 'height_m'], 0],
+          'fill-extrusion-base': [
+            '-', ['coalesce', ['get', 'height_m'], 0], ['coalesce', ['get', 'roof_height_m'], 0],
+          ],
           'fill-extrusion-opacity': 0.9,
           'fill-extrusion-vertical-gradient': true,
         },

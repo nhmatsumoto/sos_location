@@ -353,6 +353,8 @@ public sealed class ImportPipeline(
         {
             var heightResult = BuildingHeightCalculator.Calculate(new HeightInput(
                 nb.ExplicitHeightMeters, nb.BuildingLevels, nb.RoofLevels, nb.BuildingType, null), profile);
+            var roofResult = BuildingRoofCalculator.Calculate(new RoofInput(
+                nb.RoofShape, nb.RoofLevels, nb.BuildingType, heightResult.HeightMeters), profile);
 
             var footprint = nb.Footprint;
             footprint.SRID = 4326;
@@ -368,6 +370,7 @@ public sealed class ImportPipeline(
                 HeightMeters = heightResult.HeightMeters,
                 MinHeightMeters = nb.MinHeightMeters,
                 GroundElevationMeters = groundElevations?[buildingIndex++] ?? 0,
+                RoofHeightMeters = roofResult.RoofHeightMeters,
                 BuildingLevels = nb.BuildingLevels,
                 RoofLevels = nb.RoofLevels,
                 BuildingType = nb.BuildingType,

@@ -61,19 +61,39 @@ export const DAMAGE_COLORS: Record<string, RGBA> = {
   complete: [110, 32, 32, 255],
 };
 
+/** Altura (m) na qual o clareamento por altura atinge seu máximo. */
+export const HEIGHT_LIFT_REFERENCE_METERS = 120;
+
+/**
+ * Clareia uma cor semântica proporcionalmente à altura do edifício (gradiente
+ * calculado, não é textura): casas baixas ficam com o tom base saturado,
+ * prédios altos clareiam progressivamente, dando leitura de skyline sem
+ * perder a categoria (matiz) do tipo de uso.
+ */
+export function liftColorForHeight(base: RGBA, heightMeters: number): RGBA {
+  const t = Math.min(Math.max(heightMeters, 0) / HEIGHT_LIFT_REFERENCE_METERS, 1);
+  const lift = 45 + t * 70;
+  return [
+    Math.min(255, base[0] + lift),
+    Math.min(255, base[1] + lift * 1.05),
+    Math.min(255, base[2] + lift * 1.15),
+    base[3],
+  ];
+}
+
+/**
+ * Escurece uma cor semântica para o plano do telhado (mesmo matiz da parede,
+ * tom mais escuro) — cálculo de material, não textura.
+ */
+export function darkenColorForRoof(base: RGBA): RGBA {
+  const factor = 0.72;
+  return [base[0] * factor, base[1] * factor, base[2] * factor, base[3]];
+}
+
 export function buildingColor(type: string | undefined, heightMeters?: number): RGBA {
   const base = BUILDING_COLORS[type ?? 'unknown'] ?? BUILDING_COLORS.unknown;
-  // Gradiente calculado (não é textura): edifícios sem categoria semântica
-  // clareiam com a altura, dando leitura de skyline em áreas OSM "building=yes".
-  if ((type === undefined || type === 'unknown') && heightMeters !== undefined && heightMeters > 0) {
-    const t = Math.min(heightMeters / 120, 1);
-    const lift = 45 + t * 70;
-    return [
-      Math.min(255, base[0] + lift),
-      Math.min(255, base[1] + lift * 1.05),
-      Math.min(255, base[2] + lift * 1.15),
-      255,
-    ];
+  if (heightMeters !== undefined && heightMeters > 0) {
+    return liftColorForHeight(base, heightMeters);
   }
   return base;
 }

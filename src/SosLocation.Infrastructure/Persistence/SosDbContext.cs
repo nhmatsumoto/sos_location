@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
+using SosLocation.Domain.BuildingIntelligence;
 using SosLocation.Domain.Catalog;
 using SosLocation.Domain.Cities;
 using SosLocation.Domain.Disasters;
@@ -23,6 +24,13 @@ public partial class SosDbContext(DbContextOptions<SosDbContext> options) : DbCo
     public DbSet<LandUseArea> LandUseAreas => Set<LandUseArea>();
     public DbSet<SimulationRun> SimulationRuns => Set<SimulationRun>();
     public DbSet<BuildingSeismicResponse> BuildingSeismicResponses => Set<BuildingSeismicResponse>();
+    public DbSet<BuildingObservation> BuildingObservations => Set<BuildingObservation>();
+    public DbSet<BuildingFootprintCandidate> BuildingFootprintCandidates => Set<BuildingFootprintCandidate>();
+    public DbSet<BuildingFootprint> BuildingFootprints => Set<BuildingFootprint>();
+    public DbSet<BuildingClassification> BuildingClassifications => Set<BuildingClassification>();
+    public DbSet<BuildingReconciliation> BuildingReconciliations => Set<BuildingReconciliation>();
+    public DbSet<BuildingValidation> BuildingValidations => Set<BuildingValidation>();
+    public DbSet<ModelBundle> ModelBundles => Set<ModelBundle>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -110,6 +118,7 @@ public partial class SosDbContext(DbContextOptions<SosDbContext> options) : DbCo
             entity.Property(b => b.HeightMeters).HasColumnName("height_m");
             entity.Property(b => b.MinHeightMeters).HasColumnName("min_height_m");
             entity.Property(b => b.GroundElevationMeters).HasColumnName("ground_elevation_m");
+            entity.Property(b => b.RoofHeightMeters).HasColumnName("roof_height_m");
             entity.HasIndex(b => b.CityRevisionId);
             entity.HasIndex(b => new { b.CityRevisionId, b.ExternalId }).IsUnique();
             entity.HasIndex(b => b.Footprint).HasMethod("gist");
@@ -187,6 +196,107 @@ public partial class SosDbContext(DbContextOptions<SosDbContext> options) : DbCo
             entity.HasIndex(r => new { r.SimulationRunId, r.BuildingId }).IsUnique();
             entity.HasOne<SimulationRun>().WithMany().HasForeignKey(r => r.SimulationRunId).OnDelete(DeleteBehavior.Cascade);
             entity.HasOne<Building>().WithMany().HasForeignKey(r => r.BuildingId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<BuildingObservation>(entity =>
+        {
+            entity.ToTable("building_observations");
+            entity.HasKey(o => o.Id);
+            entity.Property(o => o.SourceType).HasMaxLength(64);
+            entity.Property(o => o.SourceReference).HasMaxLength(512);
+            entity.Property(o => o.RasterAssetUri).HasMaxLength(1024);
+            entity.Property(o => o.MetadataJson).HasColumnType("jsonb");
+            entity.HasIndex(o => o.DatasetId);
+            entity.HasIndex(o => o.Geometry).HasMethod("gist");
+            entity.HasOne<Dataset>().WithMany().HasForeignKey(o => o.DatasetId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<BuildingFootprintCandidate>(entity =>
+        {
+            entity.ToTable("building_footprint_candidates");
+            entity.HasKey(c => c.Id);
+            entity.Property(c => c.ModelName).HasMaxLength(128);
+            entity.Property(c => c.ModelVersion).HasMaxLength(64);
+            entity.Property(c => c.Status).HasConversion<string>().HasMaxLength(32);
+            entity.Property(c => c.Confidence)
+                .HasConversion(v => v.Value, v => DataConfidence.From(v));
+            entity.Property(c => c.Uncertainty)
+                .HasConversion(
+                    v => v.HasValue ? v.Value.Value : (double?)null,
+                    v => v.HasValue ? DataConfidence.From(v.Value) : (DataConfidence?)null);
+            entity.HasIndex(c => c.ObservationId);
+            entity.HasIndex(c => c.Status);
+            entity.HasIndex(c => c.Geometry).HasMethod("gist");
+            entity.HasOne<BuildingObservation>().WithMany().HasForeignKey(c => c.ObservationId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<BuildingFootprint>(entity =>
+        {
+            entity.ToTable("building_footprints");
+            entity.HasKey(f => f.Id);
+            entity.Property(f => f.SourceOfTruth).HasMaxLength(128);
+            entity.Property(f => f.Status).HasConversion<string>().HasMaxLength(32);
+            entity.Property(f => f.Revision).IsConcurrencyToken();
+            entity.HasIndex(f => f.Status);
+            entity.HasIndex(f => f.Geometry).HasMethod("gist");
+        });
+
+        modelBuilder.Entity<BuildingClassification>(entity =>
+        {
+            entity.ToTable("building_classifications");
+            entity.HasKey(c => c.Id);
+            entity.Property(c => c.BuildingType).HasConversion<string>().HasMaxLength(32);
+            entity.Property(c => c.ModelName).HasMaxLength(128);
+            entity.Property(c => c.ModelVersion).HasMaxLength(64);
+            entity.Property(c => c.Probability)
+                .HasConversion(v => v.Value, v => DataConfidence.From(v));
+            entity.HasIndex(c => c.BuildingId);
+            entity.HasIndex(c => c.CandidateId);
+            entity.HasOne<BuildingFootprint>().WithMany().HasForeignKey(c => c.BuildingId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<BuildingFootprintCandidate>().WithMany().HasForeignKey(c => c.CandidateId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<BuildingReconciliation>(entity =>
+        {
+            entity.ToTable("building_reconciliations");
+            entity.HasKey(r => r.Id);
+            entity.Property(r => r.ChangeStatus).HasConversion<string>().HasMaxLength(32);
+            entity.Property(r => r.Decision).HasMaxLength(64);
+            entity.Property(r => r.IntersectionOverUnion)
+                .HasConversion(v => v.Value, v => DataConfidence.From(v));
+            entity.HasIndex(r => r.CandidateId);
+            entity.HasIndex(r => r.ExistingBuildingId);
+            entity.HasOne<BuildingFootprintCandidate>().WithMany().HasForeignKey(r => r.CandidateId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<BuildingFootprint>().WithMany().HasForeignKey(r => r.ExistingBuildingId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<BuildingValidation>(entity =>
+        {
+            entity.ToTable("building_validations");
+            entity.HasKey(v => v.Id);
+            entity.Property(v => v.Decision).HasConversion<string>().HasMaxLength(32);
+            entity.Property(v => v.CorrectedBuildingType).HasConversion<string?>().HasMaxLength(32);
+            entity.Property(v => v.Reason).HasMaxLength(2048);
+            entity.HasIndex(v => v.CandidateId);
+            entity.HasIndex(v => v.ReviewerId);
+            entity.HasIndex(v => v.CorrectedGeometry).HasMethod("gist");
+            entity.HasOne<BuildingFootprintCandidate>().WithMany().HasForeignKey(v => v.CandidateId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<ModelBundle>(entity =>
+        {
+            entity.ToTable("model_bundles");
+            entity.HasKey(m => m.Id);
+            entity.Property(m => m.Name).HasMaxLength(128);
+            entity.Property(m => m.Version).HasMaxLength(64);
+            entity.Property(m => m.Stage).HasConversion<string>().HasMaxLength(32);
+            entity.Property(m => m.ArtifactUri).HasMaxLength(1024);
+            entity.Property(m => m.ApprovedBy).HasMaxLength(256);
+            entity.Property(m => m.MetricsJson).HasColumnType("jsonb");
+            entity.Property(m => m.ConfigurationJson).HasColumnType("jsonb");
+            entity.HasIndex(m => new { m.Name, m.Version }).IsUnique();
+            entity.HasIndex(m => m.Stage);
+            entity.HasOne<Dataset>().WithMany().HasForeignKey(m => m.TrainingDatasetId).OnDelete(DeleteBehavior.Restrict);
         });
 
         ApplySnakeCaseNames(modelBuilder);

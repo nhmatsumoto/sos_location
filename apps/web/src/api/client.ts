@@ -3,6 +3,7 @@ import {
   buildingDetailSchema,
   buildingSeismicResponseSchema,
   citySchema,
+  importFileSchema,
   importJobSchema,
   placeSchema,
   revisionSchema,
@@ -13,6 +14,7 @@ import {
   type BuildingDetail,
   type BuildingSeismicResponse,
   type City,
+  type ImportFile,
   type ImportJob,
   type Place,
   type Revision,
@@ -71,6 +73,17 @@ export const api = {
     if (!response.ok && response.status !== 409)
       throw new Error(`Cancel failed: ${response.status}`);
   },
+
+  deleteImport: async (jobId: string): Promise<void> => {
+    const response = await fetch(`${BASE}/imports/${jobId}`, { method: 'DELETE' });
+    if (!response.ok) {
+      const body = await response.text();
+      throw new Error(`Delete failed (${response.status}): ${body}`);
+    }
+  },
+
+  listImportFiles: (jobId: string): Promise<ImportFile[]> =>
+    getJson(`/imports/${jobId}/files`, z.array(importFileSchema)),
 
   listSimulations: (): Promise<SimulationRun[]> =>
     getJson('/simulations', z.array(simulationRunSchema)),
@@ -137,6 +150,10 @@ export const api = {
     return collection.features ?? [];
   },
 };
+
+export function importFileDownloadUrl(jobId: string, datasetVersionId: string): string {
+  return `${BASE}/imports/${jobId}/files/${datasetVersionId}/download`;
+}
 
 export function tileUrl(revisionId: string, layer: string): string {
   return `${BASE}/tiles/${revisionId}/${layer}/{z}/{x}/{y}.mvt`;

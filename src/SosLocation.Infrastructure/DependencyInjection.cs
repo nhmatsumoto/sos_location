@@ -52,6 +52,13 @@ public static class DependencyInjection
         services.AddScoped<IFeatureWriter>(sp => sp.GetRequiredService<FeatureStore>());
         services.AddScoped<IFeatureReader>(sp => sp.GetRequiredService<FeatureStore>());
         services.AddScoped<ITileReader, MvtTileReader>();
+        services.AddScoped<IBuildingObservationStore, BuildingObservationStore>();
+        services.AddScoped<IBuildingFootprintCandidateStore, BuildingFootprintCandidateStore>();
+        services.AddScoped<IBuildingFootprintStore, BuildingFootprintStore>();
+        services.AddScoped<IBuildingClassificationStore, BuildingClassificationStore>();
+        services.AddScoped<IBuildingReconciliationStore, BuildingReconciliationStore>();
+        services.AddScoped<IBuildingValidationStore, BuildingValidationStore>();
+        services.AddScoped<IModelBundleStore, ModelBundleStore>();
 
         // Adapters externos.
         services.AddHttpClient<IGeocoder, NominatimGeocoder>(client =>

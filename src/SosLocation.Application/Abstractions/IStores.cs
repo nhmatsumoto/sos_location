@@ -1,3 +1,4 @@
+using SosLocation.Domain.BuildingIntelligence;
 using SosLocation.Domain.Catalog;
 using SosLocation.Domain.Cities;
 using SosLocation.Domain.Disasters;
@@ -20,12 +21,15 @@ public interface IRevisionStore
     Task<IReadOnlyList<CityRevision>> ListByCityAsync(Guid cityId, CancellationToken ct);
     Task<int> NextRevisionNumberAsync(Guid cityId, CancellationToken ct);
     Task AddAsync(CityRevision revision, CancellationToken ct);
+    /// <summary>Remove a revisão; cascata de banco cuida de features/simulações. Não toca em Dataset/DatasetVersion.</summary>
+    Task DeleteAsync(Guid revisionId, CancellationToken ct);
 }
 
 public interface IDatasetStore
 {
     Task<Dataset?> FindByNameAsync(string name, CancellationToken ct);
     Task<DatasetVersion?> FindVersionByChecksumAsync(Guid datasetId, string checksum, CancellationToken ct);
+    Task<DatasetVersion?> FindVersionByIdAsync(Guid versionId, CancellationToken ct);
     Task AddAsync(Dataset dataset, CancellationToken ct);
     Task AddVersionAsync(DatasetVersion version, CancellationToken ct);
     Task<IReadOnlyList<(Dataset Dataset, DatasetVersion Version)>> ListVersionsForRevisionAsync(
@@ -41,6 +45,8 @@ public interface IImportJobStore
     Task AddIssueAsync(ProcessingIssue issue, CancellationToken ct);
     Task ClearIssuesAsync(Guid jobId, CancellationToken ct);
     Task<IReadOnlyList<ProcessingIssue>> ListIssuesAsync(Guid jobId, CancellationToken ct);
+    /// <summary>Remove o registro do job; cascata de banco cuida de ProcessingIssues.</summary>
+    Task DeleteAsync(Guid jobId, CancellationToken ct);
 
     /// <summary>
     /// Reserva o próximo job disponível usando bloqueio pessimista
@@ -109,4 +115,48 @@ public sealed record SimulationBuildingInput(
 public interface IUnitOfWork
 {
     Task SaveChangesAsync(CancellationToken ct);
+}
+
+public interface IBuildingObservationStore
+{
+    Task<BuildingObservation?> FindByIdAsync(Guid id, CancellationToken ct);
+    Task AddAsync(BuildingObservation observation, CancellationToken ct);
+}
+
+public interface IBuildingFootprintCandidateStore
+{
+    Task<BuildingFootprintCandidate?> FindByIdAsync(Guid id, CancellationToken ct);
+    Task<IReadOnlyList<BuildingFootprintCandidate>> ListByObservationAsync(Guid observationId, CancellationToken ct);
+    Task AddAsync(BuildingFootprintCandidate candidate, CancellationToken ct);
+}
+
+public interface IBuildingFootprintStore
+{
+    Task<BuildingFootprint?> FindByIdAsync(Guid id, CancellationToken ct);
+    Task AddAsync(BuildingFootprint footprint, CancellationToken ct);
+}
+
+public interface IBuildingClassificationStore
+{
+    Task AddAsync(BuildingClassification classification, CancellationToken ct);
+    Task<IReadOnlyList<BuildingClassification>> ListByCandidateAsync(Guid candidateId, CancellationToken ct);
+}
+
+public interface IBuildingReconciliationStore
+{
+    Task AddAsync(BuildingReconciliation reconciliation, CancellationToken ct);
+    Task<IReadOnlyList<BuildingReconciliation>> ListByCandidateAsync(Guid candidateId, CancellationToken ct);
+}
+
+public interface IBuildingValidationStore
+{
+    Task AddAsync(BuildingValidation validation, CancellationToken ct);
+    Task<IReadOnlyList<BuildingValidation>> ListByCandidateAsync(Guid candidateId, CancellationToken ct);
+}
+
+public interface IModelBundleStore
+{
+    Task<ModelBundle?> FindByIdAsync(Guid id, CancellationToken ct);
+    Task<ModelBundle?> FindByNameAndVersionAsync(string name, string version, CancellationToken ct);
+    Task AddAsync(ModelBundle bundle, CancellationToken ct);
 }

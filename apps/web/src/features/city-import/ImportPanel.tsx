@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api } from '../../api/client';
+import { api, importFileDownloadUrl } from '../../api/client';
 import { useAppStore } from '../../stores/appStore';
 import type { ImportJob } from '../../schemas/api';
 
@@ -50,6 +50,22 @@ export function ImportPanel() {
     mutationFn: (jobId: string) => api.cancelImport(jobId),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['imports'] }),
   });
+
+  const deleteImport = useMutation({
+    mutationFn: (jobId: string) => api.deleteImport(jobId),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['imports'] }),
+  });
+
+  const requestDelete = (job: ImportJob) => {
+    if (
+      window.confirm(
+        'Delete this import? This removes the city revision and its buildings/roads/etc. ' +
+          'Physical source files are kept and stay downloadable elsewhere.',
+      )
+    ) {
+      deleteImport.mutate(job.id);
+    }
+  };
 
   // A API omite cancelamentos voluntários, mas mantém falhas para que o
   // diagnóstico seja exibido ao usuário. Este filtro também protege contra
@@ -143,11 +159,50 @@ export function ImportPanel() {
                   open revision
                 </button>
               )}
+              {!ACTIVE_STATUSES.has(job.status) && (
+                <button
+                  type="button"
+                  data-testid={`delete-import-${job.id}`}
+                  disabled={deleteImport.isPending}
+                  onClick={() => requestDelete(job)}
+                  className="text-[11px] text-slate-400 underline hover:text-red-400 disabled:opacity-50"
+                >
+                  delete
+                </button>
+              )}
             </div>
+            {job.status === 'completed' && <ImportFiles jobId={job.id} />}
           </li>
         ))}
         {visibleJobs?.length === 0 && <li className="text-xs text-slate-500">No import jobs yet.</li>}
       </ul>
     </section>
+  );
+}
+
+/** Lista os arquivos brutos (dataset versions) que alimentaram a revisão de um import concluído. */
+function ImportFiles({ jobId }: { jobId: string }) {
+  const { data: files } = useQuery({
+    queryKey: ['import-files', jobId],
+    queryFn: () => api.listImportFiles(jobId),
+  });
+
+  if (!files || files.length === 0) return null;
+
+  return (
+    <ul className="mt-1 space-y-0.5 border-t border-slate-800 pt-1">
+      {files.map((file) => (
+        <li key={file.datasetVersionId} className="flex items-center justify-between text-[11px]">
+          <span className="truncate text-slate-400">{file.datasetName} · {file.version}</span>
+          <a
+            href={importFileDownloadUrl(jobId, file.datasetVersionId)}
+            download
+            className="ml-2 shrink-0 text-sky-400 underline hover:text-sky-300"
+          >
+            download
+          </a>
+        </li>
+      ))}
+    </ul>
   );
 }

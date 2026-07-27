@@ -56,6 +56,35 @@ public sealed class MvtTileReader(SosDbContext context) : ITileReader
             ? ", lower(sr.damage_state) AS damage_state"
             : string.Empty;
 
+        // Boné de telhado (segunda camada MVT, mesmo tile): só existe onde já mandamos altura (z>=14),
+        // e só para os edifícios com roof_height_m > 0 (BuildingRoofCalculator na importação).
+        var roofCte = z >= 14
+            ? """
+              ,
+              roofgeom AS (
+                  SELECT
+                      ST_AsMVTGeom(
+                          ST_Buffer(ST_Transform(b.footprint, 3857), -LEAST(b.roof_height_m * 0.6, 3.0)),
+                          bounds.env, 4096, 256, true
+                      ) AS geom,
+                      b.id::text AS id,
+                      round(b.height_m::numeric, 1)::double precision AS height_m,
+                      round(b.roof_height_m::numeric, 1)::double precision AS roof_height_m
+                  FROM buildings b
+                  CROSS JOIN bounds
+                  WHERE b.city_revision_id = @rev
+                    AND b.roof_height_m > 0
+                    AND b.footprint && ST_Transform(bounds.env, 4326)
+              )
+              """
+            : string.Empty;
+        // ST_AsMVT sobre conjunto vazio retorna NULL; sem o COALESCE, NULL || bytea apagaria o tile inteiro.
+        var roofSelect = z >= 14
+            ? """
+               || COALESCE((SELECT ST_AsMVT(roofgeom.*, 'buildings_roof', 4096, 'geom') FROM roofgeom WHERE geom IS NOT NULL), ''::bytea)
+              """
+            : string.Empty;
+
         return layer switch
         {
         // Edifícios só aparecem a partir do zoom 12; abaixo disso o tile é vazio por decisão de orçamento.
@@ -68,7 +97,7 @@ public sealed class MvtTileReader(SosDbContext context) : ITileReader
                     ST_AsMVTGeom({ProjectAndSimplify("b.footprint", z)}, bounds.env, 4096, 256, true) AS geom,
                     b.id::text AS id,
                     b.building_type
-                    {(z >= 14 ? ", round(b.height_m::numeric, 1)::double precision AS height_m, round(b.min_height_m::numeric, 1)::double precision AS min_height_m, round(b.ground_elevation_m::numeric, 1)::double precision AS ground_elevation_m, b.height_source, round(b.confidence::numeric, 2)::double precision AS confidence, b.building_levels" : "")}
+                    {(z >= 14 ? ", round(b.height_m::numeric, 1)::double precision AS height_m, round(b.min_height_m::numeric, 1)::double precision AS min_height_m, round(b.ground_elevation_m::numeric, 1)::double precision AS ground_elevation_m, b.height_source, round(b.confidence::numeric, 2)::double precision AS confidence, b.building_levels, b.roof_shape, b.roof_levels" : "")}
                     {simulationColumn}
                 FROM buildings b
                 {simulationJoin}
@@ -76,7 +105,10 @@ public sealed class MvtTileReader(SosDbContext context) : ITileReader
                 WHERE b.city_revision_id = @rev
                   AND b.footprint && ST_Transform(bounds.env, 4326)
             )
-            SELECT ST_AsMVT(mvtgeom.*, 'buildings', 4096, 'geom') FROM mvtgeom WHERE geom IS NOT NULL
+            {roofCte}
+            SELECT
+                COALESCE((SELECT ST_AsMVT(mvtgeom.*, 'buildings', 4096, 'geom') FROM mvtgeom WHERE geom IS NOT NULL), ''::bytea)
+                {roofSelect}
             """,
 
         TileLayerKind.Roads when z < 8 => null,

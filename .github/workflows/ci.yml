@@ -44,3 +44,11 @@ jobs:
         run: npx vitest run
       - name: Production build
         run: npm run build
+
+  docker:
+    name: Docker images
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build api, worker and web images
+        run: docker compose build

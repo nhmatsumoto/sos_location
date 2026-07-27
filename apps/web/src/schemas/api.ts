@@ -65,6 +65,15 @@ export const importJobSchema = z.object({
 });
 export type ImportJob = z.infer<typeof importJobSchema>;
 
+export const importFileSchema = z.object({
+  datasetVersionId: z.string(),
+  datasetName: z.string(),
+  version: z.string(),
+  capturedAt: z.string(),
+  checksum: z.string().nullish(),
+});
+export type ImportFile = z.infer<typeof importFileSchema>;
+
 export const simulationRunSchema = z.object({
   id: z.string(),
   cityRevisionId: z.string(),

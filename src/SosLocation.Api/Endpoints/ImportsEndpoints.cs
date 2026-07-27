@@ -80,6 +80,60 @@ public static class ImportsEndpoints
             return Results.Ok(ToDto(job));
         }).WithName("CancelImport");
 
+        group.MapDelete("/imports/{jobId:guid}", async (
+            Guid jobId, IImportJobStore jobs, IRevisionStore revisions, CancellationToken ct) =>
+        {
+            var job = await jobs.FindByIdAsync(jobId, ct);
+            if (job is null) return Results.NotFound();
+            if (job.Status is JobStatus.Queued or JobStatus.Running or JobStatus.Retrying)
+                return Results.Conflict(new { error = "Cancel the job before deleting it." });
+
+            // Deleta a revisão (cascata de banco cuida de features/simulações) e o
+            // job. Nunca toca em Dataset/DatasetVersion/object storage — arquivos
+            // brutos são preservados por decisão de arquitetura, não por acidente.
+            if (job.CityRevisionId is { } revisionId)
+                await revisions.DeleteAsync(revisionId, ct);
+            await jobs.DeleteAsync(jobId, ct);
+            return Results.NoContent();
+        }).WithName("DeleteImport");
+
+        group.MapGet("/imports/{jobId:guid}/files", async (
+            Guid jobId, IImportJobStore jobs, IDatasetStore datasets, CancellationToken ct) =>
+        {
+            var job = await jobs.FindByIdAsync(jobId, ct);
+            if (job is null) return Results.NotFound();
+            if (job.CityRevisionId is not { } revisionId)
+                return Results.Ok(Array.Empty<ImportFileDto>());
+
+            var pairs = await datasets.ListVersionsForRevisionAsync(revisionId, ct);
+            return Results.Ok(pairs.Select(p => new ImportFileDto(
+                p.Version.Id, p.Dataset.Name, p.Version.Version, p.Version.CapturedAt, p.Version.Checksum)));
+        }).WithName("ListImportFiles");
+
+        group.MapGet("/imports/{jobId:guid}/files/{datasetVersionId:guid}/download", async (
+            Guid jobId, Guid datasetVersionId,
+            IImportJobStore jobs, IDatasetStore datasets, IObjectStorage storage, CancellationToken ct) =>
+        {
+            var job = await jobs.FindByIdAsync(jobId, ct);
+            if (job?.CityRevisionId is not { } revisionId) return Results.NotFound();
+
+            // Confirma que o arquivo pedido realmente pertence à revisão deste job
+            // (escopo do link — não é um lookup livre por qualquer datasetVersionId).
+            var pairs = await datasets.ListVersionsForRevisionAsync(revisionId, ct);
+            var match = pairs.FirstOrDefault(p => p.Version.Id == datasetVersionId);
+            if (match.Version is null) return Results.NotFound();
+
+            var version = await datasets.FindVersionByIdAsync(datasetVersionId, ct);
+            if (version?.StorageKey is not { } key) return Results.NotFound();
+
+            var bytes = await storage.GetAsync(key, ct);
+            if (bytes is null) return Results.NotFound();
+
+            var extension = key.Contains('.') ? key[(key.LastIndexOf('.') + 1)..] : "bin";
+            var fileName = $"{match.Dataset.Name}-{version.Version}.{extension}";
+            return Results.File(bytes, "application/octet-stream", fileName);
+        }).WithName("DownloadImportFile");
+
         return group;
     }
 

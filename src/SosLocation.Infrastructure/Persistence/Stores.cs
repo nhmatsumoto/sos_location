@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using NpgsqlTypes;
 using SosLocation.Application.Abstractions;
+using SosLocation.Domain.BuildingIntelligence;
 using SosLocation.Domain.Catalog;
 using SosLocation.Domain.Cities;
 using SosLocation.Domain.Disasters;
@@ -57,6 +58,9 @@ public sealed class RevisionStore(SosDbContext context) : IRevisionStore
 
     public async Task AddAsync(CityRevision revision, CancellationToken ct)
         => await context.CityRevisions.AddAsync(revision, ct);
+
+    public async Task DeleteAsync(Guid revisionId, CancellationToken ct)
+        => await context.CityRevisions.Where(r => r.Id == revisionId).ExecuteDeleteAsync(ct);
 }
 
 public sealed class DatasetStore(SosDbContext context) : IDatasetStore
@@ -68,6 +72,9 @@ public sealed class DatasetStore(SosDbContext context) : IDatasetStore
         Guid datasetId, string checksum, CancellationToken ct)
         => context.DatasetVersions.FirstOrDefaultAsync(
             version => version.DatasetId == datasetId && version.Checksum == checksum, ct);
+
+    public Task<DatasetVersion?> FindVersionByIdAsync(Guid versionId, CancellationToken ct)
+        => context.DatasetVersions.FirstOrDefaultAsync(version => version.Id == versionId, ct);
 
     public async Task AddAsync(Dataset dataset, CancellationToken ct)
         => await context.Datasets.AddAsync(dataset, ct);
@@ -131,6 +138,9 @@ public sealed class ImportJobStore(SosDbContext context) : IImportJobStore
             .Where(i => i.JobId == jobId)
             .OrderBy(i => i.CreatedAt)
             .ToListAsync(ct);
+
+    public async Task DeleteAsync(Guid jobId, CancellationToken ct)
+        => await context.ImportJobs.Where(j => j.Id == jobId).ExecuteDeleteAsync(ct);
 
     public async Task<ImportJob?> ReserveNextAsync(string workerId, CancellationToken ct)
     {
@@ -358,4 +368,89 @@ public sealed class FeatureStore(SosDbContext context) : IFeatureWriter, IFeatur
             b => b.CityRevisionId == revisionId && b.HeightSource == HeightSource.Observed, ct);
         return (double)observed / total;
     }
+}
+
+public sealed class BuildingObservationStore(SosDbContext context) : IBuildingObservationStore
+{
+    public Task<BuildingObservation?> FindByIdAsync(Guid id, CancellationToken ct)
+        => context.BuildingObservations.FirstOrDefaultAsync(o => o.Id == id, ct);
+
+    public async Task AddAsync(BuildingObservation observation, CancellationToken ct)
+        => await context.BuildingObservations.AddAsync(observation, ct);
+}
+
+public sealed class BuildingFootprintCandidateStore(SosDbContext context) : IBuildingFootprintCandidateStore
+{
+    public Task<BuildingFootprintCandidate?> FindByIdAsync(Guid id, CancellationToken ct)
+        => context.BuildingFootprintCandidates.FirstOrDefaultAsync(c => c.Id == id, ct);
+
+    public async Task<IReadOnlyList<BuildingFootprintCandidate>> ListByObservationAsync(Guid observationId, CancellationToken ct)
+        => await context.BuildingFootprintCandidates
+            .AsNoTracking()
+            .Where(c => c.ObservationId == observationId)
+            .OrderByDescending(c => c.CreatedAt)
+            .ToListAsync(ct);
+
+    public async Task AddAsync(BuildingFootprintCandidate candidate, CancellationToken ct)
+        => await context.BuildingFootprintCandidates.AddAsync(candidate, ct);
+}
+
+public sealed class BuildingFootprintStore(SosDbContext context) : IBuildingFootprintStore
+{
+    public Task<BuildingFootprint?> FindByIdAsync(Guid id, CancellationToken ct)
+        => context.BuildingFootprints.FirstOrDefaultAsync(f => f.Id == id, ct);
+
+    public async Task AddAsync(BuildingFootprint footprint, CancellationToken ct)
+        => await context.BuildingFootprints.AddAsync(footprint, ct);
+}
+
+public sealed class BuildingClassificationStore(SosDbContext context) : IBuildingClassificationStore
+{
+    public async Task AddAsync(BuildingClassification classification, CancellationToken ct)
+        => await context.BuildingClassifications.AddAsync(classification, ct);
+
+    public async Task<IReadOnlyList<BuildingClassification>> ListByCandidateAsync(Guid candidateId, CancellationToken ct)
+        => await context.BuildingClassifications
+            .AsNoTracking()
+            .Where(c => c.CandidateId == candidateId)
+            .OrderByDescending(c => c.CreatedAt)
+            .ToListAsync(ct);
+}
+
+public sealed class BuildingReconciliationStore(SosDbContext context) : IBuildingReconciliationStore
+{
+    public async Task AddAsync(BuildingReconciliation reconciliation, CancellationToken ct)
+        => await context.BuildingReconciliations.AddAsync(reconciliation, ct);
+
+    public async Task<IReadOnlyList<BuildingReconciliation>> ListByCandidateAsync(Guid candidateId, CancellationToken ct)
+        => await context.BuildingReconciliations
+            .AsNoTracking()
+            .Where(r => r.CandidateId == candidateId)
+            .OrderByDescending(r => r.CreatedAt)
+            .ToListAsync(ct);
+}
+
+public sealed class BuildingValidationStore(SosDbContext context) : IBuildingValidationStore
+{
+    public async Task AddAsync(BuildingValidation validation, CancellationToken ct)
+        => await context.BuildingValidations.AddAsync(validation, ct);
+
+    public async Task<IReadOnlyList<BuildingValidation>> ListByCandidateAsync(Guid candidateId, CancellationToken ct)
+        => await context.BuildingValidations
+            .AsNoTracking()
+            .Where(v => v.CandidateId == candidateId)
+            .OrderByDescending(v => v.CreatedAt)
+            .ToListAsync(ct);
+}
+
+public sealed class ModelBundleStore(SosDbContext context) : IModelBundleStore
+{
+    public Task<ModelBundle?> FindByIdAsync(Guid id, CancellationToken ct)
+        => context.ModelBundles.FirstOrDefaultAsync(m => m.Id == id, ct);
+
+    public Task<ModelBundle?> FindByNameAndVersionAsync(string name, string version, CancellationToken ct)
+        => context.ModelBundles.FirstOrDefaultAsync(m => m.Name == name && m.Version == version, ct);
+
+    public async Task AddAsync(ModelBundle bundle, CancellationToken ct)
+        => await context.ModelBundles.AddAsync(bundle, ct);
 }

@@ -4,6 +4,7 @@ import { CitiesPanel } from '../features/city-search/CitiesPanel';
 import { ImportPanel } from '../features/city-import/ImportPanel';
 import { SimulationPanel } from '../features/disaster-simulation/SimulationPanel';
 import { LayerPanel } from '../features/layer-control/LayerPanel';
+import { BuildingLegend } from '../features/layer-control/BuildingLegend';
 import { InspectorPanel } from '../features/feature-inspector/InspectorPanel';
 import { DiagnosticsBar } from '../features/diagnostics/DiagnosticsBar';
 import { DeepLinkSync } from '../features/deep-link/DeepLinkSync';
@@ -32,6 +33,7 @@ export function App() {
         <aside className="flex w-72 flex-col gap-3 overflow-y-auto border-r border-slate-800 bg-slate-950 p-3">
           <CitiesPanel />
           <LayerPanel />
+          <BuildingLegend />
           <ImportPanel />
           <SimulationPanel />
         </aside>

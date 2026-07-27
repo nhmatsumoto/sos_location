@@ -309,6 +309,37 @@ public class PostgisPipelineTests(PostgisContainerFixture fixture)
     }
 
     [Fact]
+    public async Task DeleteImport_RemovesJobAndRevision_ButKeepsPhysicalFile()
+    {
+        var job = await RunFixtureImportAsync();
+        var revisionId = job.CityRevisionId!.Value;
+
+        await using var context = fixture.CreateContext();
+        var datasets = new DatasetStore(context);
+        var revisions = new RevisionStore(context);
+        var jobs = new ImportJobStore(context);
+
+        // Mesma consulta usada por GET /imports/{id}/files.
+        var files = await datasets.ListVersionsForRevisionAsync(revisionId, CancellationToken.None);
+        Assert.NotEmpty(files);
+        var storageKey = files[0].Version.StorageKey;
+        Assert.NotNull(storageKey);
+        Assert.True(await fixture.Storage.ExistsAsync(storageKey!, CancellationToken.None));
+
+        await revisions.DeleteAsync(revisionId, CancellationToken.None);
+        await jobs.DeleteAsync(job.Id, CancellationToken.None);
+
+        await using var verify = fixture.CreateContext();
+        Assert.False(await verify.CityRevisions.AnyAsync(r => r.Id == revisionId));
+        Assert.False(await verify.Buildings.AnyAsync(b => b.CityRevisionId == revisionId));
+        Assert.False(await verify.ImportJobs.AnyAsync(j => j.Id == job.Id));
+
+        // Arquivo bruto e seu registro de catálogo nunca são tocados pelo delete.
+        Assert.True(await fixture.Storage.ExistsAsync(storageKey!, CancellationToken.None));
+        Assert.True(await verify.DatasetVersions.AnyAsync(v => v.StorageKey == storageKey));
+    }
+
+    [Fact]
     public async Task JobQueue_Reserve_MarksRunning_AndSkipsCancelled()
     {
         await using (var setup = fixture.CreateContext())

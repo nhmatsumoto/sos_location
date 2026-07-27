@@ -41,6 +41,14 @@ public sealed record ImportJobDto(
     DateTimeOffset? CompletedAt,
     DateTimeOffset CreatedAt);
 
+/// <summary>Arquivo bruto (dataset version) que alimentou a revisão produzida por um import.</summary>
+public sealed record ImportFileDto(
+    Guid DatasetVersionId,
+    string DatasetName,
+    string Version,
+    DateTimeOffset CapturedAt,
+    string? Checksum);
+
 public sealed record SimulationRunDto(
     Guid Id,
     Guid CityRevisionId,

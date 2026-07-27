@@ -1,0 +1,848 @@
+[project]
+name = "SOS-LOCATION"
+feature = "Building Intelligence"
+version = "1.0"
+language = "pt-BR"
+prompt_type = "implementation"
+target = "AI coding agent"
+description = """
+Implementar um módulo de inteligência geoespacial capaz de combinar dados vetoriais do OpenStreetMap,
+ortofotos e imagens aéreas para detectar, segmentar, classificar, reconciliar e validar prédios e casas.
+O módulo deve enriquecer o City Digital Twin do SOS-LOCATION e fornecer dados confiáveis para simulações
+de desastres, análise de impacto, planejamento de resgate e visualização 3D.
+"""
+
+[agent]
+role = "Arquiteto de Software, Engenheiro Geoespacial e Engenheiro de Machine Learning"
+mission = """
+Analisar a arquitetura existente do SOS-LOCATION, preservar seus padrões e implementar a melhoria
+Building Intelligence de forma incremental, testável, desacoplada e preparada para processamento
+distribuído. Não substituir dados existentes sem rastreabilidade. Toda inferência deve manter origem,
+versão do modelo, confiança e histórico de validação.
+"""
+execution_mode = "iterative"
+require_existing_code_analysis = true
+require_tests = true
+require_documentation = true
+require_migrations = true
+require_backward_compatibility = true
+require_human_validation = true
+
+[agent.behavior]
+use_ubiquitous_language = true
+follow_domain_driven_design = true
+prefer_vertical_slices = true
+avoid_big_bang_rewrite = true
+preserve_existing_architecture = true
+reuse_existing_components = true
+document_tradeoffs = true
+stop_on_destructive_change = true
+ask_only_when_blocked = true
+produce_working_code = true
+do_not_generate_fake_production_results = true
+
+[context]
+product_goal = """
+O SOS-LOCATION é uma plataforma de simulação de desastres naturais baseada em cidades digitais 3D.
+A plataforma processa dados geoespaciais, executa simulações e apresenta informações táticas para
+equipes de resposta, infraestrutura, rotas, edifícios, recursos e áreas afetadas.
+"""
+current_focus = "Construção e evolução dos ambientes de simulação"
+primary_use_cases = [
+  "Detectar construções ausentes no OpenStreetMap",
+  "Corrigir ou sugerir contornos de edifícios imprecisos",
+  "Identificar novos prédios, alterações e possíveis demolições",
+  "Classificar construções por uso provável",
+  "Estimar atributos úteis para simulações",
+  "Enriquecer o City Digital Twin",
+  "Preparar dados para simulações de enchentes, terremotos, incêndios, deslizamentos e tsunamis"
+]
+
+[architecture]
+style = "DDD modular monolith evolutivo com workers distribuídos"
+backend = ".NET 10"
+language = "C#"
+database = "PostgreSQL com PostGIS"
+orm = "EF Core para modelagem e migrações"
+read_write = "Dapper para consultas e operações críticas de alto desempenho"
+object_storage = "S3-compatible object storage"
+machine_learning = "Python"
+ml_api = "FastAPI ou serviço gRPC independente"
+frontend = "Aplicação web geoespacial existente do SOS-LOCATION"
+map_rendering = "MapLibre, CesiumJS, deck.gl, Three.js ou componentes já adotados no projeto"
+messaging = "Utilizar abstração existente; caso ausente, criar contratos independentes do broker"
+containerization = "Docker e Docker Compose"
+observability = "OpenTelemetry, logs estruturados, métricas e tracing"
+
+[bounded_context]
+name = "Building Intelligence"
+purpose = """
+Transformar observações geoespaciais provenientes de fontes heterogêneas em representações
+auditáveis de construções, mantendo separadas a observação bruta, a inferência automática,
+a reconciliação com fontes existentes e a validação humana.
+"""
+
+[bounded_context.dependencies]
+upstream = [
+  "Data Catalog",
+  "Geospatial Ingestion",
+  "City Digital Twin",
+  "Scenario Management"
+]
+downstream = [
+  "Simulation Runtime",
+  "Impact Analysis",
+  "Visualization",
+  "Rescue Planning"
+]
+
+[ubiquitous_language]
+building_observation = "Observação bruta proveniente de imagem, OSM, PLATEAU ou outra fonte"
+building_footprint = "Geometria confirmada ou aceita de uma construção"
+building_candidate = "Construção detectada automaticamente ainda não confirmada"
+building_classification = "Classificação probabilística do tipo ou uso da construção"
+reconciliation = "Comparação entre uma observação detectada e registros geoespaciais existentes"
+validation = "Decisão humana sobre uma detecção, geometria, classificação ou alteração"
+confidence = "Probabilidade calibrada associada a uma inferência"
+provenance = "Origem, licença, data, versão e transformações aplicadas aos dados"
+change_detection = "Identificação de construção nova, alterada, removida ou divergente"
+model_bundle = "Conjunto versionado de pesos, configuração, métricas e metadados de um modelo"
+review_queue = "Fila de candidatos que exigem validação humana"
+
+[domain.rules]
+rule_01 = "Nenhum resultado de IA pode substituir automaticamente um BuildingFootprint confirmado."
+rule_02 = "Toda inferência deve registrar modelo, versão, data, confiança, entrada e origem dos dados."
+rule_03 = "Candidatos abaixo do limiar de confiança devem ser enviados para revisão."
+rule_04 = "Resultados conflitantes entre OSM, PLATEAU, imagem aérea e dados locais devem permanecer rastreáveis."
+rule_05 = "Geometrias inválidas devem ser corrigidas ou rejeitadas antes da persistência."
+rule_06 = "Todas as geometrias devem possuir SRID explícito."
+rule_07 = "Operações espaciais devem ser executadas no banco quando forem mais eficientes."
+rule_08 = "Dados de licença incompatível não podem ser misturados ou redistribuídos sem validação."
+rule_09 = "A IA sugere; a decisão final pode ser automática apenas em fluxos explicitamente configurados."
+rule_10 = "Modelos sem aprovação não podem ser promovidos para produção."
+
+[data_sources]
+required = [
+  "OpenStreetMap building footprints",
+  "Ortofotos ou imagens aéreas legalmente utilizáveis",
+  "PLATEAU quando disponível",
+  "Modelo digital de elevação quando útil",
+  "Metadados do catálogo geoespacial do projeto"
+]
+optional = [
+  "Imagens de drone",
+  "Dados municipais",
+  "Cadastros públicos de edificações",
+  "Sensores remotos",
+  "Resultados de inspeção humana"
+]
+forbidden_default = [
+  "Download massivo dos tiles padrão de renderização do OpenStreetMap",
+  "Uso de imagens sem licença compatível",
+  "Uso de dados sem metadados de origem"
+]
+
+[ml]
+initial_model = "SegFormer-B2"
+advanced_model = "Mask2Former"
+refinement_model = "SAM 2"
+pretraining = "SatlasPretrain ou pesos equivalentes para sensoriamento remoto"
+classification_model = "CatBoost ou LightGBM"
+framework = "PyTorch"
+export_format = "ONNX quando tecnicamente viável"
+serving = "FastAPI ou gRPC"
+training_is_separate_from_serving = true
+support_batch_inference = true
+support_gpu = true
+support_cpu_fallback = true
+require_model_registry = true
+require_calibration = true
+require_explainability = true
+require_abstention = true
+
+[ml.tasks]
+semantic_segmentation = true
+instance_segmentation = true
+footprint_vectorization = true
+building_classification = true
+change_detection = true
+confidence_calibration = true
+out_of_distribution_detection = true
+
+[ml.inputs]
+raster_channels = [
+  "RGB",
+  "NIR quando disponível",
+  "Elevação quando disponível"
+]
+vector_context = [
+  "OSM buildings",
+  "Road network",
+  "Land use",
+  "Administrative boundaries",
+  "PLATEAU building metadata"
+]
+tabular_features = [
+  "Área do footprint",
+  "Perímetro",
+  "Compacidade",
+  "Orientação",
+  "Altura",
+  "Quantidade de andares",
+  "Forma do telhado",
+  "Distância até vias",
+  "Densidade urbana",
+  "Uso do solo",
+  "Tags OSM",
+  "Atributos PLATEAU"
+]
+
+[ml.outputs]
+segmentation_mask = true
+instance_masks = true
+polygon_candidates = true
+building_type_probabilities = true
+estimated_levels = true
+estimated_height = true
+change_status = true
+confidence_score = true
+uncertainty_score = true
+review_required = true
+
+[ml.model_lifecycle]
+stages = [
+  "Development",
+  "Evaluation",
+  "Shadow",
+  "Approved",
+  "Champion",
+  "Deprecated"
+]
+promotion_requires = [
+  "Métricas mínimas aprovadas",
+  "Avaliação espacial por região",
+  "Avaliação temporal",
+  "Validação de licença dos dados",
+  "Teste de regressão",
+  "Aprovação humana"
+]
+
+[pipeline]
+name = "Building Intelligence Processing Pipeline"
+steps = [
+  "Registrar dataset e proveniência",
+  "Ingerir ortofoto ou imagem aérea",
+  "Normalizar projeção e resolução",
+  "Dividir o raster em tiles com sobreposição",
+  "Executar segmentação",
+  "Combinar tiles e remover artefatos de borda",
+  "Vetorizar máscaras",
+  "Simplificar e validar polígonos",
+  "Comparar com footprints existentes",
+  "Classificar o tipo provável da construção",
+  "Detectar mudanças",
+  "Aplicar regras de confiança e qualidade",
+  "Persistir candidatos",
+  "Enviar conflitos para revisão",
+  "Publicar footprints aprovados no City Digital Twin"
+]
+
+[pipeline.vectorization]
+minimum_area_m2 = 6.0
+simplification_tolerance_m = 0.25
+repair_invalid_geometry = true
+remove_small_artifacts = true
+merge_adjacent_fragments = true
+preserve_holes = true
+default_srid = 4326
+processing_srid_strategy = "Usar projeção métrica local apropriada para cálculos"
+
+[pipeline.reconciliation]
+intersection_metric = "IoU"
+exact_match_threshold = 0.85
+geometry_changed_threshold = 0.55
+new_building_threshold = 0.20
+possible_removal_requires_temporal_confirmation = true
+use_centroid_distance = true
+use_area_difference = true
+use_shape_similarity = true
+use_source_recency = true
+
+[domain.entities.BuildingObservation]
+fields = [
+  "Id",
+  "DatasetId",
+  "SourceType",
+  "SourceReference",
+  "CapturedAt",
+  "IngestedAt",
+  "Geometry",
+  "RasterAssetUri",
+  "SpatialReferenceId",
+  "LicenseId",
+  "MetadataJson"
+]
+
+[domain.entities.BuildingFootprintCandidate]
+fields = [
+  "Id",
+  "ObservationId",
+  "Geometry",
+  "AreaM2",
+  "PerimeterM",
+  "ModelName",
+  "ModelVersion",
+  "Confidence",
+  "Uncertainty",
+  "Status",
+  "CreatedAt"
+]
+
+[domain.entities.BuildingFootprint]
+fields = [
+  "Id",
+  "Geometry",
+  "SourceOfTruth",
+  "Status",
+  "ValidFrom",
+  "ValidTo",
+  "Revision",
+  "CreatedAt",
+  "UpdatedAt"
+]
+
+[domain.entities.BuildingClassification]
+fields = [
+  "Id",
+  "BuildingId",
+  "CandidateId",
+  "BuildingType",
+  "Probability",
+  "EstimatedLevels",
+  "EstimatedHeightM",
+  "ModelName",
+  "ModelVersion",
+  "CreatedAt"
+]
+
+[domain.entities.BuildingReconciliation]
+fields = [
+  "Id",
+  "CandidateId",
+  "ExistingBuildingId",
+  "IntersectionOverUnion",
+  "CentroidDistanceM",
+  "AreaDifferenceRatio",
+  "ChangeStatus",
+  "Decision",
+  "CreatedAt"
+]
+
+[domain.entities.BuildingValidation]
+fields = [
+  "Id",
+  "CandidateId",
+  "ReviewerId",
+  "Decision",
+  "CorrectedGeometry",
+  "CorrectedBuildingType",
+  "Reason",
+  "CreatedAt"
+]
+
+[domain.entities.ModelBundle]
+fields = [
+  "Id",
+  "Name",
+  "Version",
+  "Stage",
+  "ArtifactUri",
+  "TrainingDatasetId",
+  "MetricsJson",
+  "ConfigurationJson",
+  "CreatedAt",
+  "ApprovedAt",
+  "ApprovedBy"
+]
+
+[domain.enums]
+candidate_status = [
+  "Detected",
+  "RequiresReview",
+  "Approved",
+  "Rejected",
+  "Merged",
+  "Superseded"
+]
+change_status = [
+  "Confirmed",
+  "MissingInOSM",
+  "GeometryChanged",
+  "PossiblyRemoved",
+  "NewConstruction",
+  "Unchanged",
+  "RequiresReview"
+]
+building_type = [
+  "Unknown",
+  "ResidentialHouse",
+  "Apartment",
+  "Commercial",
+  "Industrial",
+  "Warehouse",
+  "School",
+  "Hospital",
+  "Government",
+  "Religious",
+  "Garage",
+  "Other"
+]
+validation_decision = [
+  "Approve",
+  "Reject",
+  "CorrectGeometry",
+  "CorrectClassification",
+  "MergeWithExisting",
+  "MarkDuplicate"
+]
+
+[application.use_cases]
+commands = [
+  "RegisterBuildingDataset",
+  "StartBuildingDetection",
+  "CancelBuildingDetection",
+  "ApproveBuildingCandidate",
+  "RejectBuildingCandidate",
+  "CorrectBuildingCandidateGeometry",
+  "MergeBuildingCandidate",
+  "PromoteApprovedBuilding",
+  "RegisterModelBundle",
+  "PromoteModelBundle"
+]
+queries = [
+  "GetBuildingDetectionJob",
+  "ListBuildingCandidates",
+  "GetBuildingCandidateDetails",
+  "ListReviewQueue",
+  "GetBuildingChangeMap",
+  "GetModelBundleMetrics",
+  "GetBuildingProvenance",
+  "GetBuildingsByBoundingBox"
+]
+
+[api]
+base_path = "/api/building-intelligence"
+format = "REST JSON e GeoJSON"
+require_openapi = true
+require_pagination = true
+require_idempotency = true
+require_problem_details = true
+require_authentication = true
+require_authorization = true
+
+[api.endpoints]
+datasets = [
+  "POST /datasets",
+  "GET /datasets/{datasetId}"
+]
+jobs = [
+  "POST /jobs",
+  "GET /jobs/{jobId}",
+  "POST /jobs/{jobId}/cancel"
+]
+candidates = [
+  "GET /candidates",
+  "GET /candidates/{candidateId}",
+  "POST /candidates/{candidateId}/approve",
+  "POST /candidates/{candidateId}/reject",
+  "PUT /candidates/{candidateId}/geometry",
+  "POST /candidates/{candidateId}/merge"
+]
+review = [
+  "GET /review-queue",
+  "POST /review-queue/{candidateId}/decision"
+]
+buildings = [
+  "GET /buildings",
+  "GET /buildings/{buildingId}",
+  "GET /buildings/{buildingId}/provenance",
+  "GET /tiles/{z}/{x}/{y}.mvt"
+]
+models = [
+  "POST /models",
+  "GET /models",
+  "POST /models/{modelId}/promote"
+]
+
+[persistence]
+schema = "building_intelligence"
+use_postgis = true
+geometry_type = "Geometry"
+spatial_indexes = true
+use_jsonb_for_flexible_metadata = true
+use_copy_for_bulk_insert = true
+use_optimistic_concurrency = true
+audit_all_changes = true
+soft_delete_default = true
+
+[persistence.tables]
+names = [
+  "datasets",
+  "building_observations",
+  "building_footprint_candidates",
+  "building_footprints",
+  "building_classifications",
+  "building_reconciliations",
+  "building_validations",
+  "building_revisions",
+  "detection_jobs",
+  "model_bundles",
+  "model_evaluations"
+]
+
+[workers]
+required = [
+  "RasterPreprocessingWorker",
+  "BuildingSegmentationWorker",
+  "FootprintVectorizationWorker",
+  "BuildingReconciliationWorker",
+  "BuildingClassificationWorker",
+  "ReviewPublicationWorker"
+]
+job_requirements = [
+  "Idempotência",
+  "Checkpoint",
+  "Retry com backoff",
+  "Dead-letter handling",
+  "Cancelamento",
+  "Progresso percentual",
+  "Correlação distribuída",
+  "Limite de concorrência"
+]
+
+[frontend]
+features = [
+  "Camada de footprints existentes",
+  "Camada de candidatos detectados",
+  "Camada de diferenças e alterações",
+  "Controle de opacidade da ortofoto",
+  "Filtro por status e confiança",
+  "Painel de revisão",
+  "Edição manual de polígono",
+  "Comparação antes e depois",
+  "Exibição de proveniência",
+  "Exibição da versão do modelo",
+  "Aprovar, rejeitar, corrigir e mesclar",
+  "Mapa de calor de incerteza",
+  "Visualização 3D quando houver altura"
+]
+performance = [
+  "Usar vector tiles para grandes volumes",
+  "Carregar por bounding box",
+  "Evitar GeoJSON completo para cidades inteiras",
+  "Aplicar clustering apenas onde fizer sentido",
+  "Virtualizar listas de revisão"
+]
+
+[security]
+requirements = [
+  "Autenticação integrada ao provedor existente",
+  "Autorização por papel",
+  "Auditoria de decisões humanas",
+  "Validação de URI de assets",
+  "Limite de upload",
+  "Proteção contra path traversal",
+  "Validação de GeoJSON",
+  "Isolamento de processamento de arquivos",
+  "Controle de acesso aos datasets"
+]
+roles = [
+  "BuildingViewer",
+  "BuildingReviewer",
+  "BuildingEditor",
+  "ModelOperator",
+  "Administrator"
+]
+
+[observability]
+logs = [
+  "DatasetId",
+  "JobId",
+  "TileId",
+  "ModelVersion",
+  "CandidateId",
+  "CorrelationId"
+]
+metrics = [
+  "Tiles processados por minuto",
+  "Latência por etapa",
+  "Uso de GPU",
+  "Uso de CPU",
+  "Candidatos por quilômetro quadrado",
+  "Taxa de revisão",
+  "Taxa de aprovação",
+  "Taxa de falsos positivos",
+  "Taxa de falsos negativos",
+  "IoU médio",
+  "Falhas por worker"
+]
+traces = [
+  "Ingestão",
+  "Pré-processamento",
+  "Inferência",
+  "Vetorização",
+  "Reconciliação",
+  "Persistência",
+  "Publicação"
+]
+
+[testing]
+unit = [
+  "Regras de domínio",
+  "Cálculo de IoU",
+  "Distância entre centroides",
+  "Diferença de área",
+  "Classificação de status",
+  "Validação de geometria",
+  "Regras de promoção de modelo"
+]
+integration = [
+  "PostGIS",
+  "Migrações",
+  "API",
+  "Object storage",
+  "Fila ou mecanismo de jobs",
+  "Serviço ML"
+]
+contract = [
+  ".NET para serviço ML",
+  "Eventos internos",
+  "GeoJSON",
+  "Vector tiles"
+]
+end_to_end = [
+  "Dataset até candidato",
+  "Candidato até revisão",
+  "Revisão até City Digital Twin",
+  "Consulta por bounding box",
+  "Renderização no mapa"
+]
+performance = [
+  "Bulk insert",
+  "Consulta espacial",
+  "Geração de vector tiles",
+  "Processamento paralelo",
+  "Uso de memória em rasters grandes"
+]
+
+[ml.evaluation]
+metrics = [
+  "IoU",
+  "Precision",
+  "Recall",
+  "F1",
+  "Average Precision",
+  "Boundary F1",
+  "Calibration Error",
+  "False Positive Rate",
+  "False Negative Rate"
+]
+required_slices = [
+  "Região urbana densa",
+  "Região residencial",
+  "Região industrial",
+  "Área rural",
+  "Sombras fortes",
+  "Cobertura vegetal",
+  "Telhados complexos",
+  "Imagens de diferentes resoluções"
+]
+minimum_initial_targets = [
+  "IoU médio >= 0.75 em dataset de validação",
+  "Recall de construções >= 0.85",
+  "Precision >= 0.85",
+  "Erro de calibração documentado",
+  "Resultados separados por região"
+]
+
+[implementation.phases]
+
+[implementation.phases.phase_01]
+name = "Fundação do domínio"
+deliverables = [
+  "Bounded context Building Intelligence",
+  "Entidades, value objects e enums",
+  "Migrações PostGIS",
+  "Repositórios e consultas",
+  "Testes de domínio"
+]
+
+[implementation.phases.phase_02]
+name = "Ingestão e catálogo"
+deliverables = [
+  "Registro de datasets",
+  "Proveniência e licença",
+  "Upload ou referência a object storage",
+  "Normalização espacial",
+  "Validação de raster e vetor"
+]
+
+[implementation.phases.phase_03]
+name = "Pipeline inicial"
+deliverables = [
+  "Pré-processamento de raster",
+  "Serviço ML com SegFormer-B2",
+  "Inferência por tiles",
+  "Vetorização",
+  "Persistência de candidatos"
+]
+
+[implementation.phases.phase_04]
+name = "Reconciliação com OSM e PLATEAU"
+deliverables = [
+  "Matching espacial",
+  "IoU e distância",
+  "Detecção de novos prédios",
+  "Detecção de geometria alterada",
+  "Fila de revisão"
+]
+
+[implementation.phases.phase_05]
+name = "Interface de validação"
+deliverables = [
+  "Mapa com camadas",
+  "Painel de revisão",
+  "Edição de geometria",
+  "Aprovação, rejeição e merge",
+  "Histórico e proveniência"
+]
+
+[implementation.phases.phase_06]
+name = "Classificação e atributos"
+deliverables = [
+  "Features geométricas",
+  "Integração CatBoost ou LightGBM",
+  "Tipo provável",
+  "Estimativa de andares e altura",
+  "Métricas e calibração"
+]
+
+[implementation.phases.phase_07]
+name = "Escala e produção"
+deliverables = [
+  "Workers distribuídos",
+  "Vector tiles",
+  "Observabilidade",
+  "Benchmarks",
+  "Shadow mode",
+  "Aprovação de modelo",
+  "Documentação operacional"
+]
+
+[acceptance_criteria]
+criteria = [
+  "Um usuário pode registrar uma ortofoto com proveniência e licença.",
+  "O sistema cria um job idempotente de detecção.",
+  "O pipeline produz candidatos vetoriais válidos.",
+  "Cada candidato registra modelo, versão, confiança e origem.",
+  "O sistema compara candidatos com footprints existentes.",
+  "O sistema identifica candidatos ausentes no OSM.",
+  "O sistema identifica geometrias possivelmente alteradas.",
+  "Resultados duvidosos entram na fila de revisão.",
+  "Um revisor pode aprovar, rejeitar, editar ou mesclar um candidato.",
+  "Footprints aprovados são publicados no City Digital Twin.",
+  "O mapa suporta consulta eficiente por bounding box ou vector tile.",
+  "Todas as mudanças são auditáveis.",
+  "Os testes automatizados cobrem regras críticas.",
+  "Docker Compose executa API, banco, serviço ML, workers e dependências.",
+  "A documentação explica instalação, arquitetura, fluxo e limitações."
+]
+
+[non_functional_requirements]
+performance = [
+  "Não carregar uma cidade inteira como GeoJSON.",
+  "Usar índices GiST ou SP-GiST adequados.",
+  "Usar processamento em lote.",
+  "Evitar serialização desnecessária entre serviços.",
+  "Permitir paralelismo por tile.",
+  "Controlar memória em rasters grandes."
+]
+reliability = [
+  "Jobs recuperáveis",
+  "Checkpoints",
+  "Idempotência",
+  "Retries controlados",
+  "Nenhuma perda silenciosa de dados"
+]
+maintainability = [
+  "Contratos explícitos",
+  "Código testável",
+  "Separação entre domínio, aplicação e infraestrutura",
+  "Configuração externa",
+  "Documentação arquitetural"
+]
+
+[deliverables]
+required = [
+  "Código fonte funcional",
+  "Migrações EF Core",
+  "Scripts SQL espaciais quando necessários",
+  "Serviço Python de ML",
+  "Dockerfiles",
+  "Docker Compose",
+  "OpenAPI",
+  "Testes automatizados",
+  "README",
+  "ADR da arquitetura",
+  "Exemplos de requisição",
+  "Dataset sintético mínimo para desenvolvimento",
+  "Plano de evolução do modelo"
+]
+
+[output_instructions]
+sequence = [
+  "Analisar a estrutura atual do repositório.",
+  "Mapear os componentes existentes que podem ser reutilizados.",
+  "Apresentar uma breve proposta de integração.",
+  "Implementar por fases sem reescrever partes não relacionadas.",
+  "Executar testes após cada fase.",
+  "Corrigir falhas antes de prosseguir.",
+  "Ao final, apresentar arquivos alterados, decisões, limitações e próximos passos."
+]
+final_report_must_include = [
+  "Resumo da implementação",
+  "Arquitetura resultante",
+  "Arquivos criados e modificados",
+  "Migrações aplicadas",
+  "Endpoints",
+  "Testes executados",
+  "Métricas",
+  "Limitações conhecidas",
+  "Riscos",
+  "Próximos passos"
+]
+
+[constraints]
+do_not = [
+  "Não alterar módulos de simulação sem necessidade.",
+  "Não acoplar o domínio ao framework de ML.",
+  "Não persistir somente máscaras raster quando polígonos forem necessários.",
+  "Não promover modelo sem avaliação.",
+  "Não usar dados sem licença conhecida.",
+  "Não tratar confiança como verdade absoluta.",
+  "Não sobrescrever registros confirmados sem revisão.",
+  "Não criar dependência direta do domínio com OpenStreetMap, PLATEAU ou qualquer fornecedor."
+]
+
+[definition_of_done]
+items = [
+  "Build sem erros",
+  "Testes automatizados aprovados",
+  "Migrações reproduzíveis",
+  "Pipeline demonstrável localmente",
+  "API documentada",
+  "Interface mínima de revisão funcional",
+  "Resultados auditáveis",
+  "Observabilidade básica ativa",
+  "Nenhuma regressão conhecida nos módulos existentes"
+]
