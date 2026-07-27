@@ -24,6 +24,7 @@ public partial class SosDbContext(DbContextOptions<SosDbContext> options) : DbCo
     public DbSet<LandUseArea> LandUseAreas => Set<LandUseArea>();
     public DbSet<SimulationRun> SimulationRuns => Set<SimulationRun>();
     public DbSet<BuildingSeismicResponse> BuildingSeismicResponses => Set<BuildingSeismicResponse>();
+    public DbSet<RiskZone> RiskZones => Set<RiskZone>();
     public DbSet<BuildingObservation> BuildingObservations => Set<BuildingObservation>();
     public DbSet<BuildingFootprintCandidate> BuildingFootprintCandidates => Set<BuildingFootprintCandidate>();
     public DbSet<BuildingFootprint> BuildingFootprints => Set<BuildingFootprint>();
@@ -171,6 +172,19 @@ public partial class SosDbContext(DbContextOptions<SosDbContext> options) : DbCo
             entity.HasIndex(l => new { l.CityRevisionId, l.ExternalId }).IsUnique();
             entity.HasIndex(l => l.Geometry).HasMethod("gist");
             entity.HasOne<CityRevision>().WithMany().HasForeignKey(l => l.CityRevisionId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<RiskZone>(entity =>
+        {
+            entity.ToTable("risk_zones");
+            entity.HasKey(z => z.Id);
+            entity.Property(z => z.Name).HasMaxLength(256);
+            entity.Property(z => z.HazardType).HasConversion<string>().HasMaxLength(32);
+            entity.Property(z => z.Level).HasConversion<string>().HasMaxLength(16);
+            entity.Property(z => z.Notes).HasMaxLength(2048);
+            entity.HasIndex(z => z.CityRevisionId);
+            entity.HasIndex(z => z.Geometry).HasMethod("gist");
+            entity.HasOne<CityRevision>().WithMany().HasForeignKey(z => z.CityRevisionId).OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<SimulationRun>(entity =>
