@@ -320,8 +320,13 @@ public sealed class ImportPipeline(
             datasetVersionId = datasetVersion.Id,
             buildings = normalized.Buildings.Count,
             roads = normalized.Roads.Count,
+            bridges = normalized.Roads.Count(road => road.IsBridge),
             water = normalized.Water.Count,
             landUse = normalized.LandUse.Count,
+            pavements = normalized.LandUse.Count(area => area.LandUseType == "pavement"),
+            buildingClasses = normalized.Buildings
+                .GroupBy(building => building.BuildingClass)
+                .ToDictionary(group => group.Key, group => group.Count()),
             issues = normalized.Issues.Count,
         });
         revision.MarkProcessing();
@@ -352,9 +357,41 @@ public sealed class ImportPipeline(
         foreach (var nb in normalized.Buildings)
         {
             var heightResult = BuildingHeightCalculator.Calculate(new HeightInput(
-                nb.ExplicitHeightMeters, nb.BuildingLevels, nb.RoofLevels, nb.BuildingType, null), profile);
+                nb.ExplicitHeightMeters,
+                nb.BuildingLevels,
+                nb.RoofLevels,
+                nb.BuildingType,
+                nb.Tags.GetValueOrDefault("sos:land_use"),
+                nb.BuildingClass), profile);
             var roofResult = BuildingRoofCalculator.Calculate(new RoofInput(
-                nb.RoofShape, nb.RoofLevels, nb.BuildingType, heightResult.HeightMeters), profile);
+                nb.RoofShape,
+                nb.RoofLevels,
+                nb.BuildingType,
+                heightResult.HeightMeters,
+                nb.BuildingClass,
+                nb.ExplicitRoofHeightMeters), profile);
+            var featureTags = new Dictionary<string, string>(nb.Tags, StringComparer.Ordinal)
+            {
+                ["sos:building_class"] = nb.BuildingClass,
+                ["sos:height_source"] = heightResult.Source.ToString().ToLowerInvariant(),
+                ["sos:height_basis"] = heightResult.Basis,
+                ["sos:height_m"] = heightResult.HeightMeters.ToString(
+                    "0.0", System.Globalization.CultureInfo.InvariantCulture),
+                ["sos:roof_shape"] = roofResult.RoofShape,
+                ["sos:roof_basis"] = roofResult.Basis,
+            };
+            if (heightResult.EffectiveLevels is { } effectiveLevels)
+            {
+                featureTags["sos:levels"] = effectiveLevels.ToString(
+                    System.Globalization.CultureInfo.InvariantCulture);
+                featureTags["sos:levels_source"] = nb.BuildingLevels is not null
+                    ? "openstreetmap"
+                    : heightResult.Basis == "building:class-profile"
+                        ? "building-class-profile"
+                        : heightResult.Basis == "height"
+                            ? "height-derived"
+                            : "height-profile";
+            }
 
             var footprint = nb.Footprint;
             footprint.SRID = 4326;
@@ -371,14 +408,14 @@ public sealed class ImportPipeline(
                 MinHeightMeters = nb.MinHeightMeters,
                 GroundElevationMeters = groundElevations?[buildingIndex++] ?? 0,
                 RoofHeightMeters = roofResult.RoofHeightMeters,
-                BuildingLevels = nb.BuildingLevels,
+                BuildingLevels = heightResult.EffectiveLevels,
                 RoofLevels = nb.RoofLevels,
                 BuildingType = nb.BuildingType,
-                RoofShape = nb.RoofShape,
+                RoofShape = roofResult.RoofShape,
                 HeightSource = heightResult.Source,
                 Confidence = heightResult.Confidence,
                 SourceDatasetVersionId = datasetVersion.Id,
-                Tags = SerializeTags(nb.Tags),
+                Tags = SerializeTags(featureTags),
             });
         }
 

@@ -1,6 +1,6 @@
 # Fontes de dados para maior precisão de edifícios
 
-Análise feita em 2026-07-27 em resposta ao pedido de renderização de edifícios
+Análise feita em 2026-07-27 e atualizada em 2026-07-30 em resposta ao pedido de renderização de edifícios
 mais realista (tamanhos e forma). Cobre o que a plataforma usa hoje e as
 opções externas avaliadas para melhorar altura e forma de telhado no futuro.
 
@@ -19,9 +19,9 @@ plataforma sempre precisou de uma cascata de inferência
 tipo de construção (`BuildingRoofCalculator`) — nenhum dos dois inventa
 tamanho, mas a precisão fica limitada ao que o OSM realmente documentou.
 
-`roof:height`, `roof:direction`, `roof:material` e `building:material`
-chegam da Overpass mas hoje só ficam guardados sem uso na coluna `Tags`
-(jsonb) do `Building` — não são parseados para colunas próprias.
+`roof:height` agora participa da reconstrução; `roof:direction`,
+`roof:material` e `building:material` continuam preservados na coluna `Tags`
+(jsonb) para uma futura malha/material mais detalhados.
 
 ## Overture Maps Foundation — tema `buildings`
 
@@ -48,13 +48,14 @@ antes de cair no valor padrão do perfil). Não implementado nesta entrega.
 - Projeto do governo japonês (Ministry of Land, Infrastructure, Transport and
   Tourism); modelos 3D de cidade em CityGML, dados abertos, uso comercial
   permitido.
-- ~250 cidades têm cobertura **LOD1** (edifício como bloco único, altura real
-  medida — mais precisa que a inferência do OSM, mas sem forma de telhado,
-  mesma fidelidade visual da aproximação implementada nesta entrega).
-- Forma real de telhado (**LOD2**, com cumeeira e águas modeladas) existe para
-  apenas ~480 mil edifícios (marcos/prédios altos) em 97 cidades — **não**
-  resolve "telhado real" para a maioria das construções, nem mesmo dentro do
-  Japão.
+- O catálogo oficial consultado em 2026-07-30 lista 307 pacotes CityGML
+  municipais; a cobertura e os atributos variam por edição e município.
+  LOD1 representa o edifício como bloco único, com altura medida quando
+  publicada — mais precisa que a inferência do OSM, mas sem forma de telhado,
+  com a mesma fidelidade visual da aproximação implementada nesta entrega.
+- Forma real de telhado (**LOD2**, com cumeeira e águas modeladas) existe
+  somente em parte dos datasets/edifícios e não resolve o telhado real para
+  toda construção, nem mesmo dentro das cidades cobertas.
 - Formato CityGML exige transformação de coordenadas (JGD2011 → WGS84) e, para
   aproveitar a geometria LOD2 de verdade, extração de malha 3D por vértice —
   algo que o pipeline de tiles MVT atual não consegue carregar (ver seção
@@ -80,13 +81,15 @@ segundo volume mais estreito sobre o principal) em vez de forma real — ver
 
 ## Recomendação
 
-1. **Feito nesta entrega**: aproximação de telhado via dado OSM já coletado
-   (`roof:shape`/`roof:levels`), sem depender de fonte externa nova.
-2. **Próximo passo natural**: Overture Maps como fonte adicional de altura
+1. **Feito**: classificação fina, perfil urbano japonês, `roof:height`,
+   `roof:shape`/`roof:levels`, pavimentos, pontes e pavimentos com tags
+   rastreáveis; outlines parciais não são mais apagados por `building:part`.
+2. **Próximo passo natural**: PLATEAU LOD1 sob demanda para cidades cobertas,
+   usando o catálogo oficial e a prioridade já prevista no domínio.
+3. **Alternativa global**: Overture Maps como fonte adicional de altura
    (não de forma), preenchendo lacunas onde o OSM não tem `height` — reusa a
    fusão por prioridade já existente, esforço moderado.
-3. **Iniciativa maior, separada**: PLATEAU LOD1 para altura de alta precisão
-   em cidades japonesas cobertas; LOD2 (forma real de telhado) só viável para
+4. **Iniciativa maior, separada**: PLATEAU LOD2 (forma real de telhado) só viável para
    um subconjunto curado de edifícios-marco, e exigiria repensar o pipeline de
    renderização para malha 3D — escopo de projeto próprio, não uma tarefa
    incremental.

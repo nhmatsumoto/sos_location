@@ -12,6 +12,7 @@ public sealed class ReconstructionProfileRegistry
         _profiles = new Dictionary<string, ReconstructionProfile>(StringComparer.OrdinalIgnoreCase)
         {
             [ReconstructionProfile.OsmBasicV1.Name] = ReconstructionProfile.OsmBasicV1,
+            [ReconstructionProfile.OsmJapanUrbanV2.Name] = ReconstructionProfile.OsmJapanUrbanV2,
         };
         foreach (var profile in extraProfiles ?? [])
             _profiles[profile.Name] = profile;

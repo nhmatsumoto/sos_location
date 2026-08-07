@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../api/client';
 import { useAppStore } from '../../stores/appStore';
 import type { SeismicReplayFrame, SimulationRun } from '../../schemas/api';
+import { activateSeismicSimulation } from '../scientific-analysis/seismicMap';
 
 const ACTIVE_STATUSES = new Set(['queued', 'running', 'retrying']);
 
@@ -17,27 +18,6 @@ const DAMAGE_LEVELS: Array<{
   { key: 'extensive', label: 'Extensive', color: '#ef4444' },
   { key: 'complete', label: 'Complete', color: '#7f1d1d' },
 ];
-
-function activateSimulation(run: SimulationRun, replayFrameIndex: number | null) {
-  if (run.intensityWest == null || run.intensitySouth == null
-    || run.intensityEast == null || run.intensityNorth == null) return;
-
-  // Dano dos MVTs e campo de onda mudam juntos. Durante o replay, apenas a
-  // imagem é trocada pelo GeoScene; os tiles de edifícios permanecem em cache.
-  useAppStore.setState((state) => ({
-    watchedSimulationId: run.id,
-    activeSimulation: {
-      id: run.id,
-      revisionId: run.cityRevisionId,
-      west: run.intensityWest!,
-      south: run.intensitySouth!,
-      east: run.intensityEast!,
-      north: run.intensityNorth!,
-      replayFrameIndex,
-    },
-    layers: { ...state.layers, seismicIntensity: true },
-  }));
-}
 
 function ImpactAtFrame({ frame, total }: { frame: SeismicReplayFrame; total: number }) {
   const affected = total - frame.none;
@@ -70,6 +50,49 @@ function ImpactAtFrame({ frame, total }: { frame: SeismicReplayFrame; total: num
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+/** Resultado final agregado a partir das respostas por edifício. O gráfico é
+ * deliberadamente local: nenhum número de dano é inventado fora do solver. */
+function SimulationResults({ runId }: { runId: string }) {
+  const { data: responses, isLoading } = useQuery({
+    queryKey: ['simulation-building-responses', runId],
+    queryFn: () => api.listSimulationBuildingResponses(runId),
+    staleTime: Number.POSITIVE_INFINITY,
+  });
+  if (isLoading) return <p className="text-xs text-slate-400">Loading building results…</p>;
+  if (!responses) return null;
+  const counts = DAMAGE_LEVELS.map(({ key }) => responses.filter((response) => response.damageState === key).length);
+  const maximum = Math.max(1, ...counts);
+  const affected = responses.length - counts[0];
+  const maxPga = responses.reduce((max, response) => Math.max(max, response.peakGroundAccelerationG), 0);
+  const maxDrift = responses.reduce((max, response) => Math.max(max, response.peakDriftRatio), 0);
+  return (
+    <div className="space-y-2 rounded border border-slate-700 bg-slate-950/50 p-2" data-testid="simulation-results">
+      <div className="flex items-center justify-between text-xs">
+        <span className="font-medium text-slate-200">Affected-area results</span>
+        <span className="text-amber-300">{affected}/{responses.length} affected</span>
+      </div>
+      <div className="space-y-1">
+        {DAMAGE_LEVELS.map(({ key, label, color }, index) => (
+          <div key={key} className="grid grid-cols-[4.5rem_1fr_2rem] items-center gap-1 text-[10px]">
+            <span className="text-slate-400">{label}</span>
+            <div className="h-2 overflow-hidden rounded bg-slate-800">
+              <div className="h-full rounded" style={{ width: `${counts[index] / maximum * 100}%`, backgroundColor: color }} />
+            </div>
+            <span className="text-right text-slate-200">{counts[index]}</span>
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-2 gap-1 text-[10px] text-slate-400">
+        <span>Max PGA <b className="text-cyan-200">{maxPga.toFixed(3)} g</b></span>
+        <span>Max drift <b className="text-rose-200">{(maxDrift * 100).toFixed(2)}%</b></span>
+      </div>
+      <p className="text-[10px] leading-relaxed text-slate-500">
+        Building colors on the map correspond to these calculated damage states; the red assessment perimeter is not an observed damage boundary.
+      </p>
     </div>
   );
 }
@@ -116,7 +139,7 @@ export function SimulationPanel() {
   useEffect(() => {
     if (!replay || !replayRun) return;
     setFrameIndex(0);
-    activateSimulation(replayRun, replay.frames[0].index);
+    activateSeismicSimulation(replayRun, replay.frames[0].index);
   }, [replay, replayRun]);
 
   const startSimulation = useMutation({
@@ -144,7 +167,7 @@ export function SimulationPanel() {
     if (!replay || !replayRun) return;
     const clamped = Math.max(0, Math.min(nextIndex, replay.frames.length - 1));
     setFrameIndex(clamped);
-    activateSimulation(replayRun, replay.frames[clamped].index);
+    activateSeismicSimulation(replayRun, replay.frames[clamped].index);
   }, [replay, replayRun]);
 
   // Usa o intervalo físico entre snapshots; 1× corresponde ao tempo simulado.
@@ -168,7 +191,7 @@ export function SimulationPanel() {
     setIsPlaying(false);
     // Enquanto o manifesto é buscado, mantém o raster final válido. O primeiro
     // quadro só é ativado após a validação do payload pela schema Zod.
-    activateSimulation(run, null);
+    activateSeismicSimulation(run, null);
   };
 
   return (
@@ -228,7 +251,7 @@ export function SimulationPanel() {
             </div>
             <button type="button" onClick={() => {
               setIsPlaying(false);
-              activateSimulation(replayRun, null);
+              activateSeismicSimulation(replayRun, null);
             }} className="text-[10px] text-sky-400 underline">
               peak PGA
             </button>
@@ -286,6 +309,17 @@ export function SimulationPanel() {
               </div>
 
               <ImpactAtFrame frame={currentFrame} total={replay.buildingCount} />
+              <SimulationResults runId={replayRun.id} />
+
+              <details className="rounded border border-slate-800 bg-slate-950/40 p-2 text-[10px] text-slate-400">
+                <summary className="cursor-pointer font-medium text-slate-300">Model inputs and provenance</summary>
+                <ul className="mt-1 list-disc space-y-0.5 pl-4">
+                  <li>Source: Mw {replay.momentMagnitude.toFixed(1)}, {replay.depthKm.toFixed(1)} km depth, epicenter from this run.</li>
+                  <li>Ground motion: 2D elastic-wave FDTD grid at {replay.gridSpacingMeters.toFixed(0)} m spacing.</li>
+                  <li>Buildings: imported footprints, levels/heights and SDOF structural response.</li>
+                  <li>Damage: peak drift thresholds; use for scenario comparison, not a certified safety assessment.</li>
+                </ul>
+              </details>
 
               <div>
                 <div className="h-2 rounded bg-gradient-to-r from-slate-950 via-cyan-500 via-40% to-red-500" />

@@ -38,6 +38,21 @@ body,
   background: rgb(30 41 59);
 }
 
+.field-control {
+  width: 100%;
+  border: 1px solid rgb(51 65 85);
+  border-radius: 0.25rem;
+  background: rgb(2 6 23);
+  padding: 0.35rem 0.5rem;
+  font-size: 0.75rem;
+  color: rgb(226 232 240);
+  outline: none;
+}
+.field-control:focus {
+  border-color: rgb(14 165 233);
+  box-shadow: 0 0 0 1px rgb(14 165 233 / 0.4);
+}
+
 .status-badge {
   border-radius: 9999px;
   padding: 0 0.5rem;

@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using SosLocation.Application.Abstractions;
 using SosLocation.Application.Dto;
 using SosLocation.Application.Options;
+using SosLocation.Application.Simulation;
 using SosLocation.Domain.Disasters;
 using SosLocation.Domain.ValueObjects;
 
@@ -29,7 +30,7 @@ public sealed class SeismicSimulationPipeline(
     IUnitOfWork unitOfWork,
     IServiceScopeFactory scopeFactory,
     SeismicOptions options,
-    ILogger<SeismicSimulationPipeline> logger)
+    ILogger<SeismicSimulationPipeline> logger) : IDisasterSimulationEngine
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
@@ -38,6 +39,9 @@ public sealed class SeismicSimulationPipeline(
     private const double GravityMps2 = 9.80665;
     private const int MaxRasterDimension = 512;
     private static readonly TimeSpan CancellationPollInterval = TimeSpan.FromSeconds(3);
+
+    public DisasterType DisasterType => SosLocation.Domain.Disasters.DisasterType.Earthquake;
+    public string ModelId => "fdtd-sh-2d/newmark-beta-1";
 
     /// <summary>
     /// Envolve a execução com detecção de cancelamento externo: a API roda em
@@ -327,6 +331,9 @@ public sealed class SeismicSimulationPipeline(
             dt,
             steps,
             buildings.Count,
+            peakPgaG,
+            rasterSampleIndexes,
+            vsField,
             replayFrames,
             ct);
 
@@ -442,6 +449,9 @@ public sealed class SeismicSimulationPipeline(
         double dt,
         int steps,
         int buildingCount,
+        IReadOnlyList<double> peakPgaG,
+        IReadOnlyList<int> rasterSampleIndexes,
+        IReadOnlyList<double> shearVelocityFieldMps,
         IReadOnlyList<ReplayFrameArtifact> frames,
         CancellationToken ct)
     {
@@ -455,8 +465,18 @@ public sealed class SeismicSimulationPipeline(
                 ct);
         }
 
+        var directions = BuildDirectionSectors(
+            grid,
+            parameters,
+            rasterSampleIndexes,
+            peakPgaG);
+        var attenuation = BuildAttenuationProfile(
+            grid,
+            parameters,
+            rasterSampleIndexes,
+            peakPgaG);
         var manifest = new SeismicReplayManifestDto(
-            "fdtd-sh-2d/newmark-beta-1",
+            ModelId,
             grid.Cols,
             grid.Rows,
             rasterCols,
@@ -474,6 +494,15 @@ public sealed class SeismicSimulationPipeline(
             run.IntensitySouth ?? grid.OriginLat,
             run.IntensityEast ?? grid.CellToLonLat(grid.Cols - 1, grid.Rows - 1).Lon,
             run.IntensityNorth ?? grid.CellToLonLat(grid.Cols - 1, grid.Rows - 1).Lat,
+            BruneSourceModel.SeismicMomentNewtonMeters(parameters.MomentMagnitude),
+            BruneSourceModel.EstimatedRadiatedEnergyJoules(parameters.MomentMagnitude),
+            BruneSourceModel.CornerFrequencyHz(parameters.MomentMagnitude),
+            shearVelocityFieldMps.Count > 0 ? shearVelocityFieldMps.Min() : 0.0,
+            shearVelocityFieldMps.Count > 0 ? shearVelocityFieldMps.Average() : 0.0,
+            shearVelocityFieldMps.Count > 0 ? shearVelocityFieldMps.Max() : 0.0,
+            peakPgaG.Count > 0 ? peakPgaG.Max() : 0.0,
+            directions,
+            attenuation,
             frames.Select(frame => frame.Metadata).ToList());
         await objectStorage.PutAsync(
             $"simulations/{run.Id}/replay.json",
@@ -482,10 +511,116 @@ public sealed class SeismicSimulationPipeline(
             ct);
     }
 
+    private static IReadOnlyList<SeismicDirectionSectorDto> BuildDirectionSectors(
+        SeismicGrid grid,
+        EarthquakeParameters parameters,
+        IReadOnlyList<int> rasterSampleIndexes,
+        IReadOnlyList<double> peakPgaG)
+    {
+        var directionNames = new[] { "N", "NE", "E", "SE", "S", "SW", "W", "NW" };
+        var sums = new double[directionNames.Length];
+        var peaks = new double[directionNames.Length];
+        var counts = new int[directionNames.Length];
+
+        for (var i = 0; i < rasterSampleIndexes.Count && i < peakPgaG.Count; i++)
+        {
+            var cell = rasterSampleIndexes[i];
+            var col = cell % grid.Cols;
+            var row = cell / grid.Cols;
+            var (lon, lat) = grid.CellToLonLat(col, row);
+            var bearing = InitialBearingDegrees(
+                parameters.EpicenterLon,
+                parameters.EpicenterLat,
+                lon,
+                lat);
+            var sector = (int)Math.Floor((bearing + 22.5) % 360.0 / 45.0);
+            sums[sector] += peakPgaG[i];
+            peaks[sector] = Math.Max(peaks[sector], peakPgaG[i]);
+            counts[sector]++;
+        }
+
+        return directionNames.Select((name, index) => new SeismicDirectionSectorDto(
+            name,
+            index * 45.0,
+            counts[index] > 0 ? sums[index] / counts[index] : 0.0,
+            peaks[index],
+            counts[index])).ToList();
+    }
+
+    private static IReadOnlyList<SeismicAttenuationBandDto> BuildAttenuationProfile(
+        SeismicGrid grid,
+        EarthquakeParameters parameters,
+        IReadOnlyList<int> rasterSampleIndexes,
+        IReadOnlyList<double> peakPgaG)
+    {
+        // O domínio urbano é limitado a 40 km; a borda final finita mantém o
+        // manifesto JSON estrito e ainda absorve qualquer configuração futura.
+        var edgesKm = new[] { 0.0, 1.0, 2.0, 5.0, 10.0, 20.0, 50.0, 10_000.0 };
+        var sums = new double[edgesKm.Length - 1];
+        var peaks = new double[edgesKm.Length - 1];
+        var counts = new int[edgesKm.Length - 1];
+
+        for (var i = 0; i < rasterSampleIndexes.Count && i < peakPgaG.Count; i++)
+        {
+            var cell = rasterSampleIndexes[i];
+            var col = cell % grid.Cols;
+            var row = cell / grid.Cols;
+            var distanceKm = grid.DistanceMeters(
+                col,
+                row,
+                parameters.EpicenterLon,
+                parameters.EpicenterLat) / 1000.0;
+            var band = Array.FindIndex(
+                edgesKm,
+                1,
+                edge => distanceKm < edge) - 1;
+            band = Math.Clamp(band, 0, counts.Length - 1);
+            sums[band] += peakPgaG[i];
+            peaks[band] = Math.Max(peaks[band], peakPgaG[i]);
+            counts[band]++;
+        }
+
+        var depthMeters = parameters.DepthKm * 1000.0;
+        var result = new List<SeismicAttenuationBandDto>();
+        for (var index = 0; index < counts.Length; index++)
+        {
+            if (counts[index] == 0) continue;
+            var maximum = edgesKm[index + 1];
+            var representativeKm = (edgesKm[index] + maximum) / 2.0;
+            var hypocentral = BruneSourceModel.HypocentralDistanceMeters(
+                representativeKm * 1000.0,
+                depthMeters);
+            result.Add(new SeismicAttenuationBandDto(
+                edgesKm[index],
+                maximum,
+                sums[index] / counts[index],
+                peaks[index],
+                BruneSourceModel.GeometricSpreadingCorrection(hypocentral),
+                counts[index]));
+        }
+        return result;
+    }
+
+    private static double InitialBearingDegrees(
+        double fromLon,
+        double fromLat,
+        double toLon,
+        double toLat)
+    {
+        var fromLatRad = fromLat * Math.PI / 180.0;
+        var toLatRad = toLat * Math.PI / 180.0;
+        var deltaLon = (toLon - fromLon) * Math.PI / 180.0;
+        var y = Math.Sin(deltaLon) * Math.Cos(toLatRad);
+        var x = Math.Cos(fromLatRad) * Math.Sin(toLatRad)
+                - Math.Sin(fromLatRad) * Math.Cos(toLatRad) * Math.Cos(deltaLon);
+        return (Math.Atan2(y, x) * 180.0 / Math.PI + 360.0) % 360.0;
+    }
+
     private async Task WriteIntensityRasterAsync(
         Guid runId, int cols, int rows, double[] peakPgaG, CancellationToken ct)
     {
-        var rgb = new byte[cols * rows * 3];
+        var heatmapRgb = new byte[cols * rows * 3];
+        var encodedRgb = new byte[cols * rows * 3];
         for (var row = 0; row < rows; row++)
         {
             var imageRow = rows - 1 - row;
@@ -493,15 +628,35 @@ public sealed class SeismicSimulationPipeline(
             {
                 var sourceIndex = row * cols + col;
                 var targetIndex = (imageRow * cols + col) * 3;
-                var (red, green) = IntensityRasterEncoding.EncodePgaG(peakPgaG[sourceIndex]);
-                rgb[targetIndex] = red;
-                rgb[targetIndex + 1] = green;
-                rgb[targetIndex + 2] = 0;
+                var (encodedRed, encodedGreen) =
+                    IntensityRasterEncoding.EncodePgaG(peakPgaG[sourceIndex]);
+                encodedRgb[targetIndex] = encodedRed;
+                encodedRgb[targetIndex + 1] = encodedGreen;
+                encodedRgb[targetIndex + 2] = 0;
+
+                var (red, green, blue) =
+                    WaveRasterColorizer.ColorizeAccelerationG(peakPgaG[sourceIndex]);
+                heatmapRgb[targetIndex] = red;
+                heatmapRgb[targetIndex + 1] = green;
+                heatmapRgb[targetIndex + 2] = blue;
             }
         }
 
-        var png = rasterEncoder.EncodeRgbPng(cols, rows, rgb);
-        await objectStorage.PutAsync($"simulations/{runId}/intensity.png", png, "image/png", ct);
+        var heatmapPng = rasterEncoder.EncodeRgbPng(cols, rows, heatmapRgb);
+        await objectStorage.PutAsync(
+            $"simulations/{runId}/intensity.png",
+            heatmapPng,
+            "image/png",
+            ct);
+
+        // Produto científico sem paleta: R/G preservam PGA com resolução de
+        // 0,001 g para download, auditoria e futuros processamentos.
+        var encodedPng = rasterEncoder.EncodeRgbPng(cols, rows, encodedRgb);
+        await objectStorage.PutAsync(
+            $"simulations/{runId}/intensity-data.png",
+            encodedPng,
+            "image/png",
+            ct);
     }
 
     private BoundingBox ComputeDomain(

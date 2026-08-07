@@ -86,6 +86,40 @@ public class OsmTagNormalizerTests
     }
 
     [Theory]
+    [InlineData("house", "house")]
+    [InlineData("apartments", "apartment")]
+    [InlineData("garage", "garage")]
+    [InlineData("temple", "religious")]
+    [InlineData("warehouse", "warehouse")]
+    public void ClassifyBuilding_PreservesFineConstructionClass(string osmValue, string expected)
+    {
+        var classification = OsmTagNormalizer.ClassifyBuilding(
+            new Dictionary<string, string> { ["building"] = osmValue },
+            120);
+
+        Assert.Equal(expected, classification.BuildingClass);
+        Assert.True(classification.Confidence >= 0.9);
+    }
+
+    [Theory]
+    [InlineData(120, null, "house")]
+    [InlineData(600, null, "apartment")]
+    [InlineData(120, "6", "apartment")]
+    public void ClassifyBuilding_UsesMorphologyForAmbiguousResidential(
+        double areaSquareMeters,
+        string? levels,
+        string expected)
+    {
+        var tags = new Dictionary<string, string> { ["building"] = "residential" };
+        if (levels is not null) tags["building:levels"] = levels;
+
+        var classification = OsmTagNormalizer.ClassifyBuilding(tags, areaSquareMeters);
+
+        Assert.Equal(expected, classification.BuildingClass);
+        Assert.True(classification.Confidence < 0.9);
+    }
+
+    [Theory]
     [InlineData("motorway", "highway")]
     [InlineData("primary", "primary")]
     [InlineData("residential", "residential")]
@@ -100,5 +134,47 @@ public class OsmTagNormalizerTests
     {
         var tags = new Dictionary<string, string> { ["railway"] = "rail" };
         Assert.Equal("rail", OsmTagNormalizer.NormalizeRoadClass(null, tags));
+    }
+
+    [Theory]
+    [InlineData("asphalt", "paved")]
+    [InlineData("paving_stones", "paved")]
+    [InlineData("gravel", "unpaved")]
+    [InlineData("ground", "unpaved")]
+    public void NormalizeSurfaceClass_GroupsRoadMaterials(string surface, string expected)
+    {
+        var tags = new Dictionary<string, string> { ["surface"] = surface };
+        Assert.Equal(expected, OsmTagNormalizer.NormalizeSurfaceClass(tags));
+    }
+
+    [Fact]
+    public void EstimateRoadWidth_UsesLanesBeforeClassFallback()
+    {
+        var tags = new Dictionary<string, string> { ["lanes"] = "2" };
+        Assert.Equal(6.2, OsmTagNormalizer.EstimateRoadWidthMeters("residential", tags));
+    }
+
+    [Theory]
+    [InlineData("hospital", "civic")]
+    [InlineData("parking", "transport")]
+    [InlineData("marketplace", "commercial")]
+    public void NormalizeLandUseType_MapsUrbanAmenities(string amenity, string expected)
+    {
+        var tags = new Dictionary<string, string> { ["amenity"] = amenity };
+        Assert.Equal(expected, OsmTagNormalizer.NormalizeLandUseType(tags));
+    }
+
+    [Fact]
+    public void NormalizeLandUseType_MapsNaturalUrbanGreen()
+    {
+        var tags = new Dictionary<string, string> { ["natural"] = "wetland" };
+        Assert.Equal("green", OsmTagNormalizer.NormalizeLandUseType(tags));
+    }
+
+    [Fact]
+    public void NormalizeLandUseType_MapsAreaHighwayToPavement()
+    {
+        var tags = new Dictionary<string, string> { ["area:highway"] = "footway" };
+        Assert.Equal("pavement", OsmTagNormalizer.NormalizeLandUseType(tags));
     }
 }

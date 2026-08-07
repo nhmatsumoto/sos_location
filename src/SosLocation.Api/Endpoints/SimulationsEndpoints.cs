@@ -105,6 +105,21 @@ public static class SimulationsEndpoints
             return Results.Bytes(bytes, "image/png");
         }).WithName("GetSimulationIntensity");
 
+        group.MapGet("/simulations/{runId:guid}/intensity-data.png", async (
+            Guid runId, ISimulationRunStore runs, IObjectStorage storage, HttpContext http, CancellationToken ct) =>
+        {
+            var run = await runs.FindByIdAsync(runId, ct);
+            if (run is null || run.Status != SimulationRunStatus.Completed) return Results.NotFound();
+
+            var bytes = await storage.GetAsync($"simulations/{runId}/intensity-data.png", ct);
+            if (bytes is null) return Results.NotFound();
+
+            http.Response.Headers[HeaderNames.CacheControl] = "public, max-age=2592000, immutable";
+            http.Response.Headers[HeaderNames.ContentDisposition] =
+                $"attachment; filename=\"seismic-pga-{runId}.png\"";
+            return Results.Bytes(bytes, "image/png");
+        }).WithName("GetSimulationIntensityData");
+
         group.MapGet("/simulations/{runId:guid}/replay", async (
             Guid runId, ISimulationRunStore runs, IObjectStorage storage, HttpContext http, CancellationToken ct) =>
         {

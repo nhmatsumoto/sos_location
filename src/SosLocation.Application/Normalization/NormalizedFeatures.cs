@@ -10,7 +10,9 @@ public sealed record NormalizedBuilding(
     int? BuildingLevels,
     int? RoofLevels,
     string BuildingType,
+    string BuildingClass,
     string? RoofShape,
+    double? ExplicitRoofHeightMeters,
     double MinHeightMeters,
     IReadOnlyDictionary<string, string> Tags);
 

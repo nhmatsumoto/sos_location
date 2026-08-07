@@ -68,8 +68,11 @@ public sealed class MvtTileReader(SosDbContext context) : ITileReader
                           bounds.env, 4096, 256, true
                       ) AS geom,
                       b.id::text AS id,
+                      b.building_type,
+                      COALESCE(b.tags ->> 'sos:building_class', 'unknown') AS building_class,
                       round(b.height_m::numeric, 1)::double precision AS height_m,
-                      round(b.roof_height_m::numeric, 1)::double precision AS roof_height_m
+                      round(b.roof_height_m::numeric, 1)::double precision AS roof_height_m,
+                      b.roof_shape
                   FROM buildings b
                   CROSS JOIN bounds
                   WHERE b.city_revision_id = @rev
@@ -96,8 +99,9 @@ public sealed class MvtTileReader(SosDbContext context) : ITileReader
                     -- Buffer 256 (vs 64): evita paredes cortadas em edifícios que cruzam bordas de tile.
                     ST_AsMVTGeom({ProjectAndSimplify("b.footprint", z)}, bounds.env, 4096, 256, true) AS geom,
                     b.id::text AS id,
-                    b.building_type
-                    {(z >= 14 ? ", round(b.height_m::numeric, 1)::double precision AS height_m, round(b.min_height_m::numeric, 1)::double precision AS min_height_m, round(b.ground_elevation_m::numeric, 1)::double precision AS ground_elevation_m, b.height_source, round(b.confidence::numeric, 2)::double precision AS confidence, b.building_levels, b.roof_shape, b.roof_levels" : "")}
+                    b.building_type,
+                    COALESCE(b.tags ->> 'sos:building_class', 'unknown') AS building_class
+                    {(z >= 14 ? ", round(b.height_m::numeric, 1)::double precision AS height_m, round(b.min_height_m::numeric, 1)::double precision AS min_height_m, round(b.ground_elevation_m::numeric, 1)::double precision AS ground_elevation_m, b.height_source, round(b.confidence::numeric, 2)::double precision AS confidence, b.building_levels, b.roof_shape, b.roof_levels, COALESCE(b.tags ->> 'sos:height_basis', 'unknown') AS height_basis, COALESCE(b.tags ->> 'sos:classification_basis', 'unknown') AS classification_basis" : "")}
                     {simulationColumn}
                 FROM buildings b
                 {simulationJoin}
@@ -116,10 +120,15 @@ public sealed class MvtTileReader(SosDbContext context) : ITileReader
             WITH bounds AS (SELECT ST_TileEnvelope(@z, @x, @y) AS env),
             mvtgeom AS (
                 SELECT
-                    ST_AsMVTGeom({ProjectAndSimplify("r.geometry", z)}, bounds.env, 4096, 64, true) AS geom,
+                    -- Vias chegam a dezenas de pixels em zoom alto. Buffer de
+                    -- 256 unidades (16 px) evita interrupções nas bordas do tile.
+                    ST_AsMVTGeom({ProjectAndSimplify("r.geometry", z)}, bounds.env, 4096, 256, true) AS geom,
                     r.id::text AS id,
-                    r.road_class
-                    {(z >= 13 ? ", r.name, r.lanes, r.is_bridge, r.is_tunnel" : "")}
+                    r.road_class,
+                    r.is_bridge,
+                    r.is_tunnel,
+                    COALESCE(r.tags ->> 'sos:surface_class', 'unknown') AS surface_class
+                    {(z >= 13 ? ", r.name, r.lanes, round(r.width_m::numeric, 1)::double precision AS width_m" : "")}
                 FROM roads r, bounds
                 WHERE r.city_revision_id = @rev
                   AND r.geometry && ST_Transform(bounds.env, 4326)
@@ -133,7 +142,7 @@ public sealed class MvtTileReader(SosDbContext context) : ITileReader
             WITH bounds AS (SELECT ST_TileEnvelope(@z, @x, @y) AS env),
             mvtgeom AS (
                 SELECT
-                    ST_AsMVTGeom({ProjectAndSimplify("w.geometry", z)}, bounds.env, 4096, 64, true) AS geom,
+                    ST_AsMVTGeom({ProjectAndSimplify("w.geometry", z)}, bounds.env, 4096, 128, true) AS geom,
                     w.id::text AS id,
                     w.water_type
                     {(z >= 12 ? ", w.name" : "")}
@@ -149,9 +158,10 @@ public sealed class MvtTileReader(SosDbContext context) : ITileReader
             WITH bounds AS (SELECT ST_TileEnvelope(@z, @x, @y) AS env),
             mvtgeom AS (
                 SELECT
-                    ST_AsMVTGeom({ProjectAndSimplify("l.geometry", z)}, bounds.env, 4096, 64, true) AS geom,
+                    ST_AsMVTGeom({ProjectAndSimplify("l.geometry", z)}, bounds.env, 4096, 128, true) AS geom,
                     l.id::text AS id,
-                    l.land_use_type
+                    l.land_use_type,
+                    COALESCE(l.tags ->> 'sos:surface_class', 'unknown') AS surface_class
                 FROM land_use_areas l, bounds
                 WHERE l.city_revision_id = @rev
                   AND l.geometry && ST_Transform(bounds.env, 4326)

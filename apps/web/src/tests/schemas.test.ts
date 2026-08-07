@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildingDetailSchema,
+  currentWeatherSchema,
   formatConfidence,
   importJobSchema,
   placeSchema,
   QUALITY_LABELS,
+  riskZoneExposureSchema,
+  riskZoneSchema,
   seismicReplayManifestSchema,
 } from '../schemas/api';
 
@@ -131,5 +134,44 @@ describe('API schemas', () => {
       }],
     });
     expect(replay.frames[0].slight).toBe(1);
+  });
+
+  it('parses a valid risk zone payload', () => {
+    const zone = riskZoneSchema.parse({
+      id: 'z1',
+      cityRevisionId: 'r1',
+      name: 'Riverside flood risk',
+      hazardType: 'flood',
+      level: 'high',
+      notes: null,
+      geometry: {
+        type: 'Polygon',
+        coordinates: [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]],
+      },
+      createdAt: new Date().toISOString(),
+    });
+    expect(zone.level).toBe('high');
+  });
+
+  it('parses a risk zone exposure payload', () => {
+    const exposure = riskZoneExposureSchema.parse({
+      zoneId: 'z1',
+      buildingCount: 3,
+      averageHeightMeters: 8.5,
+      byType: [{ buildingType: 'residential', count: 3 }],
+    });
+    expect(exposure.buildingCount).toBe(3);
+  });
+
+  it('parses a current weather payload', () => {
+    const weather = currentWeatherSchema.parse({
+      latitude: 35.29,
+      longitude: 136.91,
+      temperatureCelsius: 22.5,
+      precipitationMm: 0,
+      windSpeedKmh: 10.2,
+      observedAt: new Date().toISOString(),
+    });
+    expect(weather.temperatureCelsius).toBe(22.5);
   });
 });

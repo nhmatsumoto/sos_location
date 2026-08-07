@@ -3,9 +3,11 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using SosLocation.Application.Abstractions;
 using SosLocation.Application.Import;
+using SosLocation.Application.Disasters;
 using SosLocation.Application.Normalization;
 using SosLocation.Application.Options;
 using SosLocation.Application.Profiles;
+using SosLocation.Application.Simulation;
 using SosLocation.GeoProcessing.Normalizers;
 using SosLocation.GeoProcessing.Seismic;
 using SosLocation.Infrastructure.External;
@@ -59,6 +61,9 @@ public static class DependencyInjection
         services.AddScoped<IBuildingReconciliationStore, BuildingReconciliationStore>();
         services.AddScoped<IBuildingValidationStore, BuildingValidationStore>();
         services.AddScoped<IModelBundleStore, ModelBundleStore>();
+        services.AddScoped<IRiskZoneStore, RiskZoneStore>();
+        services.AddScoped<IDisasterScenarioStore, DisasterScenarioStore>();
+        services.AddScoped<DisasterCollectionService>();
 
         // Adapters externos.
         services.AddHttpClient<IGeocoder, NominatimGeocoder>(client =>
@@ -88,6 +93,28 @@ public static class DependencyInjection
             client.DefaultRequestHeaders.UserAgent.ParseAdd(UserAgent);
         });
 
+        services.AddHttpClient<IClimateProvider, OpenMeteoClimateProvider>(client =>
+        {
+            client.BaseAddress = new Uri("https://api.open-meteo.com/");
+            client.Timeout = TimeSpan.FromSeconds(10);
+            client.DefaultRequestHeaders.UserAgent.ParseAdd(UserAgent);
+        });
+        services.AddHttpClient<IDisasterSourceCollector, UsgsEarthquakeFeedCollector>(client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(20);
+            client.DefaultRequestHeaders.UserAgent.ParseAdd(UserAgent);
+        });
+        services.AddHttpClient<IDisasterSourceCollector, JmaEarthquakeFeedCollector>(client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(20);
+            client.DefaultRequestHeaders.UserAgent.ParseAdd(UserAgent);
+        });
+        services.AddHttpClient<IDisasterSourceCollector, JmaMenuSourceCollector>(client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(20);
+            client.DefaultRequestHeaders.UserAgent.ParseAdd(UserAgent);
+        });
+
         // Normalização e reconstrução.
         services.AddSingleton<ICityDataNormalizer, GeoJsonNormalizer>();
         services.AddSingleton<ICityDataNormalizer, OverpassNormalizer>();
@@ -99,6 +126,9 @@ public static class DependencyInjection
         services.AddSingleton(seismicOptions);
         services.AddSingleton<IRasterImageEncoder, ImageSharpRasterEncoder>();
         services.AddScoped<SeismicSimulationPipeline>();
+        services.AddScoped<IDisasterSimulationEngine>(
+            provider => provider.GetRequiredService<SeismicSimulationPipeline>());
+        services.AddScoped<DisasterSimulationEngineRegistry>();
 
         return services;
     }

@@ -1,5 +1,7 @@
 # Documentação técnica do SOS_LOCATION
 
+Para uma navegação orientada por público, consulte também o [índice de documentação](../docs/README.md), que reúne catálogo de serviços, guia do usuário, arquitetura, testes e segurança.
+
 Esta pasta descreve o sistema que existe neste repositório em 22 de julho de
 2026. O código-fonte é a referência normativa: quando há diferença entre uma
 ideia de produto e a implementação, este documento registra a implementação.

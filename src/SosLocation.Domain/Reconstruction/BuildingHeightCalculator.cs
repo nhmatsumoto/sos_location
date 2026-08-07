@@ -9,13 +9,15 @@ public readonly record struct HeightInput(
     int? BuildingLevels,
     int? RoofLevels,
     string? BuildingType,
-    string? LandUseType);
+    string? LandUseType,
+    string? BuildingClass = null);
 
 public readonly record struct HeightResult(
     double HeightMeters,
     HeightSource Source,
     DataConfidence Confidence,
-    string Basis);
+    string Basis,
+    int? EffectiveLevels = null);
 
 /// <summary>
 /// Calcula a altura de um edifício aplicando a precedência:
@@ -38,39 +40,77 @@ public static class BuildingHeightCalculator
                 explicitHeight,
                 HeightSource.Observed,
                 DataConfidence.Certain,
-                "height");
+                "height",
+                input.BuildingLevels ?? EstimateLevels(explicitHeight, profile));
         }
 
         if (input.BuildingLevels is { } levels && levels > 0)
         {
             var height = levels * profile.DefaultLevelHeightMeters
                          + (input.RoofLevels ?? 0) * profile.DefaultRoofLevelHeightMeters;
-            return new HeightResult(height, HeightSource.Inferred, DataConfidence.From(0.8), "building:levels");
+            return new HeightResult(
+                height, HeightSource.Inferred, DataConfidence.From(0.8), "building:levels", levels);
         }
 
         if (input.RoofLevels is { } roofLevels && roofLevels > 0)
         {
             var height = profile.DefaultBuildingHeightMeters
                          + roofLevels * profile.DefaultRoofLevelHeightMeters;
-            return new HeightResult(height, HeightSource.Inferred, DataConfidence.From(0.6), "roof:levels");
+            return new HeightResult(
+                height,
+                HeightSource.Inferred,
+                DataConfidence.From(0.6),
+                "roof:levels",
+                EstimateLevels(height, profile));
+        }
+
+        if (input.BuildingClass is { } buildingClass
+            && profile.HeightByBuildingClass.TryGetValue(buildingClass, out var classHeight))
+        {
+            profile.LevelsByBuildingClass.TryGetValue(buildingClass, out var inferredLevels);
+            return new HeightResult(
+                classHeight,
+                HeightSource.Inferred,
+                DataConfidence.From(0.55),
+                "building:class-profile",
+                inferredLevels > 0 ? inferredLevels : null);
         }
 
         if (input.BuildingType is { } type
             && profile.HeightByBuildingType.TryGetValue(type, out var typeHeight))
         {
-            return new HeightResult(typeHeight, HeightSource.Inferred, DataConfidence.From(0.5), "building:type");
+            return new HeightResult(
+                typeHeight,
+                HeightSource.Inferred,
+                DataConfidence.From(0.5),
+                "building:type",
+                EstimateLevels(typeHeight, profile));
         }
 
         if (input.LandUseType is { } landUse
             && profile.HeightByLandUse.TryGetValue(landUse, out var landUseHeight))
         {
-            return new HeightResult(landUseHeight, HeightSource.Inferred, DataConfidence.From(0.4), "land-use");
+            return new HeightResult(
+                landUseHeight,
+                HeightSource.Inferred,
+                DataConfidence.From(0.4),
+                "land-use",
+                EstimateLevels(landUseHeight, profile));
         }
 
         return new HeightResult(
             profile.DefaultBuildingHeightMeters,
             HeightSource.Inferred,
             DataConfidence.From(0.3),
-            "default");
+            "default",
+            EstimateLevels(profile.DefaultBuildingHeightMeters, profile));
     }
+
+    private static int EstimateLevels(double heightMeters, ReconstructionProfile profile)
+        => Math.Clamp(
+            (int)Math.Round(
+                heightMeters / profile.DefaultLevelHeightMeters,
+                MidpointRounding.AwayFromZero),
+            1,
+            199);
 }

@@ -8,7 +8,13 @@ import {
   boundaryGeoJson,
   buildCityLayers,
   buildCitySources,
+  buildRiskZoneLayers,
   PICKABLE_LAYERS,
+  RISK_ZONE_SOURCE,
+  OPERATIONAL_SOURCE,
+  buildOperationalLayers,
+  SCIENTIFIC_SOURCE,
+  buildScientificAnalysisLayers,
   type CityStyleOptions,
   type FeatureKind,
 } from './layers/nativeCityStyle';
@@ -36,6 +42,48 @@ export interface GeoSceneEvents {
   onTileStats?: (loaded: number, pending: number) => void;
 }
 
+export type GeometryDrawMode = 'point' | 'line' | 'polygon';
+
+// Apenas estes recursos pertencem à revisão urbana e podem ser reconstruídos.
+// O mapa-base OSM e overlays persistentes também usam o prefixo "sos-", então
+// um sweep por prefixo apagaria contexto cartográfico e partes do mapa.
+const CITY_RUNTIME_LAYER_IDS = [
+  'sos-hillshade',
+  'sos-intensity-raster',
+  'sos-land-use-fill',
+  'sos-water-fill',
+  'sos-water-line',
+  'sos-bridges-casing',
+  'sos-roads-line',
+  'sos-buildings-footprint',
+  'sos-buildings-3d',
+  'sos-buildings-roof',
+  'sos-boundary-line',
+] as const;
+
+const CITY_RUNTIME_SOURCE_IDS = new Set([
+  'sos-terrain',
+  'sos-intensity',
+  'sos-buildings',
+  'sos-roads',
+  'sos-water',
+  'sos-land-use',
+  'sos-boundary',
+]);
+
+const PERSISTENT_OVERLAY_LAYER_IDS = [
+  'sos-operational-fill',
+  'sos-operational-line',
+  'sos-operational-point',
+  'sos-operational-label',
+  'sos-risk-zones-fill',
+  'sos-risk-zones-line',
+  'sos-scientific-fill',
+  'sos-scientific-line',
+  'sos-scientific-point',
+  'sos-scientific-label',
+] as const;
+
 /**
  * Camada interna que possui o runtime geoespacial: inicializa o mapa,
  * controla a câmera, registra as camadas urbanas nativas (fill-extrusion),
@@ -56,8 +104,16 @@ export class GeoScene {
   private fpsWindowStartedAt = performance.now();
   private cityOptions: CityStyleOptions | null = null;
   private styleReady = false;
-  private selected: { source: string; sourceLayer: string; id: string } | null = null;
+  private selected: { source: string; sourceLayer?: string; id: string } | null = null;
   private loadedTiles = 0;
+  private drawState: {
+    coordinates: [number, number][];
+    mode: GeometryDrawMode;
+    onVertexCountChange: (count: number) => void;
+  } | null = null;
+  private riskZonesData: GeoJSON.FeatureCollection | null = null;
+  private operationalData: GeoJSON.FeatureCollection | null = null;
+  private scientificData: GeoJSON.FeatureCollection | null = null;
 
   init(container: HTMLElement, events: GeoSceneEvents): void {
     this.events = events;
@@ -90,7 +146,7 @@ export class GeoScene {
     this.map.addControl(
       new maplibregl.AttributionControl({
         compact: true,
-        customAttribution: '© OpenStreetMap contributors (imported data)',
+        customAttribution: '© OpenStreetMap contributors (base map and imported data)',
       }),
     );
 
@@ -100,13 +156,14 @@ export class GeoScene {
       this.styleReady = true;
       this.emitCamera();
       if (this.cityOptions) this.applyCityStyle();
+      this.restorePersistentOverlays();
     });
 
     // Telemetria de tiles via eventos nativos: o download acontece em Web
     // Workers do MapLibre, invisível a interceptores de fetch do main thread.
     this.map.on('sourcedata', (event) => {
       const e = event as { tile?: unknown; sourceId?: string };
-      if (e.tile && e.sourceId?.startsWith('sos-')) {
+      if (e.tile && e.sourceId && CITY_RUNTIME_SOURCE_IDS.has(e.sourceId)) {
         this.loadedTiles += 1;
         this.scheduleTileStats();
       }
@@ -116,8 +173,18 @@ export class GeoScene {
       this.events.onFps?.(0);
     });
 
-    this.map.on('click', (event) => this.handleClick(event.point));
+    this.map.on('click', (event) => {
+      if (this.drawState) {
+        this.handleDrawClick(event.lngLat);
+        return;
+      }
+      this.handleClick(event.point);
+    });
     this.map.on('mousemove', (event) => {
+      if (this.drawState) {
+        this.updateDrawPreview(event.lngLat);
+        return;
+      }
       this.pendingHoverPoint = event.point;
       if (this.hoverFrame !== null) return;
       this.hoverFrame = requestAnimationFrame(() => {
@@ -191,6 +258,99 @@ export class GeoScene {
     this.applySelection(null);
   }
 
+  /** Inicia o modo de desenho de polígono (clique adiciona vértice). Cancela qualquer sessão anterior. */
+  startRiskZoneDraw(onVertexCountChange: (count: number) => void): void {
+    this.startGeometryDraw('polygon', onVertexCountChange);
+  }
+
+  /** Inicia desenho de ponto, linha ou polígono para uma marcação operacional. */
+  startGeometryDraw(
+    mode: GeometryDrawMode,
+    onVertexCountChange: (count: number) => void,
+  ): void {
+    this.cancelGeometryDraw();
+    if (!this.map) return;
+    this.drawState = { coordinates: [], mode, onVertexCountChange };
+    this.addDrawSources();
+  }
+
+  /** Fecha o polígono (mínimo 3 vértices) e limpa o estado de desenho. Null se vértices insuficientes. */
+  finishRiskZoneDraw(): GeoJSON.Polygon | null {
+    const geometry = this.finishGeometryDraw();
+    return geometry?.type === 'Polygon' ? geometry : null;
+  }
+
+  finishGeometryDraw(): GeoJSON.Point | GeoJSON.LineString | GeoJSON.Polygon | null {
+    const state = this.drawState;
+    if (!state) return null;
+    const minimum = state.mode === 'point' ? 1 : state.mode === 'line' ? 2 : 3;
+    if (state.coordinates.length < minimum) return null;
+    const geometry: GeoJSON.Point | GeoJSON.LineString | GeoJSON.Polygon =
+      state.mode === 'point'
+        ? { type: 'Point', coordinates: state.coordinates[0] }
+        : state.mode === 'line'
+          ? { type: 'LineString', coordinates: state.coordinates }
+          : {
+              type: 'Polygon',
+              coordinates: [[...state.coordinates, state.coordinates[0]]],
+            };
+    this.removeDrawSources();
+    this.drawState = null;
+    return geometry;
+  }
+
+  /** Remove a última marcação sem encerrar a sessão de desenho. */
+  undoGeometryDrawVertex(): void {
+    const state = this.drawState;
+    if (!state || state.coordinates.length === 0) return;
+    state.coordinates.pop();
+    this.syncDrawSources(state.coordinates, state.mode);
+    state.onVertexCountChange(state.coordinates.length);
+  }
+
+  /** Aborta o desenho em andamento sem retornar geometria. */
+  cancelRiskZoneDraw(): void {
+    this.cancelGeometryDraw();
+  }
+
+  cancelGeometryDraw(): void {
+    if (!this.drawState) return;
+    this.removeDrawSources();
+    this.drawState = null;
+  }
+
+  /** Atualiza as zonas de risco exibidas (GeoJSON direto — dataset pequeno, sem MVT). */
+  setRiskZones(collection: GeoJSON.FeatureCollection | null): void {
+    this.riskZonesData = collection;
+    if (!this.map || !this.styleReady) return;
+    const source = this.map.getSource(RISK_ZONE_SOURCE) as maplibregl.GeoJSONSource | undefined;
+    if (source) {
+      source.setData(collection ?? emptyFeatureCollection());
+      return;
+    }
+    this.addRiskZoneSource(collection);
+  }
+
+  /** Camadas de incidente independentes da revisão urbana (JMA/operadores). */
+  setOperationalFeatures(collection: GeoJSON.FeatureCollection | null): void {
+    this.operationalData = collection;
+    if (!this.map || !this.styleReady) return;
+    const source = this.map.getSource(OPERATIONAL_SOURCE) as maplibregl.GeoJSONSource | undefined;
+    if (source) source.setData(collection ?? emptyFeatureCollection());
+    else this.addOperationalSource(collection);
+    this.raisePersistentOverlays();
+  }
+
+  /** Resultado cartográfico da ferramenta científica ativa. */
+  setScientificAnalysis(collection: GeoJSON.FeatureCollection | null): void {
+    this.scientificData = collection;
+    if (!this.map || !this.styleReady) return;
+    const source = this.map.getSource(SCIENTIFIC_SOURCE) as maplibregl.GeoJSONSource | undefined;
+    if (source) source.setData(collection ?? emptyFeatureCollection());
+    else if (collection) this.addScientificSource(collection);
+    this.raisePersistentOverlays();
+  }
+
   /** Posiciona a câmera imediatamente (restauração de deep-link). */
   jumpTo(camera: CameraState): void {
     this.map?.jumpTo({
@@ -242,13 +402,17 @@ export class GeoScene {
     const map = this.map;
     if (!map) return;
 
-    // Remove camadas e sources anteriores (ordem: terrain → layers → sources).
+    // Troca de revisão/camada no meio de um desenho não deve deixar listener/source órfão.
+    this.cancelRiskZoneDraw();
+
+    // Remove somente recursos da revisão (ordem: terrain → layers → sources).
+    // O mapa-base sos-earth-basemap e os overlays operacionais persistem.
     map.setTerrain(null);
-    for (const layer of map.getStyle().layers ?? []) {
-      if (layer.id.startsWith('sos-')) map.removeLayer(layer.id);
+    for (const layerId of CITY_RUNTIME_LAYER_IDS) {
+      if (map.getLayer(layerId)) map.removeLayer(layerId);
     }
-    for (const sourceId of Object.keys(map.getStyle().sources ?? {})) {
-      if (sourceId.startsWith('sos-')) map.removeSource(sourceId);
+    for (const sourceId of CITY_RUNTIME_SOURCE_IDS) {
+      if (map.getSource(sourceId)) map.removeSource(sourceId);
     }
     this.selected = null;
     this.loadedTiles = 0;
@@ -282,8 +446,8 @@ export class GeoScene {
       map.setTerrain({ source: 'sos-terrain', exaggeration: 1.0 });
     }
 
-    // Overlay de intensidade sísmica (PGA): uma imagem única por simulação
-    // concluída (não uma pirâmide de tiles) — ver IntensityRasterEncoding no backend.
+    // Mapa de calor de intensidade sísmica (PGA): imagem colorizada em escala
+    // fixa 0–1 g. O raster numérico R/G permanece disponível para download.
     if (options.visibility.seismicIntensity && options.activeSimulation) {
       const { west, south, east, north } = options.activeSimulation;
       map.addSource('sos-intensity', {
@@ -316,6 +480,10 @@ export class GeoScene {
     for (const layer of buildCityLayers(options)) {
       map.addLayer(layer);
     }
+
+    // Novas camadas entram no topo por padrão; devolve risco/operação à frente
+    // da cidade para que nunca fiquem ocultos pelas extrusões.
+    this.restorePersistentOverlays();
   }
 
   /**
@@ -329,9 +497,11 @@ export class GeoScene {
       ['sos-land-use-fill', options.visibility.landUse],
       ['sos-water-fill', options.visibility.water],
       ['sos-water-line', options.visibility.water],
+      ['sos-bridges-casing', options.visibility.roads],
       ['sos-roads-line', options.visibility.roads],
       ['sos-buildings-footprint', options.visibility.buildings],
       ['sos-buildings-3d', options.visibility.buildings],
+      ['sos-buildings-roof', options.visibility.buildings],
       ['sos-boundary-line', options.visibility.boundary],
     ];
     for (const [layerId, visible] of layerVisibility) {
@@ -378,6 +548,179 @@ export class GeoScene {
       && first.north === second.north;
   }
 
+  // -------------------------------------------------------------- risk zones
+
+  private addRiskZoneSource(collection: GeoJSON.FeatureCollection | null): void {
+    const map = this.map;
+    if (!map) return;
+    map.addSource(RISK_ZONE_SOURCE, { type: 'geojson', data: collection ?? emptyFeatureCollection() });
+    for (const layer of buildRiskZoneLayers()) map.addLayer(layer);
+    this.raisePersistentOverlays();
+  }
+
+  private addOperationalSource(collection: GeoJSON.FeatureCollection | null): void {
+    const map = this.map;
+    if (!map) return;
+    map.addSource(OPERATIONAL_SOURCE, {
+      type: 'geojson',
+      data: collection ?? emptyFeatureCollection(),
+      promoteId: 'id',
+    });
+    for (const layer of buildOperationalLayers()) map.addLayer(layer);
+    this.raisePersistentOverlays();
+  }
+
+  private addScientificSource(collection: GeoJSON.FeatureCollection): void {
+    const map = this.map;
+    if (!map) return;
+    map.addSource(SCIENTIFIC_SOURCE, {
+      type: 'geojson',
+      data: collection,
+    });
+    for (const layer of buildScientificAnalysisLayers()) map.addLayer(layer);
+    this.raisePersistentOverlays();
+  }
+
+  private restorePersistentOverlays(): void {
+    const map = this.map;
+    if (!map) return;
+    if (this.operationalData && !map.getSource(OPERATIONAL_SOURCE))
+      this.addOperationalSource(this.operationalData);
+    if (this.riskZonesData && !map.getSource(RISK_ZONE_SOURCE))
+      this.addRiskZoneSource(this.riskZonesData);
+    if (this.scientificData && !map.getSource(SCIENTIFIC_SOURCE))
+      this.addScientificSource(this.scientificData);
+    this.raisePersistentOverlays();
+  }
+
+  private raisePersistentOverlays(): void {
+    const map = this.map;
+    if (!map) return;
+    for (const layerId of PERSISTENT_OVERLAY_LAYER_IDS) {
+      if (map.getLayer(layerId)) map.moveLayer(layerId);
+    }
+  }
+
+  // ------------------------------------------------------------- draw tool
+
+  private addDrawSources(): void {
+    const map = this.map;
+    if (!map) return;
+    map.addSource('sos-draw-vertices', { type: 'geojson', data: emptyFeatureCollection() });
+    map.addSource('sos-draw-line', { type: 'geojson', data: emptyFeatureCollection() });
+    map.addSource('sos-draw-fill', { type: 'geojson', data: emptyFeatureCollection() });
+    map.addLayer({
+      id: 'sos-draw-fill-fill',
+      type: 'fill',
+      source: 'sos-draw-fill',
+      paint: { 'fill-color': '#f59e0b', 'fill-opacity': 0.15 },
+    });
+    map.addLayer({
+      id: 'sos-draw-line-line',
+      type: 'line',
+      source: 'sos-draw-line',
+      paint: { 'line-color': '#f59e0b', 'line-width': 2, 'line-dasharray': [2, 1] },
+    });
+    map.addLayer({
+      id: 'sos-draw-vertices-circle',
+      type: 'circle',
+      source: 'sos-draw-vertices',
+      paint: {
+        'circle-radius': 5,
+        'circle-color': '#f59e0b',
+        'circle-stroke-color': '#fff',
+        'circle-stroke-width': 1.5,
+      },
+    });
+  }
+
+  private removeDrawSources(): void {
+    const map = this.map;
+    if (!map) return;
+    for (const id of ['sos-draw-fill-fill', 'sos-draw-line-line', 'sos-draw-vertices-circle']) {
+      if (map.getLayer(id)) map.removeLayer(id);
+    }
+    for (const id of ['sos-draw-fill', 'sos-draw-line', 'sos-draw-vertices']) {
+      if (map.getSource(id)) map.removeSource(id);
+    }
+  }
+
+  private handleDrawClick(lngLat: maplibregl.LngLat): void {
+    const state = this.drawState;
+    if (!state || !this.map) return;
+    // Pontos possuem uma única coordenada; um segundo clique reposiciona a
+    // marcação em vez de produzir geometria inválida.
+    if (state.mode === 'point') state.coordinates = [[lngLat.lng, lngLat.lat]];
+    else state.coordinates.push([lngLat.lng, lngLat.lat]);
+    this.syncDrawSources(state.coordinates, state.mode);
+    state.onVertexCountChange(state.coordinates.length);
+  }
+
+  /** Segmento "borracha" do último vértice até o cursor — feedback visual antes de clicar. */
+  private updateDrawPreview(lngLat: maplibregl.LngLat): void {
+    const state = this.drawState;
+    const map = this.map;
+    if (!state || !map) return;
+    if (state.mode === 'point') return;
+    const line: [number, number][] =
+      state.coordinates.length > 0
+        ? [...state.coordinates, [lngLat.lng, lngLat.lat]]
+        : [];
+    const source = map.getSource('sos-draw-line') as maplibregl.GeoJSONSource | undefined;
+    source?.setData({
+      type: 'FeatureCollection',
+      features:
+        line.length >= 2
+          ? [{ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: line } }]
+          : [],
+    });
+  }
+
+  private syncDrawSources(
+    coordinates: [number, number][],
+    mode: GeometryDrawMode,
+  ): void {
+    const map = this.map;
+    if (!map) return;
+    const vertexSource = map.getSource('sos-draw-vertices') as maplibregl.GeoJSONSource | undefined;
+    vertexSource?.setData({
+      type: 'FeatureCollection',
+      features: coordinates.map((c) => ({
+        type: 'Feature',
+        properties: {},
+        geometry: { type: 'Point', coordinates: c },
+      })),
+    });
+    const fillSource = map.getSource('sos-draw-fill') as maplibregl.GeoJSONSource | undefined;
+    fillSource?.setData({
+      type: 'FeatureCollection',
+      features:
+        mode === 'polygon' && coordinates.length >= 3
+          ? [{
+              type: 'Feature',
+              properties: {},
+              geometry: {
+                type: 'Polygon',
+                coordinates: [[...coordinates, coordinates[0]]],
+              },
+            }]
+          : [],
+    });
+
+    const lineSource = map.getSource('sos-draw-line') as maplibregl.GeoJSONSource | undefined;
+    lineSource?.setData({
+      type: 'FeatureCollection',
+      features:
+        mode === 'line' && coordinates.length >= 2
+          ? [{
+              type: 'Feature',
+              properties: {},
+              geometry: { type: 'LineString', coordinates },
+            }]
+          : [],
+    });
+  }
+
   // ----------------------------------------------------------------- picking
 
   private queryTopFeature(
@@ -411,7 +754,7 @@ export class GeoScene {
 
     this.applySelection({
       source: hit.feature.source,
-      sourceLayer: hit.feature.sourceLayer ?? '',
+      sourceLayer: hit.feature.sourceLayer,
       id: featureId,
     });
     this.events.onPick?.({
@@ -421,19 +764,29 @@ export class GeoScene {
     });
   }
 
-  private applySelection(next: { source: string; sourceLayer: string; id: string } | null): void {
+  private applySelection(next: { source: string; sourceLayer?: string; id: string } | null): void {
     const map = this.map;
     if (!map) return;
     if (this.selected && map.getSource(this.selected.source)) {
+      const target = this.selected.sourceLayer
+        ? {
+            source: this.selected.source,
+            sourceLayer: this.selected.sourceLayer,
+            id: this.selected.id,
+          }
+        : { source: this.selected.source, id: this.selected.id };
       map.setFeatureState(
-        { source: this.selected.source, sourceLayer: this.selected.sourceLayer, id: this.selected.id },
+        target,
         { selected: false },
       );
     }
     this.selected = next;
     if (next && map.getSource(next.source)) {
+      const target = next.sourceLayer
+        ? { source: next.source, sourceLayer: next.sourceLayer, id: next.id }
+        : { source: next.source, id: next.id };
       map.setFeatureState(
-        { source: next.source, sourceLayer: next.sourceLayer, id: next.id },
+        target,
         { selected: true },
       );
     }
@@ -467,7 +820,7 @@ export class GeoScene {
     if (!map) return;
     let pending = 0;
     for (const sourceId of Object.keys(map.getStyle()?.sources ?? {})) {
-      if (!sourceId.startsWith('sos-')) continue;
+      if (!CITY_RUNTIME_SOURCE_IDS.has(sourceId)) continue;
       try {
         if (!map.isSourceLoaded(sourceId)) pending += 1;
       } catch {
@@ -486,4 +839,8 @@ export class GeoScene {
     this.renderedFrames = 0;
     this.fpsWindowStartedAt = now;
   }
+}
+
+function emptyFeatureCollection(): GeoJSON.FeatureCollection {
+  return { type: 'FeatureCollection', features: [] };
 }

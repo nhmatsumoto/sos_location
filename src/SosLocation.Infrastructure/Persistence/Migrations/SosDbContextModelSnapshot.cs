@@ -737,6 +737,203 @@ namespace SosLocation.Infrastructure.Persistence.Migrations
                     b.ToTable("building_seismic_responses", (string)null);
                 });
 
+            modelBuilder.Entity("SosLocation.Domain.Disasters.DisasterScenario", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("CanonicalEventId")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("canonical_event_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<double?>("DepthKm")
+                        .HasColumnType("double precision")
+                        .HasColumnName("depth_km");
+
+                    b.Property<Point>("Epicenter")
+                        .HasColumnType("geometry")
+                        .HasColumnName("epicenter");
+
+                    b.Property<string>("HazardType")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("hazard_type");
+
+                    b.Property<string>("MagnitudeType")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("magnitude_type");
+
+                    b.Property<double?>("MomentMagnitude")
+                        .HasColumnType("double precision")
+                        .HasColumnName("moment_magnitude");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("ScenarioKey")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("scenario_key");
+
+                    b.Property<DateTimeOffset>("SimulationClockOrigin")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("simulation_clock_origin");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CanonicalEventId")
+                        .IsUnique();
+
+                    b.HasIndex("Epicenter");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("Epicenter"), "gist");
+
+                    b.HasIndex("ScenarioKey")
+                        .IsUnique();
+
+                    b.ToTable("disaster_scenarios", (string)null);
+                });
+
+            modelBuilder.Entity("SosLocation.Domain.Disasters.ImpactObservation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CapturedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("captured_at");
+
+                    b.Property<double>("Confidence")
+                        .HasColumnType("double precision")
+                        .HasColumnName("confidence");
+
+                    b.Property<Guid>("DisasterScenarioId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("disaster_scenario_id");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("kind");
+
+                    b.Property<DateTimeOffset>("ObservedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("observed_at");
+
+                    b.Property<Guid?>("PreviousObservationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("previous_observation_id");
+
+                    b.Property<Guid?>("SourceObservationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("source_observation_id");
+
+                    b.Property<string>("Subject")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("subject");
+
+                    b.Property<string>("Value")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("value");
+
+                    b.Property<string>("VerificationStatus")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("verification_status");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PreviousObservationId");
+
+                    b.HasIndex("SourceObservationId");
+
+                    b.HasIndex("DisasterScenarioId", "ObservedAt");
+
+                    b.ToTable("impact_observations", (string)null);
+                });
+
+            modelBuilder.Entity("SosLocation.Domain.Disasters.OperationalMapFeature", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("DisasterScenarioId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("disaster_scenario_id");
+
+                    b.Property<DateTimeOffset>("EffectiveFrom")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("effective_from");
+
+                    b.Property<DateTimeOffset?>("EffectiveTo")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("effective_to");
+
+                    b.Property<string>("FeatureType")
+                        .IsRequired()
+                        .HasMaxLength(96)
+                        .HasColumnType("character varying(96)")
+                        .HasColumnName("feature_type");
+
+                    b.Property<Geometry>("Geometry")
+                        .IsRequired()
+                        .HasColumnType("geometry")
+                        .HasColumnName("geometry");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("Properties")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("properties");
+
+                    b.Property<string>("VerificationStatus")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("verification_status");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Geometry");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("Geometry"), "gist");
+
+                    b.HasIndex("DisasterScenarioId", "FeatureType");
+
+                    b.ToTable("operational_map_features", (string)null);
+                });
+
             modelBuilder.Entity("SosLocation.Domain.Disasters.RiskZone", b =>
                 {
                     b.Property<Guid>("Id")
@@ -881,6 +1078,70 @@ namespace SosLocation.Infrastructure.Persistence.Migrations
                     b.HasIndex("Status");
 
                     b.ToTable("simulation_runs", (string)null);
+                });
+
+            modelBuilder.Entity("SosLocation.Domain.Disasters.SourceObservation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CapturedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("captured_at");
+
+                    b.Property<double>("Confidence")
+                        .HasColumnType("double precision")
+                        .HasColumnName("confidence");
+
+                    b.Property<Guid>("DisasterScenarioId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("disaster_scenario_id");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("kind");
+
+                    b.Property<DateTimeOffset>("ObservedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("observed_at");
+
+                    b.Property<string>("Payload")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("payload");
+
+                    b.Property<string>("PayloadSha256")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("payload_sha256");
+
+                    b.Property<string>("SourceId")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("source_id");
+
+                    b.Property<string>("SourceUrl")
+                        .IsRequired()
+                        .HasMaxLength(2048)
+                        .HasColumnType("character varying(2048)")
+                        .HasColumnName("source_url");
+
+                    b.Property<string>("VerificationStatus")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("verification_status");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DisasterScenarioId", "CapturedAt");
+
+                    b.ToTable("source_observations", (string)null);
                 });
 
             modelBuilder.Entity("SosLocation.Domain.Features.Building", b =>
@@ -1407,6 +1668,34 @@ namespace SosLocation.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("SosLocation.Domain.Disasters.ImpactObservation", b =>
+                {
+                    b.HasOne("SosLocation.Domain.Disasters.DisasterScenario", null)
+                        .WithMany()
+                        .HasForeignKey("DisasterScenarioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SosLocation.Domain.Disasters.ImpactObservation", null)
+                        .WithMany()
+                        .HasForeignKey("PreviousObservationId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("SosLocation.Domain.Disasters.SourceObservation", null)
+                        .WithMany()
+                        .HasForeignKey("SourceObservationId")
+                        .OnDelete(DeleteBehavior.SetNull);
+                });
+
+            modelBuilder.Entity("SosLocation.Domain.Disasters.OperationalMapFeature", b =>
+                {
+                    b.HasOne("SosLocation.Domain.Disasters.DisasterScenario", null)
+                        .WithMany()
+                        .HasForeignKey("DisasterScenarioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("SosLocation.Domain.Disasters.RiskZone", b =>
                 {
                     b.HasOne("SosLocation.Domain.Cities.CityRevision", null)
@@ -1421,6 +1710,15 @@ namespace SosLocation.Infrastructure.Persistence.Migrations
                     b.HasOne("SosLocation.Domain.Cities.CityRevision", null)
                         .WithMany()
                         .HasForeignKey("CityRevisionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("SosLocation.Domain.Disasters.SourceObservation", b =>
+                {
+                    b.HasOne("SosLocation.Domain.Disasters.DisasterScenario", null)
+                        .WithMany()
+                        .HasForeignKey("DisasterScenarioId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

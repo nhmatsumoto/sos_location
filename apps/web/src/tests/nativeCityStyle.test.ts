@@ -46,6 +46,8 @@ describe('native city style performance profile', () => {
 
     expect(byId.get('sos-buildings-footprint')?.layout?.visibility).toBe('none');
     expect(byId.get('sos-buildings-3d')?.layout?.visibility).toBe('none');
+    expect(byId.get('sos-buildings-roof')?.layout?.visibility).toBe('none');
+    expect(byId.get('sos-bridges-casing')?.layout?.visibility).toBe('visible');
     expect(byId.get('sos-roads-line')?.layout?.visibility).toBe('visible');
     expect(byId.get('sos-water-fill')?.layout?.visibility).toBe('none');
     expect(byId.get('sos-boundary-line')?.layout?.visibility).toBe('none');
@@ -55,5 +57,21 @@ describe('native city style performance profile', () => {
     const byId = new Map(buildCityLayers(options).map((layer) => [layer.id, layer]));
     expect(byId.get('sos-buildings-footprint')?.maxzoom).toBe(14);
     expect(byId.get('sos-buildings-3d')?.minzoom).toBe(14);
+  });
+
+  it('requests unsimplified high-zoom tiles for precise urban outlines', () => {
+    for (const source of Object.values(buildCitySources(options))) {
+      expect((source as VectorSourceSpecification).maxzoom).toBe(19);
+    }
+  });
+
+  it('renders bridge casing and pavement as explicit urban features', () => {
+    const layers = buildCityLayers(options);
+    const bridge = layers.find((layer) => layer.id === 'sos-bridges-casing');
+    const landUse = layers.find((layer) => layer.id === 'sos-land-use-fill');
+
+    expect((bridge as { filter?: unknown } | undefined)?.filter)
+      .toEqual(['==', ['get', 'is_bridge'], true]);
+    expect(JSON.stringify(landUse?.paint)).toContain('pavement');
   });
 });

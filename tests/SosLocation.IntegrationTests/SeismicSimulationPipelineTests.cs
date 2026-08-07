@@ -183,6 +183,7 @@ public class SeismicSimulationPipelineTests(PostgisContainerFixture fixture)
         Assert.All(responses, r => Assert.True(r.PeakDriftRatio >= 0));
 
         Assert.Contains(storage.Objects.Keys, k => k == $"simulations/{run.Id}/intensity.png");
+        Assert.Contains(storage.Objects.Keys, k => k == $"simulations/{run.Id}/intensity-data.png");
 
         var manifestBytes = storage.Objects[$"simulations/{run.Id}/replay.json"];
         var replay = JsonSerializer.Deserialize<SeismicReplayManifestDto>(manifestBytes, JsonOptions);
@@ -191,6 +192,15 @@ public class SeismicSimulationPipelineTests(PostgisContainerFixture fixture)
         Assert.InRange(replay.Frames.Count, 2, FastTestOptions().MaxReplayFrames);
         Assert.Equal(0, replay.Frames[0].Index);
         Assert.True(replay.Frames[^1].TimeSeconds > replay.Frames[0].TimeSeconds);
+        Assert.True(replay.SeismicMomentNewtonMeters > 0);
+        Assert.True(replay.EstimatedRadiatedEnergyJoules > 0);
+        Assert.True(replay.MeanShearVelocityMps > 0);
+        Assert.True(replay.PeakGroundAccelerationG >= 0);
+        Assert.Equal(8, replay.DirectionSectors.Count);
+        Assert.NotEmpty(replay.AttenuationProfile);
+        Assert.Equal(
+            replay.RasterColumns * replay.RasterRows,
+            replay.DirectionSectors.Sum(sector => sector.SampleCount));
         Assert.All(replay.Frames, frame =>
         {
             Assert.Equal(

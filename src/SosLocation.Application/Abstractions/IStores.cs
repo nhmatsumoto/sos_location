@@ -117,6 +117,36 @@ public interface IUnitOfWork
     Task SaveChangesAsync(CancellationToken ct);
 }
 
+public interface IRiskZoneStore
+{
+    Task<RiskZone?> FindByIdAsync(Guid id, CancellationToken ct);
+    Task<IReadOnlyList<RiskZone>> ListByRevisionAsync(Guid revisionId, CancellationToken ct);
+    Task AddAsync(RiskZone zone, CancellationToken ct);
+    Task DeleteAsync(Guid zoneId, CancellationToken ct);
+    Task<RiskZoneExposure> ComputeExposureAsync(RiskZone zone, CancellationToken ct);
+}
+
+public interface IDisasterScenarioStore
+{
+    Task<DisasterScenario?> FindByKeyAsync(string scenarioKey, CancellationToken ct);
+    Task<DisasterScenario?> FindByIdAsync(Guid id, CancellationToken ct);
+    Task<OperationalMapFeature?> FindMapFeatureAsync(Guid featureId, CancellationToken ct);
+    Task<IReadOnlyList<DisasterScenario>> ListAsync(CancellationToken ct);
+    Task<IReadOnlyList<OperationalMapFeature>> ListMapFeaturesAsync(Guid scenarioId, CancellationToken ct);
+    Task<IReadOnlyList<ImpactObservation>> ListImpactsAsync(Guid scenarioId, CancellationToken ct);
+    Task AddAsync(DisasterScenario scenario, CancellationToken ct);
+    Task AddMapFeatureAsync(OperationalMapFeature feature, CancellationToken ct);
+    Task CloseMapFeatureAsync(Guid featureId, DateTimeOffset closedAt, CancellationToken ct);
+    Task AddObservationAsync(SourceObservation observation, CancellationToken ct);
+    Task AddImpactAsync(ImpactObservation observation, CancellationToken ct);
+    Task<bool> HasSourceObservationAsync(Guid scenarioId, string sourceId, string payloadSha256, CancellationToken ct);
+    Task<IReadOnlyList<SourceObservation>> ListSourceObservationsAsync(Guid scenarioId, CancellationToken ct);
+}
+
+public sealed record RiskZoneExposure(int BuildingCount, double AverageHeightMeters, IReadOnlyList<BuildingTypeCount> ByType);
+
+public sealed record BuildingTypeCount(string BuildingType, int Count);
+
 public interface IBuildingObservationStore
 {
     Task<BuildingObservation?> FindByIdAsync(Guid id, CancellationToken ct);

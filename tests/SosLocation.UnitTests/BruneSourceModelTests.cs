@@ -26,6 +26,16 @@ public class BruneSourceModelTests
     }
 
     [Fact]
+    public void EstimatedRadiatedEnergy_UsesGutenbergRichterScale()
+    {
+        var m6 = BruneSourceModel.EstimatedRadiatedEnergyJoules(6.0);
+        var m7 = BruneSourceModel.EstimatedRadiatedEnergyJoules(7.0);
+
+        Assert.InRange(m6, 5.0e13, 8.0e13);
+        Assert.InRange(m7 / m6, 25.0, 40.0);
+    }
+
+    [Fact]
     public void CornerFrequency_DecreasesWithMagnitude()
     {
         var fc6 = BruneSourceModel.CornerFrequencyHz(6.0);

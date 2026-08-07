@@ -80,11 +80,25 @@ public sealed class GeoJsonNormalizer(ILogger<GeoJsonNormalizer> logger) : ICity
                 continue;
             }
 
-            if (tags.ContainsKey("building"))
+            if (tags.TryGetValue("building", out var buildingValue)
+                && OsmTagNormalizer.IsEnabledFlag(buildingValue))
             {
                 var repair = GeometryRepair.SanitizeAreal(feature.Geometry, limits.MaximumVerticesPerFeature);
                 RecordIssue(issues, externalId, repair);
                 if (repair.Geometry is null) continue;
+
+                var areaSquareMeters = OsmTagNormalizer.ApproximateAreaSquareMeters(repair.Geometry);
+                var classification = OsmTagNormalizer.ClassifyBuilding(tags, areaSquareMeters);
+                var buildingTags = new Dictionary<string, string>(tags, StringComparer.Ordinal)
+                {
+                    ["sos:feature_kind"] = classification.BuildingClass == "house" ? "house" : "building",
+                    ["sos:building_class"] = classification.BuildingClass,
+                    ["sos:classification_basis"] = classification.Basis,
+                    ["sos:classification_confidence"] = classification.Confidence.ToString(
+                        "0.00", System.Globalization.CultureInfo.InvariantCulture),
+                    ["sos:footprint_area_m2"] = areaSquareMeters.ToString(
+                        "0.0", System.Globalization.CultureInfo.InvariantCulture),
+                };
 
                 buildings.Add(new NormalizedBuilding(
                     externalId,
@@ -93,10 +107,28 @@ public sealed class GeoJsonNormalizer(ILogger<GeoJsonNormalizer> logger) : ICity
                         ?? tags.GetValueOrDefault("building:height")),
                     OsmTagNormalizer.ParseLevels(tags.GetValueOrDefault("building:levels")),
                     OsmTagNormalizer.ParseLevels(tags.GetValueOrDefault("roof:levels")),
-                    OsmTagNormalizer.NormalizeBuildingType(tags),
+                    classification.BuildingType,
+                    classification.BuildingClass,
                     tags.GetValueOrDefault("roof:shape"),
+                    OsmTagNormalizer.ParseHeightMeters(tags.GetValueOrDefault("roof:height")),
                     OsmTagNormalizer.ParseHeightMeters(tags.GetValueOrDefault("min_height")) ?? 0.0,
-                    tags));
+                    buildingTags));
+                continue;
+            }
+
+            if (OsmTagNormalizer.IsAreaHighway(tags)
+                && feature.Geometry is NetTopologySuite.Geometries.Polygon
+                    or NetTopologySuite.Geometries.MultiPolygon)
+            {
+                var repair = GeometryRepair.SanitizeAreal(feature.Geometry, limits.MaximumVerticesPerFeature);
+                RecordIssue(issues, externalId, repair);
+                if (repair.Geometry is null) continue;
+                var pavementTags = new Dictionary<string, string>(tags, StringComparer.Ordinal)
+                {
+                    ["sos:feature_kind"] = "pavement",
+                    ["sos:surface_class"] = OsmTagNormalizer.NormalizeSurfaceClass(tags),
+                };
+                landUse.Add(new NormalizedLandUse(externalId, repair.Geometry, "pavement", pavementTags));
                 continue;
             }
 
@@ -106,16 +138,26 @@ public sealed class GeoJsonNormalizer(ILogger<GeoJsonNormalizer> logger) : ICity
                 RecordIssue(issues, externalId, repair);
                 if (repair.Geometry is null) continue;
 
+                var highway = tags.GetValueOrDefault("highway");
+                var isBridge = OsmTagNormalizer.IsEnabledFlag(tags.GetValueOrDefault("bridge"));
+                var width = OsmTagNormalizer.EstimateRoadWidthMeters(highway, tags);
+                var roadTags = new Dictionary<string, string>(tags, StringComparer.Ordinal)
+                {
+                    ["sos:feature_kind"] = isBridge ? "bridge" : "road",
+                    ["sos:surface_class"] = OsmTagNormalizer.NormalizeSurfaceClass(tags),
+                    ["sos:width_source"] = tags.ContainsKey("width") ? "source" : "class-profile",
+                };
+
                 roads.Add(new NormalizedRoad(
                     externalId,
                     repair.Geometry,
-                    OsmTagNormalizer.NormalizeRoadClass(tags.GetValueOrDefault("highway"), tags),
+                    OsmTagNormalizer.NormalizeRoadClass(highway, tags),
                     tags.GetValueOrDefault("name"),
-                    OsmTagNormalizer.ParseHeightMeters(tags.GetValueOrDefault("width")),
+                    width,
                     OsmTagNormalizer.ParseLevels(tags.GetValueOrDefault("lanes")),
-                    tags.GetValueOrDefault("bridge") == "yes",
-                    tags.GetValueOrDefault("tunnel") == "yes",
-                    tags));
+                    isBridge,
+                    OsmTagNormalizer.IsEnabledFlag(tags.GetValueOrDefault("tunnel")),
+                    roadTags));
                 continue;
             }
 

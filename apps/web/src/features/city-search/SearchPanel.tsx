@@ -43,7 +43,7 @@ export function SearchPanel() {
   };
 
   return (
-    <div className="relative w-80">
+    <div className="relative min-w-0 flex-1 sm:w-80 sm:flex-none">
       <input
         data-testid="city-search-input"
         value={query}

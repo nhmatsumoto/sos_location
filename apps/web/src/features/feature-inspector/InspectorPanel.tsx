@@ -75,6 +75,11 @@ export function InspectorPanel() {
     queryFn: () => api.getWater(selectedFeature!.id),
     enabled: selectedFeature?.kind === 'water',
   });
+  const operationalQuery = useQuery({
+    queryKey: ['operational-feature', selectedFeature?.id],
+    queryFn: () => api.getOperationalFeature(selectedFeature!.id),
+    enabled: selectedFeature?.kind === 'operational',
+  });
   const seismicResponseQuery = useQuery({
     queryKey: ['simulation-building', activeSimulation?.id, selectedFeature?.id],
     queryFn: () => api.getSimulationBuildingResponse(
@@ -87,8 +92,9 @@ export function InspectorPanel() {
   if (!selectedFeature) return null;
 
   const isLoading =
-    buildingQuery.isLoading || roadQuery.isLoading || waterQuery.isLoading;
-  const isError = buildingQuery.isError || roadQuery.isError || waterQuery.isError;
+    buildingQuery.isLoading || roadQuery.isLoading || waterQuery.isLoading || operationalQuery.isLoading;
+  const isError =
+    buildingQuery.isError || roadQuery.isError || waterQuery.isError || operationalQuery.isError;
 
   return (
     <aside
@@ -207,6 +213,31 @@ export function InspectorPanel() {
             <ProvenanceBlock provenance={waterQuery.data.provenance} />
           </div>
           <TagsBlock tags={waterQuery.data.feature.tags ?? null} />
+        </div>
+      )}
+
+      {selectedFeature.kind === 'operational' && operationalQuery.data && (
+        <div>
+          <Row label="Ocorrência" value={operationalQuery.data.name} />
+          <Row label="Tipo" value={operationalQuery.data.featureType} />
+          <Row label="Prioridade" value={`P${operationalQuery.data.priority}`} />
+          <Row label="Estado" value={operationalQuery.data.status} />
+          <Row label="Vítimas confirmadas" value={operationalQuery.data.confirmedVictims} />
+          <Row label="Vítimas estimadas" value={operationalQuery.data.estimatedVictims} />
+          <Row label="Pessoas resgatadas" value={operationalQuery.data.peopleRescued} />
+          <Row label="Equipe" value={operationalQuery.data.assignedTeam} />
+          <Row label="Capacidade" value={operationalQuery.data.capacity} />
+          <Row label="Recursos" value={operationalQuery.data.resources} />
+          <Row label="Confirmação" value={operationalQuery.data.verificationStatus} />
+          <Row
+            label="Atualizado"
+            value={new Date(operationalQuery.data.updatedAt).toLocaleString()}
+          />
+          {operationalQuery.data.notes && (
+            <p className="mt-2 rounded bg-slate-800/70 p-2 text-xs text-slate-300">
+              {operationalQuery.data.notes}
+            </p>
+          )}
         </div>
       )}
     </aside>

@@ -13,6 +13,9 @@ export type LayerKey =
   | 'seismicIntensity'
   | 'debugTiles';
 
+export type Workspace = 'map' | 'simulation' | 'analysis' | 'operations' | 'data';
+export type DrawGeometryKind = 'point' | 'line' | 'polygon';
+
 export interface ActiveSimulation {
   id: string;
   revisionId: string;
@@ -25,7 +28,7 @@ export interface ActiveSimulation {
 }
 
 export interface SelectedFeature {
-  kind: 'building' | 'road' | 'water';
+  kind: 'building' | 'road' | 'water' | 'operational';
   id: string;
 }
 
@@ -48,6 +51,25 @@ interface AppState {
   pendingCamera: CameraState | null;
   fps: number;
   tileStats: TileStats;
+  /** Sessão de desenho de zona de risco em andamento (null = não está desenhando). */
+  riskZoneDraw: { active: boolean; vertexCount: number } | null;
+  /** Polígono recém-desenhado aguardando o formulário de salvar (painel consome e limpa). */
+  pendingRiskZoneGeometry: GeoJSON.Polygon | null;
+  /** Desenho operacional independente da revisão urbana (abrigo, busca, bloqueio etc.). */
+  operationalDraw: {
+    active: boolean;
+    featureType: string;
+    geometryKind: DrawGeometryKind;
+    vertexCount: number;
+  } | null;
+  pendingOperationalGeometry: {
+    featureType: string;
+    geometry: GeoJSON.Point | GeoJSON.LineString | GeoJSON.Polygon;
+  } | null;
+  /** Overlay GeoJSON produzido pela ferramenta científica ativa. */
+  scientificOverlay: GeoJSON.FeatureCollection | null;
+  /** Seção atualmente exibida no menu lateral. */
+  activeWorkspace: Workspace;
 
   setSelectedPlace: (place: Place | null) => void;
   setSelectedCity: (city: City | null) => void;
@@ -62,6 +84,21 @@ interface AppState {
   setFps: (fps: number) => void;
   setTileStats: (loaded: number, pending: number) => void;
   resetTileStats: () => void;
+  startRiskZoneDraw: () => void;
+  setRiskZoneDrawVertexCount: (count: number) => void;
+  endRiskZoneDraw: () => void;
+  setPendingRiskZoneGeometry: (geometry: GeoJSON.Polygon | null) => void;
+  startOperationalDraw: (featureType: string, geometryKind: DrawGeometryKind) => void;
+  setOperationalDrawVertexCount: (count: number) => void;
+  endOperationalDraw: () => void;
+  setPendingOperationalGeometry: (
+    pending: {
+      featureType: string;
+      geometry: GeoJSON.Point | GeoJSON.LineString | GeoJSON.Polygon;
+    } | null,
+  ) => void;
+  setScientificOverlay: (overlay: GeoJSON.FeatureCollection | null) => void;
+  setActiveWorkspace: (workspace: Workspace) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -87,6 +124,12 @@ export const useAppStore = create<AppState>((set) => ({
   pendingCamera: null,
   fps: 0,
   tileStats: { loaded: 0, pending: 0 },
+  riskZoneDraw: null,
+  pendingRiskZoneGeometry: null,
+  operationalDraw: null,
+  pendingOperationalGeometry: null,
+  scientificOverlay: null,
+  activeWorkspace: 'map',
 
   setSelectedPlace: (place) => set({ selectedPlace: place }),
   setSelectedCity: (city) => set({ selectedCity: city }),
@@ -95,6 +138,7 @@ export const useAppStore = create<AppState>((set) => ({
       selectedRevision: revision,
       selectedFeature: null,
       activeSimulation: null,
+      scientificOverlay: null,
       tileStats: { loaded: 0, pending: 0 },
     }),
   toggleLayer: (key) =>
@@ -109,4 +153,31 @@ export const useAppStore = create<AppState>((set) => ({
   setTileStats: (loaded, pending) =>
     set({ tileStats: { loaded, pending: Math.max(0, pending) } }),
   resetTileStats: () => set({ tileStats: { loaded: 0, pending: 0 } }),
+  startRiskZoneDraw: () =>
+    set({
+      riskZoneDraw: { active: true, vertexCount: 0 },
+      operationalDraw: null,
+      pendingOperationalGeometry: null,
+    }),
+  setRiskZoneDrawVertexCount: (count) =>
+    set((state) => (state.riskZoneDraw ? { riskZoneDraw: { ...state.riskZoneDraw, vertexCount: count } } : {})),
+  endRiskZoneDraw: () => set({ riskZoneDraw: null }),
+  setPendingRiskZoneGeometry: (geometry) => set({ pendingRiskZoneGeometry: geometry }),
+  startOperationalDraw: (featureType, geometryKind) =>
+    set({
+      operationalDraw: { active: true, featureType, geometryKind, vertexCount: 0 },
+      pendingOperationalGeometry: null,
+      riskZoneDraw: null,
+      pendingRiskZoneGeometry: null,
+    }),
+  setOperationalDrawVertexCount: (count) =>
+    set((state) =>
+      state.operationalDraw
+        ? { operationalDraw: { ...state.operationalDraw, vertexCount: count } }
+        : {},
+    ),
+  endOperationalDraw: () => set({ operationalDraw: null }),
+  setPendingOperationalGeometry: (pending) => set({ pendingOperationalGeometry: pending }),
+  setScientificOverlay: (overlay) => set({ scientificOverlay: overlay }),
+  setActiveWorkspace: (workspace) => set({ activeWorkspace: workspace }),
 }));

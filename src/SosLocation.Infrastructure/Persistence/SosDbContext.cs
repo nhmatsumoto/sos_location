@@ -25,6 +25,10 @@ public partial class SosDbContext(DbContextOptions<SosDbContext> options) : DbCo
     public DbSet<SimulationRun> SimulationRuns => Set<SimulationRun>();
     public DbSet<BuildingSeismicResponse> BuildingSeismicResponses => Set<BuildingSeismicResponse>();
     public DbSet<RiskZone> RiskZones => Set<RiskZone>();
+    public DbSet<DisasterScenario> DisasterScenarios => Set<DisasterScenario>();
+    public DbSet<SourceObservation> SourceObservations => Set<SourceObservation>();
+    public DbSet<ImpactObservation> ImpactObservations => Set<ImpactObservation>();
+    public DbSet<OperationalMapFeature> OperationalMapFeatures => Set<OperationalMapFeature>();
     public DbSet<BuildingObservation> BuildingObservations => Set<BuildingObservation>();
     public DbSet<BuildingFootprintCandidate> BuildingFootprintCandidates => Set<BuildingFootprintCandidate>();
     public DbSet<BuildingFootprint> BuildingFootprints => Set<BuildingFootprint>();
@@ -185,6 +189,61 @@ public partial class SosDbContext(DbContextOptions<SosDbContext> options) : DbCo
             entity.HasIndex(z => z.CityRevisionId);
             entity.HasIndex(z => z.Geometry).HasMethod("gist");
             entity.HasOne<CityRevision>().WithMany().HasForeignKey(z => z.CityRevisionId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<DisasterScenario>(entity =>
+        {
+            entity.ToTable("disaster_scenarios");
+            entity.HasKey(s => s.Id);
+            entity.Property(s => s.ScenarioKey).HasMaxLength(160);
+            entity.Property(s => s.Name).HasMaxLength(512);
+            entity.Property(s => s.HazardType).HasConversion<string>().HasMaxLength(32);
+            entity.Property(s => s.CanonicalEventId).HasMaxLength(256);
+            entity.Property(s => s.MagnitudeType).HasMaxLength(32);
+            entity.HasIndex(s => s.ScenarioKey).IsUnique();
+            entity.HasIndex(s => s.CanonicalEventId).IsUnique();
+            entity.HasIndex(s => s.Epicenter).HasMethod("gist");
+        });
+
+        modelBuilder.Entity<SourceObservation>(entity =>
+        {
+            entity.ToTable("source_observations");
+            entity.HasKey(o => o.Id);
+            entity.Property(o => o.SourceId).HasMaxLength(160);
+            entity.Property(o => o.SourceUrl).HasMaxLength(2048);
+            entity.Property(o => o.Kind).HasMaxLength(128);
+            entity.Property(o => o.Payload).HasColumnType("jsonb");
+            entity.Property(o => o.PayloadSha256).HasMaxLength(64);
+            entity.Property(o => o.VerificationStatus).HasConversion<string>().HasMaxLength(32);
+            entity.HasIndex(o => new { o.DisasterScenarioId, o.CapturedAt });
+            entity.HasOne<DisasterScenario>().WithMany().HasForeignKey(o => o.DisasterScenarioId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ImpactObservation>(entity =>
+        {
+            entity.ToTable("impact_observations");
+            entity.HasKey(o => o.Id);
+            entity.Property(o => o.Kind).HasMaxLength(128);
+            entity.Property(o => o.Subject).HasMaxLength(512);
+            entity.Property(o => o.Value).HasColumnType("jsonb");
+            entity.Property(o => o.VerificationStatus).HasConversion<string>().HasMaxLength(32);
+            entity.HasIndex(o => new { o.DisasterScenarioId, o.ObservedAt });
+            entity.HasOne<DisasterScenario>().WithMany().HasForeignKey(o => o.DisasterScenarioId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne<SourceObservation>().WithMany().HasForeignKey(o => o.SourceObservationId).OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne<ImpactObservation>().WithMany().HasForeignKey(o => o.PreviousObservationId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<OperationalMapFeature>(entity =>
+        {
+            entity.ToTable("operational_map_features");
+            entity.HasKey(f => f.Id);
+            entity.Property(f => f.FeatureType).HasMaxLength(96);
+            entity.Property(f => f.Name).HasMaxLength(512);
+            entity.Property(f => f.Properties).HasColumnType("jsonb");
+            entity.Property(f => f.VerificationStatus).HasConversion<string>().HasMaxLength(32);
+            entity.HasIndex(f => new { f.DisasterScenarioId, f.FeatureType });
+            entity.HasIndex(f => f.Geometry).HasMethod("gist");
+            entity.HasOne<DisasterScenario>().WithMany().HasForeignKey(f => f.DisasterScenarioId).OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<SimulationRun>(entity =>

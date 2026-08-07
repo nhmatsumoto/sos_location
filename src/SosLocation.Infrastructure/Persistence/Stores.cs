@@ -63,6 +63,80 @@ public sealed class RevisionStore(SosDbContext context) : IRevisionStore
         => await context.CityRevisions.Where(r => r.Id == revisionId).ExecuteDeleteAsync(ct);
 }
 
+public sealed class RiskZoneStore(SosDbContext context) : IRiskZoneStore
+{
+    public Task<RiskZone?> FindByIdAsync(Guid id, CancellationToken ct)
+        => context.RiskZones.FirstOrDefaultAsync(z => z.Id == id, ct);
+
+    public async Task<IReadOnlyList<RiskZone>> ListByRevisionAsync(Guid revisionId, CancellationToken ct)
+        => await context.RiskZones
+            .AsNoTracking()
+            .Where(z => z.CityRevisionId == revisionId)
+            .OrderByDescending(z => z.CreatedAt)
+            .ToListAsync(ct);
+
+    public async Task AddAsync(RiskZone zone, CancellationToken ct)
+        => await context.RiskZones.AddAsync(zone, ct);
+
+    public async Task DeleteAsync(Guid zoneId, CancellationToken ct)
+        => await context.RiskZones.Where(z => z.Id == zoneId).ExecuteDeleteAsync(ct);
+
+    public async Task<RiskZoneExposure> ComputeExposureAsync(RiskZone zone, CancellationToken ct)
+    {
+        // .Intersects() traduz para ST_Intersects via Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite,
+        // usando o índice GiST de buildings.footprint.
+        var query = context.Buildings
+            .AsNoTracking()
+            .Where(b => b.CityRevisionId == zone.CityRevisionId && b.Footprint.Intersects(zone.Geometry));
+
+        var count = await query.CountAsync(ct);
+        if (count == 0) return new RiskZoneExposure(0, 0, []);
+
+        var avgHeight = await query.AverageAsync(b => b.HeightMeters, ct);
+        // Projeta para tipo anônimo antes de ordenar: compor OrderBy sobre um
+        // record já projetado (BuildingTypeCount) falha ao traduzir no EF Core.
+        var grouped = await query
+            .GroupBy(b => b.BuildingType)
+            .Select(g => new { Type = g.Key, Count = g.Count() })
+            .OrderByDescending(t => t.Count)
+            .ToListAsync(ct);
+        var byType = grouped.Select(t => new BuildingTypeCount(t.Type, t.Count)).ToList();
+
+        return new RiskZoneExposure(count, avgHeight, byType);
+    }
+}
+
+public sealed class DisasterScenarioStore(SosDbContext context) : IDisasterScenarioStore
+{
+    public Task<DisasterScenario?> FindByKeyAsync(string scenarioKey, CancellationToken ct)
+        => context.DisasterScenarios.FirstOrDefaultAsync(s => s.ScenarioKey == scenarioKey, ct);
+    public Task<DisasterScenario?> FindByIdAsync(Guid id, CancellationToken ct)
+        => context.DisasterScenarios.FirstOrDefaultAsync(s => s.Id == id, ct);
+    public Task<OperationalMapFeature?> FindMapFeatureAsync(Guid featureId, CancellationToken ct)
+        => context.OperationalMapFeatures.FirstOrDefaultAsync(f => f.Id == featureId, ct);
+    public async Task<IReadOnlyList<DisasterScenario>> ListAsync(CancellationToken ct)
+        => await context.DisasterScenarios.AsNoTracking().OrderByDescending(s => s.SimulationClockOrigin).ToListAsync(ct);
+    public async Task<IReadOnlyList<OperationalMapFeature>> ListMapFeaturesAsync(Guid scenarioId, CancellationToken ct)
+        => await context.OperationalMapFeatures.AsNoTracking().Where(f => f.DisasterScenarioId == scenarioId && f.EffectiveTo == null)
+            .OrderBy(f => f.FeatureType).ThenBy(f => f.Name).ToListAsync(ct);
+    public async Task<IReadOnlyList<ImpactObservation>> ListImpactsAsync(Guid scenarioId, CancellationToken ct)
+        => await context.ImpactObservations.AsNoTracking().Where(o => o.DisasterScenarioId == scenarioId)
+            .OrderByDescending(o => o.ObservedAt).ThenByDescending(o => o.CapturedAt).ToListAsync(ct);
+    public async Task AddAsync(DisasterScenario scenario, CancellationToken ct) => await context.DisasterScenarios.AddAsync(scenario, ct);
+    public async Task AddMapFeatureAsync(OperationalMapFeature feature, CancellationToken ct) => await context.OperationalMapFeatures.AddAsync(feature, ct);
+    public async Task CloseMapFeatureAsync(Guid featureId, DateTimeOffset closedAt, CancellationToken ct)
+        => await context.OperationalMapFeatures
+            .Where(f => f.Id == featureId && f.EffectiveTo == null)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(f => f.EffectiveTo, closedAt), ct);
+    public async Task AddObservationAsync(SourceObservation observation, CancellationToken ct) => await context.SourceObservations.AddAsync(observation, ct);
+    public async Task AddImpactAsync(ImpactObservation observation, CancellationToken ct) => await context.ImpactObservations.AddAsync(observation, ct);
+    public Task<bool> HasSourceObservationAsync(Guid scenarioId, string sourceId, string payloadSha256, CancellationToken ct)
+        => context.SourceObservations.AnyAsync(o => o.DisasterScenarioId == scenarioId && o.SourceId == sourceId && o.PayloadSha256 == payloadSha256, ct);
+    public async Task<IReadOnlyList<SourceObservation>> ListSourceObservationsAsync(Guid scenarioId, CancellationToken ct)
+        => await context.SourceObservations.AsNoTracking().Where(o => o.DisasterScenarioId == scenarioId)
+            .OrderByDescending(o => o.CapturedAt).ToListAsync(ct);
+}
+
 public sealed class DatasetStore(SosDbContext context) : IDatasetStore
 {
     public Task<Dataset?> FindByNameAsync(string name, CancellationToken ct)

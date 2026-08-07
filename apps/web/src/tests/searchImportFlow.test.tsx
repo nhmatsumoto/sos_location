@@ -107,8 +107,38 @@ describe('city search and import flow', () => {
       name: 'Komaki',
       countryCode: 'JP',
       region: 'Aichi',
+      reconstructionProfile: 'osm-japan-urban-v2',
       boundingBox: { west: 136.85, south: 35.25, east: 136.97, north: 35.33 },
     });
+  });
+
+  it('does not reimport a city that already comes from the local catalog', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify([]), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    useAppStore.getState().setSelectedPlace({
+      providerId: 'city/already-imported',
+      provider: 'catalog',
+      name: 'Existing City',
+      country: null,
+      countryCode: 'JP',
+      region: 'Aichi',
+      centerLon: 136.91,
+      centerLat: 35.29,
+      west: 136.90,
+      south: 35.28,
+      east: 136.92,
+      north: 35.30,
+    });
+
+    renderWithQueryClient(<ImportPanel />);
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    expect(fetchMock.mock.calls.some(([, init]) => init?.method === 'POST')).toBe(false);
   });
 
   it('lists failed operations with diagnostics but hides cancelled operations', async () => {

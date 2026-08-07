@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using NetTopologySuite.Geometries;
 using Testcontainers.PostgreSql;
 using SosLocation.Application.Abstractions;
 using SosLocation.Application.Import;
@@ -8,6 +9,7 @@ using SosLocation.Application.Options;
 using SosLocation.Application.Profiles;
 using SosLocation.Domain.Catalog;
 using SosLocation.Domain.Cities;
+using SosLocation.Domain.Disasters;
 using SosLocation.Domain.Jobs;
 using SosLocation.Domain.ValueObjects;
 using SosLocation.GeoProcessing.Normalizers;
@@ -337,6 +339,159 @@ public class PostgisPipelineTests(PostgisContainerFixture fixture)
         // Arquivo bruto e seu registro de catálogo nunca são tocados pelo delete.
         Assert.True(await fixture.Storage.ExistsAsync(storageKey!, CancellationToken.None));
         Assert.True(await verify.DatasetVersions.AnyAsync(v => v.StorageKey == storageKey));
+    }
+
+    private static readonly GeometryFactory GeometryFactory =
+        NetTopologySuite.NtsGeometryServices.Instance.CreateGeometryFactory(4326);
+
+    private static Polygon CoveringWholeFixturePolygon() => GeometryFactory.CreatePolygon(
+    [
+        new Coordinate(136.900, 35.280), new Coordinate(136.925, 35.280),
+        new Coordinate(136.925, 35.300), new Coordinate(136.900, 35.300),
+        new Coordinate(136.900, 35.280),
+    ]);
+
+    private static Polygon FarAwayPolygon() => GeometryFactory.CreatePolygon(
+    [
+        new Coordinate(0, 0), new Coordinate(1, 0), new Coordinate(1, 1),
+        new Coordinate(0, 1), new Coordinate(0, 0),
+    ]);
+
+    [Fact]
+    public async Task CreateAndListRiskZone_RoundTrips()
+    {
+        var job = await RunFixtureImportAsync();
+        var revisionId = job.CityRevisionId!.Value;
+
+        await using var context = fixture.CreateContext();
+        var zones = new RiskZoneStore(context);
+
+        var zone = new RiskZone
+        {
+            CityRevisionId = revisionId,
+            Name = "Riverside flood risk",
+            HazardType = DisasterType.Flood,
+            Level = RiskLevel.High,
+            Notes = "Low-lying area near the river",
+            Geometry = CoveringWholeFixturePolygon(),
+        };
+        await zones.AddAsync(zone, CancellationToken.None);
+        await context.SaveChangesAsync();
+
+        var listed = await zones.ListByRevisionAsync(revisionId, CancellationToken.None);
+        var found = Assert.Single(listed);
+        Assert.Equal("Riverside flood risk", found.Name);
+        Assert.Equal(DisasterType.Flood, found.HazardType);
+        Assert.Equal(RiskLevel.High, found.Level);
+    }
+
+    [Fact]
+    public async Task ComputeExposure_ZoneCoveringWholeArea_MatchesAllBuildings()
+    {
+        var job = await RunFixtureImportAsync();
+        var revisionId = job.CityRevisionId!.Value;
+
+        await using var context = fixture.CreateContext();
+        var totalBuildings = await context.Buildings.CountAsync(b => b.CityRevisionId == revisionId);
+
+        var zones = new RiskZoneStore(context);
+        var zone = new RiskZone
+        {
+            CityRevisionId = revisionId, Name = "Whole area", HazardType = DisasterType.Earthquake,
+            Level = RiskLevel.Moderate, Geometry = CoveringWholeFixturePolygon(),
+        };
+        await zones.AddAsync(zone, CancellationToken.None);
+        await context.SaveChangesAsync();
+
+        var exposure = await zones.ComputeExposureAsync(zone, CancellationToken.None);
+        Assert.Equal(totalBuildings, exposure.BuildingCount);
+        Assert.Equal(totalBuildings, exposure.ByType.Sum(t => t.Count));
+        Assert.True(exposure.AverageHeightMeters > 0);
+    }
+
+    [Fact]
+    public async Task ComputeExposure_ZoneFarAway_ReturnsZero()
+    {
+        var job = await RunFixtureImportAsync();
+        var revisionId = job.CityRevisionId!.Value;
+
+        await using var context = fixture.CreateContext();
+        var zones = new RiskZoneStore(context);
+        var zone = new RiskZone
+        {
+            CityRevisionId = revisionId, Name = "Nowhere", HazardType = DisasterType.Earthquake,
+            Level = RiskLevel.Low, Geometry = FarAwayPolygon(),
+        };
+        await zones.AddAsync(zone, CancellationToken.None);
+        await context.SaveChangesAsync();
+
+        var exposure = await zones.ComputeExposureAsync(zone, CancellationToken.None);
+        Assert.Equal(0, exposure.BuildingCount);
+        Assert.Empty(exposure.ByType);
+    }
+
+    [Fact]
+    public async Task DeleteRevision_CascadesRiskZones()
+    {
+        var job = await RunFixtureImportAsync();
+        var revisionId = job.CityRevisionId!.Value;
+
+        await using var context = fixture.CreateContext();
+        var zones = new RiskZoneStore(context);
+        var revisions = new RevisionStore(context);
+        var zone = new RiskZone
+        {
+            CityRevisionId = revisionId, Name = "To be cascaded", HazardType = DisasterType.Fire,
+            Level = RiskLevel.Severe, Geometry = CoveringWholeFixturePolygon(),
+        };
+        await zones.AddAsync(zone, CancellationToken.None);
+        await context.SaveChangesAsync();
+
+        await revisions.DeleteAsync(revisionId, CancellationToken.None);
+
+        await using var verify = fixture.CreateContext();
+        Assert.False(await verify.RiskZones.AnyAsync(z => z.CityRevisionId == revisionId));
+    }
+
+    [Fact]
+    public async Task OperationalFeature_Close_PreservesAuditRowAndRemovesItFromActiveList()
+    {
+        var scenario = new DisasterScenario
+        {
+            ScenarioKey = $"test-crisis-{Guid.NewGuid():N}",
+            Name = "Operational feature integration test",
+            HazardType = DisasterType.Earthquake,
+            CanonicalEventId = $"test-event-{Guid.NewGuid():N}",
+            SimulationClockOrigin = DateTimeOffset.UtcNow,
+        };
+        var feature = new OperationalMapFeature
+        {
+            DisasterScenarioId = scenario.Id,
+            FeatureType = "search-sector",
+            Name = "P1 sector",
+            Geometry = CoveringWholeFixturePolygon(),
+            Properties = """{"priority":1,"status":"assigned","confirmedVictims":2,"estimatedVictims":4}""",
+            VerificationStatus = VerificationStatus.Corroborated,
+            EffectiveFrom = DateTimeOffset.UtcNow,
+        };
+
+        await using (var context = fixture.CreateContext())
+        {
+            var store = new DisasterScenarioStore(context);
+            await store.AddAsync(scenario, CancellationToken.None);
+            await store.AddMapFeatureAsync(feature, CancellationToken.None);
+            await context.SaveChangesAsync();
+
+            Assert.Single(await store.ListMapFeaturesAsync(scenario.Id, CancellationToken.None));
+            await store.CloseMapFeatureAsync(feature.Id, DateTimeOffset.UtcNow, CancellationToken.None);
+        }
+
+        await using var verify = fixture.CreateContext();
+        var verifyStore = new DisasterScenarioStore(verify);
+        Assert.Empty(await verifyStore.ListMapFeaturesAsync(scenario.Id, CancellationToken.None));
+        var preserved = await verifyStore.FindMapFeatureAsync(feature.Id, CancellationToken.None);
+        Assert.NotNull(preserved);
+        Assert.NotNull(preserved.EffectiveTo);
     }
 
     [Fact]

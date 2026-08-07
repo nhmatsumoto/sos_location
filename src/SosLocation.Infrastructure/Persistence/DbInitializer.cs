@@ -1,7 +1,9 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using NetTopologySuite.Geometries;
 using SosLocation.Application.Import;
+using SosLocation.Domain.Disasters;
 using SosLocation.Domain.Jobs;
 
 namespace SosLocation.Infrastructure.Persistence;
@@ -31,6 +33,7 @@ public static class DbInitializer
         }
 
         await SeedDemoFixtureJobAsync(context, logger, ct);
+        await SeedKumamotoScenarioAsync(context, logger, ct);
     }
 
     private static async Task SeedDemoFixtureJobAsync(SosDbContext context, ILogger logger, CancellationToken ct)
@@ -52,5 +55,69 @@ public static class DbInitializer
         }, ct);
         await context.SaveChangesAsync(ct);
         logger.LogInformation("Seeded demo fixture import job (offline demo city).");
+    }
+
+    private static async Task SeedKumamotoScenarioAsync(SosDbContext context, ILogger logger, CancellationToken ct)
+    {
+        const string key = "kumamoto-2026-07-28-m68";
+        if (await context.DisasterScenarios.AnyAsync(s => s.ScenarioKey == key, ct)) return;
+
+        var origin = DateTimeOffset.Parse("2026-07-28T07:27:15Z");
+        var geometry = NetTopologySuite.NtsGeometryServices.Instance.CreateGeometryFactory(srid: 4326);
+        var scenario = new DisasterScenario
+        {
+            ScenarioKey = key,
+            Name = "Kumamoto earthquake — preliminary operational snapshot",
+            HazardType = DisasterType.Earthquake,
+            CanonicalEventId = "jp-jma-20260728162718",
+            SimulationClockOrigin = origin,
+            Epicenter = geometry.CreatePoint(new Coordinate(130.722, 32.682)),
+            DepthKm = 10,
+            MomentMagnitude = 6.8,
+            MagnitudeType = "Mww",
+        };
+        await context.DisasterScenarios.AddAsync(scenario, ct);
+        await context.SourceObservations.AddAsync(new SourceObservation
+        {
+            DisasterScenarioId = scenario.Id,
+            SourceId = "operator-snapshot-kumamoto-2026-07-28",
+            SourceUrl = "about:operator-provided-snapshot",
+            Kind = "operator-supplied-snapshot",
+            Payload = JsonSerializer.Serialize(new
+            {
+                jmaEventId = "20260728162718", usgsEventId = "us6000tgb9", jmaMagnitude = 7.1,
+                usgsMagnitude = 6.8, maximumIntensity = "Shindo 7", status = "preliminary",
+            }),
+            ObservedAt = origin, Confidence = 0.7, VerificationStatus = VerificationStatus.Reported,
+        }, ct);
+
+        // Círculo de triagem, não uma fronteira administrativa nem um mapa de
+        // intensidade: é publicado como estimado até chegarem malhas oficiais JMA/GSI.
+        var ring = geometry.CreateLinearRing(Enumerable.Range(0, 73).Select(i =>
+        {
+            var angle = i * Math.PI / 36d;
+            return new Coordinate(130.722 + 0.32 * Math.Cos(angle), 32.682 + 0.23 * Math.Sin(angle));
+        }).ToArray());
+        await context.OperationalMapFeatures.AddRangeAsync([
+            new OperationalMapFeature
+            {
+                DisasterScenarioId = scenario.Id, FeatureType = "epicenter", Name = "USGS epicenter (10 km depth)",
+                Geometry = scenario.Epicenter, Properties = "{\"usgsEventId\":\"us6000tgb9\",\"depthKm\":10}",
+                VerificationStatus = VerificationStatus.Reported, EffectiveFrom = origin,
+            },
+            new OperationalMapFeature
+            {
+                DisasterScenarioId = scenario.Id, FeatureType = "assessment-perimeter", Name = "Initial 30 km assessment perimeter (estimated)",
+                Geometry = geometry.CreatePolygon(ring), Properties = "{\"purpose\":\"prioritize field assessment; not an intensity boundary\"}",
+                VerificationStatus = VerificationStatus.Reported, EffectiveFrom = origin,
+            },
+        ], ct);
+        await context.ImpactObservations.AddRangeAsync([
+            new ImpactObservation { DisasterScenarioId = scenario.Id, Kind = "ground-motion", Subject = "Uki City; Hikawa Town", Value = "{\"shindo\":\"7\",\"preliminary\":true}", ObservedAt = origin, Confidence = .7, VerificationStatus = VerificationStatus.Reported },
+            new ImpactObservation { DisasterScenarioId = scenario.Id, Kind = "utility-outage", Subject = "Kumamoto Prefecture", Value = "{\"affectedHouseholds\":48000,\"preliminary\":true}", ObservedAt = origin, Confidence = .55, VerificationStatus = VerificationStatus.Reported },
+            new ImpactObservation { DisasterScenarioId = scenario.Id, Kind = "evacuation", Subject = "Kumamoto Prefecture", Value = "{\"peopleAdvised\":300000,\"preliminary\":true}", ObservedAt = origin, Confidence = .55, VerificationStatus = VerificationStatus.Reported },
+        ], ct);
+        await context.SaveChangesAsync(ct);
+        logger.LogInformation("Seeded preliminary Kumamoto operational scenario {ScenarioKey}.", key);
     }
 }

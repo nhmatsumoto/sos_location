@@ -1,7 +1,10 @@
 import { BUILDING_COLORS, HEIGHT_LIFT_REFERENCE_METERS, liftColorForHeight, rgbaCss } from '../../geo/materials/theme';
 
 const CATEGORY_LABELS: { key: keyof typeof BUILDING_COLORS; label: string }[] = [
-  { key: 'residential', label: 'Residential (houses & apartments)' },
+  { key: 'house', label: 'House' },
+  { key: 'apartment', label: 'Apartment building' },
+  { key: 'mixed_use', label: 'Mixed use' },
+  { key: 'residential', label: 'Residential (unspecified)' },
   { key: 'commercial', label: 'Commercial' },
   { key: 'industrial', label: 'Industrial' },
   { key: 'public', label: 'Public' },

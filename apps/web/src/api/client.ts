@@ -3,21 +3,33 @@ import {
   buildingDetailSchema,
   buildingSeismicResponseSchema,
   citySchema,
+  currentWeatherSchema,
+  geoJsonFeatureCollectionSchema,
   importFileSchema,
   importJobSchema,
+  operationalFeatureSchema,
+  operationalSummarySchema,
   placeSchema,
   revisionSchema,
+  riskZoneExposureSchema,
+  riskZoneSchema,
   roadDetailSchema,
   simulationRunSchema,
   seismicReplayManifestSchema,
+  scenarioDataStatusSchema,
   waterDetailSchema,
   type BuildingDetail,
   type BuildingSeismicResponse,
   type City,
+  type CurrentWeather,
   type ImportFile,
   type ImportJob,
+  type OperationalFeature,
+  type OperationalSummary,
   type Place,
   type Revision,
+  type RiskZone,
+  type RiskZoneExposure,
   type RoadDetail,
   type SimulationRun,
   type SeismicReplayManifest,
@@ -25,6 +37,22 @@ import {
 } from '../schemas/api';
 
 const BASE = '/api/v1';
+
+export interface OperationalFeatureInput {
+  featureType: string;
+  name: string;
+  geometry: GeoJSON.Point | GeoJSON.LineString | GeoJSON.Polygon;
+  priority: number;
+  status: string;
+  confirmedVictims: number;
+  estimatedVictims: number;
+  peopleRescued: number;
+  assignedTeam?: string;
+  capacity?: number;
+  resources?: string;
+  notes?: string;
+  verificationStatus: string;
+}
 
 async function getJson<T>(path: string, schema: z.ZodType<T>, signal?: AbortSignal): Promise<T> {
   const response = await fetch(`${BASE}${path}`, { signal });
@@ -37,6 +65,68 @@ export const api = {
     getJson(`/places/search?q=${encodeURIComponent(query)}`, z.array(placeSchema), signal),
 
   listCities: (): Promise<City[]> => getJson('/cities', z.array(citySchema)),
+
+  getDisasterScenarioMap: (scenarioKey: string): Promise<GeoJSON.FeatureCollection> =>
+    getJson(`/disaster-scenarios/${encodeURIComponent(scenarioKey)}/map.geojson`, geoJsonFeatureCollectionSchema) as Promise<GeoJSON.FeatureCollection>,
+
+  getDisasterScenarioDataStatus: (scenarioKey: string) =>
+    getJson(`/disaster-scenarios/${encodeURIComponent(scenarioKey)}/data-status`, z.array(scenarioDataStatusSchema)),
+
+  listOperationalFeatures: (scenarioKey: string): Promise<OperationalFeature[]> =>
+    getJson(
+      `/disaster-scenarios/${encodeURIComponent(scenarioKey)}/operations`,
+      z.array(operationalFeatureSchema),
+    ),
+
+  getOperationalFeature: (featureId: string): Promise<OperationalFeature> =>
+    getJson(`/operational-features/${featureId}`, operationalFeatureSchema),
+
+  getOperationalSummary: (scenarioKey: string): Promise<OperationalSummary> =>
+    getJson(
+      `/disaster-scenarios/${encodeURIComponent(scenarioKey)}/operations-summary`,
+      operationalSummarySchema,
+    ),
+
+  createOperationalFeature: async (
+    scenarioKey: string,
+    request: OperationalFeatureInput,
+  ): Promise<OperationalFeature> => {
+    const response = await fetch(
+      `${BASE}/disaster-scenarios/${encodeURIComponent(scenarioKey)}/operations`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request),
+      },
+    );
+    if (!response.ok) throw new Error(await readApiError(response, 'Create operational feature'));
+    return operationalFeatureSchema.parse(await response.json());
+  },
+
+  updateOperationalFeature: async (
+    scenarioKey: string,
+    featureId: string,
+    request: OperationalFeatureInput,
+  ): Promise<OperationalFeature> => {
+    const response = await fetch(
+      `${BASE}/disaster-scenarios/${encodeURIComponent(scenarioKey)}/operations/${featureId}`,
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request),
+      },
+    );
+    if (!response.ok) throw new Error(await readApiError(response, 'Update operational feature'));
+    return operationalFeatureSchema.parse(await response.json());
+  },
+
+  closeOperationalFeature: async (scenarioKey: string, featureId: string): Promise<void> => {
+    const response = await fetch(
+      `${BASE}/disaster-scenarios/${encodeURIComponent(scenarioKey)}/operations/${featureId}`,
+      { method: 'DELETE' },
+    );
+    if (!response.ok) throw new Error(await readApiError(response, 'Close operational feature'));
+  },
 
   listRevisions: (cityId: string): Promise<Revision[]> =>
     getJson(`/cities/${cityId}/revisions`, z.array(revisionSchema)),
@@ -63,7 +153,16 @@ export const api = {
     });
     if (!response.ok) {
       const body = await response.text();
-      throw new Error(`Import request rejected (${response.status}): ${body}`);
+      // ProblemDetails do ASP.NET traz a mensagem útil em errors; não expor o
+      // JSON inteiro torna o limite de área compreensível na UI.
+      try {
+        const problem = JSON.parse(body) as { title?: string; errors?: Record<string, string[]> };
+        const details = Object.values(problem.errors ?? {}).flat().join(' ');
+        throw new Error(details || problem.title || `Import request rejected (${response.status}).`);
+      } catch (error) {
+        if (error instanceof Error) throw error;
+        throw new Error(`Import request rejected (${response.status}): ${body}`);
+      }
     }
     return importJobSchema.parse(await response.json());
   },
@@ -149,6 +248,36 @@ export const api = {
     };
     return collection.features ?? [];
   },
+
+  listRiskZones: (revisionId: string): Promise<RiskZone[]> =>
+    getJson(`/revisions/${revisionId}/risk-zones`, z.array(riskZoneSchema)),
+
+  createRiskZone: async (
+    revisionId: string,
+    request: { name: string; hazardType: string; level: string; notes?: string; geometry: GeoJSON.Polygon },
+  ): Promise<RiskZone> => {
+    const response = await fetch(`${BASE}/revisions/${revisionId}/risk-zones`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    });
+    if (!response.ok) {
+      const body = await response.text();
+      throw new Error(`Risk zone create rejected (${response.status}): ${body}`);
+    }
+    return riskZoneSchema.parse(await response.json());
+  },
+
+  deleteRiskZone: async (zoneId: string): Promise<void> => {
+    const response = await fetch(`${BASE}/risk-zones/${zoneId}`, { method: 'DELETE' });
+    if (!response.ok) throw new Error(`Delete failed: ${response.status}`);
+  },
+
+  getRiskZoneExposure: (zoneId: string): Promise<RiskZoneExposure> =>
+    getJson(`/risk-zones/${zoneId}/exposure`, riskZoneExposureSchema),
+
+  getCurrentWeather: (lat: number, lon: number): Promise<CurrentWeather> =>
+    getJson(`/climate/current?lat=${lat}&lon=${lon}`, currentWeatherSchema),
 };
 
 export function importFileDownloadUrl(jobId: string, datasetVersionId: string): string {
@@ -163,6 +292,25 @@ export function simulationIntensityUrl(runId: string): string {
   return `${BASE}/simulations/${runId}/intensity.png`;
 }
 
+export function simulationIntensityDataUrl(runId: string): string {
+  return `${BASE}/simulations/${runId}/intensity-data.png`;
+}
+
 export function simulationReplayFrameUrl(runId: string, frameIndex: number): string {
   return `${BASE}/simulations/${runId}/replay/${frameIndex}.png`;
+}
+
+async function readApiError(response: Response, operation: string): Promise<string> {
+  const body = await response.text();
+  try {
+    const problem = JSON.parse(body) as {
+      title?: string;
+      error?: string;
+      errors?: Record<string, string[]>;
+    };
+    const details = Object.values(problem.errors ?? {}).flat().join(' ');
+    return details || problem.error || problem.title || `${operation} failed (${response.status}).`;
+  } catch {
+    return `${operation} failed (${response.status}): ${body}`;
+  }
 }

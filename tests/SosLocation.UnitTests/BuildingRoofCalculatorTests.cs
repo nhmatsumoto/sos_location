@@ -90,4 +90,31 @@ public class BuildingRoofCalculatorTests
 
         Assert.Equal(3.0, result.RoofHeightMeters); // 2 × 1.5
     }
+
+    [Fact]
+    public void JapanProfile_HouseAndApartmentUseDifferentDefaultRoofs()
+    {
+        var house = BuildingRoofCalculator.Calculate(
+            new RoofInput(null, null, "residential", 7.4, "house"),
+            ReconstructionProfile.OsmJapanUrbanV2);
+        var apartment = BuildingRoofCalculator.Calculate(
+            new RoofInput(null, null, "residential", 14.5, "apartment"),
+            ReconstructionProfile.OsmJapanUrbanV2);
+
+        Assert.Equal("hipped", house.RoofShape);
+        Assert.True(house.RoofHeightMeters > 0);
+        Assert.Equal("flat", apartment.RoofShape);
+        Assert.Equal(0, apartment.RoofHeightMeters);
+    }
+
+    [Fact]
+    public void ExplicitRoofHeight_TakesPrecedence()
+    {
+        var result = BuildingRoofCalculator.Calculate(
+            new RoofInput("gabled", null, "residential", 12, "house", 3.5),
+            ReconstructionProfile.OsmJapanUrbanV2);
+
+        Assert.Equal(3.5, result.RoofHeightMeters);
+        Assert.Equal("roof:height", result.Basis);
+    }
 }

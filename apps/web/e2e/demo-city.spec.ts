@@ -8,9 +8,12 @@ import { expect, test, type Page } from '@playwright/test';
 
 async function openDemoCity(page: Page) {
   await page.goto('/');
+  await page.getByTestId('open-workspace-modal').click();
+  await expect(page.getByTestId('workspace-modal')).toBeVisible();
   const cityButton = page.getByTestId('open-city-demo-district');
   await expect(cityButton).toBeVisible({ timeout: 90_000 });
   await cityButton.click();
+  await expect(page.getByTestId('workspace-modal')).not.toBeVisible();
   // Espera o voo da câmera terminar (zoom urbano) e o primeiro lote de tiles.
   await expect
     .poll(
@@ -32,6 +35,24 @@ test('opens the app and loads the demo city with tiles', async ({ page }) => {
   await expect(page.getByTestId('diagnostics-bar')).toContainText('revision #');
 });
 
+test('field toolbox opens the extensible scientific workspace', async ({ page }) => {
+  await page.goto('/');
+
+  await expect(page.getByTestId('operational-toolbox')).toBeVisible();
+  await expect(page.getByTestId('toolbox-risk-area')).toBeVisible();
+  await expect(page.getByTestId('toolbox-alert')).toBeVisible();
+  await expect(page.getByTestId('toolbox-rescue-route')).toBeVisible();
+
+  await page.getByTestId('open-scientific-analysis').click();
+  await expect(page.getByTestId('workspace-modal')).toBeVisible();
+  await expect(page.getByTestId('scientific-analysis-panel')).toBeVisible();
+  await expect(page.getByTestId('scientific-tool-systemic-analysis')).toBeVisible();
+  await expect(page.getByTestId('scientific-tool-propagation-and-dissipation')).toBeVisible();
+  await expect(page.getByTestId('scientific-tool-intensity-heatmap')).toBeVisible();
+  await page.getByTestId('scientific-tool-source-and-data').click();
+  await expect(page.getByTestId('usgs-scientific-catalog')).toContainText('ShakeMap');
+});
+
 test('camera can be moved and layers toggled', async ({ page }) => {
   await openDemoCity(page);
   const scene = page.getByTestId('geo-scene');
@@ -47,10 +68,12 @@ test('camera can be moved and layers toggled', async ({ page }) => {
   expect(after).not.toBe(before); // lon/lat mudaram
 
   // Desativa e reativa edifícios.
+  await page.getByTestId('open-workspace-modal').click();
   await page.getByTestId('layer-toggle-buildings').uncheck();
   await expect(page.getByTestId('layer-toggle-buildings')).not.toBeChecked();
   await page.getByTestId('layer-toggle-buildings').check();
   await expect(page.getByTestId('layer-toggle-buildings')).toBeChecked();
+  await page.getByTestId('close-workspace-modal').click();
 });
 
 test('selecting a building opens the inspector with metadata and provenance', async ({ page }) => {
@@ -158,7 +181,7 @@ test('city search + simulated import with progress and recoverable error', async
   await page.getByTestId('city-search-input').fill('Komaki');
   await page.getByTestId('city-search-result').filter({ hasText: 'Komaki' }).click();
 
-  await page.getByTestId('start-import').click();
+  await expect(page.getByTestId('workspace-modal')).toBeVisible();
   await expect(page.getByTestId('import-panel')).toContainText(/running|queued/, {
     timeout: 15_000,
   });

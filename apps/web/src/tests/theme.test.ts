@@ -7,26 +7,32 @@ import {
   WATER_COLOR,
 } from '../geo/materials/theme';
 
-describe('no-texture architecture rule', () => {
-  it('base map style contains no raster, satellite or image sources', () => {
+describe('OpenStreetMap context layer architecture rule', () => {
+  it('allows exactly one OSM raster source and no imagery or DEM source', () => {
     const style = createBaseStyle() as {
-      sources: Record<string, { type?: string }>;
-      layers: { type: string }[];
+      sources: Record<string, { type?: string; tiles?: string[] }>;
+      layers: { id: string; type: string; source?: string }[];
     };
 
+    expect(Object.keys(style.sources)).toEqual(['sos-earth-basemap']);
+    expect(style.sources['sos-earth-basemap'].type).toBe('raster');
+    expect(style.sources['sos-earth-basemap'].tiles).toEqual([
+      'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+    ]);
     for (const source of Object.values(style.sources)) {
-      expect(source.type).not.toBe('raster');
       expect(source.type).not.toBe('raster-dem');
       expect(source.type).not.toBe('image');
     }
-    for (const layer of style.layers) {
-      expect(layer.type).not.toBe('raster');
-    }
+    expect(style.layers.filter((layer) => layer.type === 'raster')).toEqual([
+      expect.objectContaining({
+        id: 'sos-earth-basemap',
+        source: 'sos-earth-basemap',
+      }),
+    ]);
   });
 
-  it('base style references no external URLs (fully offline)', () => {
+  it('references no satellite or orthophoto imagery', () => {
     const json = JSON.stringify(createBaseStyle());
-    expect(json).not.toMatch(/https?:\/\//);
     expect(json).not.toMatch(/satellite|ortho|imagery/i);
   });
 });
@@ -34,6 +40,9 @@ describe('no-texture architecture rule', () => {
 describe('semantic building colors', () => {
   it('covers the required categories', () => {
     for (const category of [
+      'house',
+      'apartment',
+      'mixed_use',
       'residential',
       'commercial',
       'industrial',

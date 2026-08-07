@@ -1,9 +1,10 @@
 /**
  * Tema de materiais do SOS_LOCATION.
  *
- * Decisão de arquitetura: a cidade é renderizada SEM texturas — apenas
- * materiais sólidos, cores semânticas e iluminação. Nenhuma camada raster,
- * satélite ou ortofoto pode ser registrada (verificado por teste automatizado).
+ * Decisão de arquitetura: feições urbanas são renderizadas sem texturas —
+ * materiais sólidos, cores semânticas e iluminação. Uma única camada raster
+ * OSM é aceita como contexto cartográfico global; satélite/ortofoto continuam
+ * proibidos (verificado por teste automatizado).
  */
 
 export type RGBA = [number, number, number, number];
@@ -13,6 +14,9 @@ export const TERRAIN_COLOR = '#161c24';
 
 /** Cores semânticas por categoria de edifício (base opaca, material fosco). */
 export const BUILDING_COLORS: Record<string, RGBA> = {
+  house: [132, 158, 190, 255],
+  apartment: [158, 174, 199, 255],
+  mixed_use: [196, 159, 112, 255],
   residential: [141, 163, 191, 255],
   commercial: [217, 166, 98, 255],
   industrial: [154, 137, 176, 255],
@@ -23,6 +27,14 @@ export const BUILDING_COLORS: Record<string, RGBA> = {
 };
 
 export const BUILDING_HIGHLIGHT: RGBA = [255, 214, 102, 200];
+
+/** Cores por nível de severidade de uma zona de risco desenhada manualmente. */
+export const RISK_LEVEL_COLORS: Record<string, RGBA> = {
+  low: [59, 130, 246, 255],
+  moderate: [234, 179, 8, 255],
+  high: [249, 115, 22, 255],
+  severe: [239, 68, 68, 255],
+};
 
 export const ROAD_COLORS: Record<string, RGBA> = {
   highway: [232, 196, 120, 220],
@@ -45,6 +57,9 @@ export const LAND_USE_COLORS: Record<string, RGBA> = {
   residential: [90, 105, 125, 60],
   commercial: [140, 115, 80, 60],
   industrial: [110, 95, 130, 60],
+  civic: [80, 130, 145, 72],
+  transport: [125, 120, 110, 68],
+  pavement: [118, 122, 128, 82],
   green: [80, 130, 90, 80],
   agricultural: [110, 125, 85, 60],
   other: [100, 105, 115, 40],
@@ -114,7 +129,8 @@ export function rgbaCss([r, g, b, a]: RGBA): string {
 /**
  * Estilo base do MapLibre: fundo sólido + globo + céu/atmosfera procedurais
  * e luz direcional para o sombreamento das extrusões (fill-extrusion).
- * Sem sources externas, sem raster, sem glyphs/sprites remotos — offline.
+ * A única textura é o mapa-base terrestre público, para dar referência visual
+ * aos continentes no globo. As camadas urbanas continuam sem textura.
  */
 export function createBaseStyle(): Record<string, unknown> {
   return {
@@ -138,9 +154,24 @@ export function createBaseStyle(): Record<string, unknown> {
       'horizon-fog-blend': 0.5,
       'fog-ground-blend': 0.9,
     },
-    sources: {},
+    sources: {
+      // Contexto cartográfico global; fica abaixo de todas as fontes SOS e não
+      // altera materiais de edifícios, terreno ou resultados de simulação.
+      'sos-earth-basemap': {
+        type: 'raster',
+        tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+        tileSize: 256,
+        minzoom: 0,
+        maxzoom: 19,
+        attribution: '© OpenStreetMap contributors',
+      },
+    },
     layers: [
       { id: 'background', type: 'background', paint: { 'background-color': BACKGROUND_COLOR } },
+      {
+        id: 'sos-earth-basemap', type: 'raster', source: 'sos-earth-basemap',
+        paint: { 'raster-opacity': 0.82, 'raster-saturation': -0.15, 'raster-contrast': 0.08 },
+      },
     ],
   };
 }

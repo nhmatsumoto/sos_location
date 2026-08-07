@@ -8,7 +8,9 @@ using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Serilog;
 using SosLocation.Api.Endpoints;
+using SosLocation.Application.Disasters;
 using SosLocation.Application.Import;
+using SosLocation.Application.RiskZones;
 using SosLocation.Application.Simulation;
 using SosLocation.Infrastructure;
 using SosLocation.Infrastructure.Persistence;
@@ -33,6 +35,8 @@ try
             sp.GetRequiredService<SosLocation.Application.Options.ImportLimits>(),
             sp.GetRequiredService<SosLocation.Application.Profiles.ReconstructionProfileRegistry>()));
     builder.Services.AddScoped<IValidator<SimulationRequest>, SimulationRequestValidator>();
+    builder.Services.AddScoped<IValidator<RiskZoneRequest>, RiskZoneRequestValidator>();
+    builder.Services.AddScoped<IValidator<OperationalFeatureRequest>, OperationalFeatureRequestValidator>();
 
     builder.Services.AddOpenApi();
     builder.Services.AddProblemDetails(); // Erros padronizados, sem stack traces expostos.
@@ -104,6 +108,9 @@ try
     api.MapTerrainEndpoints();
     api.MapFeaturesEndpoints();
     api.MapSimulationsEndpoints();
+    api.MapRiskZonesEndpoints();
+    api.MapClimateEndpoints();
+    api.MapDisasterScenariosEndpoints();
 
     // Migrations automáticas controladas + seed da fixture offline.
     if (!app.Configuration.GetValue("SkipMigrations", false))

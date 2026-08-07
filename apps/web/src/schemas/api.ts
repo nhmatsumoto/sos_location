@@ -18,6 +18,70 @@ export const placeSchema = z.object({
 });
 export type Place = z.infer<typeof placeSchema>;
 
+export const scenarioDataStatusSchema = z.object({
+  id: z.string(), category: z.string(), name: z.string(), priority: z.number().int(), purpose: z.string(),
+  captured: z.boolean(), latestCapturedAt: z.string().nullish(),
+});
+export type ScenarioDataStatus = z.infer<typeof scenarioDataStatusSchema>;
+
+export const geoJsonFeatureCollectionSchema = z.object({
+  type: z.literal('FeatureCollection'),
+  features: z.array(z.object({ type: z.literal('Feature'), geometry: z.any(), properties: z.record(z.string(), z.any()).nullish() })),
+});
+
+const geoJsonOperationalGeometrySchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('Point'), coordinates: z.tuple([z.number(), z.number()]) }),
+  z.object({
+    type: z.literal('LineString'),
+    coordinates: z.array(z.tuple([z.number(), z.number()])).min(2),
+  }),
+  z.object({
+    type: z.literal('Polygon'),
+    coordinates: z.array(z.array(z.tuple([z.number(), z.number()]))).min(1),
+  }),
+]);
+
+export const operationalFeatureSchema = z.object({
+  id: z.string(),
+  disasterScenarioId: z.string(),
+  featureType: z.string(),
+  name: z.string(),
+  geometry: geoJsonOperationalGeometrySchema,
+  priority: z.number().int().min(1).max(4),
+  status: z.string(),
+  confirmedVictims: z.number().int().nonnegative(),
+  estimatedVictims: z.number().int().nonnegative(),
+  peopleRescued: z.number().int().nonnegative(),
+  assignedTeam: z.string().nullish(),
+  capacity: z.number().int().nonnegative().nullish(),
+  resources: z.string().nullish(),
+  notes: z.string().nullish(),
+  verificationStatus: z.string(),
+  effectiveFrom: z.string(),
+  effectiveTo: z.string().nullish(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type OperationalFeature = z.infer<typeof operationalFeatureSchema>;
+
+export const operationalSummarySchema = z.object({
+  activeFeatures: z.number().int().nonnegative(),
+  priorityOne: z.number().int().nonnegative(),
+  confirmedVictims: z.number().int().nonnegative(),
+  estimatedVictims: z.number().int().nonnegative(),
+  peopleRescued: z.number().int().nonnegative(),
+  riskAreas: z.number().int().nonnegative(),
+  safeAreas: z.number().int().nonnegative(),
+  searchSectors: z.number().int().nonnegative(),
+  supportPoints: z.number().int().nonnegative(),
+  trafficInterruptions: z.number().int().nonnegative(),
+  alerts: z.number().int().nonnegative().default(0),
+  rescueRoutes: z.number().int().nonnegative().default(0),
+  assignedTeams: z.number().int().nonnegative(),
+  lastUpdatedAt: z.string(),
+});
+export type OperationalSummary = z.infer<typeof operationalSummarySchema>;
+
 export const citySchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -74,6 +138,46 @@ export const importFileSchema = z.object({
 });
 export type ImportFile = z.infer<typeof importFileSchema>;
 
+const geoJsonPolygonSchema = z.object({
+  type: z.literal('Polygon'),
+  coordinates: z.array(z.array(z.tuple([z.number(), z.number()]))),
+});
+
+export const riskZoneSchema = z.object({
+  id: z.string(),
+  cityRevisionId: z.string(),
+  name: z.string(),
+  hazardType: z.string(),
+  level: z.string(),
+  notes: z.string().nullish(),
+  geometry: geoJsonPolygonSchema,
+  createdAt: z.string(),
+});
+export type RiskZone = z.infer<typeof riskZoneSchema>;
+
+export const buildingTypeCountSchema = z.object({
+  buildingType: z.string(),
+  count: z.number().int(),
+});
+
+export const riskZoneExposureSchema = z.object({
+  zoneId: z.string(),
+  buildingCount: z.number().int(),
+  averageHeightMeters: z.number(),
+  byType: z.array(buildingTypeCountSchema),
+});
+export type RiskZoneExposure = z.infer<typeof riskZoneExposureSchema>;
+
+export const currentWeatherSchema = z.object({
+  latitude: z.number(),
+  longitude: z.number(),
+  temperatureCelsius: z.number(),
+  precipitationMm: z.number(),
+  windSpeedKmh: z.number(),
+  observedAt: z.string(),
+});
+export type CurrentWeather = z.infer<typeof currentWeatherSchema>;
+
 export const simulationRunSchema = z.object({
   id: z.string(),
   cityRevisionId: z.string(),
@@ -120,6 +224,25 @@ export const seismicReplayFrameSchema = z.object({
 });
 export type SeismicReplayFrame = z.infer<typeof seismicReplayFrameSchema>;
 
+export const seismicDirectionSectorSchema = z.object({
+  direction: z.string(),
+  centerBearingDegrees: z.number(),
+  meanPgaG: z.number().nonnegative(),
+  peakPgaG: z.number().nonnegative(),
+  sampleCount: z.number().int().nonnegative(),
+});
+export type SeismicDirectionSector = z.infer<typeof seismicDirectionSectorSchema>;
+
+export const seismicAttenuationBandSchema = z.object({
+  minimumDistanceKm: z.number().nonnegative(),
+  maximumDistanceKm: z.number(),
+  meanPgaG: z.number().nonnegative(),
+  peakPgaG: z.number().nonnegative(),
+  geometricSpreadingFactor: z.number().nonnegative(),
+  sampleCount: z.number().int().nonnegative(),
+});
+export type SeismicAttenuationBand = z.infer<typeof seismicAttenuationBandSchema>;
+
 export const seismicReplayManifestSchema = z.object({
   modelVersion: z.string(),
   gridColumns: z.number().int().positive(),
@@ -139,6 +262,15 @@ export const seismicReplayManifestSchema = z.object({
   south: z.number(),
   east: z.number(),
   north: z.number(),
+  seismicMomentNewtonMeters: z.number().nonnegative().default(0),
+  estimatedRadiatedEnergyJoules: z.number().nonnegative().default(0),
+  cornerFrequencyHz: z.number().nonnegative().default(0),
+  minimumShearVelocityMps: z.number().nonnegative().default(0),
+  meanShearVelocityMps: z.number().nonnegative().default(0),
+  maximumShearVelocityMps: z.number().nonnegative().default(0),
+  peakGroundAccelerationG: z.number().nonnegative().default(0),
+  directionSectors: z.array(seismicDirectionSectorSchema).default([]),
+  attenuationProfile: z.array(seismicAttenuationBandSchema).default([]),
   frames: z.array(seismicReplayFrameSchema).min(1),
 });
 export type SeismicReplayManifest = z.infer<typeof seismicReplayManifestSchema>;

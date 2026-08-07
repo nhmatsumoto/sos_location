@@ -18,6 +18,13 @@ public static class BruneSourceModel
     public static double SeismicMomentNewtonMeters(double momentMagnitude)
         => Math.Pow(10.0, 1.5 * momentMagnitude + 9.1);
 
+    /// <summary>
+    /// Energia sísmica radiada estimada (J), pela relação energia-magnitude de
+    /// Gutenberg–Richter log10(E[J]) = 1.5Mw + 4.8.
+    /// </summary>
+    public static double EstimatedRadiatedEnergyJoules(double momentMagnitude)
+        => Math.Pow(10.0, 1.5 * momentMagnitude + 4.8);
+
     /// <summary>Frequência de canto de Brune (Hz).</summary>
     public static double CornerFrequencyHz(double momentMagnitude)
     {

@@ -1,5 +1,5 @@
 using SosLocation.Application.Abstractions;
-using SosLocation.GeoProcessing.Seismic;
+using SosLocation.Application.Simulation;
 
 namespace SosLocation.Worker;
 
@@ -54,8 +54,13 @@ public sealed class SimulationProcessorService(
 
         try
         {
-            var pipeline = scope.ServiceProvider.GetRequiredService<SeismicSimulationPipeline>();
-            await pipeline.ExecuteAsync(run, ct);
+            var registry = scope.ServiceProvider.GetRequiredService<DisasterSimulationEngineRegistry>();
+            var engine = registry.Resolve(run.DisasterType);
+            logger.LogInformation(
+                "Using scientific model {ModelId} for simulation {RunId}.",
+                engine.ModelId,
+                run.Id);
+            await engine.ExecuteAsync(run, ct);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {

@@ -17,8 +17,10 @@ try
         .WriteTo.Console());
 
     builder.Services.AddSosInfrastructure(builder.Configuration);
+    builder.Services.AddSingleton(builder.Configuration.GetSection(DisasterCollectionOptions.SectionName).Get<DisasterCollectionOptions>() ?? new DisasterCollectionOptions());
     builder.Services.AddHostedService<JobProcessorService>();
     builder.Services.AddHostedService<SimulationProcessorService>();
+    builder.Services.AddHostedService<DisasterCollectionWorkerService>();
 
     var host = builder.Build();
     host.Run();

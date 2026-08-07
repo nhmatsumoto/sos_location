@@ -1,5 +1,6 @@
 import type {
   DataDrivenPropertyValueSpecification,
+  ExpressionSpecification,
   LayerSpecification,
   SourceSpecification,
 } from 'maplibre-gl';
@@ -11,6 +12,7 @@ import {
   darkenColorForRoof,
   LAND_USE_COLORS,
   liftColorForHeight,
+  RISK_LEVEL_COLORS,
   ROAD_COLORS,
   rgbaCss,
   WATER_COLOR,
@@ -38,7 +40,7 @@ function heightGradientExpression(base: RGBA): DataDrivenPropertyValueSpecificat
 }
 import type { LayerKey } from '../../stores/appStore';
 
-export type FeatureKind = 'building' | 'road' | 'water';
+export type FeatureKind = 'building' | 'road' | 'water' | 'operational';
 
 export interface CityStyleOptions {
   revisionId: string;
@@ -88,10 +90,12 @@ export function buildCitySources(options: CityStyleOptions): Record<string, Sour
     ? options.activeSimulation.id
     : undefined;
   return {
-    [`${SOURCE_PREFIX}buildings`]: tileSource(revisionId, 'buildings', 12, 16, simulationId),
-    [`${SOURCE_PREFIX}roads`]: tileSource(revisionId, 'roads', 8, 16),
-    [`${SOURCE_PREFIX}water`]: tileSource(revisionId, 'water', 6, 16),
-    [`${SOURCE_PREFIX}land-use`]: tileSource(revisionId, 'land-use', 8, 16),
+    // O backend mantém geometria sem simplificação a partir de z15; buscar até
+    // z19 preserva contornos e picking preciso em vez de ampliar tiles z16.
+    [`${SOURCE_PREFIX}buildings`]: tileSource(revisionId, 'buildings', 12, 19, simulationId),
+    [`${SOURCE_PREFIX}roads`]: tileSource(revisionId, 'roads', 8, 19),
+    [`${SOURCE_PREFIX}water`]: tileSource(revisionId, 'water', 6, 19),
+    [`${SOURCE_PREFIX}land-use`]: tileSource(revisionId, 'land-use', 8, 19),
   };
 }
 
@@ -109,14 +113,16 @@ function damageColorExpression(): DataDrivenPropertyValueSpecification<string> {
   ] as unknown as DataDrivenPropertyValueSpecification<string>;
 }
 
-/** Match por building_type + gradiente de altura, com transformação de cor injetável
- *  (identidade para paredes, escurecida para o boné de telhado). */
+/** Match pela classe fina (casa/apartamento) com fallback no tipo agregado. */
 function buildingTypeMatchExpression(
   colorFor: (base: RGBA) => RGBA,
 ): DataDrivenPropertyValueSpecification<string> {
   return [
     'match',
-    ['get', 'building_type'],
+    ['coalesce', ['get', 'building_class'], ['get', 'building_type'], 'unknown'],
+    'house', heightGradientExpression(colorFor(BUILDING_COLORS.house)),
+    'apartment', heightGradientExpression(colorFor(BUILDING_COLORS.apartment)),
+    'mixed_use', heightGradientExpression(colorFor(BUILDING_COLORS.mixed_use)),
     'residential', heightGradientExpression(colorFor(BUILDING_COLORS.residential)),
     'commercial', heightGradientExpression(colorFor(BUILDING_COLORS.commercial)),
     'industrial', heightGradientExpression(colorFor(BUILDING_COLORS.industrial)),
@@ -177,6 +183,9 @@ export function buildCityLayers(options: CityStyleOptions): LayerSpecification[]
           'residential', rgbaCss(LAND_USE_COLORS.residential),
           'commercial', rgbaCss(LAND_USE_COLORS.commercial),
           'industrial', rgbaCss(LAND_USE_COLORS.industrial),
+          'civic', rgbaCss(LAND_USE_COLORS.civic),
+          'transport', rgbaCss(LAND_USE_COLORS.transport),
+          'pavement', rgbaCss(LAND_USE_COLORS.pavement),
           'green', rgbaCss(LAND_USE_COLORS.green),
           'agricultural', rgbaCss(LAND_USE_COLORS.agricultural),
           rgbaCss(LAND_USE_COLORS.other),
@@ -216,51 +225,72 @@ export function buildCityLayers(options: CityStyleOptions): LayerSpecification[]
   }
 
   {
-    layers.push({
-      id: 'sos-roads-line',
-      type: 'line',
-      source: `${SOURCE_PREFIX}roads`,
-      'source-layer': 'roads',
-      layout: {
-        'line-cap': 'round',
-        'line-join': 'round',
-        visibility: visibility.roads ? 'visible' : 'none',
+    const roadWidth = [
+      'interpolate',
+      ['exponential', 1.5],
+      ['zoom'],
+      8,
+      ['match', ['get', 'road_class'], 'highway', 1.6, 'primary', 1.2, 'rail', 0.8, 0.5],
+      18,
+      [
+        'match',
+        ['get', 'road_class'],
+        'highway', 20,
+        'primary', 16,
+        'secondary', 12,
+        'tertiary', 9,
+        'rail', 4,
+        7,
+      ],
+    ] as ExpressionSpecification;
+    layers.push(
+      {
+        // Contorno do tabuleiro: deixa pontes legíveis mesmo sobre água ou
+        // outras vias. is_bridge aceita também viaduct/movable no backend.
+        id: 'sos-bridges-casing',
+        type: 'line',
+        source: `${SOURCE_PREFIX}roads`,
+        'source-layer': 'roads',
+        filter: ['==', ['get', 'is_bridge'], true],
+        layout: {
+          'line-cap': 'butt',
+          'line-join': 'round',
+          visibility: visibility.roads ? 'visible' : 'none',
+        },
+        paint: {
+          'line-color': 'rgba(45, 48, 54, 0.9)',
+          'line-width': ['+', roadWidth, 4],
+        },
       },
-      paint: {
-        'line-color': [
-          'match',
-          ['get', 'road_class'],
-          'highway', rgbaCss(ROAD_COLORS.highway),
-          'primary', rgbaCss(ROAD_COLORS.primary),
-          'secondary', rgbaCss(ROAD_COLORS.secondary),
-          'tertiary', rgbaCss(ROAD_COLORS.tertiary),
-          'residential', rgbaCss(ROAD_COLORS.residential),
-          'service', rgbaCss(ROAD_COLORS.service),
-          'path', rgbaCss(ROAD_COLORS.path),
-          'cycleway', rgbaCss(ROAD_COLORS.cycleway),
-          'rail', rgbaCss(ROAD_COLORS.rail),
-          rgbaCss(ROAD_COLORS.minor),
-        ],
-        'line-width': [
-          'interpolate',
-          ['exponential', 1.5],
-          ['zoom'],
-          8,
-          ['match', ['get', 'road_class'], 'highway', 1.6, 'primary', 1.2, 'rail', 0.8, 0.5],
-          18,
-          [
+      {
+        id: 'sos-roads-line',
+        type: 'line',
+        source: `${SOURCE_PREFIX}roads`,
+        'source-layer': 'roads',
+        layout: {
+          'line-cap': 'round',
+          'line-join': 'round',
+          visibility: visibility.roads ? 'visible' : 'none',
+        },
+        paint: {
+          'line-color': [
             'match',
             ['get', 'road_class'],
-            'highway', 20,
-            'primary', 16,
-            'secondary', 12,
-            'tertiary', 9,
-            'rail', 4,
-            7,
+            'highway', rgbaCss(ROAD_COLORS.highway),
+            'primary', rgbaCss(ROAD_COLORS.primary),
+            'secondary', rgbaCss(ROAD_COLORS.secondary),
+            'tertiary', rgbaCss(ROAD_COLORS.tertiary),
+            'residential', rgbaCss(ROAD_COLORS.residential),
+            'service', rgbaCss(ROAD_COLORS.service),
+            'path', rgbaCss(ROAD_COLORS.path),
+            'cycleway', rgbaCss(ROAD_COLORS.cycleway),
+            'rail', rgbaCss(ROAD_COLORS.rail),
+            rgbaCss(ROAD_COLORS.minor),
           ],
-        ],
+          'line-width': roadWidth,
+        },
       },
-    });
+    );
   }
 
   {
@@ -340,8 +370,226 @@ export function buildCityLayers(options: CityStyleOptions): LayerSpecification[]
   return layers;
 }
 
+export const RISK_ZONE_SOURCE = 'sos-risk-zones';
+export const OPERATIONAL_SOURCE = 'sos-operational-features';
+export const SCIENTIFIC_SOURCE = 'sos-scientific-analysis';
+
+/** Cor por nível de severidade — mesma zona usa o mesmo tom no fill e na borda. */
+function riskZoneColorExpression(): DataDrivenPropertyValueSpecification<string> {
+  return [
+    'match',
+    ['get', 'level'],
+    'low', rgbaCss(RISK_LEVEL_COLORS.low),
+    'moderate', rgbaCss(RISK_LEVEL_COLORS.moderate),
+    'high', rgbaCss(RISK_LEVEL_COLORS.high),
+    'severe', rgbaCss(RISK_LEVEL_COLORS.severe),
+    rgbaCss(RISK_LEVEL_COLORS.low),
+  ] as unknown as DataDrivenPropertyValueSpecification<string>;
+}
+
+/**
+ * Camadas de exibição das zonas de risco já salvas — GeoJSON direto (mesmo
+ * precedente de `sos-boundary`), não MVT: dataset pequeno e esparso (dezenas
+ * por cidade, não milhares), sem o problema de escala que motivou MVT para
+ * buildings.
+ */
+export function buildRiskZoneLayers(): LayerSpecification[] {
+  return [
+    {
+      id: 'sos-risk-zones-fill',
+      type: 'fill',
+      source: RISK_ZONE_SOURCE,
+      paint: { 'fill-color': riskZoneColorExpression(), 'fill-opacity': 0.25 },
+    },
+    {
+      id: 'sos-risk-zones-line',
+      type: 'line',
+      source: RISK_ZONE_SOURCE,
+      paint: { 'line-color': riskZoneColorExpression(), 'line-width': 2 },
+    },
+  ];
+}
+
+export function buildOperationalLayers(): LayerSpecification[] {
+  const color = [
+    'case',
+    ['==', ['get', 'type'], 'search-sector'],
+    [
+      'match',
+      ['get', 'priority'],
+      1, '#dc2626',
+      2, '#f97316',
+      3, '#d946ef',
+      4, '#a855f7',
+      '#d946ef',
+    ],
+    [
+      'match',
+      ['get', 'type'],
+      'risk-area', '#ef4444',
+      'safe-area', '#22c55e',
+      'support-point', '#38bdf8',
+      'traffic-interruption', '#f97316',
+      'victim-report', '#fb7185',
+      'alert', '#fbbf24',
+      'rescue-route', '#0ea5e9',
+      'epicenter', '#fde047',
+      'assessment-perimeter', '#f59e0b',
+      '#94a3b8',
+    ],
+  ] as unknown as DataDrivenPropertyValueSpecification<string>;
+  return [
+    {
+      id: 'sos-operational-fill',
+      type: 'fill',
+      source: OPERATIONAL_SOURCE,
+      filter: ['==', '$type', 'Polygon'],
+      paint: {
+        'fill-color': color,
+        'fill-opacity': [
+          'case',
+          ['in', ['get', 'status'], ['literal', ['cleared', 'closed']]],
+          0.08,
+          0.22,
+        ],
+      },
+    },
+    {
+      id: 'sos-operational-line',
+      type: 'line',
+      source: OPERATIONAL_SOURCE,
+      filter: ['!=', '$type', 'Point'],
+      paint: {
+        'line-color': color,
+        'line-width': [
+          'case',
+          ['boolean', ['feature-state', 'selected'], false],
+          5,
+          ['==', ['get', 'priority'], 1],
+          4,
+          2.5,
+        ],
+        'line-dasharray': [2, 1],
+      },
+    },
+    {
+      id: 'sos-operational-point',
+      type: 'circle',
+      source: OPERATIONAL_SOURCE,
+      filter: ['==', '$type', 'Point'],
+      paint: {
+        'circle-radius': [
+          'case',
+          ['boolean', ['feature-state', 'selected'], false],
+          11,
+          ['==', ['get', 'priority'], 1],
+          9,
+          7,
+        ],
+        'circle-color': color,
+        'circle-stroke-color': '#fff',
+        'circle-stroke-width': 2,
+      },
+    },
+    {
+      id: 'sos-operational-label',
+      type: 'symbol',
+      source: OPERATIONAL_SOURCE,
+      minzoom: 10,
+      layout: {
+        'text-field': [
+          'concat',
+          ['coalesce', ['get', 'name'], 'Ocorrência'],
+          [
+            'case',
+            ['has', 'priority'],
+            ['concat', ' · P', ['to-string', ['get', 'priority']]],
+            '',
+          ],
+        ],
+        'text-size': 11,
+        'text-offset': [0, 1.3],
+        'text-anchor': 'top',
+        'text-allow-overlap': false,
+      },
+      paint: {
+        'text-color': '#f8fafc',
+        'text-halo-color': '#020617',
+        'text-halo-width': 1.5,
+      },
+    },
+  ];
+}
+
+/**
+ * Estilo genérico para resultados científicos. Cada ferramenta entrega
+ * GeoJSON com propriedades visuais (`analysisColor`, `analysisWidth`,
+ * `analysisRadius`, `analysisOpacity`, `analysisLabel`), portanto novos
+ * desastres podem produzir overlays sem registrar novas layers no runtime.
+ */
+export function buildScientificAnalysisLayers(): LayerSpecification[] {
+  return [
+    {
+      id: 'sos-scientific-fill',
+      type: 'fill',
+      source: SCIENTIFIC_SOURCE,
+      filter: ['==', '$type', 'Polygon'],
+      paint: {
+        'fill-color': ['coalesce', ['get', 'analysisColor'], '#22d3ee'],
+        'fill-opacity': ['coalesce', ['get', 'analysisOpacity'], 0.08],
+      },
+    },
+    {
+      id: 'sos-scientific-line',
+      type: 'line',
+      source: SCIENTIFIC_SOURCE,
+      filter: ['!=', '$type', 'Point'],
+      paint: {
+        'line-color': ['coalesce', ['get', 'analysisColor'], '#22d3ee'],
+        'line-width': ['coalesce', ['get', 'analysisWidth'], 2],
+        'line-opacity': ['coalesce', ['get', 'analysisOpacity'], 0.8],
+      },
+    },
+    {
+      id: 'sos-scientific-point',
+      type: 'circle',
+      source: SCIENTIFIC_SOURCE,
+      filter: ['==', '$type', 'Point'],
+      paint: {
+        'circle-radius': ['coalesce', ['get', 'analysisRadius'], 6],
+        'circle-color': ['coalesce', ['get', 'analysisColor'], '#22d3ee'],
+        'circle-opacity': ['coalesce', ['get', 'analysisOpacity'], 0.95],
+        'circle-stroke-color': '#f8fafc',
+        'circle-stroke-width': 1.5,
+      },
+    },
+    {
+      id: 'sos-scientific-label',
+      type: 'symbol',
+      source: SCIENTIFIC_SOURCE,
+      minzoom: 7,
+      filter: ['has', 'analysisLabel'],
+      layout: {
+        'text-field': ['get', 'analysisLabel'],
+        'text-size': 10,
+        'text-offset': [0, 1.2],
+        'text-anchor': 'top',
+        'text-allow-overlap': false,
+      },
+      paint: {
+        'text-color': '#e0f2fe',
+        'text-halo-color': '#020617',
+        'text-halo-width': 1.5,
+      },
+    },
+  ];
+}
+
 /** Ordem de prioridade do picking (o que o clique deve preferir). */
 export const PICKABLE_LAYERS: { id: string; kind: FeatureKind }[] = [
+  { id: 'sos-operational-point', kind: 'operational' },
+  { id: 'sos-operational-line', kind: 'operational' },
+  { id: 'sos-operational-fill', kind: 'operational' },
   { id: 'sos-buildings-3d', kind: 'building' },
   { id: 'sos-buildings-footprint', kind: 'building' },
   { id: 'sos-roads-line', kind: 'road' },

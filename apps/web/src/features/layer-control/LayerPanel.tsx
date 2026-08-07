@@ -36,8 +36,8 @@ export function LayerPanel() {
         ))}
       </ul>
       <p className="mt-3 border-t border-slate-800 pt-2 text-[11px] leading-relaxed text-slate-500">
-        Rendering is texture-free by design: solid materials, semantic colors and lighting only.
-        Imported data © OpenStreetMap contributors (ODbL).
+        The Earth base map is textured for continent context. Buildings and operational layers remain
+        texture-free, using solid semantic materials. © OpenStreetMap contributors.
       </p>
     </section>
   );

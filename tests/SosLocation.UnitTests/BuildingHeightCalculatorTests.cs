@@ -100,4 +100,21 @@ public class BuildingHeightCalculatorTests
         var fallback = BuildingHeightCalculator.Calculate(new HeightInput(null, null, null, null, null), custom);
         Assert.Equal(5.0, fallback.HeightMeters);
     }
+
+    [Fact]
+    public void JapanProfile_DistinguishesHouseFromApartment_AndTagsEffectiveLevels()
+    {
+        var house = BuildingHeightCalculator.Calculate(
+            new HeightInput(null, null, null, "residential", "residential", "house"),
+            ReconstructionProfile.OsmJapanUrbanV2);
+        var apartment = BuildingHeightCalculator.Calculate(
+            new HeightInput(null, null, null, "residential", "residential", "apartment"),
+            ReconstructionProfile.OsmJapanUrbanV2);
+
+        Assert.Equal(7.4, house.HeightMeters);
+        Assert.Equal(2, house.EffectiveLevels);
+        Assert.Equal(14.5, apartment.HeightMeters);
+        Assert.Equal(5, apartment.EffectiveLevels);
+        Assert.Equal("building:class-profile", apartment.Basis);
+    }
 }

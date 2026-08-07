@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using SosLocation.Application.Abstractions;
 using SosLocation.Application.Options;
 using SosLocation.Domain.ValueObjects;
+using System.Text.Json;
 
 namespace SosLocation.Infrastructure.External;
 
@@ -31,17 +32,50 @@ public sealed class OverpassOsmSource(
         var query = $"""
             [out:json][timeout:{options.QueryTimeoutSeconds}][bbox:{bbox}];
             (
+              // Volumes 3D e footprints.
               way["building"];
               relation["building"]["type"="multipolygon"];
               way["building:part"];
               relation["building:part"]["type"="multipolygon"];
+              // Estruturas construídas que frequentemente não recebem
+              // building=* no Japão (torres, silos e instalações técnicas).
+              way["man_made"~"^(tower|water_tower|silo|storage_tank|gasometer|chimney|works|wastewater_plant)$"];
+              relation["man_made"~"^(tower|water_tower|silo|storage_tank|gasometer|chimney|works|wastewater_plant)$"]["type"="multipolygon"];
+
+              // Mobilidade.
               way["highway"];
               way["railway"];
+              // Superfícies viárias/pavimentos e tabuleiros de ponte.
+              way["area:highway"];
+              relation["area:highway"]["type"="multipolygon"];
+              way["man_made"="bridge"];
+              relation["man_made"="bridge"]["type"="multipolygon"];
+
+              // Hidrografia linear e areal. Reservatórios também são
+              // frequentemente mapeados apenas como landuse no OSM.
               way["waterway"];
               way["natural"="water"];
               relation["natural"="water"]["type"="multipolygon"];
+              way["water"];
+              relation["water"]["type"="multipolygon"];
+              way["landuse"~"^(reservoir|basin)$"];
+              relation["landuse"~"^(reservoir|basin)$"]["type"="multipolygon"];
+
+              // Zoneamento e áreas urbanas. Relações são essenciais: parques,
+              // campi e bairros grandes costumam ser multipolígonos compostos
+              // por vários ways, não um único way fechado.
               way["landuse"];
+              relation["landuse"]["type"="multipolygon"];
               way["leisure"];
+              relation["leisure"]["type"="multipolygon"];
+              way["amenity"];
+              relation["amenity"]["type"="multipolygon"];
+              way["natural"~"^(wood|grassland|scrub|heath|beach|wetland)$"];
+              relation["natural"~"^(wood|grassland|scrub|heath|beach|wetland)$"]["type"="multipolygon"];
+              way["aeroway"~"^(aerodrome|apron)$"];
+              relation["aeroway"~"^(aerodrome|apron)$"]["type"="multipolygon"];
+              way["place"="square"];
+              relation["place"="square"]["type"="multipolygon"];
             );
             out tags geom;
             """;
@@ -74,10 +108,12 @@ public sealed class OverpassOsmSource(
                     HttpCompletionOption.ResponseHeadersRead,
                     ct);
                 response.EnsureSuccessStatusCode();
+                var content = await ReadLimitedAsync(response, ct);
+                ValidateOverpassPayload(content);
 
                 return new SourcePayload
                 {
-                    Content = await ReadLimitedAsync(response, ct),
+                    Content = content,
                     Format = SourcePayloadFormat.OverpassJson,
                     SourceName = "openstreetmap",
                     SourceUri = $"{baseUri.GetLeftPart(UriPartial.Authority)}/api/interpreter",
@@ -97,6 +133,29 @@ public sealed class OverpassOsmSource(
 
         throw new HttpRequestException(
             "All configured Overpass endpoints failed.", lastError);
+    }
+
+    private static void ValidateOverpassPayload(byte[] content)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(
+                content,
+                new JsonDocumentOptions { MaxDepth = 32 });
+            var root = document.RootElement;
+            if (root.ValueKind != JsonValueKind.Object)
+                throw new HttpRequestException("Overpass returned a non-object JSON payload.");
+            if (root.TryGetProperty("remark", out var remark)
+                && remark.ValueKind == JsonValueKind.String)
+                throw new HttpRequestException($"Overpass rejected or truncated the query: {remark.GetString()}");
+            if (!root.TryGetProperty("elements", out var elements)
+                || elements.ValueKind != JsonValueKind.Array)
+                throw new HttpRequestException("Overpass response has no elements array.");
+        }
+        catch (JsonException ex)
+        {
+            throw new HttpRequestException("Overpass returned malformed JSON.", ex);
+        }
     }
 
     private async Task<byte[]> ReadLimitedAsync(HttpResponseMessage response, CancellationToken ct)
