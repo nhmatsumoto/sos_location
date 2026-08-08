@@ -34,7 +34,8 @@ public sealed record RiskZoneRequest
 
 public sealed class RiskZoneRequestValidator : AbstractValidator<RiskZoneRequest>
 {
-    private const int MaxVertices = 2000;
+    /// <summary>Também usado pela API (GeometryRepair.SanitizeAreal) para não divergir do limite validado aqui.</summary>
+    public const int MaxVertices = 2000;
 
     public RiskZoneRequestValidator()
     {

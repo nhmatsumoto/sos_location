@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using Npgsql;
 using NpgsqlTypes;
 using SosLocation.Application.Abstractions;
 using SosLocation.Domain.BuildingIntelligence;
@@ -84,25 +83,24 @@ public sealed class RiskZoneStore(SosDbContext context) : IRiskZoneStore
     public async Task<RiskZoneExposure> ComputeExposureAsync(RiskZone zone, CancellationToken ct)
     {
         // .Intersects() traduz para ST_Intersects via Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite,
-        // usando o índice GiST de buildings.footprint.
-        var query = context.Buildings
+        // usando o índice GiST de buildings.footprint. Soma de altura por grupo em vez
+        // de Count/Average/GroupBy separados: uma única ida ao banco em vez de três,
+        // com a contagem e a média totais recompostas a partir dos grupos.
+        var grouped = await context.Buildings
             .AsNoTracking()
-            .Where(b => b.CityRevisionId == zone.CityRevisionId && b.Footprint.Intersects(zone.Geometry));
-
-        var count = await query.CountAsync(ct);
-        if (count == 0) return new RiskZoneExposure(0, 0, []);
-
-        var avgHeight = await query.AverageAsync(b => b.HeightMeters, ct);
-        // Projeta para tipo anônimo antes de ordenar: compor OrderBy sobre um
-        // record já projetado (BuildingTypeCount) falha ao traduzir no EF Core.
-        var grouped = await query
+            .Where(b => b.CityRevisionId == zone.CityRevisionId && b.Footprint.Intersects(zone.Geometry))
             .GroupBy(b => b.BuildingType)
-            .Select(g => new { Type = g.Key, Count = g.Count() })
+            .Select(g => new { Type = g.Key, Count = g.Count(), TotalHeight = g.Sum(b => b.HeightMeters) })
             .OrderByDescending(t => t.Count)
             .ToListAsync(ct);
-        var byType = grouped.Select(t => new BuildingTypeCount(t.Type, t.Count)).ToList();
 
-        return new RiskZoneExposure(count, avgHeight, byType);
+        if (grouped.Count == 0) return new RiskZoneExposure(0, 0, []);
+
+        var totalCount = grouped.Sum(g => g.Count);
+        var avgHeight = grouped.Sum(g => g.TotalHeight) / totalCount;
+        var byType = grouped.Select(g => new BuildingTypeCount(g.Type, g.Count)).ToList();
+
+        return new RiskZoneExposure(totalCount, avgHeight, byType);
     }
 }
 
@@ -216,33 +214,39 @@ public sealed class ImportJobStore(SosDbContext context) : IImportJobStore
     public async Task DeleteAsync(Guid jobId, CancellationToken ct)
         => await context.ImportJobs.Where(j => j.Id == jobId).ExecuteDeleteAsync(ct);
 
-    public async Task<ImportJob?> ReserveNextAsync(string workerId, CancellationToken ct)
+    public Task<ImportJob?> ReserveNextAsync(string workerId, CancellationToken ct)
     {
-        // Reserva durável: FOR UPDATE SKIP LOCKED garante que dois workers
-        // nunca peguem o mesmo job, sem depender de estado em memória.
-        await using var transaction = await context.Database.BeginTransactionAsync(ct);
-
-        var ids = await context.Database
-            .SqlQuery<Guid>($@"
-                SELECT id AS ""Value"" FROM import_jobs
-                WHERE status IN ('Queued', 'Retrying')
-                  AND (next_attempt_at IS NULL OR next_attempt_at <= CURRENT_TIMESTAMP)
-                ORDER BY COALESCE(next_attempt_at, created_at), created_at
-                LIMIT 1
-                FOR UPDATE SKIP LOCKED")
-            .ToListAsync(ct);
-
-        if (ids.Count == 0)
+        // EnableRetryOnFailure exige que transações explícitas rodem dentro da
+        // execution strategy — do contrário o EF Core lança em runtime.
+        var strategy = context.Database.CreateExecutionStrategy();
+        return strategy.ExecuteAsync(async () =>
         {
-            await transaction.RollbackAsync(ct);
-            return null;
-        }
+            // Reserva durável: FOR UPDATE SKIP LOCKED garante que dois workers
+            // nunca peguem o mesmo job, sem depender de estado em memória.
+            await using var transaction = await context.Database.BeginTransactionAsync(ct);
 
-        var job = await context.ImportJobs.FirstAsync(j => j.Id == ids[0], ct);
-        job.Start(workerId, DateTimeOffset.UtcNow);
-        await context.SaveChangesAsync(ct);
-        await transaction.CommitAsync(ct);
-        return job;
+            var ids = await context.Database
+                .SqlQuery<Guid>($@"
+                    SELECT id AS ""Value"" FROM import_jobs
+                    WHERE status IN ('Queued', 'Retrying')
+                      AND (next_attempt_at IS NULL OR next_attempt_at <= CURRENT_TIMESTAMP)
+                    ORDER BY COALESCE(next_attempt_at, created_at), created_at
+                    LIMIT 1
+                    FOR UPDATE SKIP LOCKED")
+                .ToListAsync(ct);
+
+            if (ids.Count == 0)
+            {
+                await transaction.RollbackAsync(ct);
+                return null;
+            }
+
+            var job = await context.ImportJobs.FirstAsync(j => j.Id == ids[0], ct);
+            job.Start(workerId, DateTimeOffset.UtcNow);
+            await context.SaveChangesAsync(ct);
+            await transaction.CommitAsync(ct);
+            return job;
+        });
     }
 }
 
@@ -279,41 +283,25 @@ public sealed class SimulationRunStore(SosDbContext context) : ISimulationRunSto
 
         // COPY binário evita criar/tracking de centenas de milhares de entries
         // no ChangeTracker e reduz a persistência a um único fluxo PostgreSQL.
-        var connection = (NpgsqlConnection)context.Database.GetDbConnection();
-        var shouldClose = connection.State != System.Data.ConnectionState.Open;
-        if (shouldClose) await connection.OpenAsync(ct);
-        try
+        await PostgresBulkCopy.WriteAsync(context, """
+            COPY building_seismic_responses
+                (id, simulation_run_id, building_id, natural_period_seconds,
+                 peak_ground_acceleration_g, peak_ground_velocity_cms,
+                 spectral_acceleration_g, peak_drift_ratio, damage_state, created_at)
+            FROM STDIN (FORMAT BINARY)
+            """, responses, static async (writer, response, token) =>
         {
-            await using var writer = await connection.BeginBinaryImportAsync("""
-                COPY building_seismic_responses
-                    (id, simulation_run_id, building_id, natural_period_seconds,
-                     peak_ground_acceleration_g, peak_ground_velocity_cms,
-                     spectral_acceleration_g, peak_drift_ratio, damage_state, created_at)
-                FROM STDIN (FORMAT BINARY)
-                """, ct);
-            writer.Timeout = BulkCopyTimeout;
-
-            foreach (var response in responses)
-            {
-                await writer.StartRowAsync(ct);
-                await writer.WriteAsync(response.Id, NpgsqlDbType.Uuid, ct);
-                await writer.WriteAsync(response.SimulationRunId, NpgsqlDbType.Uuid, ct);
-                await writer.WriteAsync(response.BuildingId, NpgsqlDbType.Uuid, ct);
-                await writer.WriteAsync(response.NaturalPeriodSeconds, NpgsqlDbType.Double, ct);
-                await writer.WriteAsync(response.PeakGroundAccelerationG, NpgsqlDbType.Double, ct);
-                await writer.WriteAsync(response.PeakGroundVelocityCms, NpgsqlDbType.Double, ct);
-                await writer.WriteAsync(response.SpectralAccelerationG, NpgsqlDbType.Double, ct);
-                await writer.WriteAsync(response.PeakDriftRatio, NpgsqlDbType.Double, ct);
-                await writer.WriteAsync(response.DamageState.ToString(), NpgsqlDbType.Varchar, ct);
-                await writer.WriteAsync(response.CreatedAt, NpgsqlDbType.TimestampTz, ct);
-            }
-
-            await writer.CompleteAsync(ct);
-        }
-        finally
-        {
-            if (shouldClose) await connection.CloseAsync();
-        }
+            await writer.WriteAsync(response.Id, NpgsqlDbType.Uuid, token);
+            await writer.WriteAsync(response.SimulationRunId, NpgsqlDbType.Uuid, token);
+            await writer.WriteAsync(response.BuildingId, NpgsqlDbType.Uuid, token);
+            await writer.WriteAsync(response.NaturalPeriodSeconds, NpgsqlDbType.Double, token);
+            await writer.WriteAsync(response.PeakGroundAccelerationG, NpgsqlDbType.Double, token);
+            await writer.WriteAsync(response.PeakGroundVelocityCms, NpgsqlDbType.Double, token);
+            await writer.WriteAsync(response.SpectralAccelerationG, NpgsqlDbType.Double, token);
+            await writer.WriteAsync(response.PeakDriftRatio, NpgsqlDbType.Double, token);
+            await writer.WriteAsync(response.DamageState.ToString(), NpgsqlDbType.Varchar, token);
+            await writer.WriteAsync(response.CreatedAt, NpgsqlDbType.TimestampTz, token);
+        }, ct, BulkCopyTimeout);
     }
 
     public async Task<IReadOnlyList<BuildingSeismicResponse>> ListResponsesAsync(Guid runId, CancellationToken ct)
@@ -336,37 +324,49 @@ public sealed class SimulationRunStore(SosDbContext context) : ISimulationRunSto
             .Select(r => (SimulationRunStatus?)r.Status)
             .FirstOrDefaultAsync(ct);
 
-    public async Task<SimulationRun?> ReserveNextAsync(string workerId, CancellationToken ct)
+    public Task<SimulationRun?> ReserveNextAsync(string workerId, CancellationToken ct)
     {
-        // Reserva durável: FOR UPDATE SKIP LOCKED garante que dois workers
-        // nunca peguem o mesmo run, sem depender de estado em memória.
-        await using var transaction = await context.Database.BeginTransactionAsync(ct);
-
-        var ids = await context.Database
-            .SqlQuery<Guid>($@"
-                SELECT id AS ""Value"" FROM simulation_runs
-                WHERE status IN ('Queued', 'Retrying')
-                ORDER BY created_at
-                LIMIT 1
-                FOR UPDATE SKIP LOCKED")
-            .ToListAsync(ct);
-
-        if (ids.Count == 0)
+        // EnableRetryOnFailure exige que transações explícitas rodem dentro da
+        // execution strategy — do contrário o EF Core lança em runtime.
+        var strategy = context.Database.CreateExecutionStrategy();
+        return strategy.ExecuteAsync(async () =>
         {
-            await transaction.RollbackAsync(ct);
-            return null;
-        }
+            // Reserva durável: FOR UPDATE SKIP LOCKED garante que dois workers
+            // nunca peguem o mesmo run, sem depender de estado em memória.
+            await using var transaction = await context.Database.BeginTransactionAsync(ct);
 
-        var run = await context.SimulationRuns.FirstAsync(r => r.Id == ids[0], ct);
-        run.Start(workerId, DateTimeOffset.UtcNow);
-        await context.SaveChangesAsync(ct);
-        await transaction.CommitAsync(ct);
-        return run;
+            var ids = await context.Database
+                .SqlQuery<Guid>($@"
+                    SELECT id AS ""Value"" FROM simulation_runs
+                    WHERE status IN ('Queued', 'Retrying')
+                    ORDER BY created_at
+                    LIMIT 1
+                    FOR UPDATE SKIP LOCKED")
+                .ToListAsync(ct);
+
+            if (ids.Count == 0)
+            {
+                await transaction.RollbackAsync(ct);
+                return null;
+            }
+
+            var run = await context.SimulationRuns.FirstAsync(r => r.Id == ids[0], ct);
+            run.Start(workerId, DateTimeOffset.UtcNow);
+            await context.SaveChangesAsync(ct);
+            await transaction.CommitAsync(ct);
+            return run;
+        });
     }
 }
 
 public sealed class FeatureStore(SosDbContext context) : IFeatureWriter, IFeatureReader
 {
+    // Sem override, o COPY herda o CommandTimeout padrão do Npgsql (~30s), curto
+    // demais para uma cidade densa (ex.: centro de São Paulo produziu timeout real
+    // em produção — "Timeout during writing attempt" em pleno BulkInsertBuildingsAsync).
+    // Mesmo raciocínio já aplicado a SimulationRunStore.BulkInsertResponsesAsync.
+    private static readonly TimeSpan BulkCopyTimeout = TimeSpan.FromMinutes(10);
+
     public async Task DeleteRevisionFeaturesAsync(Guid revisionId, CancellationToken ct)
     {
         await context.Buildings.Where(b => b.CityRevisionId == revisionId).ExecuteDeleteAsync(ct);
@@ -375,29 +375,101 @@ public sealed class FeatureStore(SosDbContext context) : IFeatureWriter, IFeatur
         await context.LandUseAreas.Where(l => l.CityRevisionId == revisionId).ExecuteDeleteAsync(ct);
     }
 
-    public async Task BulkInsertBuildingsAsync(IReadOnlyList<Building> buildings, CancellationToken ct)
-    {
-        await context.Buildings.AddRangeAsync(buildings, ct);
-        await context.SaveChangesAsync(ct);
-    }
+    // COPY binário em vez de AddRangeAsync/SaveChangesAsync: uma importação OSM de
+    // cidade grande facilmente produz dezenas/centenas de milhares de features, e
+    // popular o ChangeTracker do EF Core com todas elas é o mesmo custo que já
+    // motivou o COPY em SimulationRunStore.BulkInsertResponsesAsync.
+    public Task BulkInsertBuildingsAsync(IReadOnlyList<Building> buildings, CancellationToken ct)
+        => PostgresBulkCopy.WriteAsync(context, """
+            COPY buildings
+                (id, city_revision_id, external_id, footprint, centroid, height_m, min_height_m,
+                 ground_elevation_m, roof_height_m, building_levels, roof_levels, building_type,
+                 roof_shape, height_source, confidence, source_dataset_version_id, tags, created_at)
+            FROM STDIN (FORMAT BINARY)
+            """, buildings, static async (writer, b, token) =>
+        {
+            await writer.WriteAsync(b.Id, NpgsqlDbType.Uuid, token);
+            await writer.WriteAsync(b.CityRevisionId, NpgsqlDbType.Uuid, token);
+            await writer.WriteAsync(b.ExternalId, NpgsqlDbType.Varchar, token);
+            await writer.WriteAsync(b.Footprint, token); // tipo plugin (NetTopologySuite) — sem NpgsqlDbType explícito
+            await writer.WriteAsync(b.Centroid, token);
+            await writer.WriteAsync(b.HeightMeters, NpgsqlDbType.Double, token);
+            await writer.WriteAsync(b.MinHeightMeters, NpgsqlDbType.Double, token);
+            await writer.WriteAsync(b.GroundElevationMeters, NpgsqlDbType.Double, token);
+            await writer.WriteAsync(b.RoofHeightMeters, NpgsqlDbType.Double, token);
+            await writer.WriteNullableAsync(b.BuildingLevels, NpgsqlDbType.Integer, token);
+            await writer.WriteNullableAsync(b.RoofLevels, NpgsqlDbType.Integer, token);
+            await writer.WriteAsync(b.BuildingType, NpgsqlDbType.Varchar, token);
+            await writer.WriteNullableAsync(b.RoofShape, NpgsqlDbType.Varchar, token);
+            await writer.WriteAsync(b.HeightSource.ToString(), NpgsqlDbType.Varchar, token);
+            await writer.WriteAsync(b.Confidence.Value, NpgsqlDbType.Double, token);
+            await writer.WriteNullableAsync(b.SourceDatasetVersionId, NpgsqlDbType.Uuid, token);
+            await writer.WriteNullableAsync(b.Tags, NpgsqlDbType.Jsonb, token);
+            await writer.WriteAsync(b.CreatedAt, NpgsqlDbType.TimestampTz, token);
+        }, ct, BulkCopyTimeout);
 
-    public async Task BulkInsertRoadsAsync(IReadOnlyList<Road> roads, CancellationToken ct)
-    {
-        await context.Roads.AddRangeAsync(roads, ct);
-        await context.SaveChangesAsync(ct);
-    }
+    public Task BulkInsertRoadsAsync(IReadOnlyList<Road> roads, CancellationToken ct)
+        => PostgresBulkCopy.WriteAsync(context, """
+            COPY roads
+                (id, city_revision_id, external_id, geometry, road_class, name, width_m, lanes,
+                 is_bridge, is_tunnel, confidence, source_dataset_version_id, tags, created_at)
+            FROM STDIN (FORMAT BINARY)
+            """, roads, static async (writer, r, token) =>
+        {
+            await writer.WriteAsync(r.Id, NpgsqlDbType.Uuid, token);
+            await writer.WriteAsync(r.CityRevisionId, NpgsqlDbType.Uuid, token);
+            await writer.WriteAsync(r.ExternalId, NpgsqlDbType.Varchar, token);
+            await writer.WriteAsync(r.Geometry, token);
+            await writer.WriteAsync(r.RoadClass, NpgsqlDbType.Varchar, token);
+            await writer.WriteNullableAsync(r.Name, NpgsqlDbType.Varchar, token);
+            await writer.WriteNullableAsync(r.WidthMeters, NpgsqlDbType.Double, token);
+            await writer.WriteNullableAsync(r.Lanes, NpgsqlDbType.Integer, token);
+            await writer.WriteAsync(r.IsBridge, NpgsqlDbType.Boolean, token);
+            await writer.WriteAsync(r.IsTunnel, NpgsqlDbType.Boolean, token);
+            await writer.WriteAsync(r.Confidence.Value, NpgsqlDbType.Double, token);
+            await writer.WriteNullableAsync(r.SourceDatasetVersionId, NpgsqlDbType.Uuid, token);
+            await writer.WriteNullableAsync(r.Tags, NpgsqlDbType.Jsonb, token);
+            await writer.WriteAsync(r.CreatedAt, NpgsqlDbType.TimestampTz, token);
+        }, ct, BulkCopyTimeout);
 
-    public async Task BulkInsertWaterAsync(IReadOnlyList<WaterFeature> water, CancellationToken ct)
-    {
-        await context.WaterFeatures.AddRangeAsync(water, ct);
-        await context.SaveChangesAsync(ct);
-    }
+    public Task BulkInsertWaterAsync(IReadOnlyList<WaterFeature> water, CancellationToken ct)
+        => PostgresBulkCopy.WriteAsync(context, """
+            COPY water_features
+                (id, city_revision_id, external_id, geometry, water_type, name,
+                 confidence, source_dataset_version_id, tags, created_at)
+            FROM STDIN (FORMAT BINARY)
+            """, water, static async (writer, w, token) =>
+        {
+            await writer.WriteAsync(w.Id, NpgsqlDbType.Uuid, token);
+            await writer.WriteAsync(w.CityRevisionId, NpgsqlDbType.Uuid, token);
+            await writer.WriteAsync(w.ExternalId, NpgsqlDbType.Varchar, token);
+            await writer.WriteAsync(w.Geometry, token);
+            await writer.WriteAsync(w.WaterType, NpgsqlDbType.Varchar, token);
+            await writer.WriteNullableAsync(w.Name, NpgsqlDbType.Varchar, token);
+            await writer.WriteAsync(w.Confidence.Value, NpgsqlDbType.Double, token);
+            await writer.WriteNullableAsync(w.SourceDatasetVersionId, NpgsqlDbType.Uuid, token);
+            await writer.WriteNullableAsync(w.Tags, NpgsqlDbType.Jsonb, token);
+            await writer.WriteAsync(w.CreatedAt, NpgsqlDbType.TimestampTz, token);
+        }, ct, BulkCopyTimeout);
 
-    public async Task BulkInsertLandUseAsync(IReadOnlyList<LandUseArea> landUse, CancellationToken ct)
-    {
-        await context.LandUseAreas.AddRangeAsync(landUse, ct);
-        await context.SaveChangesAsync(ct);
-    }
+    public Task BulkInsertLandUseAsync(IReadOnlyList<LandUseArea> landUse, CancellationToken ct)
+        => PostgresBulkCopy.WriteAsync(context, """
+            COPY land_use_areas
+                (id, city_revision_id, external_id, geometry, land_use_type,
+                 confidence, source_dataset_version_id, tags, created_at)
+            FROM STDIN (FORMAT BINARY)
+            """, landUse, static async (writer, l, token) =>
+        {
+            await writer.WriteAsync(l.Id, NpgsqlDbType.Uuid, token);
+            await writer.WriteAsync(l.CityRevisionId, NpgsqlDbType.Uuid, token);
+            await writer.WriteAsync(l.ExternalId, NpgsqlDbType.Varchar, token);
+            await writer.WriteAsync(l.Geometry, token);
+            await writer.WriteAsync(l.LandUseType, NpgsqlDbType.Varchar, token);
+            await writer.WriteAsync(l.Confidence.Value, NpgsqlDbType.Double, token);
+            await writer.WriteNullableAsync(l.SourceDatasetVersionId, NpgsqlDbType.Uuid, token);
+            await writer.WriteNullableAsync(l.Tags, NpgsqlDbType.Jsonb, token);
+            await writer.WriteAsync(l.CreatedAt, NpgsqlDbType.TimestampTz, token);
+        }, ct, BulkCopyTimeout);
 
     public Task<Building?> FindBuildingAsync(Guid id, CancellationToken ct)
         => context.Buildings.AsNoTracking().FirstOrDefaultAsync(b => b.Id == id, ct);
@@ -424,15 +496,23 @@ public sealed class FeatureStore(SosDbContext context) : IFeatureWriter, IFeatur
                 b.Id, b.Centroid.X, b.Centroid.Y, b.HeightMeters))
             .ToListAsync(ct);
 
+    // Uma única ida ao banco (4 subconsultas escalares) em vez de 4 CountAsync
+    // sequenciais na mesma conexão — não paralelizável de qualquer forma, já
+    // que DbContext não é thread-safe para operações concorrentes.
     public async Task<(int Buildings, int Roads, int Water, int LandUse)> CountByRevisionAsync(
         Guid revisionId, CancellationToken ct)
     {
-        var buildings = await context.Buildings.CountAsync(b => b.CityRevisionId == revisionId, ct);
-        var roads = await context.Roads.CountAsync(r => r.CityRevisionId == revisionId, ct);
-        var water = await context.WaterFeatures.CountAsync(w => w.CityRevisionId == revisionId, ct);
-        var landUse = await context.LandUseAreas.CountAsync(l => l.CityRevisionId == revisionId, ct);
-        return (buildings, roads, water, landUse);
+        var row = await context.Database.SqlQuery<FeatureCounts>($"""
+            SELECT
+                (SELECT COUNT(*)::int FROM buildings WHERE city_revision_id = {revisionId}) AS "Buildings",
+                (SELECT COUNT(*)::int FROM roads WHERE city_revision_id = {revisionId}) AS "Roads",
+                (SELECT COUNT(*)::int FROM water_features WHERE city_revision_id = {revisionId}) AS "Water",
+                (SELECT COUNT(*)::int FROM land_use_areas WHERE city_revision_id = {revisionId}) AS "LandUse"
+            """).SingleAsync(ct);
+        return (row.Buildings, row.Roads, row.Water, row.LandUse);
     }
+
+    private sealed record FeatureCounts(int Buildings, int Roads, int Water, int LandUse);
 
     public async Task<double> ObservedHeightRatioAsync(Guid revisionId, CancellationToken ct)
     {

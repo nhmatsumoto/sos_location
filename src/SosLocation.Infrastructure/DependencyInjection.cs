@@ -28,7 +28,15 @@ public static class DependencyInjection
             ?? throw new InvalidOperationException("Connection string 'Postgres' is not configured.");
 
         services.AddDbContext<SosDbContext>(options =>
-            options.UseNpgsql(connectionString, npgsql => npgsql.UseNetTopologySuite()));
+            options.UseNpgsql(connectionString, npgsql => npgsql
+                .UseNetTopologySuite()
+                // Reconecta em falhas transitórias (ex.: Postgres reiniciando durante
+                // a subida dos containers). Os dois usos de transação explícita
+                // (ImportJobStore/SimulationRunStore.ReserveNextAsync) são envolvidos
+                // em CreateExecutionStrategy().ExecuteAsync — obrigatório com retry
+                // habilitado, senão o EF Core lança em runtime ao ver uma transação
+                // iniciada fora da execution strategy.
+                .EnableRetryOnFailure(maxRetryCount: 5, maxRetryDelay: TimeSpan.FromSeconds(10), errorCodesToAdd: null)));
 
         // Options (bind estático — valores imutáveis durante a execução).
         var importLimits = configuration.GetSection(ImportLimits.SectionName).Get<ImportLimits>() ?? new ImportLimits();
@@ -66,17 +74,32 @@ public static class DependencyInjection
         services.AddScoped<DisasterCollectionService>();
 
         // Adapters externos.
+        // AddStandardResilienceHandler (retry + circuit breaker + timeout) só é
+        // aplicado a clientes sem resiliência própria já embutida no adapter:
+        // Overpass já tem failover manual entre hosts (SSRF-safe allowlist) e o
+        // Terrarium tem um timeout curto deliberado (comentário abaixo) — somar
+        // retry automático a qualquer um dos dois contradiria o design existente.
         services.AddHttpClient<IGeocoder, NominatimGeocoder>(client =>
         {
             client.BaseAddress = new Uri(nominatimOptions.BaseUrl.TrimEnd('/') + "/");
-            client.Timeout = TimeSpan.FromSeconds(30);
             client.DefaultRequestHeaders.UserAgent.ParseAdd(UserAgent);
+        }).AddStandardResilienceHandler(options =>
+        {
+            options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(30);
+            options.AttemptTimeout.Timeout = TimeSpan.FromSeconds(10);
+            options.Retry.MaxRetryAttempts = 2;
         });
-        services.AddHttpClient<IOsmSource, OverpassOsmSource>(client =>
+        // OverpassOsmSource fica registrado como classe concreta (não IOsmSource):
+        // HybridOsmSource é quem decide entre ele e o extrato .pbf local por bbox.
+        services.AddHttpClient<OverpassOsmSource>(client =>
         {
             client.Timeout = TimeSpan.FromSeconds(overpassOptions.QueryTimeoutSeconds + 30);
             client.DefaultRequestHeaders.UserAgent.ParseAdd(UserAgent);
         });
+        var osmPbfOptions = configuration.GetSection(OsmPbfOptions.SectionName).Get<OsmPbfOptions>() ?? new OsmPbfOptions();
+        services.AddSingleton(osmPbfOptions);
+        services.AddSingleton<LocalPbfOsmSource>();
+        services.AddScoped<IOsmSource, HybridOsmSource>();
         services.AddSingleton<IFixtureSource, FileFixtureSource>();
         services.AddSingleton<IObjectStorage, MinioObjectStorage>();
 
@@ -96,24 +119,28 @@ public static class DependencyInjection
         services.AddHttpClient<IClimateProvider, OpenMeteoClimateProvider>(client =>
         {
             client.BaseAddress = new Uri("https://api.open-meteo.com/");
-            client.Timeout = TimeSpan.FromSeconds(10);
             client.DefaultRequestHeaders.UserAgent.ParseAdd(UserAgent);
+        }).AddStandardResilienceHandler(options =>
+        {
+            options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(10);
+            options.AttemptTimeout.Timeout = TimeSpan.FromSeconds(5);
+            options.Retry.MaxRetryAttempts = 2;
         });
         services.AddHttpClient<IDisasterSourceCollector, UsgsEarthquakeFeedCollector>(client =>
         {
-            client.Timeout = TimeSpan.FromSeconds(20);
             client.DefaultRequestHeaders.UserAgent.ParseAdd(UserAgent);
-        });
-        services.AddHttpClient<IDisasterSourceCollector, JmaEarthquakeFeedCollector>(client =>
+        }).AddStandardResilienceHandler(options =>
         {
-            client.Timeout = TimeSpan.FromSeconds(20);
-            client.DefaultRequestHeaders.UserAgent.ParseAdd(UserAgent);
+            options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(20);
+            options.AttemptTimeout.Timeout = TimeSpan.FromSeconds(8);
+            options.Retry.MaxRetryAttempts = 2;
         });
-        services.AddHttpClient<IDisasterSourceCollector, JmaMenuSourceCollector>(client =>
-        {
-            client.Timeout = TimeSpan.FromSeconds(20);
-            client.DefaultRequestHeaders.UserAgent.ParseAdd(UserAgent);
-        });
+        // JmaEarthquakeFeedCollector/JmaMenuSourceCollector (JMA — Agência Meteorológica
+        // do Japão) ficam desativados: o foco da plataforma passou para o Brasil
+        // (Sul/Sudeste) e não fazem sentido como fonte de desastre ativa agora.
+        // Classes preservadas (não apagadas) para o caso de cenários no Japão
+        // voltarem a ser relevantes; USGS continua registrado por ser uma fonte
+        // global de terremotos, não específica do Japão.
 
         // Normalização e reconstrução.
         services.AddSingleton<ICityDataNormalizer, GeoJsonNormalizer>();

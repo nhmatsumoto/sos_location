@@ -3,6 +3,7 @@ using FluentValidation;
 using Microsoft.Net.Http.Headers;
 using SosLocation.Application.Abstractions;
 using SosLocation.Application.Dto;
+using SosLocation.Application.Serialization;
 using SosLocation.Application.Simulation;
 using SosLocation.Domain.Cities;
 using SosLocation.Domain.Disasters;
@@ -11,7 +12,7 @@ namespace SosLocation.Api.Endpoints;
 
 public static class SimulationsEndpoints
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly JsonSerializerOptions JsonOptions = SosJsonOptions.Web;
 
     public static RouteGroupBuilder MapSimulationsEndpoints(this RouteGroupBuilder group)
     {

@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using SosLocation.Application.Abstractions;
 using SosLocation.Application.Dto;
 using SosLocation.Application.Options;
+using SosLocation.Application.Serialization;
 using SosLocation.Application.Simulation;
 using SosLocation.Domain.Disasters;
 using SosLocation.Domain.ValueObjects;
@@ -32,7 +33,7 @@ public sealed class SeismicSimulationPipeline(
     SeismicOptions options,
     ILogger<SeismicSimulationPipeline> logger) : IDisasterSimulationEngine
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly JsonSerializerOptions JsonOptions = SosJsonOptions.Web;
 
     /// <summary>Raio da Terra (m) — mesma constante usada por <see cref="SeismicGrid"/>, para manter a conversão grau↔metro consistente antes de a malha existir.</summary>
     private const double EarthRadiusMeters = 6_371_008.8;

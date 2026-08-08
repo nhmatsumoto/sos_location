@@ -6,6 +6,7 @@ using SosLocation.Application.Abstractions;
 using SosLocation.Application.Normalization;
 using SosLocation.Application.Options;
 using SosLocation.Application.Profiles;
+using SosLocation.Application.Serialization;
 using SosLocation.Domain.Catalog;
 using SosLocation.Domain.Cities;
 using SosLocation.Domain.Features;
@@ -38,8 +39,7 @@ public sealed class ImportPipeline(
     ImportLimits limits,
     ILogger<ImportPipeline> logger)
 {
-    private static readonly JsonSerializerOptions JsonOptions =
-        new(JsonSerializerDefaults.Web);
+    private static readonly JsonSerializerOptions JsonOptions = SosJsonOptions.Web;
 
     private static readonly GeometryFactory Wgs84Factory =
         NetTopologySuite.NtsGeometryServices.Instance.CreateGeometryFactory(4326);

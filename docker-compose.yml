@@ -1,42 +1,57 @@
 name: sos-location
 
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "20m"
+    max-file: "5"
+
 services:
   postgres:
     image: postgis/postgis:18-3.6
+    # network_mode: host — a rede bridge do Docker não funciona neste ambiente
+    # (mesma razão documentada para api/worker/web logo abaixo: criação de veth
+    # pair falha no host). Como "ports:" não existe em host mode, o isolamento
+    # de rede vira responsabilidade do próprio Postgres: listen_addresses=127.0.0.1
+    # substitui o que antes era feito via "ports: 127.0.0.1:...".
+    network_mode: host
+    command: ["postgres", "-c", "listen_addresses=127.0.0.1"]
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-sos_location}
       POSTGRES_USER: ${POSTGRES_USER:-sos}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sos_dev_password}
+      PGPORT: ${POSTGRES_PORT:-5432}
     volumes:
       # PostgreSQL 18+: montar em /var/lib/postgresql (dados ficam em subdiretório versionado).
       - postgres-data:/var/lib/postgresql
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sos} -d ${POSTGRES_DB:-sos_location}"]
+      test: ["CMD-SHELL", "pg_isready -p ${POSTGRES_PORT:-5432} -U ${POSTGRES_USER:-sos} -d ${POSTGRES_DB:-sos_location}"]
       interval: 5s
       timeout: 5s
       retries: 12
-    networks: [sos]
+    logging: *default-logging
 
   minio:
-    image: minio/minio:latest
-    command: server /data --console-address ":9001"
+    # minio/minio no Docker Hub está arquivado (community edition não recebe mais
+    # publicação lá desde set/2025); quay.io/minio/minio é o registry mantido.
+    # Tag pinada (não "latest") — troque deliberadamente, não por deriva silenciosa.
+    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z.hotfix.7aa24e772
+    # network_mode: host pela mesma razão do postgres acima. --address restringe
+    # a loopback (equivalente ao "ports: 127.0.0.1:..." que host mode não suporta).
+    network_mode: host
+    command: server /data --address 127.0.0.1:${MINIO_PORT:-9000} --console-address 127.0.0.1:${MINIO_CONSOLE_PORT:-9001}
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-sos-minio}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-sos_minio_dev_password}
     volumes:
       # Aceita volume nomeado (default) ou um caminho absoluto em disco amplo.
       - ${MINIO_DATA_PATH:-minio-data}:/data
-    ports:
-      - "${MINIO_PORT:-9000}:9000"
-      - "${MINIO_CONSOLE_PORT:-9001}:9001"
     healthcheck:
       test: ["CMD", "mc", "ready", "local"]
       interval: 5s
       timeout: 5s
       retries: 12
-    networks: [sos]
+    logging: *default-logging
 
   api:
     build:
@@ -55,13 +70,20 @@ services:
       ObjectStorage__SecretKey: ${MINIO_ROOT_PASSWORD:-sos_minio_dev_password}
       ObjectStorage__Bucket: ${MINIO_BUCKET:-sos-location}
       Fixture__Path: /app/tools/fixtures/demo-district.geojson
+      # Extratos regionais .osm.pbf (Brasil Sul/Sudeste) montados de ./data — ver
+      # volume abaixo. Nomes/bboxes já vêm de appsettings.json; só o caminho muda.
+      OsmPbf__Extracts__0__Path: /app/data/sul-260806.osm.pbf
+      OsmPbf__Extracts__1__Path: /app/data/sudeste-260806.osm.pbf
       Cors__AllowedOrigins__0: http://localhost:8080
       Cors__AllowedOrigins__1: http://localhost:5173
+    volumes:
+      - ./data:/app/data:ro
     depends_on:
       postgres:
         condition: service_healthy
       minio:
         condition: service_healthy
+    logging: *default-logging
 
   worker:
     build:
@@ -76,11 +98,18 @@ services:
       ObjectStorage__SecretKey: ${MINIO_ROOT_PASSWORD:-sos_minio_dev_password}
       ObjectStorage__Bucket: ${MINIO_BUCKET:-sos-location}
       Fixture__Path: /app/tools/fixtures/demo-district.geojson
+      # O worker é quem de fato executa o ImportPipeline (LocalPbfOsmSource lê o
+      # .pbf aqui, não na API) — mesmo mount e mesmo path da API.
+      OsmPbf__Extracts__0__Path: /app/data/sul-260806.osm.pbf
+      OsmPbf__Extracts__1__Path: /app/data/sudeste-260806.osm.pbf
+    volumes:
+      - ./data:/app/data:ro
     depends_on:
       postgres:
         condition: service_healthy
       minio:
         condition: service_healthy
+    logging: *default-logging
 
   web:
     build:
@@ -95,11 +124,11 @@ services:
       API_UPSTREAM: "http://127.0.0.1:${API_PORT:-5080}"
       WEB_LISTEN_PORT: ${WEB_PORT:-8080}
       WEB_HEALTH_PORT: ${WEB_PORT:-8080}
+    logging: *default-logging
 
 volumes:
   postgres-data:
   minio-data:
 
-networks:
-  sos:
-    driver: bridge
+# Nenhum "networks:" custom: todo serviço usa network_mode: host — a rede bridge
+# do Docker não funciona neste ambiente (ver comentário em "postgres" acima).

@@ -33,7 +33,10 @@ public static class DbInitializer
         }
 
         await SeedDemoFixtureJobAsync(context, logger, ct);
-        await SeedKumamotoScenarioAsync(context, logger, ct);
+        // SeedKumamotoScenarioAsync não é mais chamado: o foco da plataforma passou
+        // para o Brasil (Sul/Sudeste); o método fica preservado (não apagado) caso
+        // um cenário no Japão volte a ser relevante no futuro.
+        await SeedBrazilCityImportJobsAsync(context, logger, ct);
     }
 
     private static async Task SeedDemoFixtureJobAsync(SosDbContext context, ILogger logger, CancellationToken ct)
@@ -55,6 +58,58 @@ public static class DbInitializer
         }, ct);
         await context.SaveChangesAsync(ct);
         logger.LogInformation("Seeded demo fixture import job (offline demo city).");
+    }
+
+    /// <summary>
+    /// Semeia imports OSM de áreas centrais de cidades do Sul e Sudeste do Brasil,
+    /// servidas pelos extratos .osm.pbf locais (ver <c>OsmPbf</c> em appsettings e
+    /// <c>HybridOsmSource</c>) — sem depender de rede/Overpass. Bounding boxes de
+    /// área central (não o município inteiro) para ficar dentro de
+    /// <c>ImportLimits.MaximumImportAreaKm2</c>, no mesmo espírito da fixture
+    /// "Demo District" (um distrito, não uma cidade inteira).
+    /// </summary>
+    private static async Task SeedBrazilCityImportJobsAsync(SosDbContext context, ILogger logger, CancellationToken ct)
+    {
+        var cities = new[]
+        {
+            new
+            {
+                JobType = "osm-import-curitiba",
+                Name = "Curitiba (Centro)",
+                Region = "Paraná",
+                BoundingBox = new BoundingBoxDto(-49.30, -25.45, -49.24, -25.40),
+            },
+            new
+            {
+                JobType = "osm-import-sao-paulo",
+                Name = "São Paulo (Centro)",
+                Region = "São Paulo",
+                BoundingBox = new BoundingBoxDto(-46.68, -23.57, -46.61, -23.51),
+            },
+        };
+
+        foreach (var city in cities)
+        {
+            if (await context.ImportJobs.AnyAsync(j => j.JobType == city.JobType, ct)) continue;
+
+            var request = new ImportRequest
+            {
+                Name = city.Name,
+                CountryCode = "BR",
+                Region = city.Region,
+                Source = ImportSources.OpenStreetMap,
+                ReconstructionProfile = "osm-basic-v1",
+                BoundingBox = city.BoundingBox,
+            };
+            await context.ImportJobs.AddAsync(new ImportJob
+            {
+                JobType = city.JobType,
+                Request = JsonSerializer.Serialize(request, new JsonSerializerOptions(JsonSerializerDefaults.Web)),
+            }, ct);
+            logger.LogInformation("Seeded Brazil OSM import job for {City} ({Region}).", city.Name, city.Region);
+        }
+
+        await context.SaveChangesAsync(ct);
     }
 
     private static async Task SeedKumamotoScenarioAsync(SosDbContext context, ILogger logger, CancellationToken ct)

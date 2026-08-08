@@ -1,5 +1,7 @@
 using System.IO.Compression;
+using System.Threading.RateLimiting;
 using FluentValidation;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.Extensions.Logging.Abstractions;
 using NetTopologySuite.IO.Converters;
@@ -7,6 +9,7 @@ using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Serilog;
+using SosLocation.Api;
 using SosLocation.Api.Endpoints;
 using SosLocation.Application.Disasters;
 using SosLocation.Application.Import;
@@ -61,6 +64,31 @@ try
         .AllowAnyHeader()
         .AllowAnyMethod()));
 
+    // Particiona por IP do cliente: protege serviços externos (Nominatim) de abuso
+    // e evita que um único cliente enfileire imports (pipeline pesado) sem limite.
+    builder.Services.AddRateLimiter(options =>
+    {
+        options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+        options.AddPolicy(RateLimitPolicies.PlacesSearch, httpContext => RateLimitPartition.GetFixedWindowLimiter(
+            httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 20,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+            }));
+
+        options.AddPolicy(RateLimitPolicies.ImportsWrite, httpContext => RateLimitPartition.GetFixedWindowLimiter(
+            httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 5,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+            }));
+    });
+
     var connectionString = builder.Configuration.GetConnectionString("Postgres")!;
     builder.Services.AddHealthChecks()
         .AddNpgSql(connectionString, name: "postgres", tags: ["ready"]);
@@ -69,7 +97,12 @@ try
         .ConfigureResource(resource => resource.AddService("sos-location-api"))
         .WithTracing(tracing =>
         {
-            tracing.AddAspNetCoreInstrumentation().AddHttpClientInstrumentation();
+            // Sem isto, queries PostGIS/tiles ficam invisíveis nos traces — só o
+            // tempo total do endpoint aparecia, não onde ele foi gasto no banco.
+            // Qualificado explicitamente: "AddNpgsql" também existe em
+            // Microsoft.EntityFrameworkCore (registro de DbContext) e colide por nome.
+            Npgsql.TracerProviderBuilderExtensions.AddNpgsql(
+                tracing.AddAspNetCoreInstrumentation().AddHttpClientInstrumentation());
             if (builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"] is not null)
                 tracing.AddOtlpExporter();
         })
@@ -87,6 +120,7 @@ try
     app.UseStatusCodePages();
     app.UseResponseCompression();
     app.UseCors();
+    app.UseRateLimiter();
 
     app.MapOpenApi();
 
@@ -127,6 +161,10 @@ try
 catch (Exception ex) when (ex is not HostAbortedException)
 {
     Log.Fatal(ex, "SOS_LOCATION API terminated unexpectedly");
+    // Sem isto, o processo top-level termina com exit code 0 mesmo após uma
+    // falha fatal de inicialização — orquestradores (Docker/K8s) não veriam
+    // o crash e não reiniciariam o container.
+    Environment.ExitCode = 1;
 }
 finally
 {

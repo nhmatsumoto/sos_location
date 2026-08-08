@@ -1,4 +1,6 @@
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Caching.Memory;
+using SosLocation.Api;
 using SosLocation.Application.Abstractions;
 using SosLocation.Application.Dto;
 using SosLocation.Domain.Cities;
@@ -71,7 +73,8 @@ public static class PlacesEndpoints
             return Results.Ok(local.Concat(external).Take(8));
         })
         .WithName("SearchPlaces")
-        .WithSummary("Pesquisa cidades/lugares via geocodificador (backend-only).");
+        .WithSummary("Pesquisa cidades/lugares via geocodificador (backend-only).")
+        .RequireRateLimiting(RateLimitPolicies.PlacesSearch);
 
         return group;
     }

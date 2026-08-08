@@ -7,3 +7,6 @@
 apps/web/playwright-report
 apps/web/test-results
 docs
+# Extratos .osm.pbf (centenas de MB) — montados em runtime via volume
+# (docker-compose.yml), nunca copiados para dentro da imagem.
+data

@@ -1,14 +1,17 @@
 using System.Text.Json;
 using FluentValidation;
+using Microsoft.AspNetCore.RateLimiting;
+using SosLocation.Api;
 using SosLocation.Application.Abstractions;
 using SosLocation.Application.Dto;
+using SosLocation.Application.Serialization;
 using SosLocation.Domain.Jobs;
 
 namespace SosLocation.Api.Endpoints;
 
 public static class ImportsEndpoints
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly JsonSerializerOptions JsonOptions = SosJsonOptions.Web;
 
     public static RouteGroupBuilder MapImportsEndpoints(this RouteGroupBuilder group)
     {
@@ -32,7 +35,7 @@ public static class ImportsEndpoints
             await unitOfWork.SaveChangesAsync(ct);
 
             return Results.Accepted($"/api/v1/imports/{job.Id}", ToDto(job));
-        }).WithName("CreateImport");
+        }).WithName("CreateImport").RequireRateLimiting(RateLimitPolicies.ImportsWrite);
 
         group.MapGet("/imports", async (IImportJobStore jobs, CancellationToken ct) =>
         {

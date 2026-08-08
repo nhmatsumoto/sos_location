@@ -13,7 +13,7 @@ public sealed class FileFixtureSource(FixtureOptions options) : IFixtureSource
 {
     public async Task<SourcePayload> LoadAsync(CancellationToken ct)
     {
-        var path = ResolvePath(options.Path);
+        var path = RelativePathResolver.Resolve(options.Path);
         if (path is null)
             throw new FileNotFoundException(
                 $"Demo fixture not found at '{options.Path}' (searched relative to the app base and working directory).");
@@ -27,19 +27,5 @@ public sealed class FileFixtureSource(FixtureOptions options) : IFixtureSource
             SourceUri = path,
             ContentType = "application/geo+json",
         };
-    }
-
-    private static string? ResolvePath(string configured)
-    {
-        if (Path.IsPathRooted(configured))
-            return File.Exists(configured) ? configured : null;
-
-        string[] candidates =
-        [
-            Path.Combine(AppContext.BaseDirectory, configured),
-            Path.Combine(Directory.GetCurrentDirectory(), configured),
-            Path.Combine(Directory.GetCurrentDirectory(), "..", "..", configured),
-        ];
-        return candidates.FirstOrDefault(File.Exists);
     }
 }

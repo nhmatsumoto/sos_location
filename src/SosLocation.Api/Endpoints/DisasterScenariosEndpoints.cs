@@ -4,6 +4,7 @@ using NetTopologySuite.Geometries;
 using NetTopologySuite.Features;
 using SosLocation.Application.Abstractions;
 using SosLocation.Application.Disasters;
+using SosLocation.Application.Serialization;
 using SosLocation.Domain.Disasters;
 using SosLocation.GeoProcessing.Geometry;
 using SosLocation.Infrastructure.External;
@@ -12,7 +13,7 @@ namespace SosLocation.Api.Endpoints;
 
 public static class DisasterScenariosEndpoints
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly JsonSerializerOptions JsonOptions = SosJsonOptions.Web;
 
     public static RouteGroupBuilder MapDisasterScenariosEndpoints(this RouteGroupBuilder group)
     {

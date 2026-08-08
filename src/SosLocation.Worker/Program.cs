@@ -28,6 +28,9 @@ try
 catch (Exception ex) when (ex is not HostAbortedException)
 {
     Log.Fatal(ex, "SOS_LOCATION worker terminated unexpectedly");
+    // Sem isto, o processo termina com exit code 0 mesmo após falha fatal de
+    // inicialização — o orquestrador não reiniciaria o worker.
+    Environment.ExitCode = 1;
 }
 finally
 {

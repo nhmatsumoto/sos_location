@@ -9,8 +9,6 @@ namespace SosLocation.Api.Endpoints;
 
 public static class RiskZonesEndpoints
 {
-    private const int MaxVertices = 2000;
-
     public static RouteGroupBuilder MapRiskZonesEndpoints(this RouteGroupBuilder group)
     {
         group.MapPost("/revisions/{revisionId:guid}/risk-zones", async (
@@ -31,7 +29,7 @@ public static class RiskZonesEndpoints
 
             // Repara auto-interseções/validade (GeoProcessing) — a camada Application
             // não referencia GeoProcessing, então o reparo acontece aqui na API.
-            var repaired = GeometryRepair.SanitizeAreal(request.Geometry, MaxVertices);
+            var repaired = GeometryRepair.SanitizeAreal(request.Geometry, RiskZoneRequestValidator.MaxVertices);
             if (repaired.Geometry is null)
                 return Results.UnprocessableEntity(new { error = repaired.IssueMessage });
 
